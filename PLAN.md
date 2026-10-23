@@ -14,7 +14,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-10-23 — revision 10: the plan review closed by Codex in round 5 |
+| Date | 2026-10-23 — revision 11: the Owner's decisions and the measurements for the regeneration runbook of stage 1.4 (N26–N28, M24–M26) |
 | Author | Claude Code, at the Owner's request |
 | Base | eng_dados at `26b58b3` |
 | Status | **Complete proposal, in execution.** Stage 2.1, the foundation, is done — its criterion met: the secret guard is green with the two demo passwords registered as public by design. In eng_dados, on 2026-10-23, stages 1.1, 1.2 and 1.3 are done — 1.1 and 1.2 pushed, 1.3 committed locally: 1.1 in `9c9ff9c` — the guard failed on eight views before the fix (P01, P02, P03, P05, P06, P13, P14 and the P15 denominator) and passes after; M3 redone on the views gives zero; only the two M3 groups changed; `make check` green, PASS=905 and 667 Python tests —, 1.2 in `7f97d62` — the ADR for O2, number 0049 there, `verificar.py` clean, `make check-offline` green —, 1.3 in `38c1bea` and `1e197ac` — `--json` walked hop by hop gives the 14 edges of M12; the `consumption_reader` login, through an actual connection, reads `consumption`, is refused on the other layers, cannot write and cannot escalate, with a counter-proof; `make check` green, PASS=905 and 683 Python tests. Nothing else is implemented. Every decision of the Owner taken (§1.2). Round 3 closed eleven round-2 findings and partly closed three. Round 4 closed five of the seven left in its scope and left RV3-02 and RV2-05 open only on RV4-01, applied in revision 9. Round 5 closed RV4-01, RV3-02 and RV2-05 with no new finding: the plan review is closed, and execution follows §6.3 (§10) |
@@ -67,6 +67,9 @@ the first report of the showcase and the first lesson of the study content.
 | **N12** | The showcase in the portfolio | **A link on the page of project A** |
 | **N24** | Language of the new repositories and of the communication between agents | **Construction in English** — code, commits, technical documents, plans, reviews and the communication between Claude Code and Codex; Portuguese for what visitors read, for the study content and for the conversation with the Owner ([`CLAUDE.md`](CLAUDE.md) §2) |
 | **N25** | When to create `bi-como-codigo`, and with what visibility | **Now, public** — created on 2026-10-22 to keep this version and separate it from eng_dados |
+| **N26** | The rollback cut of the regeneration (2026-10-23) | **A pre-maintenance cut**: at the start of stage 1.6, a recovery package of the current state — both sources and the memory — packed from the last commit before stage 1.5, in a directory of its own outside the checkout, and verified against the databases; the approved package of 2026-09-25 stays as the fallback. Restoring the approved alone would lose what the warehouse gained after its cut (M24) |
+| **N27** | Where eng_dados records v1.1.0 (2026-10-23) | **In its Development Plan**: a subsection after Stage 12, with no stage number — objective, the justification, the stages by a pinned link to this plan, criteria, acceptance and tag —, as Stage 12 did for v1.0.0 |
+| **N28** | The v1.0.0 packages once the v1.1.0 package is promoted (2026-10-23) | **Both kept**, outside the checkout: the approved of 2026-09-25, validated by B5's restore, and the pre-maintenance cut, never restored but holding the state the study trail measured |
 
 ### 1.3 Consequences
 
@@ -106,7 +109,8 @@ M1–M18 were read in a `default_transaction_read_only=on` session on the runnin
 2026-10-23 00:12Z and 01:22Z (2026-10-22, 21:12 to 22:22 in Brasília), on commit `26b58b3`. The view
 was read as `analyst`; the inner layers, by the superuser in the same read-only session; the files,
 with no database. M19–M22 reproduce the round-2 review on 2026-10-23 at 03:52Z, and M23 the round-3 probe at 04:23Z,
-on the same commit.
+on the same commit. M24–M26 were taken for the regeneration runbook of stage 1.4 on 2026-10-23,
+between 13:54Z and 14:10Z, on eng_dados at `1e197ac`, through read-only targets and tracked files.
 Literal outputs in the evidence folders.
 
 | # | What | Result | Consequence |
@@ -134,6 +138,9 @@ Literal outputs in the evidence folders.
 | M21 | Lineage leaves of `total_amount`, `sum(…)`, `round(…, 2)`, `… * 100` and `cast(… as numeric(12,2))` | The same single leaf for all five | A single leaf of the same name does not prove that a column only carries a value (RV2-08) |
 | M22 | The envelope modelled with WebCrypto and the two public passwords | The Logística password opens P13 and fails on P01; the Diretoria password opens both; its holder can produce ciphertext the site accepts as valid; a flipped bit is rejected | What the encryption demonstrates is access scoped to a key, not authentication or confidentiality (RV2-01) |
 | M23 | Authenticated data serialised as JSON, with the same fields in another order | Decryption with the reordered bytes fails | The authenticated data needs one canonical byte serialisation (RV3-01) |
+| M24 | The rollback cut: the approved recovery package of 2026-09-25 (cut 12:32:21Z, commit `7b0bea6`) and its second copy, against the warehouse | Both verify — checksums, format, the three dumps listed. Against the databases, 127 differences: the source gained 4,651 stock events (13,700 → 18,351, the producer's accumulated count); three certified legacy captures (49, 52, 55); 9,621 quarantine rows in three slices. Alembic, the warehouse versions and the four SCD snapshots unchanged. 3.0 GB free, with the databases, Airbyte and another project's container up | Restoring the approved package would lose that state (N26); the machine is not yet ready for stage 1.6 |
+| M25 | Dependencies on the category names and on the single price range, outside the generator | 0 matches for the 24 category names in tracked code, tests, dbt models, seeds and documents; 0 for the price range and the margin; 24 in the study trail | Only the generator and the trail depend on them — the trail through N7 |
+| M26 | A variable given on the command line of `make medir`, against a model of `docker/medir.sh` | `RESET=1` and `FORCE=1` both reach the inner `make` (GNU Make 4.3) | `FORCE=1` never goes through `make medir` |
 
 **Read from official sources on 2026-10-22 and 2026-10-23 — not measured:**
 
@@ -513,7 +520,7 @@ of the trail in the Artifact.
 ### 5.5 Out of v1.1.0
 
 D62, D63 and D64 (N14). The consumption contract of the dimensional model (N16). Where v1.1.0 gets
-recorded in eng_dados — its plan ends at Stage 13 — is decided in the runbook of stage 1.4.
+recorded in eng_dados — its plan ends at Stage 13 — was left to stage 1.4, and is N27.
 
 ### 5.6 What eng_dados records (O8)
 
@@ -684,8 +691,6 @@ a read-only transaction, with no new role (the former N5).
 - whether each framework candidate can keep report queries away from build time — 2.3 inspects it;
 - whether the chosen framework bundles DuckDB-WASM into the site itself or accepts jsDelivr;
 - what Firebase does when the Spark plan runs over its quota;
-- whether any query, test or document of eng_dados depends on today's category names or on the
-  single price range — 1.4 finds out;
 - the volume of description text to write — 1.7 measures what remains after conservative inheritance;
 - the time and memory of the regeneration and of the restore window with the new data;
 - whether the change to §4 of Governance affects any classification or access test;
