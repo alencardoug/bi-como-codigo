@@ -1,0 +1,29 @@
+2026-10-23T19:51:08Z
+== 1. The listing, through airbyte.jobs: fields and the legacy connection's jobs
+listed 18 | fields ['bytesSynced', 'connectionId', 'duration', 'jobId', 'jobType', 'lastUpdatedAt', 'rowsSynced', 'startTime', 'status']
+oldest listed 2026-09-25T13:08:01Z
+legacy connection jobs listed 6
+  2 sync succeeded 2026-09-25T13:11:38Z 12747
+  3 sync succeeded 2026-09-25T13:44:50Z 12747
+  46 sync succeeded 2026-09-25T15:36:21Z 12744
+  49 sync succeeded 2026-09-25T15:55:02Z 12744
+  52 sync succeeded 2026-10-04T05:24Z 12744
+  55 sync succeeded 2026-10-12T21:41:55Z 12744
+[exit 0]
+== 2. The warehouse: job ids of certificate attempts and raw sync_ids
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+ attempts | attempts_without_job |             certificate_job_ids              
+----------+----------------------+----------------------------------------------
+       15 |                    0 | 28,29,30,31,32,33,34,35,36,38,39,43,49,52,55
+(1 row)
+
+                                        raw_sync_ids                                         
+---------------------------------------------------------------------------------------------
+ 10,11,12,13,14,15,16,17,18,21,22,23,24,25,26,28,29,30,31,32,33,34,35,36,38,39,43,49,52,55,9
+(1 row)
+
+[exit 0]

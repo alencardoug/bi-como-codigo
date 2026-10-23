@@ -1,0 +1,14 @@
+2026-10-23T19:50:23Z
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+    scenario     | excluded_shipments | q7_unaccounted_items | eligible_trusted_missing | eligible_fact_missing | rejected_quarantine_stale | unexplained_exclusion_items 
+-----------------+--------------------+----------------------+--------------------------+-----------------------+---------------------------+-----------------------------
+ today           |                 12 |                    0 |                        0 |                     0 |                         0 |                           0
+ fact_missing    |                 13 |                    0 |                        0 |                     2 |                         0 |                           2
+ sibling         |                 13 |                    0 |                        1 |                     2 |                         0 |                           2
+ stale_treatment |                 12 |                    0 |                        0 |                     0 |                         1 |                           0
+(4 rows)
+

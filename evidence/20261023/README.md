@@ -4,7 +4,7 @@ Claude Code's reproductions of the round-2 and round-3 reviews by Codex (REVIEW.
 "Round 3"), taken before applying their findings to the plan, against eng_dados at commit `26b58b3`;
 the probes behind the regeneration runbook of stage 1.4 (`k*`, M24–M26), against eng_dados at
 `1e197ac`; and the reproductions of rounds 1 and 2 of the runbook's review by Codex (`q1`–`q6`,
-M27–M30; `q7`–`q10`, M31–M33), on the same commit. Each `*.out.txt` is the literal output of the file with the same stem, with its UTC
+M27–M30; `q7`–`q10`, M31–M33; `q11`–`q13`, M34–M35), on the same commit. Each `*.out.txt` is the literal output of the file with the same stem, with its UTC
 timestamp in the first line. The exit of a `k*` script is its last step's; each step's own exit is
 the `[exit n]` line after it.
 
@@ -27,7 +27,10 @@ the `[exit n]` line after it.
 | `q7_p13_reconciliation.sql` | M32 — the P13 check of runbook lines E1 and E11: digest, grain uniqueness, key difference both ways, and every raw item of an excluded shipment accounted for | RR-20 |
 | `q8_p13_unaccounted_item.sql` | M32 — `q7`'s item check on one synthetic unclassified item, in a CTE: it reports it | RR-20 |
 | `q9_copy_over_candidate.sh` | M33 — `cp -a` over an existing directory merges; into an absent path it does not | RR-19 |
-| `q10_source_provenance.sh` | M31 — no generation record for today's `source_db`; the cut's manifest says `source_db: null`; today's source is that cut plus the producer | Runbook P9, O7 |
+| `q10_source_provenance.sh` | M31 — no generation record for today's `source_db`; the cut's manifest says `source_db: null`; by count, today's source is that cut plus the producer | Runbook P9, O7 |
+| `q11_p13_reconciliation.sql` | M34 — the P13 check of runbook lines E1 and E11, superseding `q7`: digest, grain, shipment keys both ways, every trusted item in the fact, and every raw item of the selected capture resolved by itself to its own trusted and fact item, or to the quarantine under the full treatment identity | RR-23 |
+| `q12_p13_counterexamples.sql` | M34 — `q7`'s item predicate and `q11`'s on the same CTE scenarios: a shipment missing from the fact whole, an accepted sibling hiding a missing item, a stale treatment. `q7` accepts all three; `q11` flags each | RR-23 |
+| `q13_airbyte_job_records.sh` | M35 — Airbyte's job records through eng_dados' client, with their fields, against the job ids of the certificates and of `raw_legacy` | RR-24; runbook O8 |
 
 Re-running needs what `evidence/20261022/README.md` describes: the eng_dados databases up, read-only
 sessions through `evidence/20261022/ro.sh`, and the eng_dados `.venv` for the Python probe. The
@@ -38,4 +41,6 @@ and touches nothing of eng_dados. `q1`, `q2`, `q5` and `q6` go through `ro.sh`; 
 read-only sessions on the source and the warehouse; `q4` runs from an empty directory with the eng_dados
 `.venv` and replaces every database, file and sleep of the producer. `q7` and `q8` go through `ro.sh`;
 `q9` runs in a temporary directory; `q10` reads files, the approved manifest and the cursor, and counts
-`oltp` in a read-only transaction.
+`oltp` in a read-only transaction. `q11` and `q12` go through `ro.sh`; `q13` takes the Airbyte credentials
+from `abctl local credentials` into its environment only, as eng_dados' Makefile does, requests a token
+and lists the jobs — nothing else of the API —, then reads the warehouse through `ro.sh`.
