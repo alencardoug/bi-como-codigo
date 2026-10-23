@@ -1,0 +1,6 @@
+# r2_lineage_leaves.py — 2026-10-23T03:52:09Z — eng_dados at 26b58b3
+total_amount                             => [('raw', 'orders', 'total_amount')]
+sum(total_amount)                        => [('raw', 'orders', 'total_amount')]
+round(total_amount, 2)                   => [('raw', 'orders', 'total_amount')]
+total_amount * 100                       => [('raw', 'orders', 'total_amount')]
+cast(total_amount as numeric(12,2))      => [('raw', 'orders', 'total_amount')]

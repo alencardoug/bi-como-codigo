@@ -1,0 +1,7 @@
+# r3_p13_averages.sql — 2026-10-23T03:52:09Z — read-only session
+transaction_read_only
+on
+(1 row)
+groups_compared|transit_differences|delay_differences
+313|46|20
+(1 row)

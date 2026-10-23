@@ -1,0 +1,12 @@
+# r4_label_swap.sql — 2026-10-23T03:52:09Z — read-only session, as analyst
+      pacote      | linhas |   liquida   | unidades 
+------------------+--------+-------------+----------
+ original         |   1140 | 33076529.47 |    13920
+ rotulos trocados |   1140 | 33076529.47 |    13920
+(2 rows)
+
+ linhas_que_divergem_da_view 
+-----------------------------
+                         761
+(1 row)
+

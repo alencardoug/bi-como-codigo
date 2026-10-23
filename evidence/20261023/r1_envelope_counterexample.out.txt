@@ -1,0 +1,7 @@
+# r1_envelope_counterexample.sh — 2026-10-23T03:52:08Z — node v24.18.0
+Logistica password -> P13: OK
+Logistica key -> Diretoria wrap for P01: OperationError
+Wrong password -> P13: OperationError
+Anonymous reader + public Diretoria password -> P01 and P13: OK
+Public password holder creates valid altered ciphertext: OK
+Bit flip without re-encryption: OperationError
