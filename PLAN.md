@@ -6,7 +6,7 @@
 > decisions, taken and pending, and what was measured to support all of it.
 >
 > **What does not:** the original proposal by Codex and the reviews of it and of this plan (see
-> [`REVIEW.md`](REVIEW.md): §§1–11, findings RP-01 to RP-15, RV2-01 to RV2-14 in round 2, RV3-01 to RV3-04 in round 3 and RV4-01 in round 4); what
+> [`REVIEW.md`](REVIEW.md): §§1–11, findings RP-01 to RP-15, RV2-01 to RV2-14 in round 2, RV3-01 to RV3-04 in round 3, RV4-01 in round 4 and the closure in round 5); what
 > eng_dados is and how it is operated (see its
 > [README](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/README.md) and
 > [Local Execution](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/execucao_local.md));
@@ -14,10 +14,10 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-10-23 — revision 9: the round-4 review by Codex applied (RV4-01) |
+| Date | 2026-10-23 — revision 10: the plan review closed by Codex in round 5 |
 | Author | Claude Code, at the Owner's request |
 | Base | eng_dados at `26b58b3` |
-| Status | **Complete proposal.** Nothing implemented. Every decision of the Owner taken (§1.2). Round 3 closed eleven round-2 findings and partly closed three. Round 4 closed five of the seven left in its scope and left RV3-02 and RV2-05 open only on RV4-01, answered in `REVIEW.md` and applied here. Another review round is the Owner's call (§10) |
+| Status | **Complete proposal.** Nothing implemented. Every decision of the Owner taken (§1.2). Round 3 closed eleven round-2 findings and partly closed three. Round 4 closed five of the seven left in its scope and left RV3-02 and RV2-05 open only on RV4-01, applied in revision 9. Round 5 closed RV4-01, RV3-02 and RV2-05 with no new finding: the plan review is closed, and execution follows §6.3 (§10) |
 | Nature | Lives in this repository. At stage 3.2, Part III moves to `caderno-de-dados`; Part I becomes ADRs and pending items in eng_dados |
 | Evidence | [`evidence/20261022/`](evidence/20261022/) for M1–M18 and [`evidence/20261023/`](evidence/20261023/) for M19–M23: read-only probes, prototypes and counterexamples, with their literal outputs and the `ro.sh` that re-runs the SQL probes |
 | Translation | Translated from Portuguese on 2026-10-22, at the Owner's request. The original is in commit `e046937` of this repository |
@@ -700,12 +700,13 @@ a read-only transaction, with no new role (the former N5).
 
 ---
 
-## 10. Request for the next review by Codex
+## 10. Review by Codex
 
-Round 5, if the Owner asks for it: check only that this revision answers RV4-01 (the Status column
-in `REVIEW.md`) — that the federation binding of §3.4, §9 and the exit criterion of stage 2.2 now
-name `workflow_ref` for the directly called publishing workflow — and that this closes RV3-02 and
-RV2-05, which round 4 left partly closed on that finding alone.
+The review of this plan is closed: round 5 closed RV4-01, RV3-02 and RV2-05 at the plan level, with
+no new finding. Closure means that the plan requires the work and its exit evidence, not that any
+gate has passed — the acceptance and rejection tests of stage 2.2 and every other exit criterion
+of §6.2 remain to be proved. The next reviews by Codex are the ones the stages of §6.2 call for,
+starting with the runbook of 1.4.
 
 The probes re-run with the eng_dados databases up (`make up`) and nothing else:
 `evidence/20261022/ro.sh <file.sql>`, with `ENG_DADOS_DIR` pointing at the eng_dados checkout,
