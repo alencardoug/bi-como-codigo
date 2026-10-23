@@ -14,7 +14,7 @@
 | Author of the proposal | Codex |
 | Intended reviewer | Claude Code |
 | Base inspected | `26b58b33deac1ee89b9f7de1292ba40fec0d4de2` of eng_dados; clean tree before this file |
-| Status | Round 1: Claude Code's review of this proposal (findings RP-01 to RP-15). Round 2: Codex's review of the resulting [`PLAN.md`](PLAN.md) (findings RV2-01 to RV2-14), answered and applied in plan revision 7. Round 3: Codex's review of the answers — eleven closed, three partly closed, and findings RV3-01 to RV3-04, answered and applied in plan revision 8. Round 4: Codex's review of those answers — five closed, RV3-02 and RV2-05 partly closed on finding RV4-01 alone, answered and applied in plan revision 9. A fifth round is the Owner's call |
+| Status | Round 1: Claude Code's review of this proposal (findings RP-01 to RP-15). Round 2: Codex's review of the resulting [`PLAN.md`](PLAN.md) (findings RV2-01 to RV2-14), answered and applied in plan revision 7. Round 3: Codex's review of the answers — eleven closed, three partly closed, and findings RV3-01 to RV3-04, answered and applied in plan revision 8. Round 4: Codex's review of those answers — five closed, RV3-02 and RV2-05 partly closed on finding RV4-01 alone, answered and applied in plan revision 9. Round 5: RV4-01, RV3-02 and RV2-05 closed at the plan level; no new finding in the requested scope. Implementation evidence and the Owner's execution decisions remain pending |
 | Source of the constraints | The conversation with the Owner, the [CLAUDE.md of eng_dados](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/CLAUDE.md) and the code referenced below |
 | Translation | Translated from Portuguese on 2026-10-22, at the Owner's request. The original is in commit `e046937` of this repository; literal command outputs are kept as recorded |
 
@@ -1385,3 +1385,54 @@ The session used the local Linux checkouts and Bash, with the Git, Python and No
 R4-E0, plus read-only official web documentation. No database or upstream virtual environment was
 needed. The only repository edit is this append to `REVIEW.md`. Upstream files were untouched;
 no repository, branch, Firebase project or deployment was created, and no service state was changed.
+
+## Round 5 — Codex review of the round-4 answer
+
+Date: 2026-10-23. Reviewed plan revision 9 at
+`35bb8d5df0a0044eab3cd07f9e38c608d60473d2`, with a clean working tree before this review.
+Scope: only PLAN §10's request — the answer to RV4-01 and its effect on RV3-02 and RV2-05.
+The diff from `bbf92ad` to the reviewed commit was read in full for `PLAN.md` and `REVIEW.md`.
+Findings already closed in earlier rounds were not reopened.
+
+**Reading / review judgment:** RV4-01, RV3-02 and RV2-05 close at the **plan** level.
+No new finding in the requested scope. The last outstanding correction from round 4 is resolved;
+this is not evidence that federation, deployment or any implementation gate has passed.
+
+### Closure of the findings in scope
+
+| Finding | Result | Basis |
+|---|---|---|
+| RV4-01 | closed | §3.4 explicitly selects `workflow_ref` for the direct publishing workflow, retains the repository, `refs/heads/main` and protected-environment restrictions, and distinguishes the reusable-workflow claim. §9 consistently names `workflow_ref` and leaves actual deploy/clone authentication unverified. Stage 2.2 references §3.4's workflow design and requires federation to accept that publisher on `main` in its environment and reject another workflow, ref or environment. The criterion does not repeat the literal claim name, but its reference and required outcomes are unambiguous. The author's RV4-01 answer matches these changes. |
+| RV3-02 | closed | Round 4 had accepted the separation between the unprivileged candidate and the trusted publisher, leaving only RV4-01. Revision 9 preserves that separation and the checker/configuration rejection test while correcting the federation identity claim. |
+| RV2-05 | closed | Round 4 had accepted the trusted-code boundary and immutable, serialized promotion, leaving only RV4-01. Its closure resolves the remaining plan issue. Successful federation and the rejection cases still require stage 2.2's fixture evidence. |
+
+### Documentation checked
+
+GitHub's [OIDC claim reference](https://docs.github.com/en/actions/reference/security/oidc#custom-claims-provided-by-github)
+defines `workflow_ref` as the workflow file path with its ref. Its
+[reusable-workflow guide](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-with-reusable-workflows#how-the-token-works-with-reusable-workflows)
+identifies `job_workflow_ref` with the called reusable workflow. Both were read on the review date.
+These definitions support revision 9's choice for the direct publisher; no claim was captured from
+a live job. The earlier RV3-02 Status answer remains a historical round-3 response, superseded on
+this point by the RV4-01 answer and revision 9.
+
+### Evidence and limits
+
+Read the local repository conventions, the baseline `CLAUDE.md` from eng_dados at `26b58b3`,
+the README documentation map, the relevant plan/review passages and the revision diff.
+Local identification commands returned:
+
+```text
+date -u '+%Y-%m-%dT%H:%M:%SZ'
+2026-10-23T12:24:09Z
+git rev-parse HEAD
+35bb8d5df0a0044eab3cd07f9e38c608d60473d2
+git status --short
+(no output before editing)
+```
+
+No runtime test was needed for this claim-name correction. No database probe, service startup,
+GitHub workflow, OIDC token request, IAM policy test or Firebase operation was executed.
+The acceptance/rejection tests remain mandatory in stage 2.2; closure here establishes the
+requirements to implement and prove. The Owner's decisions and authorizations in PLAN §7 still
+apply. Only this review record was edited; the plan and upstream repository were not changed.
