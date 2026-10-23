@@ -14,7 +14,7 @@
 | Autor da proposta | Codex |
 | Revisor pretendido | Claude Code |
 | Base inspecionada | `26b58b33deac1ee89b9f7de1292ba40fec0d4de2`; árvore limpa antes deste arquivo |
-| Situação | Crítica do Claude Code registrada (achados RP-01 a RP-15, no fim). Plano resultante, com todas as decisões do Owner, em [`PLANO_bi_como_codigo.md`](PLANO_bi_como_codigo.md); próximo passo: a revisão do Codex sobre o plano, pedida na §10 dele |
+| Situação | Crítica do Claude Code registrada (achados RP-01 a RP-15, no fim). Plano resultante, com todas as decisões do Owner, em [`PLAN.md`](PLAN.md); próximo passo: a revisão do Codex sobre o plano, pedida na §10 dele |
 | Fonte das restrições | Conversa com o Owner, [CLAUDE.md](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/CLAUDE.md) e código referenciado abaixo |
 
 ## 1. O pedido e as escolhas já feitas
@@ -45,7 +45,7 @@ view quando quiser. Essa forma de operação é a proposta da §4, ainda sujeita
 
 ## 2. Mapa de revisão e fontes que devem continuar sendo a referência
 
-**Declaração desta entrega:** este `REVISAO.md`, escrito à mão e sujeito à revisão integral.
+**Declaração desta entrega:** este `REVIEW.md`, escrito à mão e sujeito à revisão integral.
 Não há código nem artefato derivado novo. As seções seguintes contêm propostas, não decisões
 arquiteturais aceitas. Os documentos e modelos abaixo continuam donos dos fatos sobre o projeto.
 
@@ -522,13 +522,13 @@ arquivo transitório, conforme a skill; não criar agora uma segunda cópia do p
 
 Preenchido pelo Claude Code em 22/10/2026, a partir do checkout em `26b58b3` e de sondas somente
 leitura no armazém de pé. A base de cada achado vem marcada: **leitura** (do código ou dos
-documentos), **medição** (as Mn do [plano](PLANO_bi_como_codigo.md#2-o-que-foi-medido), com as
+documentos), **medição** (as Mn do [plano](PLAN.md#2-o-que-foi-medido), com as
 saídas literais em `data/medicoes/caminho_dos_dados_20261022/`) ou **hipótese**. Nenhuma sugestão
 desta proposta foi implementada ou aprovada por esta revisão.
 
 | # | Onde | Achado | Veredito | Situação |
 |---|---|---|---|---|
-| RP-01 | §1, §4, §6 | A proposta não confronta o [Termo §4](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/Abertura_de_projeto.md#4-fora-do-escopo) e o [Plano §6](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/plano_de_desenvolvimento.md#6-fora-deste-plano): BI, *dashboards* e CI/CD estão fora do escopo do eng_dados, e mudança de escopo passa pela §10 do Termo. **Leitura** | `bloqueante` | Resolvido pela decisão O1 do Owner (22/10/2026): projeto separado, em repositório novo. Impactos no [plano §4](PLANO_bi_como_codigo.md#4-impactos-da-separação) |
+| RP-01 | §1, §4, §6 | A proposta não confronta o [Termo §4](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/Abertura_de_projeto.md#4-fora-do-escopo) e o [Plano §6](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/plano_de_desenvolvimento.md#6-fora-deste-plano): BI, *dashboards* e CI/CD estão fora do escopo do eng_dados, e mudança de escopo passa pela §10 do Termo. **Leitura** | `bloqueante` | Resolvido pela decisão O1 do Owner (22/10/2026): projeto separado, em repositório novo. Impactos no [plano §4](PLAN.md#4-impactos-da-separação) |
 | RP-02 | §4.4 | A classificação não é só obstáculo à publicação: a regra da Governança §4 para `confidential` — fora das views abertas ao `analyst` — já não vale hoje. 28 colunas `confidential` em 10 views de `consumption` são lidas pelo `analyst`, porque o *grant* é da camada inteira. **Leitura** do `_consumption__models.yml` e do `dbt_project.yml` | `ajuste` | O Owner decidiu (O2) que nenhum campo sintético é restrito nas análises, e a N8 (22/10/2026) fixou o alcance: classificar não é expor. Registro em ADR no eng_dados — Etapa 1.2 |
 | RP-03 | §5.2 | O risco da contagem é real e já se manifesta, mas fora da P01: 126 `order_id` existem nas duas origens; P01 e P02 sem grupo afetado hoje; **P05 e P06 subcontam um pedido num grupo cada**. E 2.479 de 3.292 pedidos têm itens em mais de uma categoria, enquanto a P01 nem declara `order_count` como medida no Glossário. **Medição** M3 e M4 | `ajuste` | `order_count` fora do painel. A correção das quatro views vai para a v1.1.0 do eng_dados (Etapa 1.1), não para o site |
 | RP-04 | §3.4 | `ORD-0000037` identifica dois pedidos diferentes — no legado, 2024-12; no varejo, 2025-07 —, e o do varejo é o caso da D65, vendido antes do lançamento. **Medição** M10 | `ajuste` | Item escolhido por critério declarado, depois da correção do dado. A colisão vira gancho da aula da identidade composta |
@@ -547,7 +547,7 @@ desta proposta foi implementada ou aprovada por esta revisão.
 ### Parecer do Claude Code
 
 O plano de desenvolvimento que resulta desta revisão está em
-[`PLANO_bi_como_codigo.md`](PLANO_bi_como_codigo.md); aqui ficam só as respostas às oito
+[`PLAN.md`](PLAN.md); aqui ficam só as respostas às oito
 perguntas da §11.
 
 1. **O percurso ensina sem esconder filtros, junções e controles?** Ensina, desde que as perguntas
@@ -579,7 +579,7 @@ perguntas da §11.
    atual.
 7. **As ideias da §7** — tabela abaixo.
 8. **Validações que faltam e a ordem.** Todas as do plano §9; a ordem está no
-   [plano §6.3](PLANO_bi_como_codigo.md#63-ordem-recomendada).
+   [plano §6.3](PLAN.md#63-ordem-recomendada).
 
 | Ideia da §7 | Parecer | Motivo |
 |---|---|---|

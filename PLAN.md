@@ -6,7 +6,7 @@
 > que foi medido para sustentar tudo isso.
 >
 > **O que não vive aqui:** a proposta original do Codex e a crítica a ela (ver
-> [`REVISAO.md`](REVISAO.md): §§1–11 e os achados RP-01 a RP-15); o que o eng_dados é e como se
+> [`REVIEW.md`](REVIEW.md): §§1–11 e os achados RP-01 a RP-15); o que o eng_dados é e como se
 > opera (ver [README](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/README.md) e [Execução Local](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/execucao_local.md)); as decisões, depois de
 > registradas — elas viram ADR no repositório dono.
 
@@ -14,9 +14,9 @@
 |---|---|
 | Data | 22/10/2026 — revisão 5: todas as decisões tomadas; pronta para a revisão do Codex |
 | Autor | Claude Code, a pedido do Owner |
-| Base | eng_dados em `26b58b3`, sem alteração além deste arquivo e do `REVISAO.md` |
+| Base | eng_dados em `26b58b3`, sem alteração além deste arquivo e do `REVIEW.md` |
 | Situação | **Proposta completa.** Nada implementado. Todas as decisões do Owner tomadas (§1.2); falta a revisão do Codex (§10) |
-| Natureza | Transitório, fora do Git e do mapa do README. Na Etapa 2.1, as §§ comuns e a Parte II vão para o `bi-como-codigo` como plano de fundação, junto com o `REVISAO.md`; na 3.2, a Parte III vai para o `caderno-de-dados`; a Parte I vira ADR e pendência no eng_dados |
+| Natureza | Transitório, fora do Git e do mapa do README. Na Etapa 2.1, as §§ comuns e a Parte II vão para o `bi-como-codigo` como plano de fundação, junto com o `REVIEW.md`; na 3.2, a Parte III vai para o `caderno-de-dados`; a Parte I vira ADR e pendência no eng_dados |
 | Evidência | `data/medicoes/caminho_dos_dados_20261022/` (fora do Git): sondas SQL somente leitura, protótipo de linhagem, exportação para Parquet, medição do motor DuckDB, cobertura do catálogo, as saídas literais e o `ro.sh` que reexecuta as sondas |
 
 ---
@@ -26,7 +26,7 @@
 ### 1.1 Pelo Owner, na conversa de 22/10/2026
 
 As escolhas da conversa com o Codex continuam valendo
-([`REVISAO.md` §1](REVISAO.md#1-o-pedido-e-as-escolhas-já-feitas)), redistribuídas pela O6: a P01
+([`REVIEW.md` §1](REVIEW.md#1-o-pedido-e-as-escolhas-já-feitas)), redistribuídas pela O6: a P01
 é o primeiro relatório da vitrine e a primeira aula do estudo.
 
 | # | Decisão |
@@ -214,7 +214,7 @@ acessibilidade e tela estreita.
   desconto, quantidade maior que um e arredondamento visível —, capturado num corte único: `raw`,
   `staging`, `trusted`, `analytics` e `consumption` estão todos no `warehouse_db`, e uma transação
   `REPEATABLE READ READ ONLY` dá a mesma fotografia em todas. A aula começa no `raw`. As três
-  perguntas da [`REVISAO.md` §3.2](REVISAO.md#32-percurso-didático-com-abertura-progressiva)
+  perguntas da [`REVIEW.md` §3.2](REVIEW.md#32-percurso-didático-com-abertura-progressiva)
   organizam o percurso, com valor do item, demais itens e total do grupo.
 - **Estudo da governança (O4).** Para cada mecanismo do eng_dados: como está feito, que valor tem —
   com o incidente real que ele pegou ou evita —, como usar e o que ele não cobre, com laboratórios
@@ -283,7 +283,7 @@ Todo cruzamento entre os repositórios é explícito e versionado.
 | Relógio de estudo | O gancho do bash só registra comandos dentro do eng_dados; no Artifact, o relógio já funciona pela capacidade de banco | O gancho e o coletor passam a cobrir o `caderno-de-dados` (N10; Etapa 3.8) |
 | Trilha de estudo | Fica no eng_dados. Com a N6, as saídas reais dela passam a descrever o dado da v1.0.0 | Aviso no topo (N7), junto da próxima atualização da trilha — local e Artifact —, nunca sozinho |
 | Portfólio | A vitrine é a peça de portfólio | Link na página do projeto A (N12), na Etapa 2.10 |
-| Este plano e o `REVISAO.md` | Soltos na raiz do eng_dados, fora do Git | Vão para os repositórios novos e saem daqui |
+| Este plano e o `REVIEW.md` | Soltos na raiz do eng_dados, fora do Git | Vão para os repositórios novos e saem daqui |
 
 ---
 
@@ -384,7 +384,7 @@ para prometer prazo.
 
 | Etapa | Entrega | Esforço | Tamanho | Depende de | Critério para avançar |
 |---|---|---|---|---|---|
-| **2.1** | Repositório: estrutura, convenções, *skills*, guarda de segredos, README com objetivo e mapa, este plano e o `REVISAO.md` transferidos | `medium` | P | — | Criado por você ou com a sua autorização; guarda de segredos verde |
+| **2.1** | Repositório: estrutura, convenções, *skills*, guarda de segredos, README com objetivo e mapa, este plano e o `REVIEW.md` transferidos | `medium` | P | — | Criado por você ou com a sua autorização; guarda de segredos verde |
 | **2.2** | Projeto Firebase próprio e esteira: conferência do manifesto, montagem, prévia por PR, publicação no *merge* | `high` | M | 2.1 | Um PR de teste gera prévia; manifesto adulterado é recusado e nada é publicado |
 | **2.3** | Protótipo comparativo do *framework* na P01, abrindo um Parquet cifrado | `high` | M | 2.1 | A mesma página nos candidatos, com o que cada um custou e o que faltou; você escolhe |
 | **2.4** | Exportadores: as 16 views em Parquet com manifesto; os metadados de governança em JSON | `high` | M | 1.3, 1.9 | Cada Parquet reproduz a view, com a M2 generalizada como oráculo; somas exatas; recusa contrato divergente; os metadados batem com as contagens do *manifest* |
@@ -403,7 +403,7 @@ para prometer prazo.
 |---|---|---|---|---|---|
 | **3.1** | Sonda no claude.ai: um Artifact privado com DuckDB-WASM, *worker*, um Parquet cifrado aberto pela WebCrypto e a leitura de um arquivo publicado por URL | `medium` | P | 2.2 | Tudo funciona → estudo no Artifact; qualquer item falha → `*.web.app` (N18) |
 | **3.2** | Repositório `caderno-de-dados` e o site do estudo | `medium` | P | 3.1 | Guarda de segredos verde; o site lê os relatórios da vitrine |
-| **3.3** | Aula da P01, da view até a origem | `xhigh` | G | 1.3, 1.9, 2.4 | As cinco provas da [`REVISAO.md` §3.4](REVISAO.md#34-um-exemplo-pequeno-que-realmente-participa-do-resultado), cada uma com a consulta de conferência guardada; nenhuma afirmação sem evidência |
+| **3.3** | Aula da P01, da view até a origem | `xhigh` | G | 1.3, 1.9, 2.4 | As cinco provas da [`REVIEW.md` §3.4](REVIEW.md#34-um-exemplo-pequeno-que-realmente-participa-do-resultado), cada uma com a consulta de conferência guardada; nenhuma afirmação sem evidência |
 | **3.4** | Estudo da governança: inventário e roteiro, revisados pelo Codex | `high` | P | 1.9 | Cada mecanismo com fonte, incidente e laboratório previstos |
 | **3.5** | Estudo da governança: redação por mecanismo | `xhigh` | G | 3.4 | Cada afirmação aponta para código ou ADR num commit fixado; cada "valor" aponta para incidente registrado |
 | **3.6** | Estudo da governança: laboratórios executados de verdade | `high` | M | 3.5 | Toda saída colada vem de execução gravada, com data; estado da máquina devolvido |

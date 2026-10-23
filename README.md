@@ -10,8 +10,8 @@ is under review by a second agent before any code is written.
 
 | File | What it is |
 |---|---|
-| [`PLANO_bi_como_codigo.md`](PLANO_bi_como_codigo.md) | The development plan: what gets built, the architecture, the stages with the effort of each, and the decisions |
-| [`REVISAO.md`](REVISAO.md) | The original proposal by Codex and the review by Claude Code that led to the plan |
+| [`PLAN.md`](PLAN.md) | The development plan: what gets built, the architecture, the stages with the effort of each, and the decisions |
+| [`REVIEW.md`](REVIEW.md) | The original proposal by Codex and the review by Claude Code that led to the plan |
 | [`evidence/20261022/`](evidence/20261022/) | The read-only probes behind every measurement in the plan, with their literal outputs |
 
 The data is synthetic end to end. The warehouse, its pipeline and its governance live in
