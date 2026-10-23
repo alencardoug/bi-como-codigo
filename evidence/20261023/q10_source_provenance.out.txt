@@ -1,0 +1,41 @@
+2026-10-23T15:38:58Z
+== data/source
+geracao.json.anterior-a-restauracao-20260925T153003Z
+== the record set aside by B5's restore
+{
+  "as_of": "2026-09-01",
+  "carregado_em": "2026-09-25T12:49:07+00:00",
+  "commit": "7b0bea651a6e1164df56510e95f23d5bbf892d2c",
+  "fator": "dev",
+  "forcado": false,
+  "linhas": 252955,
+  "semente": 20260904
+}
+== the approved package's manifest: corte, max_event_sequence, geracao.source_db
+corte 2026-09-25T12:32:21+00:00
+max_event_sequence 13700
+geracao.source_db None
+motivo data/source/geracao.json não existe — a origem foi carregada antes de o gerador registrar os parâmetros efetivos, ou por outro caminho; nada foi inferido
+oltp rows in the manifest 252955
+== the cursor
+{
+  "stream_seed": 20260904,
+  "emitidos": 50,
+  "emitidos_acumulados": 4651,
+  "teto": 50,
+  "ultimo_registrado_em": "2026-10-12T22:04:42.005735+00:00"
+}== source_db today
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+ oltp_rows 
+-----------
+    257614
+(1 row)
+
+== source_db today against the cut's manifest, table by table (only the differences)
+oltp.inventory_balances: 2911 -> 2919 (+8)
+oltp.inventory_movements: 13700 -> 18351 (+4651)
+tables in the manifest 40

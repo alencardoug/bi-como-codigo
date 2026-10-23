@@ -1,0 +1,11 @@
+2026-10-23T15:37:50Z
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+ excluded_shipments | shipments_without_raw_items | raw_items | rejected_in_quarantine | unaccounted_items | rejection_origins 
+--------------------+-----------------------------+-----------+------------------------+-------------------+-------------------
+                 12 |                           0 |        18 |                     17 |                 1 | parent_rejected
+(1 row)
+

@@ -1,0 +1,6 @@
+2026-10-23T15:38:01Z
+after cp -a over an existing candidate:
+manifest.json
+unexpected.txt
+after cp -a into an absent candidate path:
+manifest.json

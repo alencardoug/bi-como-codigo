@@ -1,0 +1,26 @@
+2026-10-23T15:37:38Z
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+ p13_rows |                            p13_digest                            
+----------+------------------------------------------------------------------
+     1176 | 000967f7c879d6e0eeb96075e463d753f1394091910c03b7b094743fb0760571
+(1 row)
+
+ duplicate_p13_groups | p13_delivered | fact_delivered | p13_counts_each_once 
+----------------------+---------------+----------------+----------------------
+                    0 |          3298 |           3298 | t
+(1 row)
+
+ trusted_delivered | retail_trusted_only | legacy_trusted_only | fact_only 
+-------------------+---------------------+---------------------+-----------
+              3310 |                   0 |                  12 |         0
+(1 row)
+
+ excluded_shipments | shipments_without_raw_items | raw_items | rejected_in_quarantine | unaccounted_items | rejection_origins 
+--------------------+-----------------------------+-----------+------------------------+-------------------+-------------------
+                 12 |                           0 |        17 |                     17 |                 0 | parent_rejected
+(1 row)
+
