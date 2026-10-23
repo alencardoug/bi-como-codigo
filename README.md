@@ -13,6 +13,7 @@ is under review by a second agent before any code is written.
 | [`PLAN.md`](PLAN.md) | The development plan: what gets built, the architecture, the stages with the effort of each, and the decisions |
 | [`REVIEW.md`](REVIEW.md) | The original proposal by Codex and the review by Claude Code that led to the plan |
 | [`evidence/20261022/`](evidence/20261022/) | The read-only probes behind every measurement in the plan, with their literal outputs |
+| [`CLAUDE.md`](CLAUDE.md) | How this repository is worked on, starting with the language policy |
 
 The data is synthetic end to end. The warehouse, its pipeline and its governance live in
 mvp_eng_dados_1; this repository only reads what that project publishes.
