@@ -1280,3 +1280,108 @@ R3-E0, plus read-only official web documentation. The upstream virtual environme
 were not needed. The review draft was prepared under `/tmp`; the sole repository edit is this
 append to `REVIEW.md`. No upstream files, repository/branch, Firebase project or deployment were
 created or changed.
+
+## Round 4 — Codex review of the round-3 answers
+
+Reviewed on **2026-10-23 (UTC)** against `bi-como-codigo` at
+`887031ccc5d1f9b4d68ef7e727672b17906ba3c9` and the unchanged `mvp_eng_dados_1` at
+`26b58b33deac1ee89b9f7de1292ba40fec0d4de2`. The review boundary is
+`git diff dbf7e1e..887031c`: the round-3 answers, plan revision 8 and M23. O1–O8 and N1–N25
+remain the Owner's decisions; findings closed in round 3 are not reopened.
+
+**Reading / review judgment:** five findings close at the **plan** level. RV3-02 and RV2-05
+remain partly closed because of one adjustment introduced by revision 8, RV4-01. The separation
+of candidate code from publishing authority addresses the original execution boundary, but the
+named OIDC claim does not match the workflow described. **RV4-01 remains open; the plan review
+is not yet ready for full closure.**
+
+### Closure of the findings in scope
+
+Every verdict below is **reading**, not acceptance of an implementation or of future exit tests.
+
+| Finding | Closed? | Why |
+|---|---|---|
+| RV3-01 | closed | §3.6 now requires 2.2a to freeze encodings, key/ciphertext/tag/payload layouts, canonical AAD, salt scope and parser bounds. Package identity is independent of ciphertext hashes, expected identities come from the validated manifest, and cryptographic randomness and retries require review. The fixed complete vector consumed by an independent reader is an explicit exit criterion. R4-E1 reproduces M23's byte-order counterexample; the actual format remains work for 2.2a. |
+| RV3-02 | partly closed | §3.4 isolates the unprivileged candidate build and confines the publisher, checker and configuration to separately reviewed `main` code; candidate artifacts are data and are revalidated. Stage 2.2 includes the same-repository checker/configuration rejection test. That answers the execution-boundary finding, consistent with [GitHub's privileged-workflow guidance](https://docs.github.com/en/actions/reference/security/secure-use#mitigating-the-risks-of-untrusted-code-checkout). The federation claim still needs RV4-01. |
+| RV3-03 | closed | §3.4 records revision, package/artifact digests and Hosting version ID, promotes by `SITE_ID:@VERSION_ID`, serializes promotions and rejects superseded candidates. Stage 2.2 includes both the advanced-preview and obsolete-rerun cases. The command and same-site version identity match [Firebase's cloning documentation](https://firebase.google.com/docs/hosting/manage-hosting-resources#clone-a-version); no promotion was executed. |
+| RV3-04 | closed | §6.2 separates the infrastructure proof (2.2) from the complete encrypted-fixture gate (2.2b, after 2.2 and 2.2a). Stages 2.4, 2.6 and 2.10 require 2.2b; 3.1 explicitly requires 2.2 and 2.2a. Thus the hosted checks reach the infrastructure prerequisite, while the real-report path reaches both infrastructure and envelope gates. |
+| RV2-02 | closed | RV3-01 supplies the remaining byte-level requirements and independent-reader oracle before the encrypted prototype and real-report export. Browser latency, the concrete format and its implementation remain mandatory stage-2.2a evidence. |
+| RV2-05 | partly closed | The trusted-code separation and immutable, serialized promotion address RV3-02/RV3-03's substantive gaps. The remaining correction is the workflow identity claim in RV4-01; successful federation and its rejection cases still need the stage-2.2 fixture proof. |
+| RV2-13 | closed | RV3-04 repairs the remaining dependency gap. Early infrastructure and Artifact work remain fixture-only under §6.3; actual exporters and publication depend on 2.2b, and the study foundation still follows 2.10. |
+
+**Reading of the other revision-8 changes:** §5.3 now explicitly includes Local Execution §3.2
+step 6's conditional producer/duplicate/alert exercise, `LIMITE`, `SEED`, producer cursor and
+common-cut checks. §5.4 explicitly excludes leaf sets as the transport classifier and requires
+authored text for unknown or narrowing casts. These incorporate round 3's qualifications without
+reopening RV2-07 or RV2-08. The public-governance/evidence clarification in §3.4 matches round 3's
+stated scope.
+
+### New finding introduced by revision 8
+
+Status is intentionally empty for the author.
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+| RV4-01 | PLAN §3.4 federation binding, §9; stage 2.2; RV3-02's Status answer | **Reading; operational consequence inferred.** `workflow_run` alone does not supply `job_workflow_ref`: [GitHub's claim reference](https://docs.github.com/en/actions/reference/security/oidc#custom-claims-provided-by-github) defines it for reusable-workflow jobs, and [the reusable-workflow guide](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-with-reusable-workflows#how-the-token-works-with-reusable-workflows) identifies it as the called workflow. Revision 8 declares a direct publishing workflow, with no reusable publisher. A policy requiring that absent claim cannot accept the direct job as specified; this is an inference, not an executed IAM test. For the direct publisher, bind `workflow_ref` to its trusted file/ref, retaining repository, `ref` and protected-environment restrictions; alternatively, explicitly declare a trusted reusable publisher and bind `job_workflow_ref` to that called workflow. Correct §9 and the answer consistently. Stage 2.2 should prove acceptance of the intended publisher and rejection of another workflow, ref or environment, keeping the workflow restriction intact. | adjustment | |
+
+### Measurements and environment
+
+**R4-E0 — base and environment.** Run from `/home/doug/Projetos/bi-como-codigo`, before editing:
+
+```bash
+date -u '+%Y-%m-%dT%H:%M:%SZ'
+git rev-parse HEAD
+git status --short
+git -C /home/doug/Projetos/mvp_eng_dados_1 rev-parse HEAD
+git -C /home/doug/Projetos/mvp_eng_dados_1 status --short
+uname -smr
+node --version
+python3 --version
+git --version
+```
+
+Literal output; both status commands emitted nothing:
+
+```text
+2026-10-23T04:33:04Z
+887031ccc5d1f9b4d68ef7e727672b17906ba3c9
+26b58b33deac1ee89b9f7de1292ba40fec0d4de2
+Linux 7.1.1-76070101-generic x86_64
+v24.18.0
+Python 3.10.12
+git version 2.55.0
+```
+
+**R4-E1 — M23 independently rerun.** The committed [probe](evidence/20261023/r5_aad_bytes.sh)
+was read against R3-E1 and its [recorded output](evidence/20261023/r5_aad_bytes.out.txt), then
+executed entirely in memory from the same working directory:
+
+```bash
+bash evidence/20261023/r5_aad_bytes.sh
+```
+
+Literal output (exit 0):
+
+```text
+Identical AAD bytes: decrypt OK
+Same fields, different JSON order: OperationError
+Probe only: no product envelope or browser tested
+```
+
+### Not verified and assumptions
+
+No warehouse query, recovery/regeneration, dbt build, catalogue generation, `make check` or secret
+scan was run. Container state was not inspected and no service was started. No GitHub workflow,
+OIDC token, Google IAM policy, Firebase CLI authentication, preview/promotion race, browser/Artifact
+path, finished deploy artifact or complete envelope implementation was exercised. The known demo
+password matches and `e3c226c` history false positive were not retested or reopened.
+
+**Assumptions:** closure means that the plan requires the work and its exit evidence, not that
+those gates have passed. Future `main`, environment and federation protections still need to be
+configured and tested. RV4-01 rests on official documentation read on the review date, not on
+claims captured from a live job.
+
+The session used the local Linux checkouts and Bash, with the Git, Python and Node versions in
+R4-E0, plus read-only official web documentation. No database or upstream virtual environment was
+needed. The only repository edit is this append to `REVIEW.md`. Upstream files were untouched;
+no repository, branch, Firebase project or deployment was created, and no service state was changed.
