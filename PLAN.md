@@ -5,20 +5,21 @@
 > the architecture, the impacts of the separation, the stages with the effort of each, the Owner's
 > decisions, taken and pending, and what was measured to support all of it.
 >
-> **What does not:** the original proposal by Codex and the review of it (see
-> [`REVIEW.md`](REVIEW.md): §§1–11 and findings RP-01 to RP-15); what eng_dados is and how it is
-> operated (see its [README](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/README.md)
-> and [Local Execution](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/execucao_local.md));
+> **What does not:** the original proposal by Codex and the reviews of it and of this plan (see
+> [`REVIEW.md`](REVIEW.md): §§1–11, findings RP-01 to RP-15 and, in round 2, RV2-01 to RV2-14); what
+> eng_dados is and how it is operated (see its
+> [README](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/README.md) and
+> [Local Execution](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/execucao_local.md));
 > the decisions, once recorded — they become ADRs in the repository that owns them.
 
 | Field | Information |
 |---|---|
-| Date | 2026-10-22 — revision 6: the separation from eng_dados, the language of construction and the public repository recorded (O8, N24, N25); ready for review by Codex |
+| Date | 2026-10-23 — revision 7: the round-2 review by Codex applied (RV2-01 to RV2-14) |
 | Author | Claude Code, at the Owner's request |
 | Base | eng_dados at `26b58b3` |
-| Status | **Complete proposal.** Nothing implemented. Every decision of the Owner taken (§1.2); review by Codex pending (§10) |
+| Status | **Complete proposal.** Nothing implemented. Every decision of the Owner taken (§1.2); each round-2 finding answered in `REVIEW.md` and applied here; another review round is the Owner's call (§10) |
 | Nature | Lives in this repository. At stage 3.2, Part III moves to `caderno-de-dados`; Part I becomes ADRs and pending items in eng_dados |
-| Evidence | [`evidence/20261022/`](evidence/20261022/): read-only SQL probes, the lineage prototype, the Parquet export, the DuckDB engine measurement, catalogue coverage, the literal outputs and the `ro.sh` that re-runs the probes |
+| Evidence | [`evidence/20261022/`](evidence/20261022/) for M1–M18 and [`evidence/20261023/`](evidence/20261023/) for M19–M22: read-only probes, prototypes and counterexamples, with their literal outputs and the `ro.sh` that re-runs the SQL probes |
 | Translation | Translated from Portuguese on 2026-10-22, at the Owner's request. The original is in commit `e046937` of this repository |
 
 ---
@@ -87,20 +88,26 @@ the first report of the showcase and the first lesson of the study content.
 - In the dimensional model, the `personal` fields are name, a document with the `SIN` suffix, date
   of birth and an e-mail at `example.com` — no phone number (M16). The phone caveat (RP-15) only
   comes back if `trusted` or `raw` are published.
+- The round-2 review changed how the plan implements the decisions, not the decisions. Encryption
+  moves to the export on your machine, so no clear report data ever enters the public repository
+  (RV2-01); publication gains three gates and a trusted workflow (RV2-03 to RV2-05); the envelope is
+  specified (RV2-02); description inheritance becomes conservative (RV2-08); the recovery package
+  follows its full lifecycle (RV2-06).
 
 ---
 
 ## 2. What was measured
 
-Read in a `default_transaction_read_only=on` session on the running warehouse, between 2026-10-23
-00:12Z and 01:22Z (2026-10-22, 21:12 to 22:22 in Brasília), on commit `26b58b3`. The view was read
-as `analyst`; the inner layers, by the superuser in the same read-only session; the files, with no
-database. Literal outputs in the evidence folder.
+M1–M18 were read in a `default_transaction_read_only=on` session on the running warehouse, between
+2026-10-23 00:12Z and 01:22Z (2026-10-22, 21:12 to 22:22 in Brasília), on commit `26b58b3`. The view
+was read as `analyst`; the inner layers, by the superuser in the same read-only session; the files,
+with no database. M19–M22 reproduce the round-2 review on 2026-10-23 at 03:52Z, on the same commit.
+Literal outputs in the evidence folders.
 
 | # | What | Result | Consequence |
 |---|---|---|---|
 | M1 | The P01 view | 1,140 rows; 33 months (2024-01 to 2026-09); 3 channels; 4 root categories and 12 leaves; R$ 33,076,529.47 of net revenue; ~96 kB as text | — |
-| M2 | P01 recomputed from the fact table, at the same grain | 0 rows diverging in count or revenue | An oracle ready for the exporter |
+| M2 | P01 recomputed from the fact table, at the same grain | 0 rows diverging in count or revenue | An oracle for the custodian — the exporter never reads the fact table (§3.5) |
 | M3 | Order count without `source_system` | 126 `order_id` values exist in both sources. P01 and P02: no group affected today. **P05 and P06 undercount one order in one group each**: P06 2025-07 · Aplicativo · Eletrônicos (11 × 12); P05 2024-T4 · Aplicativo · SP (20 × 21) | A real defect in the datamart, against the rule of the `empilhado` macro — "the source goes into the condition with the key, always". No test catches it |
 | M4 | Realised orders with items in more than one category | 2,479 of 3,292 | P01's `order_count` does not add up across categories, and P01 does not even declare it as a measure in the [Glossary](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/glossario_de_negocio/perguntas_de_negocio.md#p01--qual-a-receita-líquida-por-mês-canal-e-categoria-de-produto) |
 | M5 | Coverage | first realised sale on 2024-01-02, last on 2026-09-01 (`as_of_date`). 2026-09 has 3 groups, 9 units and R$ 17,795.87; the other months, R$ 0.65 M to R$ 2.07 M | 2026-09 is a one-day month: the monthly chart would show a drop that does not exist |
@@ -116,13 +123,19 @@ database. Literal outputs in the evidence folder.
 | M15 | DuckDB-WASM engine 1.32.0, of 2025-12-16 — the latest stable on npm | **6.8 MB** downloaded with brotli, 7.6 MB with gzip and 34.2 MB uncompressed, stable over three reads. The first read gave 5.2 MB, from another CDN node — unexplained | Served by free Firebase, the 360 MB/day quota would hold ~50 first visits a day. That is why the engine comes from jsDelivr |
 | M16 | `personal` fields in `analytics` | 9 columns: first name, last name, full name, document and birth date in `dim_customer`; first name, last name, full name and e-mail in `dim_support_agent`. No phone number | The phone caveat does not apply to the dimensional model |
 | M17 | Catalogue coverage, in the dbt manifest | Classification, lineage, access and retention complete; 700 data tests. **Column descriptions**: `analytics` 26 of 477, `consumption` 31 of 188, `trusted` 56 of 1,069, `staging` 659 of 1,114, `raw` and `raw_legacy` 0 of 1,161. **`domain` and `owner`**: 0 of the 41 objects in `analytics` and `consumption`, although [Governance §5.1](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/governanca_de_dados.md#51-padrão-de-metadados) requires them on every model | A reading portal with blank descriptions contradicts what it shows; the rule of §5.1 is not met today |
-| M18 | Descriptions inheritable through lineage — an estimate | The 418 source columns have descriptions declared in the SQLAlchemy models. Without a description and with a single leaf of the same name: 357 in `analytics`, 113 in `consumption`, 198 in `trusted`. Needing text — renamed leaf, several leaves or none —: 94 in `analytics`, 44 in `consumption`; in `trusted`, 815, mostly because the `union` of the two sources shows up as two leaves of the same name | The mechanism that already derives classification can derive descriptions; written text is left for the computed columns. The same name does not guarantee the same meaning: this is an estimate |
+| M18 | Descriptions inheritable through lineage — an estimate, **superseded by M21** | Without a description and with a single leaf of the same name: 357 in `analytics`, 113 in `consumption`, 198 in `trusted`. Needing text: 94 in `analytics`, 44 in `consumption`; in `trusted`, 815 | It used the single-leaf shortcut that M21 disproves; it bounds nothing |
+| M19 | Two channel labels swapped in P01 (`Aplicativo` ↔ `Loja física`) | Still 1,140 rows, R$ 33,076,529.47 and 13,920 units; **761 rows** diverge from the view in a row-level comparison | Counts, sums and hashes prove a package is consistent, not that it is right: the export needs row-level equality with the views (RV2-03) |
+| M20 | P13's rounded averages, re-weighted by their counts, against the direct calculation over 313 month × carrier × service groups | 46 groups differ in transit days and 20 in late delay, at the view's four decimals | Those averages cannot be re-aggregated; they stay at the view's native grain (RV2-12) |
+| M21 | Lineage leaves of `total_amount`, `sum(…)`, `round(…, 2)`, `… * 100` and `cast(… as numeric(12,2))` | The same single leaf for all five | A single leaf of the same name does not prove that a column only carries a value (RV2-08) |
+| M22 | The envelope modelled with WebCrypto and the two public passwords | The Logística password opens P13 and fails on P01; the Diretoria password opens both; its holder can produce ciphertext the site accepts as valid; a flipped bit is rejected | What the encryption demonstrates is access scoped to a key, not authentication or confidentiality (RV2-01) |
 
-**Read from official sources on 2026-10-22 — not measured:**
+**Read from official sources on 2026-10-22 and 2026-10-23 — not measured:**
 
 | Source | What it says |
 |---|---|
 | [Firebase](https://firebase.google.com/pricing), Spark plan | Hosting: 10 GB of storage and 360 MB/day of transfer; on Blaze, US$ 0.026/GB and US$ 0.15/GB beyond that. What happens when Spark runs over the quota, the page does not say |
+| [Firebase Hosting, managing versions](https://firebase.google.com/docs/hosting/manage-hosting-resources) | `firebase hosting:clone SITE:CHANNEL SITE:live` deploys a version to another channel; within the same site, the release points to the exact same version |
+| [Firebase CLI](https://firebase.google.com/docs/cli) | Recommends Application Default Credentials for CI and no longer recommends tokens. That it accepts a federated credential from GitHub is described only by community guides |
 | [Firestore](https://firebase.google.com/docs/firestore/quotas), free quota | 1 GiB stored; 50 thousand reads, 20 thousand writes and 20 thousand deletes a day; 10 GiB/month of egress; documents up to 1 MiB |
 | [Cloud Storage for Firebase](https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024) | Requires the Blaze plan, including the default bucket; on Spark, calls answer 402 or 403 |
 | [Firebase Authentication](https://firebase.google.com/docs/auth/flutter/manage-users) | A signed-in user can change their own password and delete their own account through the client SDK; those actions require a recent sign-in |
@@ -131,7 +144,7 @@ database. Literal outputs in the evidence folder.
 | GitHub API | Evidence: release of 2026-02-06 and last push on 2026-10-22, MIT. Observable Framework: release of 2026-03-02 and last push on 2026-05-15, ISC. DuckDB-WASM: last push on 2026-10-22, MIT |
 
 **Not measured:** site build time; how any framework behaves with this data; DuckDB and WebCrypto
-inside the claude.ai Artifact; the time to open the keys in the browser; usability; the effect of
+inside the claude.ai Artifact; the time to derive the keys in the browser; usability; the effect of
 the fixes on the tests of eng_dados.
 
 ---
@@ -145,7 +158,7 @@ the fixes on the tests of eng_dados.
 | For whom | Whoever evaluates your work, in minutes, without you there | You |
 | Tone | A self-sufficient executive presentation | Exploration, lab, questions |
 | Content | Overview; reports for the 16 questions, with per-profile access; reading portal of the data governance; governance of the project | Lessons from the view to the source; study of the governance; SQL explorations; link to the study trail |
-| Data | Parquet of the 16 views, encrypted per report; public governance metadata, generated from eng_dados | The showcase reports, read by URL and opened with the password of Diretoria; its own capture for the lessons |
+| Data | Parquet of the 16 views, encrypted per report on your machine before it enters Git; public governance metadata, generated from eng_dados | The showcase reports, read by URL and opened with the password of Diretoria; its own capture for the lessons |
 | Where | Firebase Hosting, in a project of its own (N2) | A private claude.ai Artifact or a `*.web.app`, by the probe of stage 3.1 (N18) |
 
 ### 3.2 The showcase
@@ -160,24 +173,33 @@ back; search in the catalogue; accessibility and narrow screens.
   that prove its robustness and three doors — reports, data governance, how it was done.
 - **Reports — BI as code.** The 16 questions, each a reviewable text file with the query and the
   presentation; filters, cross-filtering, charts and table in the browser. P01 first. Rules set by
-  the review: partial month flagged (M5); a slice with no sale said as such (M6); `order_count`
+  the reviews: partial month flagged (M5); a slice with no sale said as such (M6); `order_count`
   never added up across categories (M4); ratios re-aggregated only through numerator and
-  denominator; no filter the view does not offer; no metric redefined in the report.
+  denominator; an average published without its sufficient statistics stays at the view's native
+  grain — P13's transit and late-delay averages among them (M20); no filter the view does not
+  offer; no metric redefined in the report. Each report starts with an audit of its view for
+  non-additivity, balances that depend on time and truncated populations.
 - **Per-profile access (O7, N23).** Hiding a report in JavaScript is not access control: the file
   could still be downloaded by URL, and an evaluator sees that in the network tab. And an account in
   Firebase Authentication does not make the password immutable: a signed-in visitor can change it
-  or delete the account (§2). Hence **the password becomes the key**:
+  or delete the account (§2). Hence **the password becomes the key**. Because both passwords are
+  public (N22), what this demonstrates is **access scoped to the key supplied**: each password opens
+  exactly its profile's reports and no other. It is not the authentication of a person, and it is
+  not confidentiality from the public — whoever reads the Diretoria password on the login screen
+  can open every report, with or without the site (M22):
   - two profiles, declared once in the code: **Diretoria**, which opens the 16 reports, and
     **Logística**, which opens only **P13** — on-time delivery by carrier. Whoever handles carriers
     needs no revenue, margin or payment data;
-  - at publication, the CI pipeline encrypts the Parquet of each report with a key of its own
-    (AES-GCM, a random initialisation vector per file). The password of each profile derives,
-    through PBKDF2 with a salt of its own, the key that wraps only the keys of that profile's reports
-    (AES-KW). This is envelope encryption with several recipients, the same idea as SOPS and age;
-  - in the browser, WebCrypto derives the key again from the password, unwraps the keys the profile
-    is entitled to and decrypts only those reports. A wrong password opens nothing;
+  - encryption happens **on your machine, at export**, before anything enters Git: the public
+    repository only ever receives ciphertext and a manifest with no clear figure. The envelope is
+    specified in §3.6;
+  - in the browser, WebCrypto derives the key from the password, unwraps the keys the profile is
+    entitled to and decrypts only those reports. A wrong password opens nothing. Switching profile
+    or logging out clears the decrypted tables, buffers and caches: no Diretoria data stays visible
+    after switching to Logística;
   - the password is truly immutable: there is no account to change or delete, and it only changes in
-    a new publication, through a PR of yours;
+    a new publication, through a PR of yours. A later change does not revoke ciphertext already
+    downloaded with the former password;
   - the login screen has, **above** the box, an explanation of what the page and the product are
     and, **below** it, the credentials (N22), generated from the same declaration of the profiles:
 
@@ -191,10 +213,10 @@ back; search in the catalogue; accessibility and narrow screens.
     ```
 
   - the overview, the portal and the governance of the project stay open, with no login;
-  - the proof is by execution, like `test_acesso` in eng_dados: the build checks that the password
-    of Logística opens P13 and fails on the other fifteen, that the one of Diretoria opens them all
-    and that no Parquet reaches Hosting in the clear. In the showcase, Logística is invited to open
-    another report and sees that its key does not open it.
+  - the proof is by execution, like `test_acesso` in eng_dados: the whole profile × report matrix
+    through actual unwrap and decrypt calls, at build and in the browser against the preview, plus
+    the negative cases of §3.6. In the showcase, Logística is invited to open another report and sees
+    that its key does not open it.
 - **Reading portal of the data governance.** Generated from the declarations of eng_dados — dbt
   manifest, YAMLs, glossary, ADRs, lineage —, with the narrative curated into chapters:
 
@@ -210,6 +232,10 @@ back; search in the catalogue; accessibility and narrow screens.
   | 8. Why trust it | Tests by layer, reconciliation at every boundary, invariants, quarantine with a reason, capture certification |
   | 9. How this is maintained | Catalogue as code: everything here is generated from the declarations, and `make check` keeps them from diverging |
 
+  From chapter 1, a short route — question → report → column — lets a newcomer reach an answer
+  without walking through the catalogue first. Missing metadata is labelled as missing, never filled
+  in. Tests appear in three distinct states: declared, executed successfully on a stated date, and
+  open issues today — a past review with no finding left does not mean D62 to D64 are solved.
 - **Governance of the project.** Principles P1–P10; the decisions as ADRs, on a timeline and
   searchable; the review by a second agent, round by round, until no finding was left; the
   definition of done; the documentation map with one owner per subject; risks and their
@@ -241,22 +267,54 @@ back; search in the catalogue; accessibility and narrow screens.
 ### 3.4 The architecture
 
 ```text
-eng_dados, on your machine      bi-como-codigo (GitHub)                    Firebase Hosting           browser
-warehouse_db ─exporter─▶ Parquet + manifest ─PR─▶ Actions: checks, ─▶ PR preview
-repository ──exporter─▶ metadata (JSON)            encrypts, builds └merge─▶ app, pages and     ─▶ password → key,
-                                                                             encrypted reports      DuckDB-WASM
+1. Export, on your machine — eng_dados databases up, the read-only login of N4:
+   one consistent read of the 16 views → contract, grain, nulls and decimals checked
+   → typed rows equal to the views after the Parquet round trip → encryption per report
+   → package with oracle results, and a public manifest with no clear figure
+2. PR in bi-como-codigo — branches of this repository only:
+   CI checks the package, decrypts the whole matrix with the public passwords, builds a fresh
+   deploy directory from an explicit inclusion list, inspects the finished output
+   and deploys it to a preview channel
+3. Merge, behind a protected environment:
+   the approved preview version is cloned to live — the same bytes, no rebuild
+4. Browser: password → key → only that profile's reports, opened by DuckDB-WASM (engine from jsDelivr)
+
 study (GitHub) ── lessons and its own capture ──▶ Artifact or *.web.app ◀── URL + password of Diretoria
 ```
 
 - The exporters run only on your machine: the warehouse is never reachable from the internet, and
-  the CI pipeline never reads it.
-- The package **manifest** travels with the Parquet: row count, the sum of each measure and the hash
-  of each file, the eng_dados version and the time of the read. The CI pipeline rejects a package
-  whose manifest does not match, and then nothing is published — the live version stays.
+  CI never reads it.
+- **Three gates, each where it can actually be checked** (RV2-03 to RV2-05):
+  - **source to package**, local, by the exporter: a single read-only `REPEATABLE READ`
+    transaction; the explicit inventory of the 16 views; the accepted schema and version of each
+    view, pinned in this repository — not whichever dbt manifest comes along; grain and uniqueness;
+    nulls, decimal precision and scale, dates and time zones, including empty and all-null cases;
+    and typed rows compared after writing and reading back the Parquet. The oracle results travel
+    with the package. The exporter stays a consumption reader: oracles over the inner layers, like
+    M2, belong to the custodian (§3.5);
+  - **package to artifact**, in CI, before any upload — previews included: the package against its
+    manifest, the whole decryption matrix with the public passwords, a fresh deploy directory built
+    only from an explicit inclusion list, and the finished output inspected for clear report data
+    and unwrapped keys — in HTML, JSON, JavaScript, caches and source maps, by content and not by
+    file extension;
+  - **artifact to live**: the merge promotes the exact approved preview version with
+    `firebase hosting:clone`, which within the same site points live at the same version. A changed
+    candidate needs a new preview and a new approval.
+- **Mutation tests prove the gates**: swapped row labels (M19), missing and extra views, changed
+  types, duplicated rows, injected clear data, a tampered manifest and a reused key/IV pair.
+- **A trusted workflow** (RV2-05): previews only for branches of this repository — code from forks
+  never runs with deploy credentials —; live behind a protected GitHub environment; federated
+  credentials (N15) whose trust is restricted to this repository and that environment; required
+  checks on the exact approved revision; concurrency that cancels obsolete runs, so an older job
+  never replaces a newer release. Firebase's default GitHub setup stores a service-account key,
+  contrary to N15: stage 2.2 proves the Firebase CLI with Application Default Credentials obtained
+  from the federation instead.
+- **Versions are bound**: content-hashed names for the application, the manifest, the wrapped keys
+  and the ciphertext, so that a page left open never fetches incompatible new files at reused URLs.
 - **Updating means opening a PR** with the new package: the preview shows the result, the diff of
   the manifest shows what changed, and the merge publishes.
-- The CI pipeline encrypts each report before building; no Parquet reaches Hosting in the clear —
-  the build checks this, and fails if it finds one.
+- **The public manifest carries no clear figure**: the control totals travel encrypted with each
+  report, and CI checks them after decrypting with the public passwords.
 
 ### 3.5 The contract with eng_dados
 
@@ -264,14 +322,45 @@ Every crossing between the repositories is explicit and versioned.
 
 | What is used | How | Why |
 |---|---|---|
-| The 16 views | Read by a login that is a member of `analyst` (N4) | The database itself guarantees the exporter only reads consumption |
+| The 16 views | Read by a login that is a member of `analyst` (N4), tested through an actual non-superuser connection: it reads `consumption`, is refused elsewhere, cannot write and cannot escalate its role | The database itself guarantees the exporter only reads consumption |
+| The contract of the views | The accepted schema and version of each view, pinned in this repository and checked at every export; a change upstream fails the export until it is accepted here | A contract change in eng_dados fails loudly instead of becoming a wrong number |
+| Oracles over the inner layers | Run by the custodian, separately, never with the exporter's login | The exporter stays a consumption reader |
 | The dimensional model | Out for now (N16); if a report asks for detail, through a consumption contract, with an ADR in eng_dados | [Governance §7](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/governanca_de_dados.md#7-regras-de-acesso-por-camada) and [ADR-0008](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/adr/0008-schemas-do-armazem.md) do not let a consumer read `analytics`, and [ADR-0018](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/adr/0018-fatos-e-views-a-partir-de-perguntas-de-negocio.md) rejected "one view per fact" |
 | Governance metadata | Read from the repository at a pinned commit — dbt manifest, YAMLs, glossary, ADRs, documents —, with no access to the data | The portal is derived, not written; what changes in eng_dados changes in the portal at the next export |
-| The contract of the views | Columns and types checked against the dbt manifest before exporting | A contract change in eng_dados fails loudly instead of becoming a wrong number |
 | Column lineage | `python -m mvp_ed1.models.lineage --json`, run with the `.venv` of eng_dados (stage 1.3) | No second declaration of the lineage, and no dependency on internal code |
 | SQL excerpts and documents | A text anchor per file, read with `git show <commit>:<path>` at a pinned commit; a GitHub link at that commit | An excerpt that disappeared breaks the build; links do not rot |
 | Capture for the lessons | By the custodian: superuser, read-only `REPEATABLE READ` transaction, an explicit and rare command | It is the study-reading pattern eng_dados already uses (`make pgcli-*`); no new role |
 | Version | eng_dados commit, `generated_at` of the dbt manifest, time of the read | "This warehouse was built by this commit" has no evidence today: it stays marked as not verified |
+
+### 3.6 The encryption envelope — a proposal to review before stage 2.3
+
+Standard WebCrypto primitives only (PBKDF2, AES-KW and AES-GCM, all in the
+[Web Cryptography API](https://www.w3.org/TR/2017/REC-WebCryptoAPI-20170126/)), in a versioned
+envelope that fixes every parameter instead of relying on library defaults (RV2-02). **Proposed
+parameters**, to be reviewed by Codex together with the reference implementation of stage 2.2a:
+
+| Element | Proposal |
+|---|---|
+| Password | The UTF-8 bytes of the password exactly as declared |
+| Key derivation | PBKDF2-HMAC-SHA-256 with a random 128-bit salt per profile, public, rotated with a declared scope. The iteration count is set from the browser latency measured in 2.2a, following [NIST SP 800-132 §5](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-132.pdf) |
+| Wrapping | AES-KW with a 256-bit key-encryption key per profile. AES-KW uses its own fixed initial value: the random-IV rule of GCM does not apply to it |
+| Data keys | A 256-bit AES-GCM key, **fresh for every encryption of a file** — retries and new publications included. An unchanged encrypted artifact is promoted, never encrypted again |
+| Encryption | AES-GCM with a random 96-bit IV and a 128-bit tag. With a fresh key per encryption, no key/IV pair repeats — [NIST SP 800-38D §8](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf) requires uniqueness per key |
+| Authenticated data | Envelope version, package identity, report identity and the expected mapping in the manifest |
+| Envelope fields | Version, password encoding, KDF, hash, iterations, salt, wrapping algorithm, report identity, the wrapped key per profile, IV, tag length and package identity — every length stated |
+
+**What it guarantees, and what it does not.** Binding identities to the authenticated data catches
+the substitution of one report or package for another. It does not authenticate the publisher
+against someone who knows a public password, who can produce ciphertext the site accepts (M22):
+authenticity comes from the trusted release path and the HTTPS origin. A password changed in a later
+release does not revoke what was already downloaded with the former one.
+
+**Oracles:** known-answer vectors; producer and browser round trips through independent
+implementations; the whole profile × report matrix through actual unwrap and decrypt calls; wrong
+passwords; altered wrapped keys, salts, IVs, tags and ciphertext; swapped report and package
+identities; malformed envelopes; an injected reused key/IV pair; the finished deploy artifact
+inspected for raw data and keys; and profile switching and logout clearing DuckDB tables, buffers
+and caches.
 
 ---
 
@@ -282,10 +371,10 @@ Every crossing between the repositories is explicit and versioned.
 | Scope of eng_dados | None: it stays complete, and BI stays out of it | Objective, scope and out of scope in the README of each new repository |
 | Fixes and refinements in eng_dados | The separation does not spare them: the generator, the views and the governance declarations live there. The completed project reopens for a **maintenance release, v1.1.0**, with its own acceptance and tag | Part I |
 | Access to the warehouse | The only login today is the superuser (Governance §7). Copying that password into another repository is what no real environment would do | A dedicated login, member of `analyst` (N4) — the "next step" that §7 itself already states |
-| Access to the showcase | No new component: encryption is done by the CI pipeline and opened in the browser by WebCrypto (N23). Firebase Authentication and Firestore were left out | Stage 2.6; an ADR in `bi-como-codigo` |
+| Access to the showcase | No new component: encryption at the export, opened in the browser by WebCrypto (N23, §3.6). Firebase Authentication and Firestore were left out | Stages 2.2a and 2.6; an ADR in `bi-como-codigo` |
 | Environment | Exporting needs only the eng_dados databases up (`make up`) | — |
 | Governance | The policy of eng_dados still owns the published data; each new repository states what it publishes and cites the ADR | Stage 1.2 |
-| CI/CD | Out of scope for eng_dados (Charter §4); part of the product in the showcase | Stage 2.2, with identity federation, no stored key (N15) |
+| CI/CD | Out of scope for eng_dados (Charter §4); part of the product in the showcase | Stage 2.2: a trusted workflow — same-repository previews, protected environment, federation restricted to this repository, promotion by clone (§3.4; N15) |
 | Hosting | Showcase decided (N2), with a 360 MB/day quota. Study content by the probe of stage 3.1 | Engine from jsDelivr; each page loads only its own files; separate Firebase projects |
 | Secrets | Each new repository needs its own guard. The `secrets_review` of eng_dados knows the keys of its own `.env`. The two demo passwords are public by design (N22) and are not secrets: they go into a register with the reason, like `segredos_tratados.yml` in eng_dados, so that the guard does not flag them | Stages 2.1 and 3.2 |
 | Conventions and skills | `CLAUDE.md` and `AGENTS.md` do not come by themselves. The `revisao` skill was written to be portable — only `comandos.txt` changes —; the `adr` skill points at eng_dados paths | Stages 2.1 and 3.2 |
@@ -313,8 +402,9 @@ the rule already written says.
 
 The ADR that separates classifying from exposing (N8). `--json` in the lineage module: immediate
 leaves and terminal origins per column. With N4, `governance.garantir()` comes to create a login that
-is a member of `analyst`, with its password in `.env`, and `test_acesso` gains the proof that it
-reads `consumption` and nothing else.
+is a member of `analyst`, with its password in `.env`; the proof goes through an actual connection
+with that login — it reads `consumption`, is refused on the other layers, cannot write and cannot
+escalate its role —, not through `SET ROLE` from the superuser (RV2-11).
 
 ### 5.3 Realism of the synthetic data (O3, N6)
 
@@ -324,25 +414,60 @@ reads `consumption` and nothing else.
 | A price range per category | Comparing revenue across categories starts to mean something; closes the divergence between Generation §5 and the code (M8) | Every monetary value in the warehouse |
 | Launch before sale, with invariant 14 | Closes D65 (M9) | Launch or sale dates; the SCD history of the product |
 
-**Cost:** the regeneration of [Local Execution §3.2](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/execucao_local.md#32-regerar-uma-origem-que-já-alimenta-streaming)
-— destructive maintenance, with the `FORCE=1` of the procedure itself —, the legacy source regenerated
-by the same engine and captured again, `dbt build` and `make check`, streaming redone, the recovery
-package redone (the approved one stops representing the state) and the documents that quote numbers.
+**The regeneration**, under [Local Execution §3.2](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/execucao_local.md#32-regerar-uma-origem-que-já-alimenta-streaming)
+— destructive maintenance, with the `FORCE=1` of the procedure itself, which never overrides a
+refusal for memory. The runbook of stage 1.4 maps every checkpoint of that procedure to a command, an
+expected oracle and a restart or rollback point (RV2-07): host producers, Beam/Prism and active jobs
+stopped; CDC and the hot sink reset; the retail ingestion reset; keys and every business column
+compared across both paths, and the balance by warehouse and SKU; SCD snapshots and the incremental
+fact rebuilt together, with `run_results.json` kept; the triggered DAG run followed to its end; the
+recorded operating state restored. Both sources: the legacy source regenerated by the same engine
+and captured again, with a new certified capture and the retained history preserved. D62, D63 and
+D64 stay declared limitations in the release evidence (N14): the sink converging does not prove the
+alert right, and the Fernet key affects Airflow Connections and Variables, not the current DAG.
+Current measured records are updated afterwards; accepted ADRs and historical measurements are not
+rewritten.
+
+**The recovery package follows its own rules**
+([Capacity and Recovery §§3.3–3.4](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/capacidade_e_recuperacao.md#33-regras);
+RV2-06). Before anything destructive: the approved package verified, and the rollback cut
+identified — what state it preserves, with which code and configuration, and what would be lost
+after it. The maintenance code is committed before packing, because `pack` refuses a dirty tree.
+After the regeneration, a candidate is packed, restored through the nine-step sequence with its
+oracles — a second destructive window, under `RESTAURAR=1` and with your authorisation —, and only
+then promoted. The previous approved package stays until the promotion. A rollback follows the
+recovery procedure, which rebuilds around the restored SCD memory, and never the regeneration step
+that drops it.
+
 **Side effects:** the real outputs of the study trail come to describe the v1.0.0 data, and the
 notice at the top goes in with its next update (N7); `ORD-0000037` changes content; so does the copy
 of the trail in the Artifact.
 
 ### 5.4 Refining the data governance (O6, N20)
 
-- **Descriptions derived through lineage**, by the same mechanism that already derives the
-  classification: the declaration stays in the SQLAlchemy models of the source — the 418 columns
-  already described —, and a column that only carries a value inherits the text. Whoever disagrees
-  with the inherited text writes the description by hand with a reason, as `sensitivity_reason`
-  already does. The classification ratchet gains a sibling: a column without a description fails
-  `make check`.
+- **Descriptions inherited only through transport** (RV2-08). The lineage graph is reused as
+  infrastructure, not as proof of meaning: copy, sum, rounding, multiplication and cast share the
+  same leaf (M21), and P01's aggregated revenue has a single immediate leaf of the same name.
+  Inheritance therefore requires a conservative classification of the expression at every hop — a
+  bare column reference, an alias or a value-preserving cast carries the value; aggregation,
+  arithmetic, functions, generated fields and ambiguous unions require text. The legacy bridges
+  inherit only through an explicit, reviewed declaration, because their `meta.lineage` skips the
+  cleaning. The semantics of `sensitivity` do not change. A reasoned override written by hand
+  survives regeneration. Counter-proofs: a same-name computed column — P01's revenue sum — that must
+  not inherit, and a legacy bridge that inherits only with its declaration.
 - **Written text for the computed columns** — keys, measures, flags and renamed columns —, starting
-  with `analytics` and `consumption` (M18). It is a declaration: reviewed in full by you.
+  with `analytics` and `consumption`. It is a declaration: reviewed in full by you. Its volume is not
+  bounded by M18, which used the shortcut M21 disproves.
 - **`domain` and `owner`** on the 41 objects that lack them, as §5.1 already requires (M17).
+- **A ratchet with floors per layer** (RV2-09), like the classification ratchet of
+  `test_classificacao.py`, over the inventory of materialised columns, so that an omitted column
+  cannot pass vacuously. Stage 1.7 introduces it with each floor at today's measured coverage; stage
+  1.8 raises `analytics` and `consumption` to 100% only after you approve the text. Portal coverage
+  is stated as such, apart from project-wide completeness.
+- **Cost measured, not assumed** (RV2-10). One complete derivation takes about 21.6 s, and
+  `make catalog` and the lineage test already derive separately. The new check shares one derivation
+  with the classification and lineage checks and their test fixtures; any cache is invalidated by its
+  actual inputs; and the added end-to-end cost of `make check` is measured in stage 1.7.
 - Adjustments the portal reveals go in here, in the declaration — never in the generated output.
 
 ### 5.5 Out of v1.1.0
@@ -379,7 +504,7 @@ promise a deadline.
 | `low` | No stage of this plan: all of them touch data, governance, access or publishing |
 | `medium` | A closed specification and contained risk: founding a repository, probing, publishing |
 | `high` | Development with tests and moderate semantic or security risk |
-| `xhigh` | Subtle semantics, where an error looks right, or text that will represent the project: the regeneration runbook, the per-profile encryption, the descriptions, the overview, the portal, the lesson, the writing of the governance study |
+| `xhigh` | Subtle semantics, where an error looks right, or text that will represent the project: the regeneration runbook, the encryption envelope and access, description inheritance, the descriptions, the overview, the portal, the lesson, the writing of the governance study |
 | `max` | A long, destructive operation on the machine, with many failure modes. The comparable cycle, B5, found eight deviations |
 
 | Size | Estimate |
@@ -396,12 +521,12 @@ promise a deadline.
 |---|---|---|---|---|---|
 | **1.1** | Order count with the source (§5.1) | `high` | S | — | The new test fails before the fix and passes after; M3 redone gives zero; `make check` green |
 | **1.2** | The ADR for O2 (N8) | `high` | S | — | `verificar.py` with no orphan pending item; `make check-offline` green |
-| **1.3** | Lineage as JSON and the exporter's read-only login (N4) | `high` | S | — | The output contains the 14 edges of M12; the login reads `consumption` and is refused on the other layers; `make check` green |
-| **1.4** | Runbook for the data fix: starting state, steps, oracles, rollback — reviewed by Codex | `xhigh` | M | — | Codex with no blocking finding |
+| **1.3** | Lineage as JSON and the exporter's read-only login (N4) | `high` | S | — | The output contains the 14 edges of M12; the login, through an actual non-superuser connection, reads `consumption`, is refused on the other layers, cannot write and cannot escalate; `make check` green |
+| **1.4** | Runbook for the data fix: every checkpoint of Local Execution §3.2 mapped to a command, an oracle and a restart point; the rollback cut; the recovery-package lifecycle (§5.3) — reviewed by Codex | `xhigh` | M | — | Codex with no blocking finding |
 | **1.5** | The three fixes in the generator, invariant 14 and the tests that need no database | `high` | M | 1.4 | In-memory generation deterministic; M7–M9 redone on it; `make check-offline` green |
-| **1.6** | Regeneration and the full cycle on the machine | `max` | L | 1.5 and the Owner's authorisation | `make check` green, with the count differences explained; legacy capture certified; reconciliations; recovery package redone and checked; M3 and M7–M9 redone in the warehouse |
-| **1.7** | Descriptions derived through lineage and the description ratchet (§5.4) | `high` | M | — | Counter-proof: a carrying column without text inherits, a computed column without text fails; `make check` green |
-| **1.8** | Text for the computed columns; `domain` and `owner` on the 41 objects | `xhigh` | M | 1.7 | Description ratchet at 100% in `analytics` and `consumption`; your full review of the text |
+| **1.6** | Regeneration, the full cycle and the new recovery package | `max` | L | 1.5, the maintenance code committed and your authorisation — twice: the regeneration and the restore window | `make check` green, with the count differences explained; legacy capture certified and history preserved; event content and balances equal across both paths; the triggered DAG run finished; the candidate package restored through the nine steps with their oracles, then promoted, with the previous one kept until then; M3 and M7–M9 redone in the warehouse; the operating state restored |
+| **1.7** | Description inheritance through transport, the per-layer ratchet and its measured cost (§5.4) | `xhigh` | M–L, pending a prototype of the conservative inheritance | — | Counter-proofs: a carried column inherits; a same-name computed column and an undeclared legacy bridge do not; floors at today's coverage; the added `make check` cost measured; `make check` green |
+| **1.8** | Text for the computed columns; `domain` and `owner` on the 41 objects | `xhigh` | M–L, not bounded by M18 | 1.7 | The floors of `analytics` and `consumption` at 100%, after your full review of the text |
 | **1.9** | Documents — including the references of §5.6 —, review by Codex, acceptance and tag `v1.1.0` | `high` | M | 1.1–1.8 | `make secrets-history` green; the Owner's acceptance; push authorised |
 
 **Part II — the `bi-como-codigo` showcase**
@@ -409,40 +534,44 @@ promise a deadline.
 | Stage | Deliverable | Effort | Size | Depends on | Criterion to move on |
 |---|---|---|---|---|---|
 | **2.1** | Complete the foundation: the full conventions, skills, the secret guard, README with objective and map — the repository already exists, with this plan, the review and the evidence (N25) | `medium` | S | — | Secret guard green, with the two demo passwords registered as public by design |
-| **2.2** | A Firebase project of its own and the CI pipeline: manifest check, build, preview per PR, publication on merge | `high` | M | 2.1 | A test PR builds a preview; a tampered manifest is rejected and nothing is published |
-| **2.3** | Comparative prototype of the framework on P01, opening an encrypted Parquet | `high` | M | 2.1 | The same page in each candidate, with what each one cost and what was missing; you choose |
-| **2.4** | Exporters: the 16 views as Parquet with the manifest; the governance metadata as JSON | `high` | M | 1.3, 1.9 | Each Parquet reproduces its view, with M2 generalised as the oracle; exact sums; rejects a diverging contract; the metadata matches the counts of the dbt manifest |
+| **2.2** | A Firebase project of its own and the trusted workflow of §3.4 — same-repository previews, protected environment, federated credentials through the Firebase CLI, promotion by clone, concurrency —, on harmless fixtures only | `high` | M | 2.1 | A test PR gets a preview, and its promotion is the same version; a fork's PR gets no credentials; a tampered manifest and a planted clear file are rejected and nothing is uploaded; no stored key |
+| **2.2a** | The encryption envelope (§3.6): specification, reference implementation, the browser latency measured to set the iterations, and the negative tests — design reviewed by Codex | `xhigh` | M | 2.1 | Known-answer vectors pass in two independent implementations; every negative case of §3.6 rejected; Codex with no blocking finding on the design |
+| **2.3** | Comparative prototype of the framework on P01, opening a report encrypted with the envelope | `high` | M | 2.2a | The same page in each candidate, with what each cost and what was missing; the finished build output of each inspected — a candidate that runs report queries over clear data at build time fails; you choose |
+| **2.4** | Exporters: the 16 views through the source-to-package gate (§3.4), encrypted on your machine; the governance metadata as JSON | `high` | M | 1.3, 1.9, 2.2a | One consistent read; contract, grain, nulls and decimals checked; typed rows equal to the views after the round trip; the mutation tests of §3.4 caught; no clear report data in Git |
 | **2.5** | The complete P01 report | `high` | M | 2.3, 2.4 | Filter, chart and table agree with the package, checked in a headless browser; keyboard and focus; 360 px; light and dark; partial month and empty slice |
-| **2.6** | Per-profile access (O7, N23): the declaration of the profiles, encryption in the CI pipeline, opening in the browser, the login screen with the explanation and the credentials, and the P13 report | `xhigh` | M | 2.2, 2.5 | Matrix checked at build: the password of Logística opens P13 and fails on the other fifteen, the one of Diretoria opens them all; no Parquet in the clear on Hosting; no initialisation vector ever repeated; Codex reviews the encryption design |
-| **2.7** | Reading portal of the data governance (§3.2) | `xhigh` | L | 1.8, 2.4 | The nine chapters; every number with its source and date; every warehouse object reachable through search; no text that contradicts the declaration |
+| **2.6** | Per-profile access in the product (O7, N23): the login screen with the explanation and the credentials, profile switching and logout, and the P13 report at its native grain | `xhigh` | M | 2.2a, 2.5 | The whole matrix through actual unwrap and decrypt in the browser, against the preview; switching to Logística leaves no Diretoria data visible; P13's averages never re-aggregated (M20) |
+| **2.7** | Reading portal of the data governance (§3.2) | `xhigh` | L | 1.8, 2.4 | The nine chapters and the short route from question to report to column; every number with its source and date; every warehouse object reachable through search; missing metadata labelled; declared, executed and open kept apart; no text that contradicts the declaration |
 | **2.8** | Governance of the project | `high` | M | 2.4 | Every statement points to a document, ADR or history entry at the pinned commit |
 | **2.9** | Executive overview | `xhigh` | M | 2.5–2.8 | Read on its own by an outsider, with no presenter; every number generated |
-| **2.10** | Validation, review by Codex, first publication and the portfolio link (N12) | `high` | M | 2.9 and authorisation | Codex with no blocking finding; the live site is the approved preview; the link on project A, with your push to the portfolio |
-| **2.11** | The other fourteen reports, in batches by domain | `high` | L | 2.10 | Per report: an oracle against the view; ratios only through numerator and denominator; the access matrix still proven |
+| **2.10** | Validation, review by Codex, the first publication by promotion of the approved preview, and the portfolio link (N12) | `high` | M | 2.9 and authorisation | Codex with no blocking finding; live is the clone of the approved preview version; the link on project A, with your push to the portfolio |
+| **2.11** | The other fourteen reports, in batches by domain | `high` | L | 2.10 | Per report: the audit of its view for non-additivity, time-dependent balances and truncated populations; an oracle against the view; ratios only through numerator and denominator; the access matrix still proven |
 | **2.12** | The dimensional model for exploration and detail, only when a report asks for it (N16) | `xhigh` | L | An ADR in eng_dados | Consumption contract applied; each published table reproduces its source |
 
 **Part III — the study content**
 
 | Stage | Deliverable | Effort | Size | Depends on | Criterion to move on |
 |---|---|---|---|---|---|
-| **3.1** | Probe on claude.ai: a private Artifact with DuckDB-WASM, a worker, an encrypted Parquet opened by WebCrypto and the read of a file published by URL | `medium` | S | 2.2 | Everything works → study content in the Artifact; any item fails → `*.web.app` (N18) |
-| **3.2** | The `caderno-de-dados` repository and the study site | `medium` | S | 3.1 | Secret guard green; the site reads the showcase reports |
-| **3.3** | The P01 lesson, from the view to the source | `xhigh` | L | 1.3, 1.9, 2.4 | The five proofs of [`REVIEW.md` §3.4](REVIEW.md#34-a-small-example-that-actually-takes-part-in-the-result), each with its checking query kept; no statement without evidence |
+| **3.1** | Probe on claude.ai: a private Artifact with DuckDB-WASM and its worker from jsDelivr, a report encrypted with the agreed envelope, and the read of a file published by URL with its cross-origin headers | `medium` | S | 2.2a | Everything works → study content in the Artifact; any item fails → `*.web.app` (N18) |
+| **3.2** | The `caderno-de-dados` repository and the study site | `medium` | S | 3.1, 2.10 | Secret guard green; the site reads the published showcase reports |
+| **3.3** | The P01 lesson, from the view to the source | `xhigh` | L | 1.3, 1.9, 3.2 | The five proofs of [`REVIEW.md` §3.4](REVIEW.md#34-a-small-example-that-actually-takes-part-in-the-result), each with its checking query kept; no statement without evidence |
 | **3.4** | Study of the governance: inventory and outline, reviewed by Codex | `high` | S | 1.9 | Each mechanism with its source, incident and planned lab |
-| **3.5** | Study of the governance: writing, mechanism by mechanism | `xhigh` | L | 3.4 | Every statement points to code or an ADR at a pinned commit; every "value" points to a recorded incident |
+| **3.5** | Study of the governance: writing, mechanism by mechanism | `xhigh` | L | 3.2, 3.4 | Every statement points to code or an ADR at a pinned commit; every "value" points to a recorded incident |
 | **3.6** | Study of the governance: labs actually executed | `high` | M | 3.5 | Every pasted output comes from a recorded run, with its date; the state of the machine handed back |
 | **3.7** | SQL explorations and the link to the study trail | `high` | M | 3.2 | Queries over the showcase reports working on the study site |
 | **3.8** | Study clock on `caderno-de-dados` (N10) | `medium` | S | 3.2 | Minutes recorded with the same rule as the study trail |
 
 ### 6.3 Recommended order
 
-1. **1.1, 1.2 and 1.4.** While Codex reviews the runbook of 1.4, **1.7 and 1.8** — the refinement
-   does not depend on the data. Then **1.5 and 1.6**, the critical path: the longest stage, the only
-   destructive one and the one most likely to surprise. **1.3** at any point; finally, **1.9**.
-2. In parallel with Part I, because they do not touch the warehouse: **2.1, 2.2, 2.3 and 3.1**.
+1. **1.1, 1.2 and 1.4.** While Codex reviews the runbook of 1.4, settle the inheritance semantics and
+   the ratchet bootstrap of §5.4, then run **1.7 and 1.8**. Then **1.5 and 1.6** — the critical
+   path, with its two destructive windows. **1.3** at any point; **1.9** last, for the final review,
+   the acceptance and the tag.
+2. In parallel with Part I, on disposable fixtures only: **2.1, 2.2a, 2.2, 2.3 and 3.1**. No real
+   report data reaches Hosting before the gates of §3.4 exist.
 3. After 1.9: **2.4 to 2.10** — the first publication carries the overview, P01 and P13 with the
-   per-profile access, the portal and the governance of the project —; then **2.11** in batches.
-4. After 1.9 and 2.4: **3.2 to 3.8**.
+   per-profile access, the portal and the governance of the project, promoted from its approved
+   preview —; then **2.11** in batches.
+4. After 2.10 and 3.1: **3.2 to 3.8**.
 
 ---
 
@@ -458,13 +587,17 @@ a read-only transaction, with no new role (the former N5).
 **Decisions that only fit during execution** — work stops until you answer:
 
 - the framework, after the prototype of stage 2.3;
-- the authorisation of the regeneration, before 1.6, because it is destructive;
+- the authorisation of the regeneration and of the restore window, in 1.6 — both destructive;
 - the full review of the written descriptions, at 1.8;
 - the acceptance of v1.1.0 and every push, from 1.9 onwards;
 - the creation of `caderno-de-dados` and of the Firebase project, at 3.2 and 2.2 — done by you or
   with your authorisation; `bi-como-codigo` already exists (N25);
 - the ADRs for the new components of each repository — hosting, CI pipeline and per-profile
   encryption —, recorded as each one is born;
+- if federated credentials with the Firebase CLI prove infeasible in 2.2, the way forward comes
+  back to you; N15 stands until then;
+- if a report needs averages re-aggregated beyond the grain of its view, the sufficient statistics
+  require an upstream contract change, with an ADR in eng_dados — yours to decide (M20);
 - the result of the probe of stage 3.1 needs no decision: the rule of N18 already says what to do.
 
 ---
@@ -473,18 +606,24 @@ a read-only transaction, with no new role (the former N5).
 
 | Risk | Treatment |
 |---|---|
-| The regeneration breaks what no test covers | A reviewed runbook (1.4), the recovery package checked beforehand, one step at a time with an oracle, a written rollback |
+| The regeneration breaks what no test covers | A reviewed runbook (1.4) with every checkpoint mapped, the approved package verified beforehand, one step at a time with an oracle, a written rollback cut |
+| The recovery package stops representing the state | Candidate packed after the regeneration, restored through the nine steps, then promoted; the previous one kept until then (§5.3) |
 | Machine memory (R11) | Only the guarded targets; a refusal for memory stops and asks the Owner, never `FORCE=1` on our own |
-| An inherited description with the wrong meaning | Inheritance only for carried values; disagreement written by hand with a reason; inherited text reviewed by sample and written text in full |
+| An inherited description with the wrong meaning | Inheritance only through transport at every hop; legacy bridges only by declaration; disagreement written by hand with a reason; inherited text reviewed by sample and written text in full |
 | The showcase states what the record does not support | Every number generated from a record at a pinned commit; Codex reviews the showcase before the first publication |
-| Encryption built wrong — repeated vector, weak derivation, a key or a Parquet in the clear on the site | Only standard WebCrypto primitives (PBKDF2 with many iterations, AES-KW, AES-GCM with a random vector per file); the build checks the matrix and the absence of clear text; Codex reviews the design before publication |
+| Clear report data reaching the public repository or Hosting | Encryption at the export on your machine; an explicit inclusion list; the finished output inspected by content, previews included (§3.4) |
+| Untrusted code deploying | Same-repository previews; protected environment; federation restricted to this repository and environment; only the approved version is promoted (§3.4) |
+| A framework that prerenders report rows | The prototype inspects the finished output of each candidate (2.3) |
+| Federated credentials do not work with the Firebase CLI | Proved in 2.2 on fixtures; if not, the way forward comes back to you (§7) |
+| A wrong package passing as consistent | Row-level equality with the views and mutation tests (§3.4; M19) |
+| The encryption built wrong — a repeated key/IV pair, weak derivation, a key or a Parquet in the clear | The envelope of §3.6, fixed parameters, a fresh data key per encryption, the negative tests and the artifact inspection; Codex reviews the design before the prototype |
 | A public password flagged by the secret guard | Both credentials registered as public by design, with the reason (N22) |
-| The portal becomes the whole graph again | Lineage one hop at a time; narrative by chapters before the reference |
+| The portal becomes the whole graph again | Lineage one hop at a time; narrative by chapters before the reference; the short route from question to column |
 | The daily quota of free Firebase | Engine from jsDelivr; each page loads only its own files; separate projects |
 | jsDelivr being down turns off interactivity | Accepted in N2; the page shows the error instead of stale or empty numbers |
 | claude.ai limits the study content | The probe of stage 3.1 decides before building; the rule of N18 sends it to a `*.web.app` |
-| A ratio re-aggregated as an average of averages | The rule of §3.2 and an oracle per report against the view |
-| eng_dados changes and a site diverges silently | Contract checked and anchors at a pinned commit: export and build fail loudly |
+| An average or ratio re-aggregated wrongly | Native grain without sufficient statistics (M20); numerator and denominator otherwise; the per-report audit |
+| eng_dados changes and a site diverges silently | The accepted contract pinned here and anchors at a pinned commit: export and build fail loudly |
 | A partial dbt manifest after a `dbt --select` | The exporter rejects lineage with problems, as `lineage.main` already does |
 | Volume nobody reviews (R14) | Reports, portal chapters, access rules and the lesson path are declarations in text, reviewed in full; what is generated, by oracle |
 
@@ -494,15 +633,18 @@ a read-only transaction, with no new role (the former N5).
 
 **Not verified:**
 
-- whether DuckDB-WASM, the worker and WebCrypto work inside the claude.ai Artifact — 3.1 measures it;
-- how long the key derivation takes in the browser, with the chosen iterations — 2.6 measures it;
-- what Firebase does when the Spark plan runs over its quota;
+- whether DuckDB-WASM, its worker, WebCrypto and a cross-origin read work inside the claude.ai
+  Artifact — 3.1 measures it;
+- how long the key derivation takes in the browser, with the chosen iterations — 2.2a measures it;
+- whether the Firebase CLI accepts federated credentials from GitHub in practice — only community
+  guides describe it — 2.2 proves it;
+- whether each framework candidate can keep report queries away from build time — 2.3 inspects it;
 - whether the chosen framework bundles DuckDB-WASM into the site itself or accepts jsDelivr;
-- identity federation from GitHub to Firebase, in practice;
+- what Firebase does when the Spark plan runs over its quota;
 - whether any query, test or document of eng_dados depends on today's category names or on the
   single price range — 1.4 finds out;
-- how many inherited descriptions need fixing by hand — M18 is an estimate;
-- the time and memory of the regeneration with the new data;
+- the volume of description text to write — 1.7 measures what remains after conservative inheritance;
+- the time and memory of the regeneration and of the restore window with the new data;
 - whether the change to §4 of Governance affects any classification or access test;
 - accessibility and usability of the sites.
 
@@ -515,24 +657,23 @@ a read-only transaction, with no new role (the former N5).
 
 ---
 
-## 10. Request for review by Codex
+## 10. Request for the next review by Codex
 
-Review this plan against the code, the ADRs and the decisions O1–O8 and N1–N25 in §1. In particular:
+Round 3, if the Owner asks for it: review how this revision answers RV2-01 to RV2-14 (the Status
+column in `REVIEW.md`) against the code, the ADRs and the decisions O1–O8 and N1–N25 in §1. In
+particular:
 
-1. does the architecture of §3.4 — manifest, PR and rejection — guarantee that nothing wrong is
-   published?
-2. is the per-profile encryption of §3.2 real access control, with standard primitives, no key and
-   no Parquet in the clear, and is the proof at build enough?
-3. does §5.3 underestimate the cost or the effect of the regeneration?
-4. is §5.4 — descriptions derived through lineage — the right mechanism, and does the new ratchet
-   fit in `make check` without excessive cost?
-5. does N16 read ADR-0008, ADR-0018 and Governance §7 correctly?
-6. do the chapters of the portal (§3.2) tell the story a newcomer needs, in the right order?
-7. do the order of §6.3, the dependencies and the effort of each stage hold?
-8. is any decision missing, or should any of the pending ones not be the Owner's?
+1. does the envelope of §3.6 specify enough to implement and review it, and are its stated limits
+   right?
+2. do the three gates and the trusted workflow of §3.4 close the paths by which something wrong,
+   clear or untrusted could be published?
+3. does the recovery lifecycle and the runbook mapping of §5.3 match Capacity and Recovery §§3.3–3.4
+   and Local Execution §3.2?
+4. is the conservative inheritance of §5.4 sound, and does the ratchet bootstrap hold?
+5. does the repaired order of §6 hold, with its dependencies and effort?
 
 The probes re-run with the eng_dados databases up (`make up`) and nothing else:
 `evidence/20261022/ro.sh <file.sql>`, with `ENG_DADOS_DIR` pointing at the eng_dados checkout,
-always in a read-only session. The lineage prototype and the catalogue measurements need only the
-`.venv` of eng_dados and a complete dbt manifest; the Parquet export, `uv`, as in the header of
-`exportar.saida.txt`. See [`evidence/20261022/README.md`](evidence/20261022/README.md).
+always in a read-only session. The Python probes need only the `.venv` of eng_dados and a complete
+dbt manifest; the Parquet export, `uv`. See [`evidence/20261022/README.md`](evidence/20261022/README.md)
+and [`evidence/20261023/README.md`](evidence/20261023/README.md).
