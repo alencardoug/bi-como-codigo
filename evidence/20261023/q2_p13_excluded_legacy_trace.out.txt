@@ -1,0 +1,27 @@
+2026-10-23T14:36:34Z
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+ shipment_id | quarantined_items |     origins     |  finding_codes  
+-------------+-------------------+-----------------+-----------------
+           7 |                 2 | parent_rejected | PARENT_REJECTED
+           9 |                 1 | parent_rejected | PARENT_REJECTED
+          39 |                 3 | parent_rejected | PARENT_REJECTED
+          42 |                 1 | parent_rejected | PARENT_REJECTED
+          52 |                 1 | parent_rejected | PARENT_REJECTED
+         112 |                 1 | parent_rejected | PARENT_REJECTED
+         118 |                 1 | parent_rejected | PARENT_REJECTED
+         122 |                 1 | parent_rejected | PARENT_REJECTED
+         131 |                 2 | parent_rejected | PARENT_REJECTED
+         149 |                 2 | parent_rejected | PARENT_REJECTED
+         161 |                 1 | parent_rejected | PARENT_REJECTED
+         189 |                 1 | parent_rejected | PARENT_REJECTED
+(12 rows)
+
+ trusted_only_legacy | traced_to_quarantine | untraced 
+---------------------+----------------------+----------
+                  12 |                   12 |        0
+(1 row)
+

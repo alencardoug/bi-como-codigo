@@ -1,0 +1,27 @@
+2026-10-23T14:42:10Z
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+ raw_legacy_size | tables 
+-----------------+--------
+ 206 MB          |     40
+(1 row)
+
+ retained_captures | rows_rebased | rows_not_rebased 
+-------------------+--------------+------------------
+                31 |         5292 |              567
+(1 row)
+
+   status   | captures | certificate_rows 
+------------+----------+------------------
+ complete   |       15 |              599
+ incomplete |        1 |                1
+(2 rows)
+
+ retained_without_complete_certificate 
+---------------------------------------
+                                    17
+(1 row)
+

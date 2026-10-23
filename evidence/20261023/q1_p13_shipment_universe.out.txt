@@ -1,0 +1,44 @@
+2026-10-23T14:36:08Z
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+ source_system | trusted_delivered 
+---------------+-------------------
+ legacy        |               144
+ retail        |              3166
+(2 rows)
+
+ p13_delivered_count 
+---------------------
+                3298
+(1 row)
+
+ source_system | fact_delivered 
+---------------+----------------
+ legacy        |            132
+ retail        |           3166
+(2 rows)
+
+ trusted_only | fact_only 
+--------------+-----------
+           12 |         0
+(1 row)
+
+ source_system | shipment_id | order_id | shipment_status | trusted_items | live_items 
+---------------+-------------+----------+-----------------+---------------+------------
+ legacy        |           7 |        7 | delivered       |             0 |          0
+ legacy        |           9 |        9 | delivered       |             0 |          0
+ legacy        |          39 |       36 | delivered       |             0 |          0
+ legacy        |          42 |       39 | delivered       |             0 |          0
+ legacy        |          52 |       47 | delivered       |             0 |          0
+ legacy        |         112 |      104 | delivered       |             0 |          0
+ legacy        |         118 |      109 | delivered       |             0 |          0
+ legacy        |         122 |      112 | delivered       |             0 |          0
+ legacy        |         131 |      121 | delivered       |             0 |          0
+ legacy        |         149 |      138 | delivered       |             0 |          0
+ legacy        |         161 |      149 | delivered       |             0 |          0
+ legacy        |         189 |      175 | delivered       |             0 |          0
+(12 rows)
+

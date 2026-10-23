@@ -1,0 +1,24 @@
+2026-10-23T14:37:45Z
+== source_db, oltp.inventory_movements
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+ rows  | max_seq | gap 
+-------+---------+-----
+ 18351 |   18351 |   0
+(1 row)
+
+== warehouse_db, the two paths
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+              path              | rows  | max_seq 
+--------------------------------+-------+---------
+ raw.inventory_movements        | 18351 |   18351
+ raw.inventory_movements_stream | 18351 |   18351
+(2 rows)
+
