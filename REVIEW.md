@@ -607,3 +607,523 @@ eight questions of §11 are here.
 | Comparing two extractions of P01 | Discard | The data is static between regenerations, and the package history in Git already shows the difference |
 | Quality evidence next to the stage | Simplify | The name and link of the test that guards the stage, without claiming it passed for this extraction |
 | Simulating unrealised orders | Discard | It changes the question and needs data that consumption does not offer |
+
+## Round 2 — Codex review of PLAN.md
+
+| Field | Reviewed base |
+|---|---|
+| Date | 2026-10-23 (America/Sao_Paulo; command timestamps below are UTC) |
+| Reviewer | Codex, acting as the second agent at the Owner's request |
+| bi-como-codigo | `16c35366079b2c78ed1e95eee73fd5db196c34f1` |
+| mvp_eng_dados_1 | `26b58b33deac1ee89b9f7de1292ba40fec0d4de2` |
+| Declaration reviewed | PLAN.md, including the Owner's decisions O1–O8 and N1–N25 |
+| Context read | Both repositories' AGENTS.md and CLAUDE.md; REVIEW.md §§1–11 and RP-01–RP-15; all probes and literal outputs in evidence/20261022/; the upstream code and documents cited below |
+| Method | The upstream [revisao skill](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/.claude/skills/revisao/SKILL.md), adapted to a plan review. No implementation or acceptance is implied. |
+
+**Assessment — reading and review judgment:** the architecture is viable within the Owner's
+choices, but the plan is not ready for execution unchanged. The blocking findings concern the
+publication gates, the encryption specification, description inheritance and recovery acceptance.
+They do not require changing the chosen hosting, public passwords, view-only contract or separation
+of repositories. Resolve them in the plan and the named design/runbook before executing the affected
+stages; independent foundation work need not wait.
+
+**Evidence convention:** **reading** means an inference from the inspected code, documents or
+official specifications; **hypothesis** means proposed behavior or cost that has not been exercised;
+**measurement E0–E6** means the commands and literal outputs below. Earlier M1–M18 remain the
+author's recorded evidence, not measurements repeated by this review. A counterexample against a
+small model of the proposed encryption is not a test of an implementation that does not exist.
+
+### Findings
+
+The Status cells are intentionally empty for the author.
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+| RV2-01 | PLAN §3.2, chapter 6; §10 question 2 | **Reading; measurement E2.** N22 makes both profiles available to every visitor. A holder of the public Diretoria password can derive its wrapping key, recover every report key and decrypt offline, without the login page. They can also create ciphertext with a valid GCM tag; that does not give them Hosting deployment permission. Preserve N22/N23, but describe the result as a public demonstration of access scoped to a supplied key, not authentication of a person's role or confidentiality from the public. The Parquet also enters this public Git repository before CI encryption (§3.4). Qualify “no key/Parquet in the clear” as an inventory property of the deployed artifact; it cannot mean that visitors cannot recover them. | adjustment | |
+| RV2-02 | PLAN §3.2, §8; stage 2.6 | **Reading; hypothesis about the future build.** Standard primitives are appropriate, but “many iterations,” “a salt of its own” and “no initialisation vector ever repeated” do not specify an interoperable, reviewable protocol. The access matrix can pass even if a report key/IV pair is reused on a later publication. Specify the envelope, derivation parameters, randomness, key lifetime, metadata binding and negative tests described below. Review that design before the encrypted prototype or any report preview, then verify the implementation and browser path. A build matrix alone is insufficient. | blocking | |
+| RV2-03 | PLAN §§3.4–3.5; stages 2.2 and 2.4 | **Reading; hypothesis/counterexample.** Hashes, row counts and sums establish package consistency, not agreement with the warehouse or correct grouping. An exporter can swap channel labels, regenerate the hashes and preserve every total. Checking against whichever dbt manifest accompanies it also does not detect a change to the consumer's previously accepted contract. Require the explicit view inventory, accepted schema/version, grain/uniqueness, null and decimal rules, a consistent read, and row-level round-trip equality against the views at export. Preserve the local oracle results with the package. M2 reads facts as custodian: generalising it must not silently grant the N4 exporter access to analytics. CI can verify recorded evidence and artifact consistency; it cannot certify an inaccessible warehouse. | blocking | |
+| RV2-04 | PLAN §3.4; stages 2.2, 2.3 and 2.6 | **Reading; hypothesis about build output.** Encrypting inputs and looking for clear Parquet is not a sufficient publication boundary. A framework can emit report rows into prerendered HTML, JSON, JavaScript, caches or source maps; a renamed clear file also defeats an extension-only check. The earlier proposal's explicit inclusion list (§4.2 of this review) must survive into the plan. Build a fresh deploy directory containing only declared public assets/metadata and encrypted report artifacts, inspect the final output, and deploy exactly that directory. Reject injected clear data and unwrapped keys before both preview and live uploads. State whether report totals in a public manifest are intentionally public. | blocking | |
+| RV2-05 | PLAN §3.4; N15/N25; stages 2.2 and 2.10 | **Reading; hypothesis about the future workflow.** “Reject, then nothing is published” needs a trusted deployment job, not just an earlier check step. A public PR can change the checker, build, workflow or firebase.json. Define which PRs may get deploy credentials, isolate untrusted builds, restrict OIDC trust, require checks on the exact approved revision and prevent obsolete concurrent runs from replacing newer releases. Promote the already validated artifact/version; a fresh encryption/build on merge is not the approved preview. The default Firebase GitHub setup stores a service-account key, contrary to N15; use and test a federation-compatible CLI path. See the publication requirements below. | blocking | |
+| RV2-06 | PLAN §5.3; stages 1.4–1.6; §8 | **Reading.** “Recovery package redone and checked” is weaker than [Capacity and Recovery §§3.3–3.4](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/capacidade_e_recuperacao.md#33-regras). A candidate may replace the approved package only after a validated end-to-end restore and promotion; upstream recovery/cli.py explicitly distinguishes verify/list from restore. Require those operations and their oracles in 1.6, with the old approved package preserved until promotion. Identify the rollback cut, compatible code/configuration and what post-cut state would be lost before destructive work. Commit the maintenance code before packing: pack normally refuses a dirty tree. This is work and a destructive restore window missing from the explicit exit criterion. | blocking | |
+| RV2-07 | PLAN §5.3, N14; stages 1.4–1.6 and 3.6 | **Reading.** The cited regeneration procedure already requires more than reseeding and rebuilding: stop host producers/Beam/Prism and active jobs, reset CDC and the hot sink, reset the retail ingestion, compare complete event payloads and balances, reset SCD and incremental state together, preserve run_results, finish the specific DAG run and restore the recorded operating state. Make these explicit runbook checkpoints. N14 remains valid: D62/D63 mean alert correctness/draining cannot be inferred from sink convergence; D64 affects Airflow Connections/Variables, not the current DAG. Record those limits in release/lab evidence without silently fixing or closing them. Update current measured records after regeneration; preserve accepted ADRs and historical measurements. | adjustment | |
+| RV2-08 | PLAN §5.4; stages 1.7–1.8 | **Reading; measurement E3.** sensitivity.py derives sets of value dependencies, not semantic identity. Copy, SUM, ROUND and multiplication have identical leaves in E3; P01's aggregated revenue also has a single immediate leaf of the same name. lineage.py additionally allows meta.lineage to skip legacy cleaning. Neither a single leaf nor a matching name proves that the source description still applies. Reuse the graph, but require a conservative identity/transport classification of the expression and every inherited hop, or an explicit reviewed declaration. Aggregation, transformations, generated fields and ambiguous unions must require text. Keep sensitivity semantics unchanged; a reasoned description override must survive regeneration. Add counter-proofs for same-name computed columns and declared legacy bridges. | blocking | |
+| RV2-09 | PLAN §5.4; stages 1.7–1.8 and 2.7 | **Reading; measurements E3/E4.** The ratchet's scope and bootstrap conflict: §5.4 says any missing column description fails check, 1.7 must already pass check, but 1.8 supplies the text and only promises full coverage in analytics/consumption. E3 still finds 451 and 157 missing descriptions in those layers alone. E4 shows gaps elsewhere, including model domain/owner outside the targeted objects. Define per-layer floors and the activation order; complete/approve the text before enforcing its full floor. Use the materialised-column inventory, as test_classificacao.py does, to avoid a vacuous pass on omitted columns. Distinguish explicitly scoped portal coverage from project-wide completeness. | adjustment | |
+| RV2-10 | PLAN §5.4; make check; stages 1.7–1.8 | **Reading; measurement E3; cost hypothesis.** One complete sensitivity derivation took 21.622 s in this environment; lineage.build reusing it took 0.007 s. The current Makefile already invokes separate sensitivity and lineage checks, and tests/test_linhagem.py derives again in its fixture. Do not add another complete parse per column or another independent full pass without measuring it. Share a derivation within the checker/fixtures where practical, invalidate any cache by its actual inputs, and measure the added end-to-end check cost. The new ratchet's time, memory and required manual text remain unmeasured; M18 is not a delivery estimate. | adjustment | |
+| RV2-11 | PLAN N16, §3.5; stage 2.12 | **Reading; measurement E5.** N16 correctly reads ADR-0008, ADR-0018 and Governance §7: analyst consumes consumption, not analytics, and views answer business questions rather than mechanically mirroring facts. E5 reads P01 and gets SQLSTATE 42501 on the fact. Keep the custodian's lesson/oracle capture separate. A justified detail view can be added through the upstream contract/ADR; nothing here calls for exposing the dimensional model wholesale. Test the future dedicated login through an actual non-superuser connection, including denied writes and role escalation, rather than relying only on SET ROLE from the existing superuser. | observation | |
+| RV2-12 | PLAN §3.2; stages 2.6 and 2.11 | **Reading; measurement E6.** P13's on_time_rate has usable numerator/denominator columns, but its transit and late-delay averages are already rounded and lack their exact sums. Across 313 month/carrier/service groups, weighting the exported averages by their counts differs from direct recomputation at the displayed four decimals in 46 transit groups and 20 late-delay groups. The rule about ratios does not cover this. Keep these averages at the view's native grain, or obtain sufficient statistics through an upstream contract change; do not present reconstructed rounded averages as exact. Include this in P13's oracle and audit the other reports for non-additivity, time-dependent balances and truncated populations. | adjustment | |
+| RV2-13 | PLAN §6.2–§6.3 | **Reading; scheduling/effort hypothesis.** The dependency graph needs repair: the encrypted prototype (2.3) needs the envelope contract now deferred to 2.6; publication infrastructure (2.2) precedes encryption safeguards; the hosted Artifact probe (3.1) needs a representative encrypted asset, worker and cross-origin policy; and a study site that reads showcase reports needs that published interface, not only 3.1. Make 3.3/3.5's implementation depend on the study foundation as well. Split encryption design/core tests from the later login/P13 delivery, use harmless fixtures for early infrastructure probes, and gate actual report uploads on the complete checks. Reconcile this with 2.10 being the first approved product publication. Suggested sequencing and effort are below. | adjustment | |
+| RV2-14 | PLAN §3.2, portal chapters and project governance | **Reading; usability hypothesis.** The proposed order works as a reference path: orientation → layers → catalogue → questions → vocabulary → access → lineage → quality → maintenance. Also offer a short question → report → column route from the introduction, so a newcomer need not traverse the catalogue first. Label missing metadata rather than inventing it, and distinguish declared tests, dated successful executions and currently open issues. In particular, a past review with no remaining findings does not imply D62–D64 are resolved today. Narrative and glossary usability still require the outsider test. | observation | |
+
+### Required detail for the encryption design
+
+**Reading of standards; proposed implementation constraints, not implemented choices:** PBKDF2,
+AES-KW and AES-GCM are supported by the [Web Cryptography API](https://www.w3.org/TR/2017/REC-WebCryptoAPI-20170126/).
+Record a versioned envelope with password byte encoding, KDF/hash/iteration count, profile salt,
+wrapping algorithm, report identity, wrapped key, GCM IV/tag and package identity. Specify lengths
+rather than relying on library defaults. A concrete candidate is PBKDF2-HMAC-SHA-256, a wrapping
+key and independently random data keys of 256 bits, a random salt of at least 128 bits per profile
+and declared rotation scope, a 96-bit GCM IV and a 128-bit tag. These are **proposed parameters**;
+the iteration policy and browser latency still need measurement. Salts and IVs are public.
+[NIST SP 800-132 §§5.1–5.2](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-132.pdf)
+supports random salts and selecting the work factor against acceptable client cost.
+
+The relevant GCM uniqueness requirement is **per key across all encryptions**, including retries
+and publications, not global uniqueness of every IV across unrelated keys. A fresh data key for
+each new file encryption, with an explicitly defined retry policy, is a simple way to bound this.
+An unchanged encrypted artifact can be promoted without encrypting it again.
+[NIST SP 800-38D §8](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf)
+defines the key/IV requirement. AES-KW has its own fixed initial value under the WebCrypto
+algorithm; do not give it GCM's random-IV rule.
+[WebCrypto AES-KW](https://www.w3.org/TR/2017/REC-WebCryptoAPI-20170126/#aes-kw).
+
+Bind report and package identity to the authenticated data and the expected manifest mapping.
+This catches accidental substitution; **it does not authenticate the publisher against someone
+who knows the public password** (E2). Publication authenticity comes from the trusted release
+path and HTTPS origin. Changing a password in a later release cannot revoke previously downloaded
+ciphertext plus its former public password.
+
+**Proposed oracles:** known-answer vectors; independent producer/browser round trips; the full
+profile/report matrix exercised by actual unwrap/decrypt calls; wrong passwords; changed wrapped
+keys, salts, IVs, tags and ciphertext; swapped report/package identifiers; malformed envelopes;
+and an injected reused key/IV pair. Inspect the finished deploy artifact for raw data and keys.
+Run the same reader against the preview, including profile switching/logout cleanup of DuckDB
+tables, buffers and caches. A disallowed route must not keep previously decrypted Diretoria data
+visible after switching to Logística. No browser interoperability, cleanup or complete matrix was
+tested in this session.
+
+### Publication and export gates
+
+**Reading and proposed acceptance criteria:** distinguish three checks: source-to-package equality,
+the encrypted build artifact, and deployment of those exact bytes. The first is local. The second
+must run before any Hosting upload, including previews. The third belongs to a trusted workflow
+whose checker and deployment configuration cannot be replaced by an untrusted PR.
+
+The local export should read its views and control totals in one read-only consistent transaction,
+validate the pinned consumer contract, and compare typed rows after writing and reading Parquet.
+Validate column identity/order, decimal precision/scale, nullability, dates/time zones and the
+declared grain, including empty/all-null cases. The sizing prototype exportar.py infers Arrow types,
+falls back to strings and reads as superuser; it is evidence of size, not the N4 exporter.
+Do not treat sums of ratios or averages as business totals. Independently maintained upstream
+semantic oracles can be run by the custodian; the exporter itself remains a consumption reader.
+
+**Hypothesis/counterexample to §10.1:** a package with channel labels exchanged and a newly matching
+manifest can satisfy the advertised checksum/count/total checks while displaying wrong categories.
+A passing hash therefore cannot support “nothing wrong is published.” Add deliberate mutations for
+wrong row labels, missing/extra views, changed types, duplicates and raw-data injection, as well as
+the already planned tampered-manifest case.
+
+For N15, the [Firebase GitHub setup](https://firebase.google.com/docs/hosting/github-integration)
+creates and stores a service-account JSON key. That default does not implement the Owner's choice.
+The [Firebase CLI supports Application Default Credentials](https://firebase.google.com/docs/cli#cli-ci-systems);
+test the selected CLI with federated credentials in 2.2 rather than substituting a stored key.
+Restrict the [federation trust conditions](https://github.com/google-github-actions/auth)
+to the intended repository and approved workflow/ref or environment; keep temporary credential
+files outside the deploy artifact. Untrusted PR code must not execute with deploy authority.
+[GitHub's workflow security guidance](https://docs.github.com/en/actions/reference/security/secure-use#mitigating-the-risks-of-untrusted-code-checkout).
+
+Record the approved revision, package digest, artifact digest and preview version. On merge,
+promote that immutable validated version, or revalidate and obtain approval for any changed
+candidate. Firebase supports [cloning a version between channels](https://firebase.google.com/docs/hosting/manage-hosting-resources#clone-a-version);
+on the same site this can point live at the same version. Define cache/version binding for the
+application, manifest, keys and ciphertext: an open old page must not silently fetch incompatible
+new files at reused URLs. Rejected or obsolete jobs must not update either channel. None of these
+workflow behaviors has been tested here.
+
+### Regeneration, sequencing and effort
+
+**Reading:** §5.3 recognises most of the breadth of the maintenance. The missing precision is in
+its gate, not evidence that the Owner's choice to regenerate is mistaken. The 1.4 runbook should
+map every checkpoint in [Local Execution §3.2](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/execucao_local.md#32-regerar-uma-origem-que-já-alimenta-streaming)
+to a command, expected oracle and restart/rollback point. Include both sources, a newly certified
+legacy capture while preserving retained history, full event-content equality, and the exact
+scope of the destructive reset. A recovery rollback follows its own procedure: it rebuilds around
+restored SCD memory and must not use the regeneration step that drops that memory.
+
+The plan must distinguish checking the existing approved rollback package, creating a current
+candidate, restoring that candidate and promoting it. The package cutoff and code version determine
+what rollback preserves. Keep the previous approved package until the candidate's restore passes.
+The local maintenance's authorised destructive flags are not permission to override a memory
+refusal. Historical B5 performance was read as historical evidence; it is not a timing prediction
+for the changed generator, retained legacy captures or new description checks.
+
+**Suggested sequence — hypothesis:** keep 1.4 before 1.5/1.6, and resolve the description semantics
+and ratchet bootstrap before running 1.7/1.8 alongside runbook review. Pin the maintenance declaration
+before regeneration and package creation; reserve 1.9 for final review, Owner acceptance and tag.
+During Part I, 2.1, the envelope/export contract, framework comparison and deployment probes can
+proceed using clearly labelled disposable fixtures. Complete the encryption core and artifact
+checks before publishing actual report data. After 1.9, validate the real export, reports and
+portal, approve the preview and promote it. The study foundation depends on its capability probe
+and the stable encrypted interface; lesson/site implementation then has an actual home.
+
+**Effort judgment — hypothesis, not a duration estimate:** 1.4 at xhigh and 1.6 at max/L are
+appropriate. Treat 1.7's semantic work at xhigh, with size pending a conservative inheritance
+prototype and measured remaining text. 1.8's full human review is not bounded by M18. Keep 2.6 at
+xhigh, but separate its design/core from P13 and login/browser validation before trusting M.
+The early capability probe remains contained only if it uses the agreed envelope, worker/CDN path
+and cross-origin headers. There is no new measured basis for deadlines or session counts.
+
+### Answers to PLAN.md §10
+
+1. **Publication guarantee:** no absolute guarantee. The manifest detects certain inconsistencies;
+   it does not prove source semantics, trusted workflow execution or identity of preview and live.
+   RV2-03–RV2-05 supply the missing gates.
+2. **Encryption/access:** the primitives can enforce which keys a supplied password unwraps.
+   With both passwords public, every visitor can open all reports; there is no authenticated
+   organisational role or public confidentiality. The build matrix is necessary, not sufficient.
+   Keep N22/N23 with the limits and checks in RV2-01/RV2-02.
+3. **Regeneration cost/effect:** the broad scope is acknowledged, but restoration validation,
+   promotion, the rollback cutoff and detailed restart oracles must be explicit. Runtime and
+   memory under the new generator remain unmeasured; N14's defects remain declared limitations.
+4. **Descriptions/ratchet:** reuse lineage as infrastructure, not as proof of unchanged meaning.
+   E3 disproves the single-leaf shortcut. Define safe inheritance and scoped floors first; share
+   the expensive derivation and measure the incremental cost of check.
+5. **N16:** yes. It preserves the warehouse's tested consumption boundary and business-question
+   design. A custodian capture is a separate operation, not an exception for the exporter.
+6. **Portal:** the chapters cover the needed story. Keep progressive navigation and a short route
+   from a business question to a report/column; expose metadata gaps and dated evidence honestly.
+   Comprehension and usability remain hypotheses.
+7. **Order/dependencies/effort:** Part I first is sound. Repair the early encryption/publication
+   dependencies, ratchet bootstrap and study-interface dependencies. The largest uncertainty is
+   semantic declaration/review work, not just writing code; session sizes remain estimates.
+8. **Decisions:** no additional product/platform choice is needed to resolve these findings.
+   Framework selection, destructive execution authorisation, declaration review, ADR acceptance,
+   release acceptance and pushes remain the Owner's. Parameterising an agreed primitive, writing
+   counter-proofs and wiring dependencies are implementation work for review, not reasons to
+   reopen N22/N23. Any genuinely new upstream contract or data-treatment decision still follows
+   CLAUDE.md §5. Technical validation, review of declarations and formal acceptance stay distinct.
+
+### Not verified, assumptions and environment
+
+**Not verified:** no application, framework build, browser, Artifact, CDN download, Firebase project,
+OIDC exchange, PR workflow, preview, deployment, cache transition or real encryption implementation
+was exercised. No complete access matrix for sixteen actual encrypted reports exists yet. No
+generator was changed or run; no ingestion, dbt build, DAG, streaming, migration, recovery pack,
+verification, restore or promotion was executed. The existing approved package's contents/current
+recoverability were not checked. The description generator and added make check cost do not exist
+to measure. Usability, accessibility, browser key-derivation cost and hosting quotas remain open.
+The known secrets-history false positive was accepted as recorded, not rediscovered.
+
+**Assumptions:** the Owner's decisions remain authoritative and all future published data is synthetic.
+Recorded historical probes are evidence at their stated cutoffs, not proof that the current database
+was built by the inspected commit. The files in dbt/target are local generated artifacts, not a
+Git-attested build. This review does not assume that a successful full pipeline will resolve the
+parked issues, that data cannot change outside regeneration, or that a public preview is private.
+
+**Environment — measurements E0/E1/E5:** Linux x86_64, the existing upstream Python environment,
+Node WebCrypto and PostgreSQL through the prescribed ro.sh wrapper. Both Git trees were clean
+before the append. docker ps ran before warehouse probing; all three project databases were
+already healthy, so make up was unnecessary. An Airbyte control-plane container and an unrelated
+PostgreSQL container were already running; they were neither started, stopped nor used by this
+review. No Airflow or streaming service was started. Python ran with bytecode writing disabled;
+scratch SQL lived only in /tmp. Only REVIEW.md is the requested repository edit.
+
+The first warehouse attempt was denied by the sandbox's Docker-socket restriction; the approved
+retry used the same read-only wrapper. E5 deliberately ends with permission denied to prove the
+boundary. The skill's dossier generator and make checks were not run: those are unnecessary here
+and would write upstream artifacts or execute builds. The evidence below records the actual
+read-only probes and in-memory counterexamples instead.
+
+### Commands and literal outputs
+
+All new measurements cited above are here. Empty git-status output means a clean tree. Successful
+commands exited 0; E5's exit 3 is expected. The code in these blocks is review evidence only.
+
+#### E0 — reviewed commits and local runtime
+
+Both status commands produced no output. The SHA-256 is of REVIEW.md before this append.
+
+Working directory: `/home/doug/Projetos/bi-como-codigo`.
+
+Command:
+
+```bash
+date -u '+%Y-%m-%dT%H:%M:%SZ'
+uname -srm
+node --version
+/home/doug/Projetos/mvp_eng_dados_1/.venv/bin/python -B --version
+git -C /home/doug/Projetos/bi-como-codigo rev-parse HEAD
+git -C /home/doug/Projetos/bi-como-codigo status --porcelain=v1 --untracked-files=all
+git -C /home/doug/Projetos/mvp_eng_dados_1 rev-parse HEAD
+git -C /home/doug/Projetos/mvp_eng_dados_1 status --porcelain=v1 --untracked-files=all
+sha256sum REVIEW.md
+```
+
+Literal output:
+
+```text
+2026-10-23T03:33:26Z
+Linux 7.1.1-76070101-generic x86_64
+v24.18.0
+Python 3.11.15
+16c35366079b2c78ed1e95eee73fd5db196c34f1
+26b58b33deac1ee89b9f7de1292ba40fec0d4de2
+1ae93954384d13b4538fac370ac834942128570344a7960b65b36800cef2d795  REVIEW.md
+```
+
+#### E1 — existing container inventory
+
+This is a read-only inventory. It neither measures workload activity inside Airbyte nor authorises its use.
+
+Working directory: `/home/doug/Projetos/mvp_eng_dados_1`.
+
+Command:
+
+```bash
+docker ps --format '{{.Names}}\t{{.Status}}'
+```
+
+Literal output:
+
+```text
+linkedia-engine-postgres-1	Up 10 hours (healthy)
+airbyte-abctl-control-plane	Up 10 hours
+mvp_ed1_source_db	Up 10 hours (healthy)
+mvp_ed1_legacy_db	Up 10 hours (healthy)
+mvp_ed1_warehouse_db	Up 10 hours (healthy)
+```
+
+#### E2 — password/envelope counterexample
+
+In-memory WebCrypto probe with two dummy report strings, not Parquet or the future application. The 100000 iterations are a probe parameter, not a proposed production work factor. No data key survives in a file. Deliberately permitting key extraction in this independent client models what a public password holder can do outside the site's JavaScript; making the site's own CryptoKeys non-extractable would not prevent that client.
+
+Working directory: `/home/doug/Projetos/bi-como-codigo`.
+
+Command:
+
+```bash
+node --input-type=module <<'JS'
+import { webcrypto } from 'node:crypto';
+import assert from 'node:assert/strict';
+const s = webcrypto.subtle, enc = new TextEncoder(), dec = new TextDecoder();
+const random = n => webcrypto.getRandomValues(new Uint8Array(n));
+async function kek(password, salt) {
+  const p = await s.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return s.deriveKey({name:'PBKDF2', hash:'SHA-256', salt, iterations:100000}, p,
+    {name:'AES-KW', length:256}, false, ['wrapKey','unwrapKey']);
+}
+const passwords = {Diretoria:'senha_complexa_123', Logistica:'complexa_senha_321'};
+const salts = {Diretoria:random(16), Logistica:random(16)}, profiles = {};
+for (const p of Object.keys(passwords)) profiles[p] = await kek(passwords[p], salts[p]);
+const published = {};
+for (const report of ['P01','P13']) {
+  const key = await s.generateKey({name:'AES-GCM',length:256}, true, ['encrypt','decrypt']);
+  const iv = random(12), aad = enc.encode('probe-v1:' + report);
+  const ciphertext = await s.encrypt({name:'AES-GCM',iv,additionalData:aad,tagLength:128}, key, enc.encode(report));
+  const wraps = {Diretoria:await s.wrapKey('raw',key,profiles.Diretoria,'AES-KW')};
+  if (report === 'P13') wraps.Logistica = await s.wrapKey('raw',key,profiles.Logistica,'AES-KW');
+  published[report] = {iv,aad,ciphertext,wraps};
+}
+async function open(report, profile, password, wrappedBy = profile) {
+  const p = published[report], k = await kek(password, salts[profile]);
+  const key = await s.unwrapKey('raw', p.wraps[wrappedBy], k, 'AES-KW', 'AES-GCM', true, ['encrypt','decrypt']);
+  return {key, text:dec.decode(await s.decrypt({name:'AES-GCM',iv:p.iv,additionalData:p.aad,tagLength:128}, key, p.ciphertext))};
+}
+assert.equal((await open('P13','Logistica',passwords.Logistica)).text, 'P13');
+console.log('Logistica password -> P13: OK');
+await assert.rejects(open('P01','Logistica',passwords.Logistica,'Diretoria'), {name:'OperationError'});
+console.log('Logistica key -> Diretoria wrap for P01: OperationError');
+await assert.rejects(open('P13','Logistica','wrong'), {name:'OperationError'});
+console.log('Wrong password -> P13: OperationError');
+for (const report of Object.keys(published)) {
+  assert.equal((await open(report,'Diretoria',passwords.Diretoria)).text, report);
+}
+console.log('Anonymous reader + public Diretoria password -> P01 and P13: OK');
+const {key} = await open('P01','Diretoria',passwords.Diretoria);
+const iv = random(12), forged = await s.encrypt({name:'AES-GCM',iv,additionalData:published.P01.aad}, key, enc.encode('altered'));
+assert.equal(dec.decode(await s.decrypt({name:'AES-GCM',iv,additionalData:published.P01.aad}, key, forged)), 'altered');
+console.log('Public password holder creates valid altered ciphertext: OK');
+const corrupt = new Uint8Array(published.P01.ciphertext); corrupt[0] ^= 1;
+await assert.rejects(s.decrypt({name:'AES-GCM',iv:published.P01.iv,additionalData:published.P01.aad}, key, corrupt), {name:'OperationError'});
+console.log('Bit flip without re-encryption: OperationError');
+JS
+```
+
+Literal output:
+
+```text
+Logistica password -> P13: OK
+Logistica key -> Diretoria wrap for P01: OperationError
+Wrong password -> P13: OperationError
+Anonymous reader + public Diretoria password -> P01 and P13: OK
+Public password holder creates valid altered ciphertext: OK
+Bit flip without re-encryption: OperationError
+```
+
+#### E3 — lineage counterexample and isolated cost
+
+One run, with unrelated services already present. The peak RSS is for the entire Python process, including imports and manifest parsing; the two timings cover only the named calls. No make check runtime or new description implementation is measured. This probe counts model columns only; E4 also counts seeds/snapshots and sources, which explains the different trusted total.
+
+Working directory: `/home/doug/Projetos/mvp_eng_dados_1`.
+
+Command:
+
+```bash
+set -a
+. ./.env
+set +a
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B - <<'PY'
+import json, resource, time
+from mvp_ed1.models import lineage, sensitivity as s
+schema = {'raw': {'orders': {'total_amount': 'numeric'}}}
+levels = {('raw', 'orders', 'total_amount'): 'confidential'}
+for expression in ['total_amount', 'sum(total_amount)', 'round(total_amount, 2)', 'total_amount * 100']:
+    node = {'unique_id': 'model.probe.x', 'schema': 'consumption', 'name': 'x',
+            'compiled_code': f'select {expression} as total_amount from wh.raw.orders'}
+    problems, warnings = [], []
+    leaves = s._derive_node(node, schema, levels, 'wh', problems, warnings)
+    print(expression, '=>', sorted(leaves['total_amount']), 'problems=', problems)
+m = json.loads(s.MANIFEST.read_text())
+print('manifest_generated_at=', m['metadata']['generated_at'])
+models = [n for n in m['nodes'].values() if n['resource_type'] == 'model']
+print('models=', len(models), 'compiled=', sum(bool(n.get('compiled_code')) for n in models))
+start = time.perf_counter()
+d = s.derive(m)
+derive_seconds = time.perf_counter() - start
+start = time.perf_counter()
+lin = lineage.build(m, d)
+print(f'derive_seconds={derive_seconds:.3f}; lineage_reusing_derivation_seconds={time.perf_counter()-start:.3f}')
+print('max_rss_KiB=', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+print('lineage_problems=', len(lin.problems))
+for rel, col in [('monthly_revenue_by_channel_and_category', 'net_revenue_amount'),
+                 ('monthly_revenue_by_channel_and_category', 'gross_revenue_amount')]:
+    print(f'consumption.{rel}.{col} =>', sorted(lin.leaves[('consumption', rel)][col]))
+for layer in ['analytics', 'consumption', 'trusted']:
+    cols = [c for n in models if n['schema'] == layer for c in n['columns'].values()]
+    print(layer, 'declared_columns=', len(cols), 'missing_description=', sum(not (c.get('description') or '').strip() for c in cols))
+PY
+```
+
+Literal output:
+
+```text
+total_amount => [('raw', 'orders', 'total_amount')] problems= []
+sum(total_amount) => [('raw', 'orders', 'total_amount')] problems= []
+round(total_amount, 2) => [('raw', 'orders', 'total_amount')] problems= []
+total_amount * 100 => [('raw', 'orders', 'total_amount')] problems= []
+manifest_generated_at= 2026-10-22T17:23:25.369622Z
+models= 192 compiled= 192
+derive_seconds=21.622; lineage_reusing_derivation_seconds=0.007
+max_rss_KiB= 117396
+lineage_problems= 0
+consumption.monthly_revenue_by_channel_and_category.net_revenue_amount => [('analytics', 'fact_sales_order_item', 'net_revenue_amount')]
+consumption.monthly_revenue_by_channel_and_category.gross_revenue_amount => [('analytics', 'fact_sales_order_item', 'gross_revenue_amount')]
+analytics declared_columns= 477 missing_description= 451
+consumption declared_columns= 188 missing_description= 157
+trusted declared_columns= 1058 missing_description= 1003
+```
+
+#### E4 — catalogue coverage
+
+The existing read-only probe was rerun unchanged. Source domain/owner zeros in this script are not measurements of their coverage: its source loop does not inspect those fields. Model-layer gaps and description counts are what this review uses.
+
+Working directory: `/home/doug/Projetos/mvp_eng_dados_1`.
+
+Command:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B /home/doug/Projetos/bi-como-codigo/evidence/20261022/catalogo_cobertura.py
+```
+
+Literal output:
+
+```text
+schema        obj c/desc domain  owner cols decl  c/desc
+analytics      25     22      0      0       477      26
+consumption    16     16      0      0       188      31
+governance      2      2      0      0        17      17
+quarantine      2      1      1      1        26      12
+raw            37      7      0      0       545       0
+raw_legacy     40      0      0      0       616       0
+snapshots       4      0      0      0       109       0
+staging        77     58     40     40      1114     659
+trusted        75     46     43     43      1069      56
+testes de dados: 700 {'not_null': 381, 'accepted_values': 84, 'unique': 64, 'relationships': 62, 'unique_combination_of_columns': 57, 'singular': 32, 'fato_reconcilia_com_a_condutora': 10, 'expect_column_values_to_be_between': 5}
+blocos {% docs %} do projeto: 18
+```
+
+#### E5 — actual warehouse access boundary
+
+The scratch file was created in /tmp; the ro.sh invocation ran from bi-como-codigo. Exit 3 is the intended denial on analytics (SQLSTATE 42501), after the successful analyst read. The read-only setting was on. The initial sandbox attempt returned the Docker-socket error quoted after the successful output; the approved retry changed no SQL.
+
+Working directory: `/home/doug/Projetos/bi-como-codigo`.
+
+Command:
+
+```bash
+cat > /tmp/bi_rv2_access.sql <<'SQL'
+show transaction_read_only;
+show server_version;
+set role analyst;
+select current_user, count(*) from consumption.monthly_revenue_by_channel_and_category;
+\set VERBOSITY sqlstate
+select count(*) from analytics.fact_sales_order_item;
+SQL
+ENG_DADOS_DIR=~/Projetos/mvp_eng_dados_1 evidence/20261022/ro.sh /tmp/bi_rv2_access.sql -q -t -A
+```
+
+Literal output:
+
+```text
+on
+16.15
+analyst|1140
+ERROR:  42501
+```
+
+Initial sandbox attempt, exit 1 (not a database result):
+
+```text
+permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
+```
+
+#### E6 — P13 averages after grouping away warehouse
+
+The exact side reproduces the current view's delivered-shipment reduction and joins, then aggregates at month/carrier/service grain. The rolled side weights the published rounded averages by their corresponding counts. This compares those two calculations on the current data; it neither repairs the view nor tests any future frontend.
+
+Working directory: `/home/doug/Projetos/bi-como-codigo`.
+
+Command:
+
+```bash
+cat > /tmp/bi_rv2_p13.sql <<'SQL'
+begin isolation level repeatable read read only;
+show transaction_read_only;
+with remessas as (
+  select distinct shipment_id, delivered_date_key, carrier_key, warehouse_key,
+    is_on_time, is_split_order, delivery_delay_days, transit_days, failed_attempt_count
+  from analytics.fact_shipment_item where is_delivered
+), exact as (
+  select d.year_month, c.carrier_name, c.service_level,
+    round(avg(r.transit_days), 4) as transit,
+    round(avg(r.delivery_delay_days) filter (where not r.is_on_time), 4) as delay
+  from remessas r
+  join analytics.dim_date d on d.date_key = r.delivered_date_key
+  join analytics.dim_carrier c on c.carrier_key = r.carrier_key
+  join analytics.dim_warehouse w on w.warehouse_key = r.warehouse_key
+  group by 1, 2, 3
+), rolled as (
+  select year_month, carrier_name, service_level,
+    round(sum(avg_transit_days * delivered_count) / nullif(sum(delivered_count),0), 4) as transit,
+    round(sum(avg_delay_days_when_late * late_count) / nullif(sum(late_count),0), 4) as delay
+  from consumption.on_time_delivery_rate_by_carrier
+  group by 1, 2, 3
+)
+select count(*) as groups_compared,
+  count(*) filter (where e.transit is distinct from r.transit) as transit_differences,
+  count(*) filter (where e.delay is distinct from r.delay) as delay_differences
+from exact e join rolled r using (year_month, carrier_name, service_level);
+rollback;
+SQL
+ENG_DADOS_DIR=~/Projetos/mvp_eng_dados_1 evidence/20261022/ro.sh /tmp/bi_rv2_p13.sql -q -A
+```
+
+Literal output:
+
+```text
+transaction_read_only
+on
+(1 row)
+groups_compared|transit_differences|delay_differences
+313|46|20
+(1 row)
+```
