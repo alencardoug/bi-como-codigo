@@ -6,7 +6,7 @@
 > decisions, taken and pending, and what was measured to support all of it.
 >
 > **What does not:** the original proposal by Codex and the reviews of it and of this plan (see
-> [`REVIEW.md`](REVIEW.md): §§1–11, findings RP-01 to RP-15, RV2-01 to RV2-14 in round 2 and RV3-01 to RV3-04 in round 3); what
+> [`REVIEW.md`](REVIEW.md): §§1–11, findings RP-01 to RP-15, RV2-01 to RV2-14 in round 2, RV3-01 to RV3-04 in round 3 and RV4-01 in round 4); what
 > eng_dados is and how it is operated (see its
 > [README](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/README.md) and
 > [Local Execution](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/execucao_local.md));
@@ -14,10 +14,10 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-10-23 — revision 8: the round-3 review by Codex applied (RV3-01 to RV3-04) |
+| Date | 2026-10-23 — revision 9: the round-4 review by Codex applied (RV4-01) |
 | Author | Claude Code, at the Owner's request |
 | Base | eng_dados at `26b58b3` |
-| Status | **Complete proposal.** Nothing implemented. Every decision of the Owner taken (§1.2). Round 3 closed eleven round-2 findings and partly closed three; its four findings are answered in `REVIEW.md` and applied here. Another review round is the Owner's call (§10) |
+| Status | **Complete proposal.** Nothing implemented. Every decision of the Owner taken (§1.2). Round 3 closed eleven round-2 findings and partly closed three. Round 4 closed five of the seven left in its scope and left RV3-02 and RV2-05 open only on RV4-01, answered in `REVIEW.md` and applied here. Another review round is the Owner's call (§10) |
 | Nature | Lives in this repository. At stage 3.2, Part III moves to `caderno-de-dados`; Part I becomes ADRs and pending items in eng_dados |
 | Evidence | [`evidence/20261022/`](evidence/20261022/) for M1–M18 and [`evidence/20261023/`](evidence/20261023/) for M19–M23: read-only probes, prototypes and counterexamples, with their literal outputs and the `ro.sh` that re-runs the SQL probes |
 | Translation | Translated from Portuguese on 2026-10-22, at the Owner's request. The original is in commit `e046937` of this repository |
@@ -321,8 +321,10 @@ study (GitHub) ── lessons and its own capture ──▶ Artifact or *.web.ap
     downloads the candidate as data, never executes its scripts or hooks, revalidates the exact
     artifact against every gate and only then deploys, to a preview or, after approval, to live;
   - federation (N15) trusts only that workflow file at `refs/heads/main`, in this repository and
-    its protected environment: the GitHub OIDC token carries `job_workflow_ref`, `ref` and
-    `environment` for that binding. Firebase's default GitHub setup stores a service-account key,
+    its protected environment: the GitHub OIDC token carries `workflow_ref`, `ref` and
+    `environment` for that binding (RV4-01). The publishing workflow is called directly, not as a
+    reusable workflow, so the binding uses `workflow_ref`; `job_workflow_ref` identifies a called
+    reusable workflow, which this design does not have. Firebase's default GitHub setup stores a service-account key,
     contrary to N15: stage 2.2 proves the Firebase CLI with Application Default Credentials obtained
     from the federation instead;
   - code from forks never runs with deploy credentials, and a same-repository PR that changes the
@@ -572,7 +574,7 @@ promise a deadline.
 | Stage | Deliverable | Effort | Size | Depends on | Criterion to move on |
 |---|---|---|---|---|---|
 | **2.1** | Complete the foundation: the full conventions, skills, the secret guard, README with objective and map — the repository already exists, with this plan, the review and the evidence (N25) | `medium` | S | — | Secret guard green, with the two demo passwords registered as public by design |
-| **2.2** | A Firebase project of its own and the trusted workflow of §3.4 — candidate and publishing workflows, federation bound to the publishing workflow on `main`, previews, promotion by version ID, one promotion at a time —, on harmless fixtures only | `high` | M–L | 2.1 | A test PR gets a preview, and its promotion is the same version ID; a fork's PR gets no credentials; a same-repository PR that changes the checker or `firebase.json` gets no preview and no live update; a preview advanced after approval and a rerun of an older job do not replace the current release; a tampered manifest and a planted clear file are rejected and nothing is uploaded; no stored key |
+| **2.2** | A Firebase project of its own and the trusted workflow of §3.4 — candidate and publishing workflows, federation bound to the publishing workflow on `main`, previews, promotion by version ID, one promotion at a time —, on harmless fixtures only | `high` | M–L | 2.1 | A test PR gets a preview, and its promotion is the same version ID; a fork's PR gets no credentials; a same-repository PR that changes the checker or `firebase.json` gets no preview and no live update; a preview advanced after approval and a rerun of an older job do not replace the current release; a tampered manifest and a planted clear file are rejected and nothing is uploaded; federation accepts the publishing workflow on `main` in its environment and rejects another workflow, another ref and another environment; no stored key |
 | **2.2a** | The encryption envelope (§3.6): the byte-level format frozen, a reference implementation, the browser latency measured to set the iterations, and the negative tests — design reviewed by Codex | `xhigh` | M | 2.1 | An independently implemented reader consumes a fixed, complete envelope vector; known-answer vectors pass in both implementations; every negative case of §3.6 rejected; Codex with no blocking finding on the design |
 | **2.2b** | The complete package-to-artifact gate of §3.4 in the publishing workflow, on encrypted fixtures: the decryption matrix, the control totals and the mutation tests | `high` | S–M | 2.2, 2.2a | Every mutation of §3.4 rejected by the publishing workflow before any upload |
 | **2.3** | Comparative prototype of the framework on P01, opening a report encrypted with the envelope | `high` | M | 2.2a | The same page in each candidate, with what each cost and what was missing; the finished build output of each inspected — a candidate that runs report queries over clear data at build time fails; you choose |
@@ -678,7 +680,7 @@ a read-only transaction, with no new role (the former N5).
 - how long the key derivation takes in the browser, with the chosen iterations — 2.2a measures it;
 - whether the Firebase CLI accepts federated credentials from GitHub in practice — only community
   guides describe it —, and whether deploy and clone run inside a `workflow_run` job bound to
-  `job_workflow_ref` — 2.2 proves both;
+  `workflow_ref` — 2.2 proves both;
 - whether each framework candidate can keep report queries away from build time — 2.3 inspects it;
 - whether the chosen framework bundles DuckDB-WASM into the site itself or accepts jsDelivr;
 - what Firebase does when the Spark plan runs over its quota;
@@ -700,14 +702,10 @@ a read-only transaction, with no new role (the former N5).
 
 ## 10. Request for the next review by Codex
 
-Round 4, if the Owner asks for it: review how this revision answers RV3-01 to RV3-04 (the Status
-column in `REVIEW.md`), and whether it now fully closes RV2-02, RV2-05 and RV2-13, which round 3
-left partly closed. In particular:
-
-1. are the byte-level requirements of §3.6 enough to freeze the envelope in stage 2.2a?
-2. do the candidate and publishing workflows, the federation binding and the promotion by version
-   ID of §3.4 close the trust boundary of publishing?
-3. does the stage table of §6.2 now hold, with 2.2 and 2.2b where they belong?
+Round 5, if the Owner asks for it: check only that this revision answers RV4-01 (the Status column
+in `REVIEW.md`) — that the federation binding of §3.4, §9 and the exit criterion of stage 2.2 now
+name `workflow_ref` for the directly called publishing workflow — and that this closes RV3-02 and
+RV2-05, which round 4 left partly closed on that finding alone.
 
 The probes re-run with the eng_dados databases up (`make up`) and nothing else:
 `evidence/20261022/ro.sh <file.sql>`, with `ENG_DADOS_DIR` pointing at the eng_dados checkout,
