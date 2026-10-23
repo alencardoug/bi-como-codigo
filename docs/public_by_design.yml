@@ -1,0 +1,30 @@
+# Values public by design — what the secrets review must not flag.
+#
+# What lives here: each value that has the shape of a credential and is public
+# on purpose, by the SHA-256 of the value, with the decision and the reason. The
+# review (`python -m bi_como_codigo.secrets_review`, with `--history` for every
+# blob) accepts any occurrence of exactly that value, in any file and commit;
+# any other value is still a finding. An entry with no reason is refused.
+#
+# What does not: the decision itself — N22 and N23 of the plan (PLAN.md §1.2),
+# and the login screen that shows the passwords (PLAN.md §3.2).
+#
+# The fingerprint, and not the value, is what is stored: the register is a
+# reviewed list of exceptions, and keeping the passwords out of it means a
+# change of password needs a new entry, reviewed like the first.
+
+public:
+  - name: Diretoria
+    sha256: 3f662e3584e6e7fdc29e4fc419ce41c59a0725755dd872b98f28721631788cf2
+    decision: N22
+    reason: >-
+      Password of the Diretoria profile, shown to every visitor below the login
+      box. It opens the keys of the 16 reports in the browser; it demonstrates
+      access scoped to the key supplied, not authentication nor confidentiality
+      from the public (PLAN.md §3.2).
+  - name: Logística
+    sha256: 84bfd2187c68b2c2e15c9b2493cd18668341081756a90cbcf481227027942f9a
+    decision: N22
+    reason: >-
+      Password of the Logística profile, shown to every visitor below the login
+      box. It opens only the key of P13 (PLAN.md §3.2).
