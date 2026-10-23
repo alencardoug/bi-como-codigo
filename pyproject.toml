@@ -1,0 +1,33 @@
+# The Python package of this repository's own tooling — today, the checks that
+# `make check` runs. The `uv.lock` next to it is the lock: it, not this file, is
+# what makes two machines install exactly the same versions.
+
+[project]
+name = "bi-como-codigo"
+version = "0.1.0"
+description = "BI as code over the synthetic retail warehouse of mvp_eng_dados_1"
+readme = "README.md"
+authors = [{ name = "Douglas Alencar" }]
+
+# The checks were ported from mvp_eng_dados_1, which runs 3.11; nothing here
+# needs to pin the series, so newer interpreters are accepted.
+requires-python = ">=3.11"
+
+# No runtime dependency yet: each one enters with the stage that uses it.
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0,<9.0",
+    "PyYAML>=6.0,<7.0",  # the register of values public by design is YAML
+]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bi_como_codigo"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
