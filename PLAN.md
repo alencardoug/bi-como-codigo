@@ -10,14 +10,16 @@
 > eng_dados is and how it is operated (see its
 > [README](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/README.md) and
 > [Local Execution](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/execucao_local.md));
-> the decisions, once recorded — they become ADRs in the repository that owns them.
+> how stage 1.6 regenerates eng_dados, line by line (see the
+> [regeneration runbook](docs/regeneration_runbook.md), stage 1.4); the decisions, once recorded —
+> they become ADRs in the repository that owns them.
 
 | Field | Information |
 |---|---|
 | Date | 2026-10-23 — revision 11: the Owner's decisions and the measurements for the regeneration runbook of stage 1.4 (N26–N28, M24–M26) |
 | Author | Claude Code, at the Owner's request |
 | Base | eng_dados at `26b58b3` |
-| Status | **Complete proposal, in execution.** Stage 2.1, the foundation, is done — its criterion met: the secret guard is green with the two demo passwords registered as public by design. In eng_dados, on 2026-10-23, stages 1.1, 1.2 and 1.3 are done — 1.1 and 1.2 pushed, 1.3 committed locally: 1.1 in `9c9ff9c` — the guard failed on eight views before the fix (P01, P02, P03, P05, P06, P13, P14 and the P15 denominator) and passes after; M3 redone on the views gives zero; only the two M3 groups changed; `make check` green, PASS=905 and 667 Python tests —, 1.2 in `7f97d62` — the ADR for O2, number 0049 there, `verificar.py` clean, `make check-offline` green —, 1.3 in `38c1bea` and `1e197ac` — `--json` walked hop by hop gives the 14 edges of M12; the `consumption_reader` login, through an actual connection, reads `consumption`, is refused on the other layers, cannot write and cannot escalate, with a counter-proof; `make check` green, PASS=905 and 683 Python tests. Nothing else is implemented. Every decision of the Owner taken (§1.2). Round 3 closed eleven round-2 findings and partly closed three. Round 4 closed five of the seven left in its scope and left RV3-02 and RV2-05 open only on RV4-01, applied in revision 9. Round 5 closed RV4-01, RV3-02 and RV2-05 with no new finding: the plan review is closed, and execution follows §6.3 (§10) |
+| Status | **Complete proposal, in execution.** Stage 2.1, the foundation, is done — its criterion met: the secret guard is green with the two demo passwords registered as public by design. In eng_dados, on 2026-10-23, stages 1.1, 1.2 and 1.3 are done — 1.1 and 1.2 pushed, 1.3 committed locally: 1.1 in `9c9ff9c` — the guard failed on eight views before the fix (P01, P02, P03, P05, P06, P13, P14 and the P15 denominator) and passes after; M3 redone on the views gives zero; only the two M3 groups changed; `make check` green, PASS=905 and 667 Python tests —, 1.2 in `7f97d62` — the ADR for O2, number 0049 there, `verificar.py` clean, `make check-offline` green —, 1.3 in `38c1bea` and `1e197ac` — `--json` walked hop by hop gives the 14 edges of M12; the `consumption_reader` login, through an actual connection, reads `consumption`, is refused on the other layers, cannot write and cannot escalate, with a counter-proof; `make check` green, PASS=905 and 683 Python tests. Stage 1.4's [runbook](docs/regeneration_runbook.md) is written and waits for Codex. Nothing else is implemented. Every decision of the Owner taken (§1.2). Round 3 closed eleven round-2 findings and partly closed three. Round 4 closed five of the seven left in its scope and left RV3-02 and RV2-05 open only on RV4-01, applied in revision 9. Round 5 closed RV4-01, RV3-02 and RV2-05 with no new finding: the plan review is closed, and execution follows §6.3 (§10) |
 | Nature | Lives in this repository. At stage 3.2, Part III moves to `caderno-de-dados`; Part I becomes ADRs and pending items in eng_dados |
 | Evidence | [`evidence/20261022/`](evidence/20261022/) for M1–M18 and [`evidence/20261023/`](evidence/20261023/) for M19–M23: read-only probes, prototypes and counterexamples, with their literal outputs and the `ro.sh` that re-runs the SQL probes |
 | Translation | Translated from Portuguese on 2026-10-22, at the Owner's request. The original is in commit `e046937` of this repository |
@@ -458,7 +460,7 @@ escalate its role —, not through `SET ROLE` from the superuser (RV2-11).
 
 **The regeneration**, under [Local Execution §3.2](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/execucao_local.md#32-regerar-uma-origem-que-já-alimenta-streaming)
 — destructive maintenance, with the `FORCE=1` of the procedure itself, which never overrides a
-refusal for memory. The runbook of stage 1.4 maps every checkpoint of that procedure to a command, an
+refusal for memory. [The runbook of stage 1.4](docs/regeneration_runbook.md) maps every checkpoint of that procedure to a command, an
 expected oracle and a restart or rollback point (RV2-07): host producers, Beam/Prism and active jobs
 stopped; CDC and the hot sink reset; the retail ingestion reset; keys and every business column
 compared across both paths, and the balance by warehouse and SKU; SCD snapshots and the incremental
@@ -711,7 +713,8 @@ The review of this plan is closed: round 5 closed RV4-01, RV3-02 and RV2-05 at t
 no new finding. Closure means that the plan requires the work and its exit evidence, not that any
 gate has passed — the acceptance and rejection tests of stage 2.2 and every other exit criterion
 of §6.2 remain to be proved. The next reviews by Codex are the ones the stages of §6.2 call for,
-starting with the runbook of 1.4.
+starting with the [runbook of 1.4](docs/regeneration_runbook.md#10-review-by-codex), whose findings
+are recorded in the runbook itself.
 
 The probes re-run with the eng_dados databases up (`make up`) and nothing else:
 `evidence/20261022/ro.sh <file.sql>`, with `ENG_DADOS_DIR` pointing at the eng_dados checkout,

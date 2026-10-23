@@ -27,7 +27,8 @@ publication exists yet. The data is synthetic end to end, and all of it comes fr
 | [`AGENTS.md`](AGENTS.md) | The entry point for any agent, pointing at `CLAUDE.md` |
 | [`docs/adr/`](docs/adr/README.md) | The decision record: 0 accepted, 3 pending |
 | [`docs/public_by_design.yml`](docs/public_by_design.yml) | The two demo passwords, public by design (N22), registered for the secrets review |
-| [`evidence/`](evidence/20261022/README.md) | The read-only probes behind every measurement in the plan, with their literal outputs — [M1–M18](evidence/20261022/README.md) and [M19–M23](evidence/20261023/README.md) |
+| [`docs/regeneration_runbook.md`](docs/regeneration_runbook.md) | The runbook of stage 1.4: how stage 1.6 regenerates eng_dados v1.1.0 — every checkpoint with a command, an oracle and a restart point, the rollback cut and the recovery package —, and the record of its review by Codex |
+| [`evidence/`](evidence/20261022/README.md) | The read-only probes behind every measurement in the plan, with their literal outputs — [M1–M18](evidence/20261022/README.md) and [M19–M26](evidence/20261023/README.md) |
 | [`.claude/skills/`](.claude/skills/review/SKILL.md) | The `review` and `adr` skills: the hand-off between agents, and the decision record as one transaction |
 | `src/`, `tests/`, `Makefile` | The checks of this repository and their tests, run by `make check` |
 
