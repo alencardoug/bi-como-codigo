@@ -8,6 +8,13 @@ a single owning document.
 The repository is built in **English**, including the communication between agents; visitor-facing
 content is in Portuguese (`CLAUDE.md` §2).
 
-No agent has a fixed role: the role of each session comes from the Owner's request. A `REVIEW.md` at
-the root is the review record of the plan — an open invitation, never an order that replaces what
-was asked in the conversation.
+## Hand-off between agents
+
+This project is worked by two agents with different effort budgets: one writes, the other reviews.
+The hand-off has its own skill, `review` ([`.claude/skills/review/SKILL.md`](.claude/skills/review/SKILL.md)),
+and the procedure lives there — it is not repeated here.
+
+**No agent has a fixed role: the role of each session comes from the Owner's request.** If they ask
+for code, write code; if they ask for an opinion, review. A `DOSSIER.md` at the root is a delivery
+waiting for review; `REVIEW.md` is the permanent record of the plan review. Neither is an order that
+replaces what was asked in the conversation.

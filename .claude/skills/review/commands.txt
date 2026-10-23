@@ -1,0 +1,8 @@
+# Verification commands of this project, one per line.
+# The dossier runs each and pastes its output. A line with # is ignored.
+#
+# `make check` is the single gate: secrets in the tracked files and in the
+# history, the documents — including the pinned links into mvp_eng_dados_1, read
+# from the checkout ENG_DADOS_DIR names — and the tests, stopping at the first
+# failure. ENG_DADOS_DIR comes from the environment of whoever runs the dossier.
+make check
