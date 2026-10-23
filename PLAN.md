@@ -13,7 +13,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-10-22 — revision 5: every decision taken; ready for review by Codex |
+| Date | 2026-10-22 — revision 6: the separation from eng_dados, the language of construction and the public repository recorded (O8, N24, N25); ready for review by Codex |
 | Author | Claude Code, at the Owner's request |
 | Base | eng_dados at `26b58b3` |
 | Status | **Complete proposal.** Nothing implemented. Every decision of the Owner taken (§1.2); review by Codex pending (§10) |
@@ -40,8 +40,9 @@ the first report of the showcase and the first lesson of the study content.
 | **O5** | The project **grows to every view and analysis** of eng_dados. The thesis: reports as rich as Power BI's, or richer, **with no licence**, and without bringing the whole database |
 | **O6** | **Two pieces of content.** The **showcase** (`bi-como-codigo`) shows technical capability: a robust, summarised product, an executive presentation that needs no presenter; the governance of the project; and, above all, the data governance, told as a **reading portal** — "I have just arrived at this database and want to understand everything in it" —, organised and engaging, so that whoever consults it learns fast and recognises a well-governed project. The governance may be reassessed and refined. The **study** content is the learning: explorations, the path from the views to the source, understanding the governance and the project |
 | **O7** | **Login, and content segregated by login,** in the showcase: two logins, one of them with access to a single report that makes sense in the story, to show **least privilege**. A simple implementation, straight in the code; no more logins and no management screen |
+| **O8** | **A complete separation from eng_dados**: the new notes live in the new repositories, and eng_dados keeps only the references it needs — such as the justification for changing its database |
 
-### 1.2 The decisions, over four rounds
+### 1.2 The decisions
 
 | # | Question | Choice |
 |---|---|---|
@@ -63,6 +64,8 @@ the first report of the showcase and the first lesson of the study content.
 | **N15** | Authentication of the CI pipeline to Firebase | **Identity federation** from GitHub to Google Cloud, with no stored key |
 | **N10** | Does the study clock count `caderno-de-dados`? | **Yes** |
 | **N12** | The showcase in the portfolio | **A link on the page of project A** |
+| **N24** | Language of the new repositories and of the communication between agents | **Construction in English** — code, commits, technical documents, plans, reviews and the communication between Claude Code and Codex; Portuguese for what visitors read, for the study content and for the conversation with the Owner ([`CLAUDE.md`](CLAUDE.md) §2) |
+| **N25** | When to create `bi-como-codigo`, and with what visibility | **Now, public** — created on 2026-10-22 to keep this version and separate it from eng_dados |
 
 ### 1.3 Consequences
 
@@ -78,6 +81,9 @@ the first report of the showcase and the first lesson of the study content.
   needs no question.
 - N6 and N20 put Part I at the front of the queue.
 - N16 leaves the dimensional model out for now: stage 2.12 exists only if a report asks for detail.
+- O8 and N25 moved this plan, the review and the evidence out of eng_dados into this repository.
+  eng_dados records only what Part I needs, as it is executed (§5.6).
+- N24 sets the language of construction here; the evidence stays as recorded, in Portuguese.
 - In the dimensional model, the `personal` fields are name, a document with the `SIN` suffix, date
   of birth and an e-mail at `example.com` — no phone number (M16). The phone caveat (RP-15) only
   comes back if `trusted` or `raw` are published.
@@ -344,6 +350,20 @@ of the trail in the Artifact.
 D62, D63 and D64 (N14). The consumption contract of the dimensional model (N16). Where v1.1.0 gets
 recorded in eng_dados — its plan ends at Stage 13 — is decided in the runbook of stage 1.4.
 
+### 5.6 What eng_dados records (O8)
+
+Only the references it needs, each in the document that owns the subject there:
+
+- the ADR for O2 (stage 1.2);
+- a short entry for v1.1.0, with the justification for changing the database — M3, M7 to M9 and
+  M17 — and a link to this plan (stage 1.9);
+- the registration, in `docs/segredos_tratados.yml`, of a false positive the history sweep has
+  flagged since 2026-10-13: the Makefile line of commit `e3c226c` that sets `PGPASSWORD` from the
+  variable `$(1)_DB_PASSWORD` is a reference to a variable, not a value. The fix of `ba8244a`
+  cleaned the current file, but the old blob stays in history, and `make secrets-history` has
+  exited with an error ever since (measured on 2026-10-22: one untreated finding, that one). Stage
+  1.9 brings it back to green.
+
 ---
 
 ## 6. Stages and effort
@@ -382,13 +402,13 @@ promise a deadline.
 | **1.6** | Regeneration and the full cycle on the machine | `max` | L | 1.5 and the Owner's authorisation | `make check` green, with the count differences explained; legacy capture certified; reconciliations; recovery package redone and checked; M3 and M7–M9 redone in the warehouse |
 | **1.7** | Descriptions derived through lineage and the description ratchet (§5.4) | `high` | M | — | Counter-proof: a carrying column without text inherits, a computed column without text fails; `make check` green |
 | **1.8** | Text for the computed columns; `domain` and `owner` on the 41 objects | `xhigh` | M | 1.7 | Description ratchet at 100% in `analytics` and `consumption`; your full review of the text |
-| **1.9** | Documents, review by Codex, acceptance and tag `v1.1.0` | `high` | M | 1.1–1.8 | The Owner's acceptance; push authorised |
+| **1.9** | Documents — including the references of §5.6 —, review by Codex, acceptance and tag `v1.1.0` | `high` | M | 1.1–1.8 | `make secrets-history` green; the Owner's acceptance; push authorised |
 
 **Part II — the `bi-como-codigo` showcase**
 
 | Stage | Deliverable | Effort | Size | Depends on | Criterion to move on |
 |---|---|---|---|---|---|
-| **2.1** | Repository: structure, conventions, skills, secret guard, README with objective and map, this plan and `REVIEW.md` moved in | `medium` | S | — | Created by you or with your authorisation; secret guard green |
+| **2.1** | Complete the foundation: the full conventions, skills, the secret guard, README with objective and map — the repository already exists, with this plan, the review and the evidence (N25) | `medium` | S | — | Secret guard green, with the two demo passwords registered as public by design |
 | **2.2** | A Firebase project of its own and the CI pipeline: manifest check, build, preview per PR, publication on merge | `high` | M | 2.1 | A test PR builds a preview; a tampered manifest is rejected and nothing is published |
 | **2.3** | Comparative prototype of the framework on P01, opening an encrypted Parquet | `high` | M | 2.1 | The same page in each candidate, with what each one cost and what was missing; you choose |
 | **2.4** | Exporters: the 16 views as Parquet with the manifest; the governance metadata as JSON | `high` | M | 1.3, 1.9 | Each Parquet reproduces its view, with M2 generalised as the oracle; exact sums; rejects a diverging contract; the metadata matches the counts of the dbt manifest |
@@ -441,8 +461,8 @@ a read-only transaction, with no new role (the former N5).
 - the authorisation of the regeneration, before 1.6, because it is destructive;
 - the full review of the written descriptions, at 1.8;
 - the acceptance of v1.1.0 and every push, from 1.9 onwards;
-- the creation of the repositories and of the Firebase project, at 2.1 and 2.2 — done by you or
-  with your authorisation;
+- the creation of `caderno-de-dados` and of the Firebase project, at 3.2 and 2.2 — done by you or
+  with your authorisation; `bi-como-codigo` already exists (N25);
 - the ADRs for the new components of each repository — hosting, CI pipeline and per-profile
   encryption —, recorded as each one is born;
 - the result of the probe of stage 3.1 needs no decision: the rule of N18 already says what to do.
@@ -497,7 +517,7 @@ a read-only transaction, with no new role (the former N5).
 
 ## 10. Request for review by Codex
 
-Review this plan against the code, the ADRs and the decisions O1–O7 and N1–N23 in §1. In particular:
+Review this plan against the code, the ADRs and the decisions O1–O8 and N1–N25 in §1. In particular:
 
 1. does the architecture of §3.4 — manifest, PR and rejection — guarantee that nothing wrong is
    published?
