@@ -1127,3 +1127,155 @@ groups_compared|transit_differences|delay_differences
 313|46|20
 (1 row)
 ```
+
+## Round 3 — Codex review of the answers
+
+Reviewed on **2026-10-23**, against `bi-como-codigo` at
+`85b363d8c8a66f5da0678a64e9d4264fd2e6e306` and `mvp_eng_dados_1` at
+`26b58b33deac1ee89b9f7de1292ba40fec0d4de2`. The review boundary is
+`git diff a038d51..85b363d`: the answers, revision 7 and their new evidence. O1–O8 and N1–N25
+remain the Owner's decisions.
+
+**Reading / review judgment:** eleven findings are closed at the **plan** level and three are
+partly closed. This does not certify an implementation or the future exit checks. The remaining
+blocking point is the authority of the preview/deployment workflow (RV3-02). The other changes
+below complete revision 7's specification and dependencies.
+
+### Closure of round 2
+
+Every verdict in this table is **reading**, including comparison with the author's recorded
+probes; those probes were not rerun in this round. The only new executable probe is R3-E1 below.
+
+| Finding | Closed? | Why |
+|---|---|---|
+| RV2-01 | closed | §§3.2, 3.4 and 3.6 move report encryption before Git and correctly distinguish a public key-scoping demonstration from authentication/confidentiality. The forgery and non-revocation limits are explicit. M22 reproduces the toy counterexample; it is not a test of a finished site. |
+| RV2-02 | partly closed | §3.6 now selects sensible primitives, key/salt/IV/tag sizes and a fresh key per encryption, including retries. Stage 2.2a correctly precedes 2.3/2.4 and includes independent implementations and browser latency. The byte-level envelope and validation policy remain unspecified: RV3-01. |
+| RV2-03 | closed | §3.4 now puts typed row equality, the pinned consumer contract, grain and edge cases inside one local read-only snapshot; §3.5 separates custodian oracles. M19's SQL/output supports the label-swap counterexample. CI verifies package evidence and consistency, not a warehouse it cannot reach. |
+| RV2-04 | closed | §3.4 restores the inclusion list, fresh deploy directory and inspection of the final content before preview upload; control totals are encrypted. Stage 2.3 rejects build-time report queries. These are appropriate artifact requirements; their enforcement still depends on resolving RV3-02. |
+| RV2-05 | partly closed | Federation, protected live promotion and reuse of the approved version answer much of the finding. Same-repository origin does not itself make PR code/checkers trusted. The trusted job boundary and immutable promotion details need RV3-02/RV3-03. |
+| RV2-06 | closed | §5.3 and 1.6 now distinguish verified approved package, rollback cut, clean committed code, candidate, validated restore and promotion. Preserving the approved package and using the recovery rebuild rather than the destructive regeneration rebuild match upstream Capacity and Recovery §§3.3–3.4 and `recovery/cli.py`. |
+| RV2-07 | closed | §5.3 and 1.4 require every Local Execution §3.2 checkpoint to have a command, oracle and restart/rollback point, and retain the operational-state and historical-record obligations. D62–D64 remain limitations. This accepts the runbook's required scope, not a runbook or cycle that has already been executed. |
+| RV2-08 | closed | §5.4 replaces the leaf shortcut with transport classification at every hop, reviewed legacy exceptions and persistent overrides. This addresses `sensitivity._derive_node`'s dependency sets and `lineage.build`'s declared bridges. M21 supports rejecting leaf identity as proof of meaning. A “value-preserving cast” must be proven from its types/domain; unknown or narrowing casts must require text. |
+| RV2-09 | closed | §5.4 and 1.7/1.8 now bootstrap measured floors per layer over materialised columns, then raise the two target layers only after text approval. That matches the inventory basis in `test_classificacao.py` and removes the earlier requirement for complete text before 1.8. |
+| RV2-10 | closed | §5.4 and 1.7 explicitly require shared derivation, input-based cache invalidation and measured added end-to-end cost. M18 is no longer used to bound text effort. This closes the planning omission; neither the sharing implementation nor its cost has been measured here. |
+| RV2-11 | closed | §§3.5/5.2 and 1.3 add an actual non-superuser connection and denied-write/escalation checks. N16 and the upstream consumption boundary remain intact; custodian capture stays separate. |
+| RV2-12 | closed | §3.2, 2.6 and 2.11 retain averages without sufficient statistics at their native grain and require the broader additivity audit. M20's SQL/output agrees with E6; a change to upstream sufficient statistics remains an Owner/ADR decision. |
+| RV2-13 | partly closed | The new 2.2a, fixture-only early work, 3.2 after publication, and 3.3/3.5 after the study foundation repair the principal ordering problems. However, the revised dependency column disconnects 2.2 from the preview/browser and hosted-URL checks: RV3-04. |
+| RV2-14 | closed | §3.2 and 2.7 add the short question → report → column route and distinguish missing metadata, declared tests, dated executions and open issues. Usability remains an exit test, not an observed result. |
+
+### Remaining findings
+
+Status is intentionally empty for the author. These findings concern the remaining blocking
+boundary or details introduced by revision 7.
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+| RV3-01 | §3.6; 2.2a | **Reading; measurement R3-E1.** The parameter table is a design outline, not yet an interoperable envelope. Freeze a byte-level format in 2.2a: binary encoding and wrapped-key format, ciphertext/tag layout, encrypted payload/control-total layout, exact AAD serialization and mapping fields, salt rotation scope, and accepted versions/algorithms/lengths/iteration bounds. Use a cryptographic RNG. Define package identity and AAD independently of any final ciphertext hash to avoid a circular definition; derive expected identities from the validated manifest rather than trusting identifiers supplied by the envelope. R3-E1 shows that equal JSON fields do not imply equal authenticated bytes. Require an independently implemented reader to consume a fixed complete envelope vector before closing 2.2a. The measured iteration count can properly remain pending until that stage. | adjustment | |
+| RV3-02 | §3.4 trusted workflow; §8; 2.2 | **Reading; counterexample hypothesis.** A same-repository PR can change the checker, build script or `firebase.json`. If the credentialed job executes those candidate files, repository/environment restrictions still pass while the candidate can bypass inspection or upload another directory. Pin the publisher, checker and deployment configuration to a separately reviewed protected revision; run candidate code in a job without deploy credentials or OIDC permission. The privileged job must treat its input as data, revalidate the exact artifact and never execute candidate hooks/scripts. Bind federation to that trusted workflow/ref as well as repository/environment. Add a same-repository PR that changes the checker/configuration to the rejection tests, with no preview or live update. This is the trust boundary still missing from RV2-05; see [GitHub's workflow security guidance](https://docs.github.com/en/actions/reference/security/secure-use#mitigating-the-risks-of-untrusted-code-checkout). | blocking | |
+| RV3-03 | §3.4 promotion/concurrency; 2.2 and 2.10 | **Reading; race hypothesis.** Make “exact approved preview version” executable: record the candidate revision, package/artifact digests and Hosting version ID; use `firebase hosting:clone SITE_ID:@VERSION_ID SITE_ID:live`. The channel-name form selects its latest deployment, so a channel updated after approval can promote a different candidate. [Firebase documents both forms](https://firebase.google.com/docs/hosting/manage-hosting-resources#clone-a-version). Cancellation alone also does not establish release freshness: a rerun of an older approved revision can start after a newer release. Serialize the final promotion and reject superseded candidates immediately before it. In 2.2, advance a preview after approval and rerun an obsolete job; neither may replace the approved current release. These are proposed oracles, not executed Firebase tests. | adjustment | |
+| RV3-04 | §6.2 dependencies: 2.2, 2.6, 3.1 | **Reading.** Restore 2.2 as a prerequisite of 2.6 (browser against a preview) and 3.1 (hosted fixture with cross-origin headers); revision 7 replaces both former dependencies with 2.2a. Neither now reaches 2.2 transitively, and 2.10 therefore also lacks that prerequisite. Keep 2.2a too. If 2.2 delivers the full encrypted-package gate of §3.4, it must also follow 2.2a; otherwise split its infrastructure proof from that gate's completion. The recommended order in §6.3 is sensible but does not repair the dependency table. | adjustment | |
+
+**Reading / scope of acceptance:** §3.6's guarantees are correct for the intended public demo,
+provided identity binding means checking the expected identity as well as authenticating bytes.
+Fresh randomly generated keys make accidental reuse negligible; this is not proof that an exporter
+never reuses a key. The injected-reuse test and review of the random generation/retry path remain
+necessary. The three publication gates are the right decomposition, with local source correctness
+conditional on the trusted export; they are not an independent CI attestation of the warehouse.
+
+**Reading / implementation hypothesis:** transport-only inheritance is a sound conservative
+direction when unresolved expressions/types fall back to authored text. Existing leaf sets must
+not be repurposed as the transport classifier. The per-layer bootstrap now holds. The runbook
+mapping and recovery lifecycle match the upstream documents; 1.4 must still include the conditional
+producer/duplicate/alert checks and producer cursor recording in Local Execution §3.2 step 6.
+The revised effort for 1.7/1.8 appropriately remains provisional. There is no new timing evidence
+for regeneration, restoration, full `make check` or manual text review.
+
+### Evidence read and measurements made
+
+**Reading of committed evidence, not new measurements:** commands/source and literal outputs were
+compared in the following pairs. Their recorded results support the original counterexamples;
+none is an implementation acceptance test.
+
+| Plan evidence | Probe source | Recorded output |
+|---|---|---|
+| M19 | [label-swap SQL](evidence/20261023/r4_label_swap.sql) | [literal output](evidence/20261023/r4_label_swap.out.txt) |
+| M20 | [P13 SQL](evidence/20261023/r3_p13_averages.sql) | [literal output](evidence/20261023/r3_p13_averages.out.txt) |
+| M21 | [lineage probe](evidence/20261023/r2_lineage_leaves.py) | [literal output](evidence/20261023/r2_lineage_leaves.out.txt) |
+| M22 | [envelope probe](evidence/20261023/r1_envelope_counterexample.sh) | [literal output](evidence/20261023/r1_envelope_counterexample.out.txt) |
+
+**R3-E0 — measurement: base and environment.** Run from `bi-como-codigo`, before editing:
+
+```bash
+date -u '+%Y-%m-%dT%H:%M:%SZ'
+git rev-parse HEAD
+git status --short
+git -C /home/doug/Projetos/mvp_eng_dados_1 rev-parse HEAD
+git -C /home/doug/Projetos/mvp_eng_dados_1 status --short
+uname -smr
+node --version
+python3 --version
+```
+
+Literal output; both status commands emitted nothing:
+
+```text
+2026-10-23T04:17:19Z
+85b363d8c8a66f5da0678a64e9d4264fd2e6e306
+26b58b33deac1ee89b9f7de1292ba40fec0d4de2
+Linux 7.1.1-76070101-generic x86_64
+v24.18.0
+Python 3.10.12
+```
+
+**R3-E1 — measurement: AAD is bytes, not a set of fields.** Run from `bi-como-codigo`, entirely
+in memory, with Node's WebCrypto. This illustrates the missing serialization contract; it does not
+claim that the future implementation has this defect.
+
+```bash
+node --input-type=module <<'JS'
+import { webcrypto as c } from 'node:crypto';
+import assert from 'node:assert/strict';
+const s = c.subtle, encode = x => new TextEncoder().encode(JSON.stringify(x));
+const a = {version:1, package:'demo', report:'P01'};
+const b = {report:'P01', package:'demo', version:1};
+const key = await s.generateKey({name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+const iv = c.getRandomValues(new Uint8Array(12));
+const params = {name:'AES-GCM', iv, tagLength:128, additionalData:encode(a)};
+const encrypted = await s.encrypt(params, key, new Uint8Array([1,2,3]));
+assert.deepEqual(new Uint8Array(await s.decrypt(params, key, encrypted)), new Uint8Array([1,2,3]));
+console.log('Identical AAD bytes: decrypt OK');
+assert.deepEqual(a, b);
+await assert.rejects(s.decrypt({...params, additionalData:encode(b)}, key, encrypted), {name:'OperationError'});
+console.log('Same fields, different JSON order: OperationError');
+console.log('Probe only: no product envelope or browser tested');
+JS
+```
+
+Literal output (exit 0):
+
+```text
+Identical AAD bytes: decrypt OK
+Same fields, different JSON order: OperationError
+Probe only: no product envelope or browser tested
+```
+
+### Not verified, assumptions and environment limits
+
+**Not verified:** no warehouse query, regeneration, restore, recovery-package verification,
+dbt build, catalogue generation or `make check` was run. Container state was not inspected and no
+service was started. No Firebase/GitHub workflow, IAM/federation policy, channel promotion,
+browser/Artifact path, final deploy artifact or complete encryption protocol was exercised.
+The author's reproductions were read, not independently rerun. The known public-password detector
+matches and `e3c226c` history false positive were not retested or reopened.
+
+**Assumptions:** “closed” means the plan now requires the appropriate work and exit evidence;
+it does not waive those gates. “No clear figure” applies to report packages and their control
+totals, not the explicitly public governance metadata or historical evidence already in Git.
+The future export is an Owner-controlled operation; its recorded success cannot by itself prove
+to CI that a remote warehouse was read correctly. Unknown inheritance cases require authored text.
+
+The session used the local Linux checkout, Bash, Git, the system Python and Node versions in
+R3-E0, plus read-only official web documentation. The upstream virtual environment and databases
+were not needed. The review draft was prepared under `/tmp`; the sole repository edit is this
+append to `REVIEW.md`. No upstream files, repository/branch, Firebase project or deployment were
+created or changed.
