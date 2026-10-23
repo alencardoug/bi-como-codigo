@@ -1,0 +1,13 @@
+# k2_category_and_price_dependencies.sh — 2026-10-23T14:09:19Z — eng_dados at 1e197ac
+category names, from generator/providers.py: 24
+
+## category names outside the generator and the study trail
+[matches: 0]
+
+## the price range and the margin, outside the generator
+[matches: 0]
+
+## category names in the study trail (CONVERSAS_COM_CHAT) — files and matches
+CONVERSAS_COM_CHAT/PLANO_material_de_estudo.md:1
+CONVERSAS_COM_CHAT/PLANO_roteiros_passo_a_passo.md:1
+CONVERSAS_COM_CHAT/trilha_de_estudo_fase_local.html:22

@@ -1,0 +1,4 @@
+# k3_make_variables.sh — 2026-10-23T14:09:19Z — GNU Make 4.3
+$ make outer RESET=1 → inner sees RESET=[1] FORCE=[]
+$ make outer FORCE=1 → inner sees RESET=[] FORCE=[1]
+$ make outer  → inner sees RESET=[] FORCE=[]

@@ -1,0 +1,170 @@
+# k1_rollback_cut.sh — 2026-10-23T13:54:53Z — eng_dados at 1e197ac
+
+$ ls data/recovery
+aprovado
+[exit 0]
+
+$ make --no-print-directory preflight ALVO=trabalho
+[preflight] nenhum trabalho em andamento — janela parada.
+[exit 0]
+
+$ make --no-print-directory recovery-verify
+[recovery] RECOVERY_DIR = /home/doug/Projetos/mvp_eng_dados_1/data/recovery
+[recovery] conferindo /home/doug/Projetos/mvp_eng_dados_1/data/recovery/aprovado
+recovery-verify: checksums conferem, manifesto completo e no formato atual, os três dumps se listam. Listar o pacote não é restaurá-lo — isso é a linha 9 de B5.
+[exit 0]
+
+$ make --no-print-directory recovery-verify CONTRA_O_BANCO=1
+[recovery] RECOVERY_DIR = /home/doug/Projetos/mvp_eng_dados_1/data/recovery
+  contagens em source_db: oltp.inventory_balances — manifesto 2911 × agora 2919
+  contagens em source_db: oltp.inventory_movements — manifesto 13700 × agora 18351
+  contagens em warehouse_db: governance.legacy_captures — manifesto 480 × agora 600
+  contagens em warehouse_db: quarantine.rejected_legacy_records — manifesto 63802 × agora 73423
+  contagens em warehouse_db: raw_legacy.brands — manifesto 27 × agora 30
+  contagens em warehouse_db: raw_legacy.campaigns — manifesto 245 × agora 272
+  contagens em warehouse_db: raw_legacy.carriers — manifesto 224 × agora 248
+  contagens em warehouse_db: raw_legacy.cart_items — manifesto 154000 × agora 170500
+  contagens em warehouse_db: raw_legacy.carts — manifesto 56000 × agora 62000
+  contagens em warehouse_db: raw_legacy.coupon_redemptions — manifesto 243 × agora 270
+  contagens em warehouse_db: raw_legacy.coupons — manifesto 56 × agora 62
+  contagens em warehouse_db: raw_legacy.customer_addresses — manifesto 2940 × agora 3255
+  contagens em warehouse_db: raw_legacy.customer_contacts — manifesto 3360 × agora 3720
+  contagens em warehouse_db: raw_legacy.customer_preferences — manifesto 2121 × agora 2349
+  contagens em warehouse_db: raw_legacy.customer_segments — manifesto 231 × agora 255
+  contagens em warehouse_db: raw_legacy.customers — manifesto 2063 × agora 2279
+  contagens em warehouse_db: raw_legacy.delivery_events — manifesto 24416 × agora 27032
+  contagens em warehouse_db: raw_legacy.goods_receipt_items — manifesto 2073 × agora 2295
+  contagens em warehouse_db: raw_legacy.goods_receipts — manifesto 532 × agora 589
+  contagens em warehouse_db: raw_legacy.inventory_balances — manifesto 4102 × agora 4540
+  contagens em warehouse_db: raw_legacy.inventory_movements — manifesto 19370 × agora 21446
+  contagens em warehouse_db: raw_legacy.order_items — manifesto 10500 × agora 11625
+  contagens em warehouse_db: … e mais 22 diferença(s)
+  max(event_sequence): manifesto 13700 × agora 18351
+  quarentena: 3 fatia(s) que o manifesto não tem — este não é o estado do pacote: ['["legacy",49,9,"607e6288f4f57e39"]', '["legacy",52,9,"607e6288f4f57e39"]', '["legacy",55,9,"607e6288f4f57e39"]']
+  capturas certificadas: manifesto [28, 29, 30, 31, 32, 33, 35, 36, 38, 39, 43] × agora [28, 29, 30, 31, 32, 33, 35, 36, 38, 39, 43, 49, 52, 55]
+  brands: 27 classe(s) de geração no manifesto × 30 agora
+  brands: gerações -27..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  campaigns: 28 classe(s) de geração no manifesto × 31 agora
+  campaigns: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  carriers: 28 classe(s) de geração no manifesto × 31 agora
+  carriers: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  cart_items: 28 classe(s) de geração no manifesto × 31 agora
+  cart_items: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  carts: 28 classe(s) de geração no manifesto × 31 agora
+  carts: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  coupon_redemptions: 27 classe(s) de geração no manifesto × 30 agora
+  coupon_redemptions: gerações -27..6 não são as do manifesto (1..27) nem uma faixa negativa re-baseada
+  coupons: 28 classe(s) de geração no manifesto × 31 agora
+  coupons: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  customer_addresses: 28 classe(s) de geração no manifesto × 31 agora
+  customer_addresses: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  customer_contacts: 28 classe(s) de geração no manifesto × 31 agora
+  customer_contacts: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  customer_preferences: 28 classe(s) de geração no manifesto × 31 agora
+  customer_preferences: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  customer_segments: 28 classe(s) de geração no manifesto × 31 agora
+  customer_segments: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  customers: 28 classe(s) de geração no manifesto × 31 agora
+  customers: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  delivery_events: 28 classe(s) de geração no manifesto × 31 agora
+  delivery_events: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  goods_receipt_items: 28 classe(s) de geração no manifesto × 31 agora
+  goods_receipt_items: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  goods_receipts: 28 classe(s) de geração no manifesto × 31 agora
+  goods_receipts: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  inventory_balances: 28 classe(s) de geração no manifesto × 31 agora
+  inventory_balances: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  inventory_movements: 28 classe(s) de geração no manifesto × 31 agora
+  inventory_movements: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  order_items: 28 classe(s) de geração no manifesto × 31 agora
+  order_items: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  order_status_history: 28 classe(s) de geração no manifesto × 31 agora
+  order_status_history: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  orders: 28 classe(s) de geração no manifesto × 31 agora
+  orders: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  payment_methods: 28 classe(s) de geração no manifesto × 31 agora
+  payment_methods: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  payment_transactions: 28 classe(s) de geração no manifesto × 31 agora
+  payment_transactions: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  payments: 28 classe(s) de geração no manifesto × 31 agora
+  payments: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  price_lists: 28 classe(s) de geração no manifesto × 31 agora
+  price_lists: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  product_categories: 28 classe(s) de geração no manifesto × 31 agora
+  product_categories: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  product_prices: 28 classe(s) de geração no manifesto × 31 agora
+  product_prices: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  product_variants: 28 classe(s) de geração no manifesto × 31 agora
+  product_variants: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  products: 28 classe(s) de geração no manifesto × 31 agora
+  products: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  purchase_order_items: 28 classe(s) de geração no manifesto × 31 agora
+  purchase_order_items: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  purchase_orders: 28 classe(s) de geração no manifesto × 31 agora
+  purchase_orders: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  refunds: 26 classe(s) de geração no manifesto × 29 agora
+  refunds: gerações -26..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  sales_channels: 28 classe(s) de geração no manifesto × 31 agora
+  sales_channels: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  shipment_items: 28 classe(s) de geração no manifesto × 31 agora
+  shipment_items: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  shipments: 28 classe(s) de geração no manifesto × 31 agora
+  shipments: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  stock_reservations: 28 classe(s) de geração no manifesto × 31 agora
+  stock_reservations: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  suppliers: 28 classe(s) de geração no manifesto × 31 agora
+  suppliers: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  support_agents: 28 classe(s) de geração no manifesto × 31 agora
+  support_agents: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  support_tickets: 28 classe(s) de geração no manifesto × 31 agora
+  support_tickets: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  ticket_events: 28 classe(s) de geração no manifesto × 31 agora
+  ticket_events: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  warehouses: 28 classe(s) de geração no manifesto × 31 agora
+  warehouses: gerações -28..6 não são as do manifesto (1..28) nem uma faixa negativa re-baseada
+  partição das linhas retidas por geração: brands — manifesto {'classes': 27, 'digest': 'a94a83083bcfa16b0e151ffdf8c8b953', 'linhas': 27, 'nulas': 0} × agora {'linhas': 30, 'classes': 30, 'nulas': 0, 'digest': '1e7332cdb4b73e8829c1510a1e9f8160'}
+  partição das linhas retidas por geração: campaigns — manifesto {'classes': 28, 'digest': '72bf2efcbc82e148653adde3a542f4d8', 'linhas': 245, 'nulas': 0} × agora {'linhas': 272, 'classes': 31, 'nulas': 0, 'digest': '6dbd15e71646f696241f234f76a46593'}
+  partição das linhas retidas por geração: carriers — manifesto {'classes': 28, 'digest': 'ebd9a13c0e399577421a9578c937235d', 'linhas': 224, 'nulas': 0} × agora {'linhas': 248, 'classes': 31, 'nulas': 0, 'digest': '5e3a06abfa49dfa116f51761a4ad2041'}
+  partição das linhas retidas por geração: cart_items — manifesto {'classes': 28, 'digest': '0e403f295ca24a398d715738acf87a6f', 'linhas': 154000, 'nulas': 0} × agora {'linhas': 170500, 'classes': 31, 'nulas': 0, 'digest': 'e383f180e17c02f994e458fe90d4323c'}
+  partição das linhas retidas por geração: carts — manifesto {'classes': 28, 'digest': 'bb5c7f66ea0f8cf17c846cb0a076d37e', 'linhas': 56000, 'nulas': 0} × agora {'linhas': 62000, 'classes': 31, 'nulas': 0, 'digest': 'af4850628c5b0e7cba445d44ac5a8697'}
+  partição das linhas retidas por geração: coupon_redemptions — manifesto {'classes': 27, 'digest': 'a942e64c2cde1b15636d656ec86b7f4c', 'linhas': 243, 'nulas': 0} × agora {'linhas': 270, 'classes': 30, 'nulas': 0, 'digest': 'ec0c93c4b9bd0d4094c8993d11c929d9'}
+  partição das linhas retidas por geração: coupons — manifesto {'classes': 28, 'digest': 'a3ede127cd7bf938cec8e0cb5c92aa3e', 'linhas': 56, 'nulas': 0} × agora {'linhas': 62, 'classes': 31, 'nulas': 0, 'digest': '835fdc69206b904c0f7468ffcecdd2cd'}
+  partição das linhas retidas por geração: customer_addresses — manifesto {'classes': 28, 'digest': '961de97eff3f7de8cc8101f7de3892fe', 'linhas': 2940, 'nulas': 0} × agora {'linhas': 3255, 'classes': 31, 'nulas': 0, 'digest': '8d2b67aa87dacca00946d69eb7381ac6'}
+  partição das linhas retidas por geração: customer_contacts — manifesto {'classes': 28, 'digest': '6789f76371df65a59a8d538fa79411a8', 'linhas': 3360, 'nulas': 0} × agora {'linhas': 3720, 'classes': 31, 'nulas': 0, 'digest': 'dee6806ae4864abb2445f905ceb7fb8c'}
+  partição das linhas retidas por geração: customer_preferences — manifesto {'classes': 28, 'digest': 'bb1dd9eec4d3bc1db0dde7e62034a0c8', 'linhas': 2121, 'nulas': 0} × agora {'linhas': 2349, 'classes': 31, 'nulas': 0, 'digest': '06aed2ca288f2806bc173d55f71934b4'}
+  partição das linhas retidas por geração: customer_segments — manifesto {'classes': 28, 'digest': 'd33fa76ff14c149ab57d498d3322fa70', 'linhas': 231, 'nulas': 0} × agora {'linhas': 255, 'classes': 31, 'nulas': 0, 'digest': 'c4ba58c39b1a6bb532d2fe4da8b80f82'}
+  partição das linhas retidas por geração: customers — manifesto {'classes': 28, 'digest': '4b606d462de355967c3beaeef0eef0a6', 'linhas': 2063, 'nulas': 0} × agora {'linhas': 2279, 'classes': 31, 'nulas': 0, 'digest': '71f2449c09896a45794c443723434d92'}
+  partição das linhas retidas por geração: delivery_events — manifesto {'classes': 28, 'digest': '8df93bd2dbd93a0dc17d9431a0faf2d1', 'linhas': 24416, 'nulas': 0} × agora {'linhas': 27032, 'classes': 31, 'nulas': 0, 'digest': '64bbbb2b0cd3dcb193c0af71b96d130f'}
+  partição das linhas retidas por geração: goods_receipt_items — manifesto {'classes': 28, 'digest': 'e1f004893f974a1dac9ec8518d2303ff', 'linhas': 2073, 'nulas': 0} × agora {'linhas': 2295, 'classes': 31, 'nulas': 0, 'digest': '6aa110e56779bfcbbd465c4e77a96c7a'}
+  partição das linhas retidas por geração: goods_receipts — manifesto {'classes': 28, 'digest': '27a4f79a593e93ada8854926f546ec57', 'linhas': 532, 'nulas': 0} × agora {'linhas': 589, 'classes': 31, 'nulas': 0, 'digest': '503e5e5829e3b577867ebea0045ea8c9'}
+  partição das linhas retidas por geração: inventory_balances — manifesto {'classes': 28, 'digest': '030b02902d9c34e606f4681f7f10a2e7', 'linhas': 4102, 'nulas': 0} × agora {'linhas': 4540, 'classes': 31, 'nulas': 0, 'digest': '78901441e37397a4cf7fdae724da53db'}
+  partição das linhas retidas por geração: inventory_movements — manifesto {'classes': 28, 'digest': 'ad9de02200dd727ee8fd0b1cd5d61e0d', 'linhas': 19370, 'nulas': 0} × agora {'linhas': 21446, 'classes': 31, 'nulas': 0, 'digest': 'ba00c25fb81adf3a6512e62787fd72df'}
+  partição das linhas retidas por geração: order_items — manifesto {'classes': 28, 'digest': '460a5873399f3777a309c1308c4acc6c', 'linhas': 10500, 'nulas': 0} × agora {'linhas': 11625, 'classes': 31, 'nulas': 0, 'digest': '8e39f08438d7f7c992b2157acf62f0de'}
+  partição das linhas retidas por geração: order_status_history — manifesto {'classes': 28, 'digest': '90c83c8ba1e38a2696ecefec045ee4de', 'linhas': 22260, 'nulas': 0} × agora {'linhas': 24645, 'classes': 31, 'nulas': 0, 'digest': 'f1aadcc1d5fc0946b5aef03c14d93de2'}
+  partição das linhas retidas por geração: orders — manifesto {'classes': 28, 'digest': 'de7b5498563b729785f939aebc8b8537', 'linhas': 4914, 'nulas': 0} × agora {'linhas': 5439, 'classes': 31, 'nulas': 0, 'digest': 'c1fc8bcb4d190fd7cc8c6b2ce77b60b6'}
+  partição das linhas retidas por geração: … e mais 20 diferença(s)
+
+recovery-verify: 127 problema(s)
+[recovery] conferindo /home/doug/Projetos/mvp_eng_dados_1/data/recovery/aprovado
+[recovery] contagens das três fontes, Alembic, versões do armazém e corte do livro conferidos
+[recovery] quarentena: 21 fatia(s) do manifesto conferidas por contagem e conteúdo, 3 acrescentada(s) desde o corte
+[recovery] SCD: 4 snapshot(s) conferidos pelo digest canônico de todas as colunas
+[recovery] capturas: 11 certificada(s) do manifesto conferidas com problemas; partição por geração DIFERENTE da do manifesto (gerações como no manifesto)
+make: *** [Makefile:577: recovery-verify] Erro 1
+[exit 2]
+
+$ sh -c cd '/home/doug/mvp_ed1-recovery-20260925T123221Z/candidato' && sha256sum -c checksums.sha256
+.stream/producer_state.json: SUCESSO
+RESTAURAR.md: SUCESSO
+data/legacy/manifesto-3f9e5088c72234045351b251d406ce9e.json: SUCESSO
+data/legacy/manifesto-anterior-20260907-sem-hash.json: SUCESSO
+data/legacy/manifesto.json: SUCESSO
+legacy_db.dump: SUCESSO
+manifesto.json: SUCESSO
+source_db.dump: SUCESSO
+warehouse_memoria.dump: SUCESSO
+[exit 0]
+
+$ grep MemAvailable /proc/meminfo
+MemAvailable:    3168260 kB
+[exit 0]
