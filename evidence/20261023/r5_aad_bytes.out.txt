@@ -1,0 +1,4 @@
+# r5_aad_bytes.sh — 2026-10-23T04:23:52Z — node v24.18.0 — reproduction of R3-E1
+Identical AAD bytes: decrypt OK
+Same fields, different JSON order: OperationError
+Probe only: no product envelope or browser tested
