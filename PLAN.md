@@ -6,7 +6,7 @@
 > decisions, taken and pending, and what was measured to support all of it.
 >
 > **What does not:** the original proposal by Codex and the reviews of it and of this plan (see
-> [`REVIEW.md`](REVIEW.md): §§1–11, findings RP-01 to RP-15 and, in round 2, RV2-01 to RV2-14); what
+> [`REVIEW.md`](REVIEW.md): §§1–11, findings RP-01 to RP-15, RV2-01 to RV2-14 in round 2 and RV3-01 to RV3-04 in round 3); what
 > eng_dados is and how it is operated (see its
 > [README](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/README.md) and
 > [Local Execution](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/execucao_local.md));
@@ -14,12 +14,12 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-10-23 — revision 7: the round-2 review by Codex applied (RV2-01 to RV2-14) |
+| Date | 2026-10-23 — revision 8: the round-3 review by Codex applied (RV3-01 to RV3-04) |
 | Author | Claude Code, at the Owner's request |
 | Base | eng_dados at `26b58b3` |
-| Status | **Complete proposal.** Nothing implemented. Every decision of the Owner taken (§1.2); each round-2 finding answered in `REVIEW.md` and applied here; another review round is the Owner's call (§10) |
+| Status | **Complete proposal.** Nothing implemented. Every decision of the Owner taken (§1.2). Round 3 closed eleven round-2 findings and partly closed three; its four findings are answered in `REVIEW.md` and applied here. Another review round is the Owner's call (§10) |
 | Nature | Lives in this repository. At stage 3.2, Part III moves to `caderno-de-dados`; Part I becomes ADRs and pending items in eng_dados |
-| Evidence | [`evidence/20261022/`](evidence/20261022/) for M1–M18 and [`evidence/20261023/`](evidence/20261023/) for M19–M22: read-only probes, prototypes and counterexamples, with their literal outputs and the `ro.sh` that re-runs the SQL probes |
+| Evidence | [`evidence/20261022/`](evidence/20261022/) for M1–M18 and [`evidence/20261023/`](evidence/20261023/) for M19–M23: read-only probes, prototypes and counterexamples, with their literal outputs and the `ro.sh` that re-runs the SQL probes |
 | Translation | Translated from Portuguese on 2026-10-22, at the Owner's request. The original is in commit `e046937` of this repository |
 
 ---
@@ -93,6 +93,10 @@ the first report of the showcase and the first lesson of the study content.
   (RV2-01); publication gains three gates and a trusted workflow (RV2-03 to RV2-05); the envelope is
   specified (RV2-02); description inheritance becomes conservative (RV2-08); the recovery package
   follows its full lifecycle (RV2-06).
+- Round 3 completed the trust boundary of publishing: the credentialed job runs only reviewed
+  code from `main` and treats the candidate as data (RV3-02); promotion goes by version ID
+  (RV3-03); the envelope gets a byte-level format (RV3-01); and the stage table puts the workflow
+  (2.2) and the complete gate (2.2b) before any real report reaches Hosting (RV3-04).
 
 ---
 
@@ -101,7 +105,8 @@ the first report of the showcase and the first lesson of the study content.
 M1–M18 were read in a `default_transaction_read_only=on` session on the running warehouse, between
 2026-10-23 00:12Z and 01:22Z (2026-10-22, 21:12 to 22:22 in Brasília), on commit `26b58b3`. The view
 was read as `analyst`; the inner layers, by the superuser in the same read-only session; the files,
-with no database. M19–M22 reproduce the round-2 review on 2026-10-23 at 03:52Z, on the same commit.
+with no database. M19–M22 reproduce the round-2 review on 2026-10-23 at 03:52Z, and M23 the round-3 probe at 04:23Z,
+on the same commit.
 Literal outputs in the evidence folders.
 
 | # | What | Result | Consequence |
@@ -128,6 +133,7 @@ Literal outputs in the evidence folders.
 | M20 | P13's rounded averages, re-weighted by their counts, against the direct calculation over 313 month × carrier × service groups | 46 groups differ in transit days and 20 in late delay, at the view's four decimals | Those averages cannot be re-aggregated; they stay at the view's native grain (RV2-12) |
 | M21 | Lineage leaves of `total_amount`, `sum(…)`, `round(…, 2)`, `… * 100` and `cast(… as numeric(12,2))` | The same single leaf for all five | A single leaf of the same name does not prove that a column only carries a value (RV2-08) |
 | M22 | The envelope modelled with WebCrypto and the two public passwords | The Logística password opens P13 and fails on P01; the Diretoria password opens both; its holder can produce ciphertext the site accepts as valid; a flipped bit is rejected | What the encryption demonstrates is access scoped to a key, not authentication or confidentiality (RV2-01) |
+| M23 | Authenticated data serialised as JSON, with the same fields in another order | Decryption with the reordered bytes fails | The authenticated data needs one canonical byte serialisation (RV3-01) |
 
 **Read from official sources on 2026-10-22 and 2026-10-23 — not measured:**
 
@@ -297,24 +303,39 @@ study (GitHub) ── lessons and its own capture ──▶ Artifact or *.web.ap
     only from an explicit inclusion list, and the finished output inspected for clear report data
     and unwrapped keys — in HTML, JSON, JavaScript, caches and source maps, by content and not by
     file extension;
-  - **artifact to live**: the merge promotes the exact approved preview version with
-    `firebase hosting:clone`, which within the same site points live at the same version. A changed
-    candidate needs a new preview and a new approval.
+  - **artifact to live**: approval records the candidate revision, the package and artifact
+    digests and the Hosting **version ID** of the preview. The merge promotes exactly that version
+    with `firebase hosting:clone SITE_ID:@VERSION_ID SITE_ID:live`, which within the same site
+    points live at the same version — never with the channel-name form, which takes whatever the
+    channel deployed last (RV3-03). Promotions run one at a time, and each first rejects a
+    superseded candidate, so neither a preview advanced after approval nor a rerun of an older job
+    can replace the current release. A changed candidate needs a new preview and a new approval.
 - **Mutation tests prove the gates**: swapped row labels (M19), missing and extra views, changed
   types, duplicated rows, injected clear data, a tampered manifest and a reused key/IV pair.
-- **A trusted workflow** (RV2-05): previews only for branches of this repository — code from forks
-  never runs with deploy credentials —; live behind a protected GitHub environment; federated
-  credentials (N15) whose trust is restricted to this repository and that environment; required
-  checks on the exact approved revision; concurrency that cancels obsolete runs, so an older job
-  never replaces a newer release. Firebase's default GitHub setup stores a service-account key,
-  contrary to N15: stage 2.2 proves the Firebase CLI with Application Default Credentials obtained
-  from the federation instead.
+- **A trusted workflow** (RV2-05, RV3-02). A branch of this repository does not make a PR's code
+  trustworthy: a PR can change the checker, the build or `firebase.json`. So the work splits in two:
+  - the **candidate workflow** (`pull_request`) builds and checks the candidate with no deploy
+    credentials and no permission to request an OIDC token, and uploads the result as an artifact;
+  - the **publishing workflow** (`workflow_run`) runs only what is on `main` — its checker,
+    inclusion list and Hosting configuration, changed only through a separately reviewed PR —,
+    downloads the candidate as data, never executes its scripts or hooks, revalidates the exact
+    artifact against every gate and only then deploys, to a preview or, after approval, to live;
+  - federation (N15) trusts only that workflow file at `refs/heads/main`, in this repository and
+    its protected environment: the GitHub OIDC token carries `job_workflow_ref`, `ref` and
+    `environment` for that binding. Firebase's default GitHub setup stores a service-account key,
+    contrary to N15: stage 2.2 proves the Firebase CLI with Application Default Credentials obtained
+    from the federation instead;
+  - code from forks never runs with deploy credentials, and a same-repository PR that changes the
+    checker or the configuration gets neither a preview nor a live update — one of the rejection
+    tests of 2.2.
 - **Versions are bound**: content-hashed names for the application, the manifest, the wrapped keys
   and the ciphertext, so that a page left open never fetches incompatible new files at reused URLs.
 - **Updating means opening a PR** with the new package: the preview shows the result, the diff of
   the manifest shows what changed, and the merge publishes.
 - **The public manifest carries no clear figure**: the control totals travel encrypted with each
-  report, and CI checks them after decrypting with the public passwords.
+  report, and CI checks them after decrypting with the public passwords. This applies to the report
+  packages and their control totals; the governance metadata is public by design, and the evidence
+  already in Git stays as recorded.
 
 ### 3.5 The contract with eng_dados
 
@@ -349,14 +370,26 @@ parameters**, to be reviewed by Codex together with the reference implementation
 | Authenticated data | Envelope version, package identity, report identity and the expected mapping in the manifest |
 | Envelope fields | Version, password encoding, KDF, hash, iterations, salt, wrapping algorithm, report identity, the wrapped key per profile, IV, tag length and package identity — every length stated |
 
-**What it guarantees, and what it does not.** Binding identities to the authenticated data catches
-the substitution of one report or package for another. It does not authenticate the publisher
+**The byte-level format is frozen in stage 2.2a** (RV3-01), because equal fields are not equal
+bytes (M23): the binary encoding and the format of the wrapped key; the layout of ciphertext and
+tag; the layout of the encrypted payload — the Parquet and its control totals; the authenticated
+data as one canonical serialisation, with fixed field order and lengths; the scope of salt rotation;
+and the accepted versions, algorithms, lengths and iteration bounds, outside which the reader
+refuses. Package identity is minted independently of any ciphertext hash, so nothing is defined in
+terms of itself. The reader takes the identities it expects from the validated manifest, never from
+the envelope it is checking. All randomness comes from a cryptographic generator, and the generation
+and retry path is reviewed: fresh random keys make accidental reuse negligible, not impossible —
+hence the injected-reuse test.
+
+**What it guarantees, and what it does not.** Binding identities to the authenticated data — and
+checking them against the identities the validated manifest expects — catches the substitution of
+one report or package for another. It does not authenticate the publisher
 against someone who knows a public password, who can produce ciphertext the site accepts (M22):
 authenticity comes from the trusted release path and the HTTPS origin. A password changed in a later
 release does not revoke what was already downloaded with the former one.
 
-**Oracles:** known-answer vectors; producer and browser round trips through independent
-implementations; the whole profile × report matrix through actual unwrap and decrypt calls; wrong
+**Oracles:** known-answer vectors; a fixed, complete envelope vector consumed by an independently
+implemented reader; producer and browser round trips through independent implementations; the whole profile × report matrix through actual unwrap and decrypt calls; wrong
 passwords; altered wrapped keys, salts, IVs, tags and ciphertext; swapped report and package
 identities; malformed envelopes; an injected reused key/IV pair; the finished deploy artifact
 inspected for raw data and keys; and profile switching and logout clearing DuckDB tables, buffers
@@ -420,8 +453,11 @@ refusal for memory. The runbook of stage 1.4 maps every checkpoint of that proce
 expected oracle and a restart or rollback point (RV2-07): host producers, Beam/Prism and active jobs
 stopped; CDC and the hot sink reset; the retail ingestion reset; keys and every business column
 compared across both paths, and the balance by warehouse and SKU; SCD snapshots and the incremental
-fact rebuilt together, with `run_results.json` kept; the triggered DAG run followed to its end; the
-recorded operating state restored. Both sources: the legacy source regenerated by the same engine
+fact rebuilt together, with `run_results.json` kept; when the stock ledger is affected, the producer,
+duplicates and alerts exercised again, with `LIMITE`, `SEED` and the offset of
+`.stream/producer_state.json` recorded, and the increment checked against the full rebuild, the
+invariants and P13 on the common cut; the triggered DAG run followed to its end; the recorded
+operating state restored. Both sources: the legacy source regenerated by the same engine
 and captured again, with a new certified capture and the retained history preserved. D62, D63 and
 D64 stay declared limitations in the release evidence (N14): the sink converging does not prove the
 alert right, and the Fernet key affects Airflow Connections and Variables, not the current DAG.
@@ -450,7 +486,9 @@ of the trail in the Artifact.
   same leaf (M21), and P01's aggregated revenue has a single immediate leaf of the same name.
   Inheritance therefore requires a conservative classification of the expression at every hop — a
   bare column reference, an alias or a value-preserving cast carries the value; aggregation,
-  arithmetic, functions, generated fields and ambiguous unions require text. The legacy bridges
+  arithmetic, functions, generated fields and ambiguous unions require text. The existing leaf sets
+  are not repurposed as that classifier, and a cast carries the value only when its types and domain
+  prove it — an unknown or narrowing cast requires text. The legacy bridges
   inherit only through an explicit, reviewed declaration, because their `meta.lineage` skips the
   cleaning. The semantics of `sensitivity` do not change. A reasoned override written by hand
   survives regeneration. Counter-proofs: a same-name computed column — P01's revenue sum — that must
@@ -534,16 +572,17 @@ promise a deadline.
 | Stage | Deliverable | Effort | Size | Depends on | Criterion to move on |
 |---|---|---|---|---|---|
 | **2.1** | Complete the foundation: the full conventions, skills, the secret guard, README with objective and map — the repository already exists, with this plan, the review and the evidence (N25) | `medium` | S | — | Secret guard green, with the two demo passwords registered as public by design |
-| **2.2** | A Firebase project of its own and the trusted workflow of §3.4 — same-repository previews, protected environment, federated credentials through the Firebase CLI, promotion by clone, concurrency —, on harmless fixtures only | `high` | M | 2.1 | A test PR gets a preview, and its promotion is the same version; a fork's PR gets no credentials; a tampered manifest and a planted clear file are rejected and nothing is uploaded; no stored key |
-| **2.2a** | The encryption envelope (§3.6): specification, reference implementation, the browser latency measured to set the iterations, and the negative tests — design reviewed by Codex | `xhigh` | M | 2.1 | Known-answer vectors pass in two independent implementations; every negative case of §3.6 rejected; Codex with no blocking finding on the design |
+| **2.2** | A Firebase project of its own and the trusted workflow of §3.4 — candidate and publishing workflows, federation bound to the publishing workflow on `main`, previews, promotion by version ID, one promotion at a time —, on harmless fixtures only | `high` | M–L | 2.1 | A test PR gets a preview, and its promotion is the same version ID; a fork's PR gets no credentials; a same-repository PR that changes the checker or `firebase.json` gets no preview and no live update; a preview advanced after approval and a rerun of an older job do not replace the current release; a tampered manifest and a planted clear file are rejected and nothing is uploaded; no stored key |
+| **2.2a** | The encryption envelope (§3.6): the byte-level format frozen, a reference implementation, the browser latency measured to set the iterations, and the negative tests — design reviewed by Codex | `xhigh` | M | 2.1 | An independently implemented reader consumes a fixed, complete envelope vector; known-answer vectors pass in both implementations; every negative case of §3.6 rejected; Codex with no blocking finding on the design |
+| **2.2b** | The complete package-to-artifact gate of §3.4 in the publishing workflow, on encrypted fixtures: the decryption matrix, the control totals and the mutation tests | `high` | S–M | 2.2, 2.2a | Every mutation of §3.4 rejected by the publishing workflow before any upload |
 | **2.3** | Comparative prototype of the framework on P01, opening a report encrypted with the envelope | `high` | M | 2.2a | The same page in each candidate, with what each cost and what was missing; the finished build output of each inspected — a candidate that runs report queries over clear data at build time fails; you choose |
-| **2.4** | Exporters: the 16 views through the source-to-package gate (§3.4), encrypted on your machine; the governance metadata as JSON | `high` | M | 1.3, 1.9, 2.2a | One consistent read; contract, grain, nulls and decimals checked; typed rows equal to the views after the round trip; the mutation tests of §3.4 caught; no clear report data in Git |
+| **2.4** | Exporters: the 16 views through the source-to-package gate (§3.4), encrypted on your machine; the governance metadata as JSON | `high` | M | 1.3, 1.9, 2.2b | One consistent read; contract, grain, nulls and decimals checked; typed rows equal to the views after the round trip; the mutation tests of §3.4 caught; no clear report data in Git |
 | **2.5** | The complete P01 report | `high` | M | 2.3, 2.4 | Filter, chart and table agree with the package, checked in a headless browser; keyboard and focus; 360 px; light and dark; partial month and empty slice |
-| **2.6** | Per-profile access in the product (O7, N23): the login screen with the explanation and the credentials, profile switching and logout, and the P13 report at its native grain | `xhigh` | M | 2.2a, 2.5 | The whole matrix through actual unwrap and decrypt in the browser, against the preview; switching to Logística leaves no Diretoria data visible; P13's averages never re-aggregated (M20) |
+| **2.6** | Per-profile access in the product (O7, N23): the login screen with the explanation and the credentials, profile switching and logout, and the P13 report at its native grain | `xhigh` | M | 2.2b, 2.5 | The whole matrix through actual unwrap and decrypt in the browser, against the preview; switching to Logística leaves no Diretoria data visible; P13's averages never re-aggregated (M20) |
 | **2.7** | Reading portal of the data governance (§3.2) | `xhigh` | L | 1.8, 2.4 | The nine chapters and the short route from question to report to column; every number with its source and date; every warehouse object reachable through search; missing metadata labelled; declared, executed and open kept apart; no text that contradicts the declaration |
 | **2.8** | Governance of the project | `high` | M | 2.4 | Every statement points to a document, ADR or history entry at the pinned commit |
 | **2.9** | Executive overview | `xhigh` | M | 2.5–2.8 | Read on its own by an outsider, with no presenter; every number generated |
-| **2.10** | Validation, review by Codex, the first publication by promotion of the approved preview, and the portfolio link (N12) | `high` | M | 2.9 and authorisation | Codex with no blocking finding; live is the clone of the approved preview version; the link on project A, with your push to the portfolio |
+| **2.10** | Validation, review by Codex, the first publication by promotion of the approved preview, and the portfolio link (N12) | `high` | M | 2.2b, 2.9 and authorisation | Codex with no blocking finding; live is the approved preview version, promoted by its ID; the link on project A, with your push to the portfolio |
 | **2.11** | The other fourteen reports, in batches by domain | `high` | L | 2.10 | Per report: the audit of its view for non-additivity, time-dependent balances and truncated populations; an oracle against the view; ratios only through numerator and denominator; the access matrix still proven |
 | **2.12** | The dimensional model for exploration and detail, only when a report asks for it (N16) | `xhigh` | L | An ADR in eng_dados | Consumption contract applied; each published table reproduces its source |
 
@@ -551,7 +590,7 @@ promise a deadline.
 
 | Stage | Deliverable | Effort | Size | Depends on | Criterion to move on |
 |---|---|---|---|---|---|
-| **3.1** | Probe on claude.ai: a private Artifact with DuckDB-WASM and its worker from jsDelivr, a report encrypted with the agreed envelope, and the read of a file published by URL with its cross-origin headers | `medium` | S | 2.2a | Everything works → study content in the Artifact; any item fails → `*.web.app` (N18) |
+| **3.1** | Probe on claude.ai: a private Artifact with DuckDB-WASM and its worker from jsDelivr, a report encrypted with the agreed envelope, and the read of a file published by URL with its cross-origin headers | `medium` | S | 2.2, 2.2a | Everything works → study content in the Artifact; any item fails → `*.web.app` (N18) |
 | **3.2** | The `caderno-de-dados` repository and the study site | `medium` | S | 3.1, 2.10 | Secret guard green; the site reads the published showcase reports |
 | **3.3** | The P01 lesson, from the view to the source | `xhigh` | L | 1.3, 1.9, 3.2 | The five proofs of [`REVIEW.md` §3.4](REVIEW.md#34-a-small-example-that-actually-takes-part-in-the-result), each with its checking query kept; no statement without evidence |
 | **3.4** | Study of the governance: inventory and outline, reviewed by Codex | `high` | S | 1.9 | Each mechanism with its source, incident and planned lab |
@@ -566,7 +605,7 @@ promise a deadline.
    the ratchet bootstrap of §5.4, then run **1.7 and 1.8**. Then **1.5 and 1.6** — the critical
    path, with its two destructive windows. **1.3** at any point; **1.9** last, for the final review,
    the acceptance and the tag.
-2. In parallel with Part I, on disposable fixtures only: **2.1, 2.2a, 2.2, 2.3 and 3.1**. No real
+2. In parallel with Part I, on disposable fixtures only: **2.1, 2.2a, 2.2, 2.2b, 2.3 and 3.1**. No real
    report data reaches Hosting before the gates of §3.4 exist.
 3. After 1.9: **2.4 to 2.10** — the first publication carries the overview, P01 and P13 with the
    per-profile access, the portal and the governance of the project, promoted from its approved
@@ -612,7 +651,8 @@ a read-only transaction, with no new role (the former N5).
 | An inherited description with the wrong meaning | Inheritance only through transport at every hop; legacy bridges only by declaration; disagreement written by hand with a reason; inherited text reviewed by sample and written text in full |
 | The showcase states what the record does not support | Every number generated from a record at a pinned commit; Codex reviews the showcase before the first publication |
 | Clear report data reaching the public repository or Hosting | Encryption at the export on your machine; an explicit inclusion list; the finished output inspected by content, previews included (§3.4) |
-| Untrusted code deploying | Same-repository previews; protected environment; federation restricted to this repository and environment; only the approved version is promoted (§3.4) |
+| Untrusted code deploying | Candidate code builds without credentials; the publishing workflow runs only reviewed code from `main` and treats the candidate as data; federation bound to that workflow; promotion by version ID, one at a time, superseded candidates rejected (§3.4) |
+| Equal fields read as equal bytes | One canonical serialisation of the authenticated data, and expected identities taken from the validated manifest (§3.6; M23) |
 | A framework that prerenders report rows | The prototype inspects the finished output of each candidate (2.3) |
 | Federated credentials do not work with the Firebase CLI | Proved in 2.2 on fixtures; if not, the way forward comes back to you (§7) |
 | A wrong package passing as consistent | Row-level equality with the views and mutation tests (§3.4; M19) |
@@ -637,7 +677,8 @@ a read-only transaction, with no new role (the former N5).
   Artifact — 3.1 measures it;
 - how long the key derivation takes in the browser, with the chosen iterations — 2.2a measures it;
 - whether the Firebase CLI accepts federated credentials from GitHub in practice — only community
-  guides describe it — 2.2 proves it;
+  guides describe it —, and whether deploy and clone run inside a `workflow_run` job bound to
+  `job_workflow_ref` — 2.2 proves both;
 - whether each framework candidate can keep report queries away from build time — 2.3 inspects it;
 - whether the chosen framework bundles DuckDB-WASM into the site itself or accepts jsDelivr;
 - what Firebase does when the Spark plan runs over its quota;
@@ -659,18 +700,14 @@ a read-only transaction, with no new role (the former N5).
 
 ## 10. Request for the next review by Codex
 
-Round 3, if the Owner asks for it: review how this revision answers RV2-01 to RV2-14 (the Status
-column in `REVIEW.md`) against the code, the ADRs and the decisions O1–O8 and N1–N25 in §1. In
-particular:
+Round 4, if the Owner asks for it: review how this revision answers RV3-01 to RV3-04 (the Status
+column in `REVIEW.md`), and whether it now fully closes RV2-02, RV2-05 and RV2-13, which round 3
+left partly closed. In particular:
 
-1. does the envelope of §3.6 specify enough to implement and review it, and are its stated limits
-   right?
-2. do the three gates and the trusted workflow of §3.4 close the paths by which something wrong,
-   clear or untrusted could be published?
-3. does the recovery lifecycle and the runbook mapping of §5.3 match Capacity and Recovery §§3.3–3.4
-   and Local Execution §3.2?
-4. is the conservative inheritance of §5.4 sound, and does the ratchet bootstrap hold?
-5. does the repaired order of §6 hold, with its dependencies and effort?
+1. are the byte-level requirements of §3.6 enough to freeze the envelope in stage 2.2a?
+2. do the candidate and publishing workflows, the federation binding and the promotion by version
+   ID of §3.4 close the trust boundary of publishing?
+3. does the stage table of §6.2 now hold, with 2.2 and 2.2b where they belong?
 
 The probes re-run with the eng_dados databases up (`make up`) and nothing else:
 `evidence/20261022/ro.sh <file.sql>`, with `ENG_DADOS_DIR` pointing at the eng_dados checkout,
