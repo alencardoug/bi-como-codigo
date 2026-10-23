@@ -1,0 +1,13 @@
+# s8_detalhes.sql — 2026-10-23T00:12:53Z — sessão default_transaction_read_only=on
+ view | periodo | sales_channel_name |   recorte   | como_na_view | com_origem 
+------+---------+--------------------+-------------+--------------+------------
+ P06  | 2025-07 | Aplicativo         | Eletrônicos |           11 |         12
+ P05  | 2024-T4 | Aplicativo         | SP          |           20 |         21
+(2 rows)
+
+ source_system | escala_min | escala_max | escala_preco_min | escala_preco_max 
+---------------+------------+------------+------------------+------------------
+ legacy        |          2 |          2 |                4 |                4
+ retail        |          0 |          2 |                0 |                4
+(2 rows)
+

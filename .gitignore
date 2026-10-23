@@ -1,0 +1,19 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Node and build output
+node_modules/
+dist/
+build/
+
+# OS and editors
+.DS_Store
+.vscode/
+.idea/

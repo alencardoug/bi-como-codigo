@@ -1,0 +1,17 @@
+# descricao_herdavel.py — 2026-10-23T01:22:20Z
+origem (SQLAlchemy): colunas 418 | com descrição declarada: 418
+  analytics    1 folha, nome novo                  43
+  analytics    herdaria: 1 folha, mesmo nome      357
+  analytics    já descrita                         26
+  analytics    sem folha (gerada)                  27
+  analytics    várias folhas                       24
+  consumption  1 folha, nome novo                  30
+  consumption  herdaria: 1 folha, mesmo nome      113
+  consumption  já descrita                         31
+  consumption  sem folha (gerada)                   5
+  consumption  várias folhas                        9
+  trusted      1 folha, nome novo                 321
+  trusted      herdaria: 1 folha, mesmo nome      198
+  trusted      já descrita                         56
+  trusted      sem folha (gerada)                  57
+  trusted      várias folhas                      437

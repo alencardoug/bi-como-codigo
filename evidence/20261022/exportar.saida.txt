@@ -1,0 +1,47 @@
+# exportar.py — 2026-10-23T00:59:29Z — uv run --no-project --with pyarrow --with psycopg[binary] python -I exportar.py <raiz> <saída>
+analytics.dim_brand: 19 linhas, 2 KiB
+analytics.dim_campaign: 14 linhas, 5 KiB
+analytics.dim_carrier: 16 linhas, 4 KiB
+analytics.dim_category: 20 linhas, 3 KiB
+analytics.dim_coupon: 19 linhas, 8 KiB
+analytics.dim_customer: 1572 linhas, 129 KiB
+analytics.dim_date: 1340 linhas, 35 KiB
+analytics.dim_geography: 23 linhas, 3 KiB
+analytics.dim_payment_method: 12 linhas, 3 KiB
+analytics.dim_product: 623 linhas, 36 KiB
+analytics.dim_sales_channel: 7 linhas, 3 KiB
+analytics.dim_supplier: 31 linhas, 5 KiB
+analytics.dim_support_agent: 8 linhas, 6 KiB
+analytics.dim_support_category: 6 linhas, 3 KiB
+analytics.dim_warehouse: 10 linhas, 5 KiB
+analytics.fact_cart_event: 81199 linhas, 3449 KiB
+analytics.fact_coupon_redemption: 602 linhas, 66 KiB
+analytics.fact_inventory_movement: 18854 linhas, 1599 KiB
+analytics.fact_order_status_event: 16418 linhas, 834 KiB
+analytics.fact_payment_transaction: 7419 linhas, 428 KiB
+analytics.fact_purchase_order_item: 1638 linhas, 115 KiB
+analytics.fact_refund: 120 linhas, 17 KiB
+analytics.fact_sales_order_item: 7731 linhas, 563 KiB
+analytics.fact_shipment_item: 7546 linhas, 630 KiB
+analytics.fact_support_ticket_event: 1727 linhas, 109 KiB
+consumption.average_order_value_by_channel_and_segment: 751 linhas, 10 KiB
+consumption.cart_conversion_rate_by_channel: 96 linhas, 6 KiB
+consumption.discount_share_by_channel: 386 linhas, 10 KiB
+consumption.gross_margin_by_category: 408 linhas, 12 KiB
+consumption.inventory_turnover_by_sku_and_warehouse: 7097 linhas, 77 KiB
+consumption.monthly_revenue_by_channel_and_category: 1140 linhas, 20 KiB
+consumption.new_and_repeat_customers_by_month: 560 linhas, 4 KiB
+consumption.on_time_delivery_rate_by_carrier: 1176 linhas, 15 KiB
+consumption.order_to_delivery_time_by_region: 1859 linhas, 29 KiB
+consumption.payment_approval_rate_by_method: 538 linhas, 10 KiB
+consumption.refund_rate_by_reason: 105 linhas, 5 KiB
+consumption.repeat_purchase_rate_after_support: 175 linhas, 5 KiB
+consumption.revenue_by_delivery_region: 469 linhas, 8 KiB
+consumption.skus_below_reorder_point: 474 linhas, 15 KiB
+consumption.support_tickets_per_hundred_orders: 118 linhas, 6 KiB
+consumption.top_skus_by_revenue: 25 linhas, 5 KiB
+
+tempo total: 3.7s
+TOTAL analytics: 25 objetos, 146974 linhas, 7.87 MiB em Parquet (zstd)
+TOTAL consumption: 16 objetos, 15377 linhas, 0.23 MiB em Parquet (zstd)
+TOTAL GERAL: 8.10 MiB

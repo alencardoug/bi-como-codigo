@@ -1,0 +1,18 @@
+# s6_categorias.sql — 2026-10-23T00:12:53Z — sessão default_transaction_read_only=on
+SET
+ root_category_name |  category_name  | linhas_na_view |  liquida   
+--------------------+-----------------+----------------+------------
+ Casa e Cozinha     | Caixas de som   |             96 | 2513458.09
+ Casa e Cozinha     | Calças          |             95 | 3115400.47
+ Casa e Cozinha     | Organizadores   |             94 | 2209464.27
+ Eletrônicos        | Camisetas       |             96 | 3295950.87
+ Eletrônicos        | Fones de ouvido |             93 | 2122474.46
+ Eletrônicos        | Panelas         |             96 | 3130263.51
+ Esporte e Lazer    | Estantes        |             95 | 2813030.15
+ Esporte e Lazer    | Periféricos     |             96 | 2855714.22
+ Esporte e Lazer    | Sandálias       |             95 | 2400018.00
+ Moda               | Notebooks       |             95 | 3786590.80
+ Moda               | Sofás           |             95 | 1961675.47
+ Moda               | Tênis           |             94 | 2872489.16
+(12 rows)
+

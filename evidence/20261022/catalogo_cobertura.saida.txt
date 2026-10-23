@@ -1,0 +1,13 @@
+# catalogo_cobertura.py — 2026-10-23T01:22:20Z — manifest de 2026-10-22T17:23:25.369622Z
+schema        obj c/desc domain  owner cols decl  c/desc
+analytics      25     22      0      0       477      26
+consumption    16     16      0      0       188      31
+governance      2      2      0      0        17      17
+quarantine      2      1      1      1        26      12
+raw            37      7      0      0       545       0
+raw_legacy     40      0      0      0       616       0
+snapshots       4      0      0      0       109       0
+staging        77     58     40     40      1114     659
+trusted        75     46     43     43      1069      56
+testes de dados: 700 {'not_null': 381, 'accepted_values': 84, 'unique': 64, 'relationships': 62, 'unique_combination_of_columns': 57, 'singular': 32, 'fato_reconcilia_com_a_condutora': 10, 'expect_column_values_to_be_between': 5}
+blocos {% docs %} do projeto: 18

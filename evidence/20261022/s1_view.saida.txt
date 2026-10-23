@@ -1,0 +1,32 @@
+# s1_view.sql — 2026-10-23T00:12:52Z — sessão default_transaction_read_only=on
+SET
+ current_user 
+--------------
+ analyst
+(1 row)
+
+ linhas | meses | primeiro_mes | ultimo_mes | canais | tipos_de_canal | categorias_raiz | categorias | receita_liquida_total | receita_bruta_total | desconto_total | unidades | escala_max_liquida | menor_liquida | maior_liquida 
+--------+-------+--------------+------------+--------+----------------+-----------------+------------+-----------------------+---------------------+----------------+----------+--------------------+---------------+---------------
+   1140 |    33 | 2024-01      | 2026-09    |      3 |              3 |               4 |         12 |           33076529.47 |         34116436.97 |     1039907.50 |    13920 |                  2 |        189.36 |     156944.94
+(1 row)
+
+ sales_channel_name | channel_type | linhas 
+--------------------+--------------+--------
+ Aplicativo         | app          |    381
+ Loja física        | store        |    380
+ Loja online        | web          |    379
+(3 rows)
+
+ root_category_name | categorias | linhas 
+--------------------+------------+--------
+ Casa e Cozinha     |          3 |    285
+ Eletrônicos        |          3 |    285
+ Esporte e Lazer    |          3 |    286
+ Moda               |          3 |    284
+(4 rows)
+
+ tamanho_texto_aprox 
+---------------------
+ 96 kB
+(1 row)
+

@@ -1,0 +1,17 @@
+# s5_exemplo.sql — 2026-10-23T00:12:53Z — sessão default_transaction_read_only=on
+ source_system | order_id | order_item_id | order_number | order_status | is_realised | order_date | year_month | sales_channel_name | root_category_name |  category_name  | quantity | unit_price | bruto_exato | gross_revenue_amount | discount_amount | net_revenue_amount 
+---------------+----------+---------------+--------------+--------------+-------------+------------+------------+--------------------+--------------------+-----------------+----------+------------+-------------+----------------------+-----------------+--------------------
+ legacy        |       37 |            94 | ORD-0000037  | delivered    | t           | 2024-12-09 | 2024-12    | Loja online        | Eletrônicos        | Fones de ouvido |        2 |   209.2805 |    418.5610 |               418.56 |            0.00 |             418.56
+ legacy        |       37 |            95 | ORD-0000037  | delivered    | t           | 2024-12-09 | 2024-12    | Loja online        | Eletrônicos        | Fones de ouvido |        2 |   145.9771 |    291.9542 |               291.95 |            0.00 |             291.95
+ legacy        |       37 |            96 | ORD-0000037  | delivered    | t           | 2024-12-09 | 2024-12    | Loja online        | Eletrônicos        | Panelas         |        2 |  2989.8977 |   5979.7954 |              5979.80 |            0.00 |            5979.80
+ retail        |       37 |            92 | ORD-0000037  | delivered    | t           | 2025-07-01 | 2025-07    | Loja online        | Moda               | Tênis           |        1 |  1499.5173 |   1499.5173 |              1499.52 |               0 |            1499.52
+ retail        |       37 |            93 | ORD-0000037  | delivered    | t           | 2025-07-01 | 2025-07    | Loja online        | Moda               | Notebooks       |        2 |  2721.3638 |   5442.7276 |              5442.73 |               0 |            5442.73
+ retail        |       37 |            94 | ORD-0000037  | delivered    | t           | 2025-07-01 | 2025-07    | Loja online        | Eletrônicos        | Fones de ouvido |        1 |  3724.2525 |   3724.2525 |              3724.25 |               0 |            3724.25
+(6 rows)
+
+ source_system | itens_realizados | com_arredondamento | com_desconto | com_os_tres 
+---------------+------------------+--------------------+--------------+-------------
+ legacy        |              222 |                220 |           41 |          29
+ retail        |             6767 |               6687 |         1189 |         770
+(2 rows)
+

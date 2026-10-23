@@ -1,0 +1,64 @@
+# s9_tamanho.sql — 2026-10-23T00:59:28Z — sessão default_transaction_read_only=on
+ banco_inteiro 
+---------------
+ 588 MB
+(1 row)
+
+   schema    | tabelas | views | views_materializadas | tamanho 
+-------------+---------+-------+----------------------+---------
+ raw_legacy  |      40 |     0 |                    0 | 206 MB
+ trusted     |      75 |     0 |                    0 | 138 MB
+ raw         |      37 |     0 |                    0 | 86 MB
+ quarantine  |       2 |     0 |                    0 | 77 MB
+ analytics   |      25 |     0 |                    0 | 50 MB
+ staging     |      41 |    36 |                    0 | 8072 kB
+ snapshots   |       4 |     0 |                    0 | 824 kB
+ governance  |       2 |     0 |                    0 | 344 kB
+ consumption |       0 |    16 |                    0 | 
+(9 rows)
+
+   camada    |                 table_name                 | linhas 
+-------------+--------------------------------------------+--------
+ analytics   | fact_cart_event                            |  81199
+ analytics   | fact_inventory_movement                    |  18854
+ analytics   | fact_order_status_event                    |  16418
+ analytics   | fact_sales_order_item                      |   7731
+ analytics   | fact_shipment_item                         |   7546
+ analytics   | fact_payment_transaction                   |   7419
+ analytics   | fact_support_ticket_event                  |   1727
+ analytics   | fact_purchase_order_item                   |   1638
+ analytics   | dim_customer                               |   1572
+ analytics   | dim_date                                   |   1340
+ analytics   | dim_product                                |    623
+ analytics   | fact_coupon_redemption                     |    602
+ analytics   | fact_refund                                |    120
+ analytics   | dim_supplier                               |     31
+ analytics   | dim_geography                              |     23
+ analytics   | dim_category                               |     20
+ analytics   | dim_brand                                  |     19
+ analytics   | dim_coupon                                 |     19
+ analytics   | dim_carrier                                |     16
+ analytics   | dim_campaign                               |     14
+ analytics   | dim_payment_method                         |     12
+ analytics   | dim_warehouse                              |     10
+ analytics   | dim_support_agent                          |      8
+ analytics   | dim_sales_channel                          |      7
+ analytics   | dim_support_category                       |      6
+ consumption | inventory_turnover_by_sku_and_warehouse    |   7097
+ consumption | order_to_delivery_time_by_region           |   1859
+ consumption | on_time_delivery_rate_by_carrier           |   1176
+ consumption | monthly_revenue_by_channel_and_category    |   1140
+ consumption | average_order_value_by_channel_and_segment |    751
+ consumption | new_and_repeat_customers_by_month          |    560
+ consumption | payment_approval_rate_by_method            |    538
+ consumption | skus_below_reorder_point                   |    474
+ consumption | revenue_by_delivery_region                 |    469
+ consumption | gross_margin_by_category                   |    408
+ consumption | discount_share_by_channel                  |    386
+ consumption | repeat_purchase_rate_after_support         |    175
+ consumption | support_tickets_per_hundred_orders         |    118
+ consumption | refund_rate_by_reason                      |    105
+ consumption | cart_conversion_rate_by_channel            |     96
+ consumption | top_skus_by_revenue                        |     25
+(41 rows)
+

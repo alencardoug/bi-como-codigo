@@ -1,0 +1,22 @@
+# s2_colisao.sql — 2026-10-23T00:12:52Z — sessão default_transaction_read_only=on
+ grupos | grupos_subcontados | soma_como_na_view | soma_com_origem | pedidos_perdidos | maior_perda_num_grupo 
+--------+--------------------+-------------------+-----------------+------------------+-----------------------
+   1140 |                  0 |              6561 |            6561 |                0 |                     0
+(1 row)
+
+ linhas_que_divergem_da_view 
+-----------------------------
+                           0
+(1 row)
+
+ order_ids_nas_duas_origens 
+----------------------------
+                        126
+(1 row)
+
+ source_system | pedidos | itens | menor_id | maior_id 
+---------------+---------+-------+----------+----------
+ legacy        |     137 |   222 |        1 |      174
+ retail        |    3155 |  6767 |        1 |     3500
+(2 rows)
+

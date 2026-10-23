@@ -1,0 +1,23 @@
+# linhagem_p01.py — 2026-10-23T00:12:53Z — manifest gerado em 2026-10-22T17:23:25.369622Z
+build: 29.6s, relações: 199, problemas: 0
+net_revenue_amount — nós: 15, arestas: 14
+  trusted.order_items.net_revenue_amount                       -> analytics.fact_sales_order_item.net_revenue_amount
+  analytics.fact_sales_order_item.net_revenue_amount           -> consumption.monthly_revenue_by_channel_and_category.net_revenue_amount
+  raw.order_items.discount_amount                              -> staging.stg_retail__order_items.discount_amount
+  raw.order_items.quantity                                     -> staging.stg_retail__order_items.quantity
+  raw.order_items.unit_price                                   -> staging.stg_retail__order_items.unit_price
+  raw_legacy.order_items.discount_amount                       -> trusted.legado__order_items.discount_amount
+  raw_legacy.order_items.quantity                              -> trusted.legado__order_items.quantity
+  raw_legacy.order_items.unit_price                            -> trusted.legado__order_items.unit_price
+  staging.stg_retail__order_items.discount_amount              -> trusted.order_items.net_revenue_amount
+  staging.stg_retail__order_items.quantity                     -> trusted.order_items.net_revenue_amount
+  staging.stg_retail__order_items.unit_price                   -> trusted.order_items.net_revenue_amount
+  trusted.legado__order_items.discount_amount                  -> trusted.order_items.net_revenue_amount
+  trusted.legado__order_items.quantity                         -> trusted.order_items.net_revenue_amount
+  trusted.legado__order_items.unit_price                       -> trusted.order_items.net_revenue_amount
+consumption.monthly_revenue_by_channel_and_category.year_month — nós 2, arestas 1; origens: ['analytics.dim_date.year_month']
+consumption.monthly_revenue_by_channel_and_category.sales_channel_name — nós 7, arestas 6; origens: ['raw.sales_channels.name', 'raw_legacy.sales_channels.name']
+consumption.monthly_revenue_by_channel_and_category.category_name — nós 7, arestas 6; origens: ['raw.product_categories.name', 'raw_legacy.product_categories.name']
+analytics.fact_sales_order_item.is_realised — nós 6, arestas 5; origens: ['raw.orders.status', 'raw_legacy.orders.status']
+analytics.fact_sales_order_item.category_key — nós 8, arestas 7; origens: ['raw.product_categories.id', 'raw_legacy.product_categories.id', 'trusted.product_skus.source_system']
+analytics.fact_sales_order_item.date_key — nós 2, arestas 1; origens: ['analytics.dim_date.date_key']

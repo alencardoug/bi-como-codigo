@@ -1,0 +1,9 @@
+# motor DuckDB-WASM 1.32.0 pelo jsDelivr — 2026-10-23T00:59:34Z
+duckdb-eh.wasm, baixado com brotli: 6764975 bytes, http=200
+duckdb-mvp.wasm, baixado com brotli: 7724804 bytes, http=200
+br, tentativa 1: content-encoding: br  x-cache: HIT, HIT  cf-cache-status: HIT  baixado=6764975 
+br, tentativa 2: content-encoding: br  x-cache: HIT, HIT  cf-cache-status: HIT  baixado=6764975 
+gzip, tentativa 1: x-cache: HIT, HIT  cf-cache-status: HIT  content-encoding: gzip  baixado=7647397 
+gzip, tentativa 2: x-cache: HIT, HIT  cf-cache-status: HIT  content-encoding: gzip  baixado=7647397 
+identity, tentativa 1: x-cache: HIT, HIT  cf-cache-status: HIT  baixado=34242586 
+identity, tentativa 2: x-cache: HIT, HIT  cf-cache-status: HIT  baixado=34242586 
