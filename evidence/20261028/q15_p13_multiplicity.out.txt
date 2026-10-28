@@ -1,0 +1,13 @@
+2026-10-28T18:12:35Z
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+         scenario         | nonunique_raw_identities | nonunique_classification_identities | raw_without_classification | classification_without_raw | delivered_items | eligible_items | eligible_trusted_missing | eligible_fact_missing | rejected_quarantine_stale | unexplained_exclusion_items 
+--------------------------+--------------------------+-------------------------------------+----------------------------+----------------------------+-----------------+----------------+--------------------------+-----------------------+---------------------------+-----------------------------
+ today                    |                        0 |                                   0 |                          0 |                          0 |             290 |            205 |                        0 |                     0 |                         0 |                           0
+ duplicate_classification |                        0 |                                   1 |                          0 |                          0 |             291 |            206 |                        0 |                     0 |                         0 |                           0
+ duplicate_raw            |                        1 |                                   0 |                          0 |                          0 |             290 |            205 |                        0 |                     0 |                         0 |                           0
+(3 rows)
+

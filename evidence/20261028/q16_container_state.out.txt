@@ -1,0 +1,21 @@
+2026-10-28T18:15:27Z
+/mvp_ed1-airflow_apiserver-1 state=running restart=unless-stopped started=2026-10-28T18:11:20.487366169Z
+/mvp_ed1-airflow_dag_processor-1 state=running restart=unless-stopped started=2026-10-28T18:11:20.483362214Z
+/mvp_ed1-airflow_db-1 state=running restart=unless-stopped started=2026-10-28T18:11:20.462164114Z
+/mvp_ed1-airflow_init-1 state=exited restart=no started=2026-10-25T20:06:19.19834125Z
+/mvp_ed1-airflow_scheduler-1 state=running restart=unless-stopped started=2026-10-28T18:11:20.477585222Z
+/mvp_ed1_kafka_connect state=exited restart=unless-stopped started=2026-10-14T20:14:18.199063136Z
+/mvp_ed1_legacy_db state=running restart=unless-stopped started=2026-10-28T18:11:20.452330788Z
+/mvp_ed1_redpanda state=exited restart=unless-stopped started=2026-10-14T20:14:12.413110617Z
+/mvp_ed1_source_db state=running restart=unless-stopped started=2026-10-28T18:11:20.459711206Z
+/mvp_ed1_warehouse_db state=running restart=unless-stopped started=2026-10-28T18:11:20.45489646Z
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+ certificate_rows | attempts |        newest_attempt         | newest_complete | selected 
+------------------+----------+-------------------------------+-----------------+----------
+              600 |       15 | 2026-10-12 21:41:52.694458+00 |              55 |       55
+(1 row)
+
