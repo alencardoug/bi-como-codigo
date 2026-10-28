@@ -1,0 +1,6 @@
+2026-10-28T23:45:13Z
+--- as written: ps -eo pid,pgid,args | grep -E 'mvp_ed1\.streaming|prism|beam'
+ 446769  446766 grep -E mvp_ed1\.streaming|prism|beam
+[exit 0]
+--- bracketed: pgrep -af 'mvp_ed1[.](streaming|airbyte)|[p]rism|[b]eam'
+[exit 1]
