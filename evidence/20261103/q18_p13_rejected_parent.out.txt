@@ -1,0 +1,28 @@
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+              now              
+-------------------------------
+ 2026-11-03 16:28:18.867561+00
+(1 row)
+
+ rejected_items | shipments | order_item_parent_rejected | order_item_parent_not_rejected | parent_origins  |  parent_codes   | shipment_parent_in_trusted 
+----------------+-----------+----------------------------+--------------------------------+-----------------+-----------------+----------------------------
+             17 |        12 |                         17 |                              0 | parent_rejected | PARENT_REJECTED |                         17
+(1 row)
+
+ level |   source_table   | rejection_origin | records |                                               codes                                                
+-------+------------------+------------------+---------+----------------------------------------------------------------------------------------------------
+     0 | shipment_items   | parent_rejected  |      17 | PARENT_REJECTED
+     1 | order_items      | parent_rejected  |      17 | PARENT_REJECTED
+     2 | product_variants | parent_rejected  |       6 | PARENT_REJECTED
+     3 | products         | own_invalid      |       4 | DATE_TZ_MISSING,NULL_DISGUISED,NULL_REQUIRED,TEXT_DELIMITER,TEXT_ENCODING_AMBIGUOUS,TEXT_TRUNCATED
+(4 rows)
+
+ excluded_shipments | with_order_in_trusted | order_without_trusted_items 
+--------------------+-----------------------+-----------------------------
+                 12 |                    12 |                           8
+(1 row)
+
