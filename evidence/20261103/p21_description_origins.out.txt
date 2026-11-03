@@ -1,0 +1,14 @@
+# Run on 2026-11-03T18:18:22Z, eng_dados at 1ddf9b5 with stage 1.7's changes in the tree, after make check
+origin of each column's text (declared | inherited | bridge | convention | written | generator | undescribed)
+  raw          {'declared': 600}
+  raw_legacy   {'declared': 616}
+  governance   {'declared': 17}
+  staging      {'inherited': 412, 'convention': 36, 'written': 3, 'generator': 656, 'undescribed': 7}
+  trusted      {'written': 4, 'generator': 467, 'convention': 27, 'inherited': 339, 'undescribed': 232}
+  snapshots    {'inherited': 70, 'convention': 16, 'undescribed': 23}
+  analytics    {'inherited': 237, 'written': 25, 'undescribed': 215}
+  consumption  {'inherited': 34, 'written': 31, 'undescribed': 123}
+  quarantine   {'generator': 12, 'inherited': 9, 'undescribed': 5}
+problems: [] changes: []
+text roots for analytics and consumption to reach zero: 250 {'trusted': 99, 'analytics': 77, 'consumption': 72, 'staging': 2}
+  by reason: [('coalesce', 36), ('sum', 26), ('cast', 24), ('case', 23), ('md5', 19), ('eq', 15), ('filter', 14), ('count', 9), ('round', 9), ('in', 6)]

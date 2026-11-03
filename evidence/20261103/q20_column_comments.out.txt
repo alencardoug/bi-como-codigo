@@ -1,0 +1,39 @@
+ default_transaction_read_only 
+-------------------------------
+ on
+(1 row)
+
+             now             
+-----------------------------
+ 2026-11-03 18:18:22.3544+00
+(1 row)
+
+    layer    | columns | with_comment 
+-------------+---------+--------------
+ analytics   |     477 |          262
+ consumption |     188 |           65
+ governance  |      17 |            1
+ quarantine  |      26 |           21
+ raw         |     545 |            0
+ raw_legacy  |     616 |            0
+ snapshots   |     109 |            0
+ staging     |    1114 |         1107
+ trusted     |    1069 |          836
+(9 rows)
+
+        column        |                comment                
+----------------------+---------------------------------------
+ year_month           | 
+ year_number          | 
+ month_number         | 
+ sales_channel_name   | Nome do canal de venda.
+ channel_type         | Natureza do canal: web, app ou store.
+ root_category_name   | 
+ category_name        | Nome comercial da categoria.
+ order_count          | 
+ unit_count           | 
+ gross_revenue_amount | 
+ discount_amount      | 
+ net_revenue_amount   | 
+(12 rows)
+

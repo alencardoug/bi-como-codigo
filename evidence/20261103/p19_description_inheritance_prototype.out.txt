@@ -1,0 +1,27 @@
+# Run on 2026-11-03 between 16:36Z and 16:55Z over eng_dados' manifest of 2026-10-23 10:28 (-03), built on 1e197ac (192 models); dumps kept outside the repository
+== N41 literal
+   staging      total= 1114 inherited=412 hand-equal=56 hand-only=520 hand-differs-overwritten=83 undescribed=43
+   trusted      total= 1069 inherited=724 hand-equal=15 hand-only=27 hand-differs-overwritten=14 undescribed=289
+   snapshots    total=  109 inherited=77 hand-equal=0 hand-only=0 hand-differs-overwritten=0 undescribed=32
+   analytics    total=  477 inherited=186 hand-equal=0 hand-only=18 hand-differs-overwritten=8 undescribed=265
+   consumption  total=  188 inherited=20 hand-equal=0 hand-only=29 hand-differs-overwritten=2 undescribed=137
+   quarantine   total=   26 inherited=9 hand-equal=0 hand-only=11 hand-differs-overwritten=1 undescribed=5
+== + conventions (N44)
+   staging      total= 1114 inherited=448 hand-equal=56 hand-only=480 hand-differs-overwritten=123 undescribed=7
+   trusted      total= 1069 inherited=818 hand-equal=12 hand-only=26 hand-differs-overwritten=18 undescribed=195
+   snapshots    total=  109 inherited=87 hand-equal=0 hand-only=0 hand-differs-overwritten=0 undescribed=22
+   analytics    total=  477 inherited=219 hand-equal=0 hand-only=17 hand-differs-overwritten=9 undescribed=232
+   consumption  total=  188 inherited=20 hand-equal=0 hand-only=28 hand-differs-overwritten=3 undescribed=137
+   quarantine   total=   26 inherited=9 hand-equal=0 hand-only=10 hand-differs-overwritten=2 undescribed=5
+== + constant branches neutral (N45)
+   staging      total= 1114 inherited=448 hand-equal=56 hand-only=480 hand-differs-overwritten=123 undescribed=7
+   trusted      total= 1069 inherited=819 hand-equal=12 hand-only=26 hand-differs-overwritten=18 undescribed=194
+   snapshots    total=  109 inherited=87 hand-equal=0 hand-only=0 hand-differs-overwritten=0 undescribed=22
+   analytics    total=  477 inherited=237 hand-equal=0 hand-only=17 hand-differs-overwritten=9 undescribed=214
+   consumption  total=  188 inherited=34 hand-equal=0 hand-only=28 hand-differs-overwritten=3 undescribed=123
+   quarantine   total=   26 inherited=9 hand-equal=0 hand-only=10 hand-differs-overwritten=2 undescribed=5
+
+# Distinct root texts to write so analytics and consumption reach zero (p19_roots.py)
+dump_v0.json roots: 307 {'consumption': 72, 'trusted': 123, 'analytics': 103, 'staging': 9} by name top: [('source_system', 20), ('is_deleted', 19), ('geography_key', 7), ('order_count', 6)]
+dump_v1.json roots: 268 {'analytics': 99, 'trusted': 96, 'consumption': 72, 'staging': 1} by name top: [('geography_key', 7), ('net_revenue_amount', 6), ('order_count', 6), ('unit_count', 4)]
+dump.json roots: 249 {'analytics': 77, 'consumption': 72, 'trusted': 98, 'staging': 2} by name top: [('geography_key', 7), ('net_revenue_amount', 6), ('order_count', 6), ('valid_from', 4)]
