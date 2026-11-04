@@ -1,0 +1,24 @@
+2026-11-04T04:04:07Z
+== 1. invariante_14_lancamento_antes_da_venda: failing rows
+ failing_rows | products 
+--------------+----------
+         3130 |      240
+(1 row)
+
+== 2. p09_capturado_reconcilia_com_a_fato, stage 1.5 view inlined: failing rows, then both totals
+ failing_rows 
+--------------
+            0
+(1 row)
+
+ captured_in_stage_1_5_view | captured_in_fact 
+----------------------------+------------------
+                36719765.95 |      36719765.95
+(1 row)
+
+== 3. p09_capturado_reconcilia_com_a_fato against the view deployed today
+ na_view |   na_fato   
+---------+-------------
+       0 | 36719765.95
+(1 row)
+
