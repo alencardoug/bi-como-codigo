@@ -1,0 +1,26 @@
+2026-11-04T04:11:12Z · legacy manifest batch 3f9e5088c72234045351b251d406ce9e
+
+== M7 — leaves of analytics.dim_category against the declared tree (expected 0 off it)
+   FAIL legacy: 8 leaves, 0 undeclared, 7 on another root or middle — Casa e Cozinha › Informática › Caixas de som; Casa e Cozinha › Informática › Calças; Eletrônicos › Áudio › Camisetas; Moda › Utilidades › Notebooks; Casa e Cozinha › Calçados › Organizadores; Eletrônicos › Vestuário › Panelas; Moda › Utilidades › Tênis
+   FAIL retail: 12 leaves, 0 undeclared, 11 on another root or middle — Casa e Cozinha › Informática › Caixas de som; Casa e Cozinha › Informática › Calças; Eletrônicos › Áudio › Camisetas; Esporte e Lazer › Camping › Estantes; Moda › Utilidades › Notebooks; Casa e Cozinha › Calçados › Organizadores; Eletrônicos › Vestuário › Panelas; Esporte e Lazer › Mobiliário › Periféricos; Esporte e Lazer › Mobiliário › Sandálias; Moda › Treino › Sofás; Moda › Utilidades › Tênis
+
+== M8 — fact items outside the declared range of their leaf (expected 0 in both sources)
+   FAIL legacy: 106 of 231 items
+   FAIL retail: 4794 of 7500 items
+      legacy item 9 · Calças · 2575.7099 outside [59.90, 599.90] · findings: none
+      legacy item 18 · Calças · 1797.2830 outside [59.90, 599.90] · findings: none
+      legacy item 20 · Calças · 2699.1801 outside [59.90, 599.90] · findings: none
+      legacy item 23 · Panelas · 3271.9077 outside [39.90, 1899.00] · findings: none
+      legacy item 24 · Calças · 2609.6395 outside [59.90, 599.90] · findings: none
+      legacy item 27 · Camisetas · 3753.6230 outside [29.90, 299.90] · findings: none
+      legacy item 29 · Panelas · 3471.0066 outside [39.90, 1899.00] · findings: none
+      legacy item 30 · Panelas · 3073.2651 outside [39.90, 1899.00] · findings: none
+      legacy item 33 · Panelas · 3359.7710 outside [39.90, 1899.00] · findings: none
+      legacy item 34 · Camisetas · 3647.8258 outside [29.90, 299.90] · findings: none
+      legacy: 0 of 106 with a finding on unit_price (first 10 listed)
+
+== M9 — items sold before their product's launch (retail expected 0; legacy expected 0 unexplained)
+   FAIL retail: 3130 of 7500 items
+   FAIL legacy: 55 of 231 items, 55 unexplained
+
+result: FAILED — the fix did not reach the warehouse

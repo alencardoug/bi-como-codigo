@@ -1,0 +1,25 @@
+2026-11-04T04:09:10Z
+== P01 — consumption.monthly_revenue_by_channel_and_category
+ view | view_groups | recounted_groups | differing_rows | groups_a_count_without_source_would_miss 
+------+-------------+------------------+----------------+------------------------------------------
+ P01  |        1140 |             1140 |              0 |                                        0
+(1 row)
+
+== P02 — consumption.average_order_value_by_channel_and_segment
+ view | view_groups | recounted_groups | differing_rows | groups_a_count_without_source_would_miss 
+------+-------------+------------------+----------------+------------------------------------------
+ P02  |         751 |              751 |              0 |                                        0
+(1 row)
+
+== P05 — consumption.revenue_by_delivery_region
+ view | view_groups | recounted_groups | differing_rows | groups_a_count_without_source_would_miss 
+------+-------------+------------------+----------------+------------------------------------------
+ P05  |         469 |              469 |              0 |                                        1
+(1 row)
+
+== P06 — consumption.discount_share_by_channel
+ view | view_groups | recounted_groups | differing_rows | groups_a_count_without_source_would_miss 
+------+-------------+------------------+----------------+------------------------------------------
+ P06  |         386 |              386 |              0 |                                        1
+(1 row)
+
