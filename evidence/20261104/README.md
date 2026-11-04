@@ -33,9 +33,17 @@ and `trusted.product_skus` are skipped. This is derived from the recipe and dbt'
 exercised**: no restore was run. The way back (runbook §6) runs `PRE`'s code — `33d6451`, the last
 commit before stage 1.5 (N26) — so it changes no step.
 
-**Still to come.** H6 to H8 — the gates, the recovery phase and the epochs — read
-`governance.legacy_captures`, `raw_legacy` and the ledger, and by H8 they fail with no current
-epoch. They join this answer when they land, before stage 1.6.
+**H6 to H8 and T3, landed after the first answer** (eng_dados `345a6a0` to `27deb9f`, with its decision record 0050
+there). They read `governance.legacy_captures` and `raw_legacy` against the ledger's current
+epoch, and **with no current epoch they refuse by design**: `make sync-legacy` and the DAG capture
+nothing until one is opened. On today's data, read-only, against a baseline taken in memory at
+`27deb9f` and never published: the barrier finds nothing — 15 attempts, 31 `sync_id`s; the
+Airbyte listing was empty, Airbyte being paused, so the job part of the barrier was not exercised
+—, and T3 finds nothing, its (1b) matching the 14 certified captures over 560 tables, in 61 s and
+885 MB. So today's data fail none of them once an epoch exists. For the rollback question nothing
+changes: a v1.0.0 restore under stage 1.5's code opens its own epoch at step 8 (H8), passes the
+recovery phase, and still stops at step 8's `dbt-rebuild` on invariant 14 — code up to `c7be31c`
+only, `PRE`'s for the way back.
 
 ## H5 — the probes of D5
 
