@@ -13,8 +13,12 @@ authors = [{ name = "Douglas Alencar" }]
 # needs to pin the series, so newer interpreters are accepted.
 requires-python = ">=3.11"
 
-# No runtime dependency yet: each one enters with the stage that uses it.
-dependencies = []
+# Each runtime dependency enters with the stage that uses it: `cryptography`
+# with the envelope of stage 2.2a (docs/encryption_envelope.md) — AES-GCM and
+# AES Key Wrap; PBKDF2 comes from the standard library.
+dependencies = [
+    "cryptography>=46,<47",
+]
 
 [dependency-groups]
 dev = [
