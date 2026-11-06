@@ -146,6 +146,7 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | PGATE-2-05 | docs/package_gate.md:176 | Low: envelope paths do not identify the manifest included in the live comparison | `observation` | Applied (§5.1–§5.2): the manifest's SHA-256 recorded and compared at `promote`, from the site's URL, failing closed; MUT-23 is the label change; the 64-bit prefix declared in §11. |
 | PGATE-3-01 | docs/package_gate.md:196 | High: the first release has no recorded manifest hash and cannot pass the predecessor check | `blocking` | Applied in rev. 4 (§5.2 step 3): recorded `"none"` requires only that live has no package — no live release, or a live version with no `package/` path —; a package that appeared refuses (MUT-23); both honest first-release controls through the whole command. |
 | PGATE-3-02 | docs/package_gate.md:198 | Medium: the public manifest hash is not bound to the API-selected live version | `adjustment` | Applied (§5.2): the public manifest hash is removed; the identity is the API's file list only, as N80 says; a manifest-only change on live is declared (§5.2, §11) — the pipeline cannot produce one, since the same `package_id` requires identical manifest and profile entries; an API read failure is its own refusal. |
+| PGATE-4-01 | docs/package_gate.md:209 | Medium: a pipeline-only package rollback can recreate the recorded envelope paths with different profile labels | `adjustment` | Applied in rev. 5 (§5.2–§5.3): `preview` binds the compared paths to live's version ID through the API, with live's release at least 10 minutes before `verify`'s read; `promote` requires live to still be that version ID, so A2's promotion refuses R (MUT-24); MUT-25 is a release inside the margin; N80's row refined; the CDN-purge premise declared in §11. |
 
 ### Round 1 — evidence
 
@@ -950,4 +951,178 @@ Status cells are empty.
   pass MUT-23, an honest unchanged predecessor must remain promotable after recovery, and a truly
   changed predecessor must still refuse as MUT-22/23. Keep decryption out of promote and carry
   only authenticated live metadata through release-record, Record and decide.
+
+### Round 4 — evidence
+
+#### 1. Conclusion
+
+**Changes required.** Revision 4 fixes the absent-predecessor branch and removes the unbound
+public-manifest read. One medium adjustment remains: its claim that only an outside write can
+produce a different live manifest with the same envelopes is false across package rollbacks.
+No new high/blocking finding was identified. The plan can be implemented and the batch closed
+on the plan side once PGATE-4-01 is incorporated; this does not establish implementation acceptance.
+
+#### 2. Reviewed scope and version
+
+- Branch: `main`; HEAD: `83b3f479c1d35bc7e438ac602766564b320c9495`.
+- Explicit baseline: `f5691ed01dab3df6fa0fbd0f71813dcefaf9f2b8`.
+- Exactly `0788e8a` and `83b3f47`: package_gate revision 4 and the author's round 3 Status
+  entries. Existing code and owning documents were integration evidence, not additional changes
+  under review. This remains a plan review: the new gate is not implemented.
+- Clean working tree at entry. Only one table row and this section were added to DOSSIER.md;
+  earlier rows, Status entries and evidence are preserved. No commit, remote write, deployment
+  or eng_dados operation was performed. Disposable Parquet files lived under `/tmp`.
+
+#### 3. Findings by severity
+
+**PGATE-4-01 — Account for returning packages in the predecessor identity. Medium / adjustment.**
+
+Where: docs/package_gate.md:198, :209, :367; docs/encryption_envelope.md:404;
+docs/publishing_pipeline.md:211; src/bi_como_codigo/release.py:557.
+
+The same-id check compares the candidate with **current** live, not every historical use of its
+package_id. Consequently a retained package A can return while B is live, with A's unchanged
+envelopes but a changed profile label (A2). A2 has a different package_id from B, so only the
+cross-package DEK/IV/salt checks apply; distinct A/B material passes them. No outside write or
+digest collision is necessary.
+
+Complete counterexample, with valid channels and each merge promoted while it is main's tip:
+
+1. A is live. Pending PR R contains A unchanged plus a public release note; its verify records A's
+   paths. R can be based on an older main revision where A was not yet present.
+2. B is verified against A, merged and promoted. Its cryptographic material is distinct.
+3. Another PR restores A's envelopes with only a profile label changed. It verifies against B,
+   merges and promotes A2: its recorded predecessor is B, which still matches.
+4. R merges, resolving included content to exactly its previewed tree. This satisfies decide's
+   tree-equality condition; that condition does not require R's head to include the intervening
+   merges. Its promotion sees A2's paths equal to recorded A's, and clones R's version.
+
+The result replaces A2 with A under the same package_id despite different profile entries.
+Comparing R with the actual predecessor A2 would refuse as package_id_reused under the owning
+document. This also disproves the unconditional stale-read claim at :206: a public read of the
+earlier A can match the API's paths for A2. The counterexample above needs no stale read at all.
+
+Executed evidence: real DuckDB Parquet, independent Python totals, two packages from the existing
+producer, and a label-only A2 that passed the existing strict validator and full decryption matrix.
+The future live predicates and complete §5.2 order were modeled in memory; no future gate or
+GitHub merge was executed. The merge/tree argument above is static evidence from decide, not a
+measurement of a real PR. Literal probe output:
+
+```text
+DuckDB 1.5.6
+Parquet rows/grain/sum/content bytes => (1140, 1140, '1425.00', 12570)
+R verify A unchanged against A => accepted
+B verify against A => accepted
+pipeline-only schedule B => promoted ; order=tip,channel,live-version,live-files,clone,read-back
+A2 verify against B => accepted
+pipeline-only schedule A2 => promoted ; order=tip,channel,live-version,live-files,clone,read-back
+pipeline-only schedule R => promoted ; order=tip,channel,live-version,live-files,clone,read-back
+A/A2 envelope path sets equal => True
+A/A2 envelope bytes equal => True
+A/A2 profile entries equal => False
+R compared with actual A2 at replacement => package_id_reused
+```
+
+Disproof considered: a **direct** A → A2 transition does fail same-id verification; a fresh
+package_id changes the envelopes; ordinary one-way MUT-22 is caught; and differing envelope
+bytes would need the declared digest-prefix collision. None excludes returning A via B. Tip
+checks, serialization, authenticated records and exact preview/merge equality do not prohibit
+the sequential schedule above. Mere JSON reformatting can also change manifest bytes while
+preserving its entries, but has no demonstrated semantic impact and is not a separate finding.
+
+Severity is medium because the demonstrated violation concerns profile metadata and the owning
+unchanged-package rule; no new key/IV reuse, clear-value disclosure or credential leak was
+demonstrated. Retaining a package, editing a public label and merging an older preview are
+supported operations, so this is more than the previously declared outside-write limitation.
+
+Correction: specify a version-bound identity that covers the manifest/profile entries as well
+as envelope paths, without credentialed decryption or an unbound CDN hash. If using Hosting's
+stored-file hash, prove its compressed-representation mapping. Alternatively, obtain the Owner's
+acceptance of this pipeline-only limitation and align the envelope's owning rule; merely repeating
+that an outside write is necessary does not resolve it. Add the A → B → A2 / pending-R case as
+a distinct mutation, retaining revision 4's bootstrap MUT-23. The identity check must refuse R
+before cloning, while honest reruns, unchanged packages and both first-release controls pass.
+
+#### 4. Reassessment and checks executed
+
+| Previous finding | Revision 4 assessment | Evidence |
+|---|---|---|
+| PGATE-3-01 | Resolved in the plan | Recorded none has an explicit absence branch; both honest first-release forms pass and a newly appeared package refuses. |
+| PGATE-3-02 | Unbound-read defect removed; replacement assumption needs adjustment | Promotion no longer reads the public manifest. PGATE-4-01 disproves the claimed pipeline-only invariant. |
+| PGATE-2-04 | Resolved in the plan | Tip/channel checks precede already-live; predecessor comparison runs only before a replacement. First release, rerun and unchanged re-promotion all pass the ordered model. |
+| PGATE-2-05 | Declared identity limitation remains incompletely characterized | Paths omit the manifest; contrary to the revised declaration, a pipeline-only history can expose that omission. |
+| PGATE-1-01 | Original reuse schedule refused; identity caveat remains | Different predecessor paths refuse MUT-22. Same-path/different-profile predecessors are PGATE-4-01; no ordinary DEK/IV bypass was demonstrated. |
+
+Additional literal output from the same ordered model:
+
+```text
+first release, no release => promoted ; order=tip,channel,live-version,clone,read-back
+first release, version without package => promoted ; order=tip,channel,live-version,live-files,clone,read-back
+MUT-23 package appeared => live changed ; order=tip,channel,live-version,live-files
+MUT-22 A replaced recorded B => live changed ; order=tip,channel,live-version,live-files
+successful rerun => already live ; order=tip,channel,live-version
+unchanged re-promotion => promoted ; order=tip,channel,live-version,live-files,clone,read-back
+API live failure => live could not be read ; order=tip,channel,live-version
+API file-list failure => live could not be read ; order=tip,channel,live-version,live-files
+honest states include manifest => True
+manifest without envelopes => live changed
+unchanged envelopes but missing manifest => live changed
+```
+
+Requiring package/manifest.json in the **present-package** path set is correct: every honest
+included package contains it (release/include.txt:6, src/bi_como_codigo/release.py:241). The absent-package
+branch deliberately requires no package/ path and does not request a nonexistent version's
+files. Hosting's reserved files are outside package/. No honest-state false refusal was found
+in these branches. API failure is its own refusal before any clone, rather than a changed-state
+diagnosis or an absence default. These are specification/model results, not API integration tests.
+
+Reviewer-executed checks all exited 0, with UV_CACHE_DIR=/tmp/pgate-r4-uv-cache and
+PYTHONDONTWRITEBYTECODE=1; pytest also disabled its cache provider. Literal result excerpts:
+
+```text
+make test:
+357 passed, 1 warning in 48.48s
+
+make secrets:
+secrets review: nothing found in the tracked files
+
+make secrets-history:
+skipped (3) — skipped is not verified:
+history review: nothing found (124 occurrence(s) of values public by design, 2 registered; 3 blob(s) skipped)
+
+ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 make docs-check:
+docs-check: 25 documents, 153 file links, 53 anchors, 22 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+```
+
+The warning is the intentional duplicate ZIP entry; the three skipped history blobs are the
+committed encrypted .bice files, not verified text. The author's green ENG_DADOS_DIR=… make check
+at 83b3f47 is **author-reported**, not reviewer-executed. Full make check and the JavaScript suite
+were not re-executed; neither would execute this unimplemented protocol.
+
+Final git diff --check exited 0. Removing only the new table row and the appended round 4
+section recovered HEAD's DOSSIER.md byte for byte; git diff --name-only listed only DOSSIER.md.
+The new Status cell is empty. Secrets and docs-check also passed after the report was added.
+
+#### 5. Limitations and open questions
+
+- No remote API/CDN transition, historical GitHub run, workflow, promotion, or future mutation
+  suite was executed. The in-memory model follows the declared order with stand-in API states;
+  it does not validate Hosting consistency, final error handling or live-field serialization.
+- Revision 4 adds no decrypted parsing to promote and preserves digest-only preview plus sanitized
+  failures. No new credential/value leak or conflict with synthetic-source rule 2, metric rule 3,
+  N76–N83 or ADR-0003 was found in these corrections, apart from the stated predecessor issue.
+  Actual CLI/native-output capture remains implementation acceptance, not a legacy-test result.
+- The 64-bit envelope-name prefixes remain a declared limitation; no collision was constructed.
+  DuckDB-WASM compatibility and hostile-parser isolation were outside this narrow revision review.
+  This report does not certify the whole plan or project.
+
+#### 6. Handoff to Claude Code
+
+- [ ] PGATE-4-01: correct §5.2/§11's outside-write assertion and specify the missing predecessor
+  binding, or seek an explicit Owner decision for the pipeline-only limitation in its owning
+  document. Validate A → B → A2 with R previewed against A and its merged included tree identical
+  to the preview: R must refuse before clone under the current unchanged-package rule. Retain
+  exact-reason MUT-22/23, API-read failures, both honest first releases, successful rerun and
+  unchanged re-promotion. Keep decryption out of promote and bind any manifest evidence to the
+  API-selected version; do not restore revision 3's unbound public hash.
 
