@@ -817,3 +817,221 @@ Keep the six plan-level resolutions above closed unless implementation evidence 
 them. Fill these Status cells with the corrections and return the scoped changes for review;
 the implementation must still deliver every stage-2.2 fixture proof before claiming completion.
 
+## Round 3
+
+### 1. Conclusion
+
+**Changes required.** One medium adjustment remains in T5's extended acceptance text. **No
+critical/high or blocking finding was demonstrated within the reviewed scope.** PIPE-1-04,
+PIPE-1-08 and PIPE-2-01 close at the plan level. N70's no-blocker condition remains met:
+the authorised external-resource setup and fixture implementation can proceed; correct
+PIPE-3-01 before accepting T5 as stage evidence. This is not stage-2.2 acceptance.
+
+The queue-capacity limit below is only an observation in this single-owner, fixture-only scope.
+T5's contradictory oracle affects an ordinary test schedule, so this is not yet the
+adversarial-only closure of N72. Plan-review closure awaits that narrow correction; no reopening
+of the unchanged trust design is warranted by this revision.
+
+### 2. Reviewed scope and version
+
+Reviewed on 2026-11-06, branch `main`, initially clean, checkout HEAD
+`254f85a07cd31ea7fbbdde68aa1a465091493577`. The explicit comparison is
+`529aca9ffca75e0d69810135b251486443162fa2..ac5e64f56342fe772a6edcfa229e997149dfb5bd`:
+one commit, `ac5e64f`, changing only `docs/publishing_pipeline.md` to revision 3 (29 additions,
+17 deletions). Line references below use that revision, identical at HEAD. The subsequent
+`254f85a` changes only this dossier, adding round 2 and its Status claims; it is not additional
+pipeline evidence.
+
+Read round 2 and its Status before the scoped diff, checked the changed predicates and T1/T5/T10
+against their surrounding plan, and reused round 1–2's established context. Requirements remain
+AGENTS.md, CLAUDE.md §5, PLAN §3.4/§6.2 stage 2.2 and N2/N15/N68–N70/N74, and REVIEW.md
+RV2-03–05/RV3-02/RV3-03/RV4-01. Only regressions from revision 3 were sought beyond reassessing
+the three open findings. Rounds 1–2, including their Status cells, are preserved.
+
+### 3. Findings and reassessment
+
+No new blocking finding; one medium adjustment and one low observation. Status cells are
+intentionally empty for the author.
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+| PIPE-3-01 | Pipeline T5, line 316; §4.4 condition 1, lines 187–188 | **Medium:** the shared oracle requires C to refuse in `promote` in both schedules, although the first schedule rejects C in `decide` | `adjustment` | **Fixed** in rev. 4: T5's oracle now says where C refuses in each schedule — at `decide`'s condition 1 in PIPE-1-04's, at `promote` step 2 in round 2's —, and A refuses at step 2 only if B merged before A's approval |
+| PIPE-3-02 | Pipeline §4.4, lines 212–216 | **Low:** “the newest merge is never dropped” omits `queue: max`'s 100-pending-job limit | `observation` | **Fixed** in rev. 4 §4.4: the guarantee holds within the 100 pending jobs GitHub's queue allows; past them GitHub refuses new arrivals and the merge waits for a later one |
+
+#### Reassessment of previous findings
+
+“Closed” here means at the plan level, not proved by a running pipeline.
+
+| ID | Reassessment and evidence |
+|---|---|
+| PIPE-1-01 | Remains closed. `decide` still uses GitHub only (183–208); Hosting reads remain after federation (218–233). |
+| PIPE-1-02 | Remains closed under N74. The protected `.github/` set and run-owned record remain (52–60, 166–170); revision 3 strengthens lookup identity rather than restoring a PR-writable record (190–199). |
+| PIPE-1-03 | Remains closed at the test-design level. T8 and the binding-policy oracle are unchanged (271–273, 319); no new binding premise was introduced. |
+| PIPE-1-04 | **Closed.** Job-level `queue: max` with `cancel-in-progress: false` is documented and retains B when delayed C arrives, within the supported capacity. Freshness remains checked at use (212–223); T5 now includes the delayed-`decide` schedule. Its separate oracle regression is PIPE-3-01. |
+| PIPE-1-05 | Remains closed. Immutable `SITE@VERSION` cloning, the single command builder and T4b survive unchanged (226–233, 315). |
+| PIPE-1-06 | Remains closed in the specification. Exact inventory/served-byte comparison with no fallback survives (160–165); T1 now explicitly retains actual routing/header evidence (311). |
+| PIPE-1-07 | Remains closed. Repository variables still supply both environment names and bindings (55–60, 150, 210). |
+| PIPE-1-08 | **Closed.** Step 3 rechecks the live channel expiry after approval (220–223); recovery now uses a new open, non-protected-content PR (239–245). T10 covers the existing near-expiry version, missing channel/version and reachable recovery (320). |
+| PIPE-2-01 | **Closed.** Workflow-file lookup resolves the ID; runs must have that identity, the allowed bare/annotated path, `workflow_run` event and `main` branch. Latest successful attempt, exactly one record, and recorded artifact ID/digest replace the earlier literal-path predicate (190–199). T1 adds real metadata and full/partial reruns (311). |
+
+**External-premise verification (documentation/source, not execution).** GitHub's current
+[job-concurrency reference](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idconcurrency)
+supports `queue: max`, one running job and up to 100 pending jobs; it forbids combining `max`
+with `cancel-in-progress: true`, which this plan does not do. Queue order is arrival at the
+group, not workflow dispatch. Thus late C does not evict already-pending B; freshness checks,
+rather than dispatch order, decide which run may clone.
+
+Firebase's [expiration contract](https://firebase.google.com/docs/hosting/manage-hosting-resources#set_the_expiration_of_a_preview_channel)
+supports hour-based expiry and the 30-day maximum. Installed CLI
+`~/.local/lib/node_modules/firebase-tools/lib/hosting/expireUtils.js:6–32` also accepts `25h`.
+For T10(a), merge and let `decide` pass while more than 24 hours remain, then hold approval until
+24 hours or less remain; step 3 must refuse while the version still exists. This timing is
+reachable and answers the earlier before/after-approval gap. The new recovery PR satisfies
+`admit`'s open-PR predicate without reopening admission for merged PRs.
+
+GitHub [accepts a workflow filename in the workflow lookup](https://docs.github.com/en/rest/actions/workflows#get-a-workflow)
+and [lists runs by workflow ID](https://docs.github.com/en/rest/actions/workflow-runs#list-workflow-runs-for-a-workflow).
+Its [run response](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run)
+documents `path@main`; [attempt lookup](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run-attempt)
+exposes a specific attempt. The revised equality admits that representation without accepting
+another workflow/ref/event. The [artifact list API](https://docs.github.com/en/rest/actions/artifacts#list-workflow-run-artifacts)
+is run-scoped and paginated. Reusing round 2's established rerun context, the explicit
+exactly-one rule safely refuses duplicate names instead of relying on a helper's latest/first
+match. No attempt-aware implementation exists to validate; T1 must retain the selected run ID,
+attempt, artifact ID/digest and actual API metadata. An intentional ambiguity refusal is not a
+new promotion failure against the revised contract.
+
+#### PIPE-3-01 — T5 assigns the first schedule's C to an unreachable job
+
+**Medium — adjustment; confirmed specification contradiction.**
+`docs/publishing_pipeline.md:316`, against condition 1 at 187–188.
+
+In the first A/B/C schedule, B is already merged when obsolete C is rerun. C fails `decide`'s
+condition 1 and cannot reach `promote`. The new pass text nevertheless requires C and A to
+refuse at `promote` step 2 **in both schedules**. In the delayed-`decide` schedule C passed
+freshness before B merged, so that later refusal is appropriate. A correct implementation
+cannot satisfy the shared literal oracle for the first schedule; it could be incorrectly
+reported as failing T5 or induce weakening the intended early rejection to fit the test.
+
+**Disconfirming evidence considered:** the same cell separately says the rerun stops in
+`decide`, and §4.4 explicitly rejects obsolete reruns before queuing. These preserve the correct
+design, but do not make the new shared refusal location true. This finding concerns acceptance
+text, not a demonstrated release or credential bypass. Evidence is static predicate analysis
+and the read-only trace below, not Actions execution.
+
+**Correction:** separate the schedules' oracles: first schedule C stops in `decide` without
+queuing; delayed schedule C reaches `promote` and stops at step 2. In both, B survives and
+promotes after approval, A stops when obsolete, and clones remain serialized. **Validate:**
+trace both schedules against condition 1 and step 2, then retain each actual rejection boundary
+when T5 is implemented. Do not change the freshness policy to satisfy the erroneous text.
+
+#### PIPE-3-02 — Qualify the non-dropping guarantee by the queue's capacity
+
+**Low — observation; documented limit, operational impact only hypothesised.**
+`docs/publishing_pipeline.md:215–216`.
+
+GitHub's concurrency reference above cancels additional arrivals once 100 jobs are pending.
+Consequently the new unconditional “never dropped” claim exceeds the documented guarantee.
+It does not revive round 2's ordinary three-run eviction: B is preserved in that schedule.
+Reaching this limit would require over 100 admitted promotions waiting together, or deliberate
+queue flooding; no plausible normal occurrence was established for this single-owner,
+fixture-only stage with public passwords. Saturation affects availability, not authentication
+or the immutable clone target, so it does not block plan execution or justify another design round.
+
+**Recommendation and validation:** record the 100-pending-job bound in the owning pipeline
+document; say that a capacity-canceled current run needs rerunning after the queue drains,
+subject to the same freshness/expiry checks. Validate the wording against the documented
+capacity rule; no 101-run cloud experiment is necessary for this observation.
+
+### 4. Checks executed; checks not performed
+
+The required gate exited **0**, read from the command's own completion result. Command and
+literal excerpts (full output in `/tmp/bi-como-codigo-review-r3-check-before.log`):
+
+```sh
+ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 \
+UV_CACHE_DIR=/tmp/bi-como-codigo-review-r3-uv-cache \
+make check UV_RUN='uv run --frozen --no-sync'
+```
+
+```text
+secrets review: nothing found in the tracked files
+history review: nothing found (92 occurrence(s) of values public by design, 2 registered; 0 blob(s) skipped)
+docs-check: 21 documents, 120 file links, 44 anchors, 6 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 1 accepted, 2 pending — record consistent
+279 passed in 17.12s
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+```
+
+A read-only `python3` model of the plan's predicates exited **0**, with this literal output:
+
+```text
+Read-only models of planned predicates; not pipeline executions:
+T5 original schedule, stale C: decide condition 1
+T5 delayed-decide schedule, C: promote step 2
+T5 B in either schedule: eligible to clone
+queue:max pending after B then late C: B,C
+queue:max additional arrival when 100 pending: canceled (documented policy, not executed)
+T10 elapsed_hours=0; remaining_hours=25; margin_passes=True
+T10 elapsed_hours=1; remaining_hours=24; margin_passes=False
+T10 elapsed_hours=1.5; remaining_hours=23.5; margin_passes=False
+dossier_unchanged_before_report=True
+```
+
+The first model invocation used unavailable bare `python` and did not execute the model;
+`python3` above succeeded. This did not affect the gate's locked Python environment.
+The scoped diff's `git diff --check` also exited **0**. Current official documentation and the
+installed CLI source were read; no external premise was reported as a runtime measurement.
+
+The full gate was repeated after appending the report, with the same overrides; its own exit
+code was **0** (full output in `/tmp/bi-como-codigo-review-r3-check-after.log`). Literal excerpts:
+
+```text
+docs-check: 21 documents, 120 file links, 44 anchors, 6 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 1 accepted, 2 pending — record consistent
+279 passed in 17.23s
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+```
+
+The read-only preservation/scope check and working-tree `git diff --check` exited **0**:
+
+```text
+rounds_1_2_preserved_byte_for_byte=True
+round_3_findings=2; empty_status_cells=2
+changed_tracked_files=DOSSIER.md
+```
+
+No workflow, token exchange, cloud mutation, deployment or clone was invoked. T1/T5/T10 and
+all other stage proofs remain unexecuted: this review is of a plan, and external mutation is
+forbidden in this session. No command ran in the eng_dados checkout; the gate only used it as
+its read-only link target. GitHub/GCP configuration was not re-enumerated because it cannot
+establish or refute these changed specification predicates. No commit, push or subagent was used.
+
+### 5. Limitations and open questions
+
+Runtime queue/protected-environment ordering, real run/attempt metadata, artifact retrieval and
+ADC/Hosting compatibility remain implementation evidence. Round 1–2's trusted extraction,
+complete PR-file enumeration, exact bytes, policy read-back and fixture-only limits still apply;
+they were not re-investigated or declared proved here. The complete package gate remains 2.2b.
+No new Owner decision or ambiguity prevents the scoped review. Beyond PIPE-3-01, only the
+capacity observation and previously declared implementation/adversarial limits remain.
+
+### 6. Handoff to Claude Code
+
+- [ ] **PIPE-3-01 — required adjustment:** split T5's refusal locations by schedule. Acceptance:
+  stale C never queues; delayed C refuses at `promote` step 2; B remains eligible in both; one
+  clone at a time. Preserve the corrected concurrency and freshness predicates.
+- [ ] **PIPE-3-02 — non-blocking note:** qualify the queue guarantee with its 100-job capacity
+  and the freshness/expiry-checked rerun after saturation. Acceptance: the owning document no
+  longer promises unlimited queuing; no additional cloud probe or design round is needed.
+
+Keep PIPE-1-01–08 and PIPE-2-01 closed at the plan level unless implementation evidence
+contradicts their premises. Record the two responses in Status; fixture execution must still
+supply the stage's measured acceptance evidence before claiming completion.
+
