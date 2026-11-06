@@ -11,12 +11,12 @@
 > the envelope's format and its own checks — [`encryption_envelope.md`](encryption_envelope.md),
 > which owns them, the live predicates included (its §6.4); the workflows job by job, the federation
 > and the promotion's steps — [`publishing_pipeline.md`](publishing_pipeline.md), which gains the
-> step of §5.2 when it is implemented; the source-to-package gate on the Owner's machine, with the
+> steps of §5.2–§5.3 when they are implemented; the source-to-package gate on the Owner's machine, with the
 > row-level equality that catches M19 — stage 2.4.
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-06 — revision 4: round 3 applied (PGATE-3-01, 02). Revision 3 is `b1f6b93`: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
+| Date | 2026-11-06 — revision 5: round 4 applied (PGATE-4-01). Revision 4 is `0788e8a`: round 3 applied (PGATE-3-01, 02). Revision 3 is `b1f6b93`: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
 | Author | Claude Code |
 | Status | **Plan, under Codex's review before execution.** The Owner's decisions N76–N83 (2026-11-06) shape it; nothing of it is implemented |
 
@@ -35,10 +35,10 @@ tool or service that the stage proves or refutes (§11).
 | The whole matrix, `dek_unique`, `iv_unique`, `matrix_closed` (envelope §6.4) | Yes | Unchanged |
 | The control totals | Not read | Parsed strictly and recomputed from the Parquet (§3) |
 | The Parquet | Only its `PAR1` framing, by the envelope's reader | Opened by DuckDB, bounded, its schema, nulls and grain checked against the contract (§4) |
-| Against the package live | No | The four live predicates of envelope §6.4 in `verify` (§5.1), and live bound at the promotion (§5.2) |
+| Against the package live | No | The four live predicates of envelope §6.4 in `verify` (§5.1), the live version bound in `preview` (§5.2) and checked at the promotion (§5.3) |
 | Inspection by content | Parquet magic, `BICP` and DEKs outside an envelope; source-map references | And every decrypted report value outside an envelope, but the public ones (§6) |
 | What a refusal prints | The checker's message | A fixed code, the report and the check — never a value (§7) |
-| `preview`'s second `verify` | The whole `verify` again, in the job with credentials | The bytes against `verify`'s listing and digest, nothing parsed (§5.3) |
+| `preview`'s second `verify` | The whole `verify` again, in the job with credentials | The bytes against `verify`'s listing and digest, nothing parsed (§5.4) |
 | Fixtures | Stand-ins: `{"fixture": "P01"}` and a 12-byte `PAR1…PAR1` | Real Parquet files under a contract, written by DuckDB (§8) |
 
 The gate runs in `verify`, with no credential, on `main`'s code; a refusal there uploads nothing
@@ -154,7 +154,7 @@ For each report, after the matrix has opened it with an entitled profile:
 
 A Parquet DuckDB cannot read, or a query that fails, is refused as `parquet_unreadable` — with no
 DuckDB message (§7). The Parquet is data from a PR, opened in `verify`, a job with no credential and
-a read-only token; after §5.3 no other job opens it.
+a read-only token; after §5.4 no other job opens it.
 
 ---
 
@@ -176,12 +176,30 @@ the site from the repository variable, never written in the code — with no cre
   a change of them is not a case of 2.2b;
 - `release.json` records **what was compared**, as `live`: the sorted list of live's envelope
   paths — each name carries the first 16 hex digits of the envelope's SHA-256, which the manifest
-  validator and the integrity check bind to its bytes —; or `"none"` after a 404. It is public metadata, like the rest of the record. The
-  preview job copies it into the authenticated `release-record` (pipeline §4.3), `decide` reads it
-  with the record and passes it to `promote` — the `verified` artifact, kept 7 days, is not relied
-  on.
+  validator and the integrity check bind to its bytes —, or `"none"` after a 404; and `checked_at`,
+  the UTC time of that read. Both are public metadata, like the rest of the record.
 
-### 5.2 In `promote` — live is still what `verify` compared (PGATE-1-01, N80)
+### 5.2 In `preview` — which live version that was (PGATE-4-01, N80)
+
+The public read cannot name a version, and envelope paths do not identify a package: a package can
+return to live with the same envelopes and another manifest — A live, then B, then A's envelopes
+with one label changed (A2), all through the pipeline [PGATE-4-01's schedule]. So the version is
+bound where Hosting's API can be read, in `preview`, before anything is deployed, by API reads only:
+
+1. the live channel's current release: its version ID and release time, or no release;
+2. that version's file list (as `check-version` reads it): under `package/`, exactly the recorded
+   `*.bice` paths and `manifest.json` — or no `package/` path at all, for `"none"`;
+3. the release time at least **10 minutes before `checked_at`** — so no release happened between
+   the public read and this one, nor shortly before it, while a CDN could still serve the previous
+   live [assumed: Hosting purges its CDN on a release within that margin, §11].
+
+Otherwise `preview` stops — *live changed during this run; re-run the candidate* — before the
+deploy; the PR is still open, so a re-run of its candidate is the recovery. Then it records
+`live_version` — the version ID, or `"none"` for no live release — in the authenticated
+`release-record` (pipeline §4.3); `decide` reads it with the record and passes it to `promote`. The
+`verified` artifact, kept 7 days, is not relied on.
+
+### 5.3 In `promote` — live is still that version (PGATE-1-01, N80)
 
 The comparison is only as good as its predecessor: with two PRs in flight, B can be previewed
 against L, then A promoted, then B approved — and B would replace A without having been compared
@@ -191,29 +209,16 @@ cannot be split across workflow steps (PGATE-2-04):
 1. the re-checks of the tip and of the channel (pipeline §4.4, steps 2–3);
 2. **live already serves `VERSION_ID`** → end, nothing to do — a re-run of a successful promotion,
    whose record still names the predecessor it replaced;
-3. otherwise, **live is still what `verify` compared**, read only through Hosting's API (N80):
-   - recorded **`"none"`** (PGATE-3-01): live must have no package — no live channel release, or a
-     live version whose file list has no path under `package/`. A package that appeared since
-     `verify` stops it; nothing else is required, since there is no predecessor to compare;
-   - recorded **paths**: live's current version's file list (as `check-version` reads it) must
-     hold, under `package/`, exactly the recorded `*.bice` paths and `manifest.json`.
-
-   Otherwise it stops: *live changed since this preview; a new PR previews against it* — the
-   recovery of pipeline §4.5. An API read that fails is a refusal of its own, *live could not be
-   read*, never "changed" and never a pass;
+3. otherwise, **live is still `live_version`**, read through Hosting's API: the live channel's
+   current version ID equals it — or there is no live release, for `"none"`. Every deploy makes a
+   new version ID, so any promotion since the preview — A2 included — stops here: *live changed
+   since this preview; a new PR previews against it*, the recovery of pipeline §4.5. An API read that
+   fails is a refusal of its own, *live could not be read*, never "changed" and never a pass;
 4. the clone, and its read-back (pipeline §4.4, steps 5–6).
 
-Every read here is the API's, so a stale public read in `verify` fails closed at this step, and no
-CDN response decides a promotion. Nothing is parsed or decrypted in this job.
+No CDN response decides a promotion, and nothing is parsed or decrypted in either job.
 
-**What the paths do not identify** (PGATE-2-05, PGATE-3-02): a live manifest changed with the same
-envelopes — a profile label, say. The pipeline cannot produce one: under the same `package_id`
-`verify` requires every manifest and profile entry unchanged (envelope §6.4), and a new
-`package_id` means new envelopes, since the header carries it. It takes a write to live outside
-the pipeline, which §11 declares. Binding the manifest's bytes to the API's version would need
-Hosting's stored-file hash, which is of the compressed upload, not of the bytes — not attempted.
-
-### 5.3 `preview` no longer re-runs `verify` (PGATE-1-06)
+### 5.4 `preview` no longer re-runs `verify` (PGATE-1-06)
 
 Today `preview` re-runs the whole `verify` on the downloaded artifact. From 2.2b it only checks the
 artifact's files against `verify`'s `release.json` — each path and SHA-256, and the canonical digest
@@ -306,15 +311,17 @@ under test.
 | MUT-19 | A Parquet over the content bound | `content_bound` |
 | MUT-20 | The live `package_id` with one envelope re-sealed | `package_id_reused` |
 | MUT-21 | A new `package_id` reusing a DEK, an IV, a salt of live | `dek_reused`, `iv_reused`, `salt_reused` |
-| MUT-22 | PGATE-1-01's schedule: previewed against L, live became A before the approval | `promote`, §5.2 step 3: live changed |
-| MUT-23 | A package appeared on live after a `verify` that recorded `"none"` | `promote`, §5.2 step 3: live changed |
+| MUT-22 | PGATE-1-01's schedule: previewed against L, live became A before the approval | `promote`, §5.3 step 3: live changed |
+| MUT-23 | A package appeared on live after a `verify` that recorded `"none"` | `preview`, §5.2 step 2: live changed during this run |
+| MUT-24 | PGATE-4-01's schedule: R previewed against A; then B and A2 (A's envelopes, a label changed) promoted; R approved | `promote`, §5.3 step 3: live changed |
+| MUT-25 | A release of live within 10 minutes before `verify`'s read | `preview`, §5.2 step 3 |
 | — | M19, two labels swapped | **Not at this gate** (N76): counts, sums and grain are unchanged; stage 2.4's row-level equality with the views refuses it |
 
 The tests:
 
 1. **Every mutation in `make check`**: a test per row runs `release.verify` — the function the
-   workflow runs — on the mutated `deploy/` (MUT-22 runs the promotion's check against a stand-in of
-   Hosting's API) and asserts the exact code and predicate; the controls — the honest fixture, with its page, `releases.md` and
+   workflow runs — on the mutated `deploy/` (MUT-22–25 run the `preview` and `promote` checks against a
+   stand-in of Hosting's API) and asserts the exact code and predicate; the controls — the honest fixture, with its page, `releases.md` and
    manifest; a fresh package against live; the live package unchanged; a promotion whose live did
    not change; the first release against `"none"`, with no live release and with a live version holding no
    `package/`, both through the whole command; a re-run of a successful promotion, through the
@@ -330,7 +337,7 @@ The tests:
 3. **On GitHub, three real PRs** — MUT-05, MUT-11 and MUT-15 —, each touching only `site/`, each
    refused in `verify` with `preview` skipped, no channel created, and the run's log read for the
    case's values (§7); and one honest PR, the regenerated fixture package, previewed against live,
-   merged and promoted **under the Owner's approval**, the step of §5.2 passing.
+   merged and promoted **under the Owner's approval**, the steps of §5.2 and §5.3 passing.
 
 ---
 
@@ -341,8 +348,9 @@ The tests:
   — the contract, the totals, the Parquet checks and the value inspection; `release.py`'s `verify`
   calls it and gains the live read, and a `check-live` command for §5.2.
 - `publish.yml`: `verify` gets `FIREBASE_SITE` and a `timeout-minutes`; `preview` checks the listing
-  instead of re-running `verify` (§5.3) and copies `live` into the `release-record`. `release.py`:
-  `Record` and `decide` carry `live`; `promote` runs §5.2's order in one command. `promote.yml`: the
+  instead of re-running `verify` (§5.4), binds the live version (§5.2) and records `live_version` in
+  the `release-record`. `release.py`:
+  `Record` and `decide` carry `live_version`; `promote` runs §5.3's order in one command. `promote.yml`: the
   new input. Both protected, in one
   reviewed PR, like every change of `.github/`.
 - `docs/encryption_envelope.md` §2.4: the totals' keys are this document's (§3), extended by 2.4;
@@ -357,14 +365,17 @@ The tests:
 - [assumed] DuckDB 1.5.6 reads every Parquet that DuckDB-WASM, chosen at 2.3, reads, and gives
   the same types — the versions differ; 2.3 measures it on the fixtures.
 - [assumed] Hosting's API lists a version's files with the paths `check-version` already reads;
-  §5.2 relies on the paths only.
+  §5.2 relies on the paths, and both §5.2 and §5.3 on the live channel's release, its version ID
+  and release time.
 - [assumed] No Parquet, however hostile, makes DuckDB read a path the gate did not give it; the
   locks of §4 are not a sandbox, and no such path was found in PGATE-1.
 - The value inspection of §6 does not find a re-encoded value, a number of one or two significant
   digits, nor a text of one or two characters; in the manifest it searches only the labels, so a
   hostile author could encode a number in a strictly typed field such as `iterations` (N83, an
   adversarial limit).
-- The live identity of §5.2 is the envelope paths — 64-bit digest prefixes, not full digests —;
-  no collision was constructed. A manifest changed on live with the same envelopes is not seen,
-  and takes a write to live outside the pipeline (§5.2).
+- [assumed] Hosting purges its CDN on a release well within 10 minutes, so `verify`'s public read,
+  taken at least 10 minutes after live's release, is that release (§5.2). If not, a stale read with
+  the same envelope paths as live — a returning package — would be compared with the wrong
+  predecessor; different paths are caught regardless.
+- The envelope paths are 64-bit digest prefixes, not full digests; no collision was constructed.
 - M19 is not caught here (N76).
