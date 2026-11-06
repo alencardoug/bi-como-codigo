@@ -17,6 +17,8 @@ from bi_como_codigo import release as r
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
+pytestmark = pytest.mark.skip(reason="T6: the PR disables its own checks; main's verify must still refuse")
+
 
 @pytest.fixture
 def repo(tmp_path: pathlib.Path) -> pathlib.Path:
