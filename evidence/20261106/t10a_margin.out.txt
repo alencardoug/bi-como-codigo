@@ -1,0 +1,26 @@
+2026-11-06T15:18:09Z
+T10(a) — an approval under the one-day margin does not promote, though channel and version exist (docs/publishing_pipeline.md §7, §4.5). Approvals are Claude Code's under N75, renewed by the Owner for the afternoon.
+The channel life of 1455m (24 h 15 min) in the preview step, installed by PR #20 (merged f421cb5; candidate passed; admit refused its preview) and reverted by PR #22 (merged 742f747); afterwards git diff a18a497 742f747 -- .github/ is empty.
+
+== PR #21 previewed and merged at once (062063d, 14:53:39Z), promote 42237988942 — decide's condition 5 passed, with more than a day left:
+2026-11-06T14:53:49.0612901Z promote PR #21: version 6396383bda5bd4ef of channel pr-21, preview https://bi-como-codigo--pr-21-11gvbjjs.web.app, digest f487c1d7d3703843714d8c4562cce2f436944d903db37b5d692e3ceeee55d296, record artifact 13511663028 (sha256 2dad75442872bd1aefe952351a061a30501b18ab3c4761056ee1a964ee3b0a97), preview expiring 2026-11-07T15:08:12.707445157Z
+Read with the Owner's credentials, before waiting and right before approving (nothing merged in between; the tip still 062063d):
+channel pr-21 at 14:54:14Z serves 6396383bda5bd4ef FINALIZED expireTime 2026-11-07T15:08:12.707445157Z
+channel pr-21 at 15:09:09Z serves 6396383bda5bd4ef FINALIZED expireTime 2026-11-07T15:08:12.707445157Z
+== approved at 15:09Z, after the remaining life fell under a day: refused at step 3 on the margin, the recovery named
+2026-11-06T15:09:18.7102783Z 062063d706bc9877d106e06ce60823c8ba331078 is still the tip of main
+2026-11-06T15:09:19.3810687Z refused: channel pr-21 expires 2026-11-07T15:08:12.707445157Z, within a day: recover through a new PR (§4.5)
+  approval: approved by alencardoug — Approved by Claude Code under the Owner's delegation N75, renewed for the afternoon of 2026-11-06, for test T10(a) of stage 2.2 on fixtures: channel pr-21 expires 2026-11-07T15:08:12Z, under a day from now though channel and version exist; promote must refuse at step 3 on the margin.
+live serves e491ee6f0e036407 released 2026-11-06T14:45:33.519Z — unchanged, B of T5
+
+The recovery (§4.5), after the revert — a new PR, #23, previewed at 30 days, merged (1b375a7), promote 42241050208:
+2026-11-06T15:17:07.1293570Z promote PR #23: version cac06ccd184d58ff of channel pr-23, preview https://bi-como-codigo--pr-23-14jh1820.web.app, digest 1f87f3022d78b4ada3c1f9a116fdd6a95369822be0848be2c716ba0adcd601f3, record artifact 13515607358 (sha256 1f1630a90ee35c2ce5400910f23704084b0ba515a6cf30bf400e8c7baa31f722), preview expiring 2026-12-06T15:13:05.770774236Z
+2026-11-06T15:17:34.6614483Z 1b375a7b575f904f207666187c732d46f333822b is still the tip of main
+2026-11-06T15:17:35.1702781Z channel pr-23 still serves cac06ccd184d58ff, expiring 2026-12-06T15:13:05.770774236Z
+2026-11-06T15:17:43.1353842Z ✔  Site bi-como-codigo version cac06ccd184d58ff has been cloned to site bi-como-codigo channel live.
+2026-11-06T15:17:43.3466292Z promoted
+  approval: approved by alencardoug — Approved by Claude Code under the Owner's delegation N75, renewed for the afternoon of 2026-11-06, for test T10(a)'s recovery of stage 2.2 on fixtures: a new PR, previewed at 30 days; must promote its own version.
+
+Read independently afterwards (the Owner's credentials):
+live serves cac06ccd184d58ff released 2026-11-06T15:17:42.469Z
+https://bi-como-codigo.web.app/releases.md, last line: - 2026-11-06 — T10(a): a recuperação, por um PR novo, depois da aprovação abaixo da margem.
