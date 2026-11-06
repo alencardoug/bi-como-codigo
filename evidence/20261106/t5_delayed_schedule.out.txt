@@ -1,0 +1,38 @@
+2026-11-06T14:48:39Z
+T5 in round 2's schedule (docs/publishing_pipeline.md §7): a decide that passed condition 1 and arrived late queues behind the newest merge, never replaces it, and refuses at promote step 2. Approvals are Claude Code's under N75, renewed by the Owner for the afternoon; each says so in its comment.
+The hold — a sleep of 1200 s after decide, for PR #16 only — installed by PR #17 (merged f8e7dc7; candidate passed; admit refused its preview) and removed by PR #19 (merged 2346922); afterwards git diff a18a497 2346922 -- .github/ is empty.
+
+== A: PR #15 merged (785b242), promote 42232550506 — decide passed, promote waiting for approval, holding the group
+2026-11-06T14:17:16.3437340Z promote PR #15: version 82eecf772dc13682 of channel pr-15, preview https://bi-como-codigo--pr-15-vni2ttya.web.app, digest eef45a3f1a61bbf42298fe5cb8af0106aa971cb3b2c2a64082debd5bce9c7508, record artifact 13509192522 (sha256 80e4c2dc5ddde1cf93294d23b119ce2de4c831ece2d98c515a7f5f45f1c7da1c), preview ex
+== C: PR #16 merged (a9d8c93) after A, promote 42233434260 — decide passed while C was the tip, then held
+2026-11-06T14:23:17.7721914Z promote PR #16: version 78486816ab762960 of channel pr-16, preview https://bi-como-codigo--pr-16-k01gz6n5.web.app, digest 5d7e8b8957929b8765cfb47878c889e2073cc04ca458ee795fcd21834510d68c, record artifact 13509242883 (sha256 281da30c91dda0ac951ae4ecfc7ffcd67c4be77160b1d0aaa55ca6b429bbb559), preview ex
+2026-11-06T14:23:17.7928757Z sleep 1200
+== B: PR #18 merged (e9a3d60) after C, during C's hold, promote 42233769044 — decide passed, no hold
+2026-11-06T14:25:31.2968751Z promote PR #18: version e491ee6f0e036407 of channel pr-18, preview https://bi-como-codigo--pr-18-5kjsw57l.web.app, digest 71d43dd22cfa80818382cea855b86f706b4efdcba8585045aa766eb64ce6ab72, record artifact 13509193763 (sha256 f6f3d4f064d0be9799115d861761821739184ad73391dba953995defd424709b), preview ex
+
+When each job entered and left (GitHub's job timestamps): B's promote arrived at the group at 14:25:33, C's at 14:43:20, after B's:
+42232550506 decide created 2026-11-06T14:17:08Z started 2026-11-06T14:17:10Z completed 2026-11-06T14:17:18Z success
+42232550506 promote created 2026-11-06T14:17:18Z started 2026-11-06T14:44:17Z completed 2026-11-06T14:44:28Z failure
+42233769044 decide created 2026-11-06T14:25:22Z started 2026-11-06T14:25:24Z completed 2026-11-06T14:25:33Z success
+42233769044 promote created 2026-11-06T14:25:33Z started 2026-11-06T14:45:18Z completed 2026-11-06T14:45:37Z success
+42233434260 decide created 2026-11-06T14:23:07Z started 2026-11-06T14:23:09Z completed 2026-11-06T14:43:20Z success
+42233434260 promote created 2026-11-06T14:43:20Z started 2026-11-06T14:45:53Z completed 2026-11-06T14:46:00Z failure
+State of the group at 14:43:51, once C arrived: A promote:waiting, B promote:pending, C promote:pending — B not evicted.
+
+== A approved first: refused at step 2
+2026-11-06T14:44:25.5585516Z refused: 785b242a530a0955dcf800e404081d729b4b4851 is not the tip of main (e9a3d60f35ca9ac79dca2a10d3a08cb5ce11ac53): a later merge promotes
+  approval: approved by alencardoug — Approved by Claude Code under the Owner's delegation N75, renewed for the afternoon of 2026-11-06, for test T5 (round 2's schedule) of stage 2.2 on fixtures: A, approved after B and C merged; promote must refuse at step 2.
+== B next in the queue, approved: promoted
+2026-11-06T14:45:25.0874182Z e9a3d60f35ca9ac79dca2a10d3a08cb5ce11ac53 is still the tip of main
+2026-11-06T14:45:25.7320096Z channel pr-18 still serves e491ee6f0e036407, expiring 2026-12-06T14:24:57.770362890Z
+2026-11-06T14:45:34.2197198Z ✔  Site bi-como-codigo version e491ee6f0e036407 has been cloned to site bi-como-codigo channel live.
+2026-11-06T14:45:34.5336217Z promoted
+  approval: approved by alencardoug — Approved by Claude Code under the Owner's delegation N75, renewed for the afternoon of 2026-11-06, for test T5 (round 2's schedule) of stage 2.2 on fixtures: B, the newest merge, kept in the queue; must promote its own version.
+== C last, approved: refused at step 2
+2026-11-06T14:45:58.7182056Z refused: a9d8c93a75d521dbbdf0f4f63eeaf6df6d47a117 is not the tip of main (e9a3d60f35ca9ac79dca2a10d3a08cb5ce11ac53): a later merge promotes
+  approval: approved by alencardoug — Approved by Claude Code under the Owner's delegation N75, renewed for the afternoon of 2026-11-06, for test T5 (round 2's schedule) of stage 2.2 on fixtures: C, whose decide passed while it was the tip and arrived late; promote must refuse at step 2.
+At most one clone ran: A, B and C's promote jobs ran 14:44:17–14:44:28, 14:45:18–14:45:37, 14:45:53–14:46:00, one after the other.
+
+Read independently afterwards (the Owner's credentials):
+live serves e491ee6f0e036407 released 2026-11-06T14:45:33.519Z
+https://bi-como-codigo.web.app/releases.md, last line: - 2026-11-06 — T5 atrasado: B, o merge mais novo, que deve ir ao ar.
