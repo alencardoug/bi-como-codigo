@@ -548,6 +548,14 @@ def markers(repo, before: set[str]) -> set[str]:
         pid = sorted(m.entitled(rid))[0]
         totals, parquet = e.open_report(m, files[entry.file], rid, e.login(m, pid, passwords[pid]))
         out.add(totals.decode("utf-8", "replace"))
+        try:  # each scalar of the totals too, as the candidate holds it (GIMPL-3-01)
+            body = json.loads(totals)
+            scalars = [str(body.get("rows", ""))] + [str(v) for v in (body.get("sums") or {}).values()]
+        except (ValueError, AttributeError):
+            scalars = []
+        for text in scalars:
+            if c._CANONICAL.fullmatch(text) and (c.eligible_number(text) or len(text.lstrip("-")) >= 3):
+                out.update(c.spellings(text))
         path = repo / f"{rid}.markers.parquet"
         path.write_bytes(parquet)
         try:
