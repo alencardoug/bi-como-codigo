@@ -148,6 +148,7 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | GIMPL-1-05 | src/bi_como_codigo/contract.py:225 | Low: boolean true is accepted as either numeric totals version | `observation` | Applied: version fields must be JSON integers (`type is int`); `test_a_boolean_version_is_refused`; M52 mutant killed; package_gate §3 says so. |
 | GIMPL-2-01 | tests/test_package_gate.py:534, :573 | Medium validation gap: CLI markers miss the resealed candidate's keys, changed totals and integer cells | `adjustment` | Applied: the markers are read from the candidate after its mutation — each report decrypted, its totals, its cells (texts, dates, decimals in both spellings, integers of 3+ digits) and its current DEKs in hex —, with the honest fixture's values for an unreadable Parquet; M52 adds the fresh-DEK and integer-cell print mutants, both killed; the `fixture_` limit declared in package_gate §11. |
 | GIMPL-2-02 | src/bi_como_codigo/release.py:353, :355, :359 | Medium: truncated HTTP bodies and invalid gzip streams still escape live_unreadable | `adjustment` | Applied: `_public_get` maps any failure of reading or decoding the body to status 0, hence `live_unreadable`; `test_the_cli_a_broken_live_body_is_live_unreadable` drives a truncated body (`IncompleteRead`) and a broken gzip through the real GET and the CLI — return 1, summary, no traceback, no record; M52 mutant killed. |
+| GIMPL-3-01 | tests/test_package_gate.py:550, :618 | Medium validation gap: a decrypted scalar sum still passes the CLI non-disclosure oracle | `adjustment` | Applied: the markers add each scalar of the candidate's totals — `rows` and every sum, canonical and Brazilian, when eligible —; M52 adds the sum-print mutant, killed (34/34). |
 
 ### Round 1 — evidence
 
@@ -615,3 +616,188 @@ write, deployment, gcloud/firebase command, commit, merge, push or subagent was 
   Acceptance: manifest and envelope truncation/corruption produce CLI return 1 with
   `live_unreadable`, a summary and no traceback/record; honest gzip, 404, redirects and URLError
   retain their expected results.
+
+### Round 3 — evidence
+
+#### 1. Conclusion
+
+**Changes required.** No blocking finding was established; one medium validation adjustment remains
+from GIMPL-2-01: the exact round-2 changed-sum print probe still passes the CLI oracle. The fresh-DEK
+and integer-cell gaps are fixed, and the public-body refusal correction is effective. No decrypted
+value/key disclosure or invalid-package acceptance was reproduced in the unmodified runtime.
+Batch GIMPL cannot yet be closed against its non-disclosure acceptance criterion; §9.3's real PRs
+remain outstanding.
+
+#### 2. Reviewed scope and version
+
+Independent closing review of **GIMPL, round 3**, on `feat/package-gate`, baseline `b5aa6ed`, tip
+`458f0e4ace63b2ebe5e790276b19dc68fe64d11f`: exactly `6b8d65d`, `905631f`, `458f0e4`. The worktree
+was clean at the start. Scope was the two round-2 corrections, their tests/counter-proofs and the
+associated declaration/status changes; unchanged code was consulted only to trace their effect.
+Requirements consulted: AGENTS.md, CLAUDE.md, package_gate revision 5, envelope §6.4–§6.5,
+publishing_pipeline §4, N76–N83 and ADR-0003. Earlier findings and their author's Status entries
+are preserved. Only `DOSSIER.md` was edited in the checkout; probes used copies under
+`/tmp/gimpl-r3-probes/`.
+
+#### 3. Findings and evidence
+
+**GIMPL-3-01 — Scalar control totals still evade the candidate-derived CLI markers.
+Medium / adjustment (validation gap; continuing GIMPL-2-01).**
+
+Where: `tests/test_package_gate.py:550`, `:562`–`:564`, `:590`, `:618`–`:619`;
+`evidence/20261106/m52_package_gate_counter_proof.py`'s whole-totals print mutant.
+Requirements: package_gate §7 and §9.1–§9.2, and round 2's changed-sum counter-proof acceptance.
+
+Static: `markers` now reads the mutated candidate, but adds its totals only as a **complete JSON
+string**. Numeric spellings come from Parquet cells, not the individual sums or row count in those
+totals. The `mut15_sum` candidate contains `14.01` in `sums.valor`; that number is neither a cell nor
+an independent marker. M52's existing totals-print mutant emits the entire JSON object and cannot
+prove detection of a diagnostic printing only the mismatched operand.
+
+Executed: reran the exact round-2 module mutation, after `parse_totals` in `_check`:
+
+```python
+if report.id == "P01" and totals["sums"]["valor"] == "14.01":
+    print(totals["sums"]["valor"])
+```
+
+All eight original CLI cases **pass**. A copied test additionally asserts that `14.01` is in the
+captured output for `mut15_sum`; it still passes. A focused copy also asserts the exact original
+`totals_sums (report P01, column valor)` refusal and absent release record, so the apparent pass
+is not an unreachable injection or a different refusal.
+
+Disconfirming control: in a separate test copy, derive individual sum strings from that candidate's
+decrypted totals instead of adding the demonstrated constant. The same mutant then fails on
+`['14.01']`; the unmodified runtime passes that expanded oracle with the exact refusal and no
+record. The initial custom unmodified control mistakenly retained the positive assertion that the
+leak was present; after removing that assertion, its rerun passed. Repository tests were unchanged.
+
+Literal probe output (nonzero exits below are expected detections of deliberately leaky mutants):
+
+```text
+current_bad_sum: exit=0
+8 passed, 98 deselected in 51.67s
+current_markers_scalar_leak: exit=0
+1 passed, 105 deselected in 7.03s
+candidate_scalar_markers: exit=1
+E       AssertionError: ['14.01']
+1 failed, 105 deselected in 7.44s
+unmodified runtime, candidate scalar markers (corrected control):
+1 passed, 105 deselected in 5.97s
+```
+
+Consequence: an ordinary failed-sum diagnostic can disclose a decrypted operand while the claimed
+non-disclosure oracle stays green. This is medium, not blocking: the disclosure is in a temporary
+mutant, not the unmodified runtime. The author's Status claiming the round-2 correction is complete
+is not supported for this probe.
+
+Correction: derive unambiguous scalar sum and row-count markers from each actual candidate's
+known/decrypted totals, in addition to the complete object and cell/key markers; retain the
+fixture-only limits already declared. Add an M52 counter-proof that prints an individual changed
+sum. Validate the exact refusal and absence of a record, kill that scalar-print mutant, and keep
+unmodified controls plus the fresh-key/integer/cell-print controls passing. Do not merely add
+`14.01` to a fixed deny-list.
+
+**Reassessment and regression evidence:**
+
+| Previous finding | Reviewer assessment | Evidence at this tip |
+|---|---|---|
+| GIMPL-2-01 | Partially resolved | Exact round-2 fresh-DEK probe now fails in all six resealed cases; the two page-only cases do not reach its injected print and pass. The integer-cell probe is killed. The changed-sum probe survives as GIMPL-3-01. |
+| GIMPL-2-02 | Resolved | Real `_public_get` and CLI, separately at manifest and envelope reads: truncated chunked HTTP via `http.client.HTTPResponse`, and a valid gzip header with invalid DEFLATE, all return 1 with `live_unreadable`, summary, no traceback and no record. |
+| GIMPL-1-03 | Resolved within this scope | The residual body/decoding paths above are translated; authenticated bind/promote corrections are unchanged. A `RuntimeError` from the public response read also returns 1 with `live_unreadable`, summary and no record. |
+| GIMPL-1-04 | Partially resolved | The original `-0.75` cell-print mutant is killed; the remaining scalar-total gap is GIMPL-3-01. |
+
+Additional literal output:
+
+```text
+round1_cell: exit=1
+1 failed, 105 deselected in 6.99s
+current_key: exit=1
+6 failed, 2 passed, 98 deselected in 54.69s
+current_integer_cell: exit=1
+1 failed, 105 deselected in 6.68s
+CLI manifest_truncated: exit=1; live_unreadable; summary=present; traceback=False; release_record=False
+CLI manifest_gzip: exit=1; live_unreadable; summary=present; traceback=False; release_record=False
+CLI envelope_truncated: exit=1; live_unreadable; summary=present; traceback=False; release_record=False
+CLI envelope_gzip: exit=1; live_unreadable; summary=present; traceback=False; release_record=False
+CLI public RuntimeError: exit=1; live_unreadable; summary=present; detail suppressed; release_record=False
+valid gzip: 3 integrity-checked envelopes; unchanged honest candidate accepted
+404 manifest: NO_LIVE
+HTTP status 0: live_unreadable
+HTTP status 302: live_unreadable
+HTTP status 500: live_unreadable
+```
+
+The broad public-read catch suppresses programming-error detail, but a read failure becomes status
+0 and an explicit refusal, never `NO_LIVE` or success. No hidden programming defect or silent pass
+was established; narrowing that catch is not a finding. Current unmodified CLI controls show no
+marker collision with honest refusal text. Malformed-Parquet markers still depend on the declared
+fixture fallback, not a guarantee about arbitrary future data.
+
+Static integration: the runtime diff changes only `_public_get`'s exception clause. The
+credentialed jobs still hash/check candidate bytes and read API metadata without opening candidate
+payloads or decrypting them. `live_version` still flows from bind through the authenticated
+release-record, record selection, decide output and promote argument; already-live precedes the
+predecessor check and clone. `release.json`'s returned fields remain public metadata. No new
+contradiction with the declaration or N76–N83/ADR-0003 was found outside GIMPL-3-01's acceptance
+gap. This is static/local evidence, not an executed deployment.
+
+#### 4. Checks executed and results
+
+The reviewer-executed component checks and M52 below all exited **0**. The independent scalar-print
+probe is additional to M52: its survival is not contradicted by killing the 33 committed mutants.
+
+| Executed check | Result |
+|---|---|
+| `make test` | 470 passed, one duplicate-zip-name warning; 248.26 s |
+| `make test-js` | 157 tests: 156 passed, one skipped, zero failed |
+| `make secrets` | Nothing found in tracked files |
+| `make secrets-history` | Nothing found; six non-UTF-8 envelope blobs skipped, not verified by this scanner |
+| `ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 make docs-check` | 25 documents; no broken links/anchors/ADR/pinned citations |
+| `uv run --frozen python evidence/20261106/m52_package_gate_counter_proof.py` | Unmodified-copy control passed; 33 mutants killed, zero surviving |
+| `/tmp` CLI and mutant probes | Results and disconfirming controls above |
+
+```text
+470 passed, 1 warning in 248.26s (0:04:08)
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+secrets review: nothing found in the tracked files
+history review: nothing found (136 occurrence(s) of values public by design, 2 registered; 6 blob(s) skipped)
+docs-check: 25 documents, 160 file links, 54 anchors, 27 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+control (unmodified copy, every mutant's tests): passed
+33 mutants, 33 killed, 0 not
+```
+
+The document and tracked-secret checks were repeated after the report edit and passed.
+
+Python commands used `UV_CACHE_DIR=/tmp/gimpl-r3-uv-cache`; probe subprocesses disabled bytecode and
+pytest's cache provider. The eng_dados checkout was only read. The author's `ENG_DADOS_DIR=… make
+check` green at `905631f` (470 passed) and committed M52 33/33 output were read as **author-reported**
+evidence, separately from the reviewer's executions. The aggregate `make check` and separate ADR
+checker were not run: this review ran the requested components plus docs-check. No GitHub/Firebase
+write, gcloud/firebase command, commit, merge, push, deployment or subagent was used.
+
+#### 5. Limitations and open questions
+
+- No real §9.3 PRs or authenticated Hosting API reads were performed; these require the later
+  integration exercise. No claim about the current public service is made. Real releaseTime,
+  deployed record plumbing, CDN purge, clock skew, runner installation and DuckDB-WASM compatibility
+  remain unmeasured here.
+- This closing round tests regressions and the prior residual gaps in the three scoped commits;
+  it does not re-certify the whole project, every earlier design decision or arbitrary hostile
+  native-parser behavior. Declared re-encoding/small-value limits, N83's label-only inspection,
+  BOOLEAN exclusion, digest-prefix collision risk and M19's deferral are unchanged.
+- No unresolved defect hypothesis is promoted to a finding. The one confirmed validation gap is
+  GIMPL-3-01; GIMPL-2-01/GIMPL-1-04 remain partly open only on that demonstrated scalar-total probe
+  within this scope. There are no new blocking findings or observations.
+
+#### 6. Handoff to Claude Code
+
+- [ ] **GIMPL-3-01:** include candidate-derived, unambiguous scalar totals in the CLI oracle and
+  add the individual-sum print counter-proof to M52. Acceptance: the exact changed-sum probe fails
+  the oracle; the unmodified runtime passes it; `mut15_sum` still refuses exactly `totals_sums`
+  with no release record; the fresh-DEK, integer-cell and original cell-print mutants stay killed;
+  the required suites and expanded M52 pass. Update the owning status/evidence to match the measured
+  result. No runtime fix is requested absent a runtime defect.
