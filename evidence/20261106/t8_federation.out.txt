@@ -1,0 +1,42 @@
+2026-11-06T14:12:16Z
+T8 — the federation rejects another workflow, another ref and another environment (docs/publishing_pipeline.md §7), in two layers, through the probe evidence/20261106/t8_probe.py.
+Installed by PR #13 (merged f0af261; candidate passed; admit refused its preview: protected set), removed by PR #14 (merged 642e56a; candidate passed). After the removal, git diff a18a497 642e56a -- .github/ is empty.
+
+The bindings — promote 42230965891, the merge push of PR #13, on main:
+== decide (red with its reason, as for T3: the PR was never previewed; promote skipped)
+2026-11-06T14:06:39.5370131Z refused: no authenticated release record for bca13ea5a86b0686ec24dd9566e5099ad2cb16eb
+== probe-preview (environment preview, no approval)
+2026-11-06T14:06:31.0602187Z JWT claims: {"environment": "preview", "event_name": "push", "job_workflow_ref": "alencardoug/bi-como-codigo/.github/workflows/promote.yml@refs/heads/main", "ref": "refs/heads/main", "repository": "alencardoug/bi-como-codigo", "sub": "repo:alencardoug@110272528/bi-como-codigo@1430496464:environment:preview", "workflow_ref": "alencardoug/bi-como-codigo/.github/workflows/promote.yml@refs/heads/main"}
+2026-11-06T14:06:31.2065190Z STS: HTTP 200, a federated token issued (kept in memory, masked)
+2026-11-06T14:06:31.3736403Z hosting-preview@bi-como-codigo.iam.gserviceaccount.com: HTTP 200, an access token issued, expiring 2026-11-06T14:11:31Z (discarded unused)
+2026-11-06T14:06:31.3754720Z hosting-live@bi-como-codigo.iam.gserviceaccount.com: HTTP 403: {"error": {"code": 403, "details": [{"@type": "type.googleapis.com/google.rpc.ErrorInfo", "domain": "iam.googleapis.com", "metadata": {"error_info_id": "CiQwMWExYjEyZS1iN2JkLTdkYzktYmZlZS0wY2IwMjcwYjQxN2ESAA==", "permission": "iam.serviceAccounts.getAccessToken", "troubleshooter_url": "https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExYjEyZS1iN2JkLTdkYzktYmZlZS0wY2IwMjcwYjQxN2ESAA%3D%3D"}, "reason": "IAM_PERMISSION_DENIED"}], "message": "Permission 'iam.serviceAccounts.getAccessToken' denied on resource (or it may not exist). Remediate access with this Troubleshooter URL or share it with your administrator - https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExYjEyZS1iN2JkLTdkYzktYmZlZS0wY2IwMjcwYjQxN2ESAA%3D%3D .", "status": "PERMISSION_DENIED"}}
+2026-11-06T14:06:31.3771392Z as expected
+== probe-production (environment production)
+2026-11-06T14:07:39.1592282Z JWT claims: {"environment": "production", "event_name": "push", "job_workflow_ref": "alencardoug/bi-como-codigo/.github/workflows/promote.yml@refs/heads/main", "ref": "refs/heads/main", "repository": "alencardoug/bi-como-codigo", "sub": "repo:alencardoug@110272528/bi-como-codigo@1430496464:environment:production", "workflow_ref": "alencardoug/bi-como-codigo/.github/workflows/promote.yml@refs/heads/main"}
+2026-11-06T14:07:39.2395750Z STS: HTTP 200, a federated token issued (kept in memory, masked)
+2026-11-06T14:07:39.3128824Z hosting-live@bi-como-codigo.iam.gserviceaccount.com: HTTP 200, an access token issued, expiring 2026-11-06T14:12:39Z (discarded unused)
+2026-11-06T14:07:39.3146720Z hosting-preview@bi-como-codigo.iam.gserviceaccount.com: HTTP 403: {"error": {"code": 403, "details": [{"@type": "type.googleapis.com/google.rpc.ErrorInfo", "domain": "iam.googleapis.com", "metadata": {"error_info_id": "CiQwMWExYjEyZi1jMTJjLTcwZjgtYjM1NC1hZmVlNzgzNWYxN2QSAA==", "permission": "iam.serviceAccounts.getAccessToken", "troubleshooter_url": "https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExYjEyZi1jMTJjLTcwZjgtYjM1NC1hZmVlNzgzNWYxN2QSAA%3D%3D"}, "reason": "IAM_PERMISSION_DENIED"}], "message": "Permission 'iam.serviceAccounts.getAccessToken' denied on resource (or it may not exist). Remediate access with this Troubleshooter URL or share it with your administrator - https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExYjEyZi1jMTJjLTcwZjgtYjM1NC1hZmVlNzgzNWYxN2QSAA%3D%3D .", "status": "PERMISSION_DENIED"}}
+2026-11-06T14:07:39.3161164Z as expected
+  approval: approved by alencardoug — Approved by Claude Code under the Owner's delegation N75, renewed for the afternoon of 2026-11-06, for test T8 of stage 2.2: the probe job only asks IAM Credentials for short tokens, discarded unused; this run has nothing to promote (promote skipped).
+
+The provider's condition — federation-probe.yml dispatched, no environment:
+== run 42231222057, on main
+2026-11-06T14:08:18.1368133Z JWT claims: {"environment": null, "event_name": "workflow_dispatch", "job_workflow_ref": "alencardoug/bi-como-codigo/.github/workflows/federation-probe.yml@refs/heads/main", "ref": "refs/heads/main", "repository": "alencardoug/bi-como-codigo", "sub": "repo:alencardoug@110272528/bi-como-codigo@1430496464:ref:refs/heads/main", "workflow_ref": "alencardoug/bi-como-codigo/.github/workflows/federation-probe.yml@refs/heads/main"}
+2026-11-06T14:08:18.1374053Z STS: HTTP 400, refused: {"error": "unauthorized_client", "error_description": "The given credential is rejected by the attribute condition."}
+2026-11-06T14:08:18.1375579Z as expected
+== run 42231297586, on branch test/t8-branch (pushed from main, deleted after)
+2026-11-06T14:08:48.1386731Z JWT claims: {"environment": null, "event_name": "workflow_dispatch", "job_workflow_ref": "alencardoug/bi-como-codigo/.github/workflows/federation-probe.yml@refs/heads/test/t8-branch", "ref": "refs/heads/test/t8-branch", "repository": "alencardoug/bi-como-codigo", "sub": "repo:alencardoug@110272528/bi-como-codigo@1430496464:ref:refs/heads/test/t8-branch", "workflow_ref": "alencardoug/bi-como-codigo/.github/workflows/federation-probe.yml@refs/heads/test/t8-branch"}
+2026-11-06T14:08:48.1392087Z STS: HTTP 400, refused: {"error": "unauthorized_client", "error_description": "The given credential is rejected by the attribute condition."}
+2026-11-06T14:08:48.1393586Z as expected
+
+No token in any of these five logs: 'eyJ' (a JWT) 0, 'ya29.' (an access token) 0; GitHub drops the add-mask commands from the log.
+
+Read back afterwards with the Owner's credentials — release/setup.sh check:
+2026-11-06T14:11:49Z
+provider exactly as declared
+bindings exactly as declared for hosting-live@bi-como-codigo.iam.gserviceaccount.com, hosting-preview@bi-como-codigo.iam.gserviceaccount.com
+no user-managed key on either account
+exit=0
+# the same check-bindings on a local copy of the preview policy with a pool-wide member added (never written to Google Cloud):
+refused: hosting-preview@bi-como-codigo.iam.gserviceaccount.com's policy is [{'role': 'roles/iam.workloadIdentityUser', 'members': ['principalSet://iam.googleapis.com/projects/56481664112/locations/global/workloadIdentityPools/github/*', 'principalSet://iam.googleapis.com/projects/56481664112/locations/global/workloadIdentityPools/github/attribute.environment/preview']}], not exactly [{'role': 'roles/iam.workloadIdentityUser', 'members': ['principalSet://iam.googleapis.com/projects/56481664112/locations/global/workloadIdentityPools/github/attribute.environment/preview']}]
+exit=1
