@@ -1,0 +1,5 @@
+2026-11-06T02:48:58Z
+iterations=100000 min=49.1ms median=49.9ms max=76.3ms
+iterations=600000 min=294.1ms median=306.4ms max=328.0ms
+iterations=1000000 min=487.6ms median=496.6ms max=499.9ms
+node=v24.18.0 cpu=Intel(R) Core(TM) i5-7200U CPU @ 2.50GHz
