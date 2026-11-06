@@ -14,3 +14,4 @@ recuperação de uma aprovação vencida (docs/publishing_pipeline.md §4.5).
 - 2026-11-06 — T5 atrasado: C, cujo decide passa e é segurado.
 - 2026-11-06 — T5 atrasado: B, o merge mais novo, que deve ir ao ar.
 - 2026-11-06 — T10(a): uma aprovação abaixo da margem de um dia não promove.
+- 2026-11-06 — T10(a): a recuperação, por um PR novo, depois da aprovação abaixo da margem.
