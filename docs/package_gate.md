@@ -18,7 +18,7 @@
 |---|---|
 | Date | 2026-11-06 — revision 5: round 4 applied (PGATE-4-01). Revision 4 is `0788e8a`: round 3 applied (PGATE-3-01, 02). Revision 3 is `b1f6b93`: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 5 of Codex's review** — 14 findings in rounds 1–4, six blocking, all applied; round 5 found none. The Owner's decisions N76–N83 (2026-11-06) shape it. **Implemented on 2026-11-06, under review**: `src/bi_como_codigo/contract.py`, the live predicates in `envelope.py`, `verify`, `check-listing`, `bind-live` and `promote` in `release.py`, the two workflows, `release/contract.json`, `release/public_values.json` and the real fixtures; every mutation of §9 and its control in `tests/test_package_gate.py`; each check's counter-proof, 30 mutants all killed (M52); round 1 of the code's review applied (GIMPL-1-01 to 05). The real PRs of §9.3 wait for the code's review |
+| Status | **Plan, reviewed: closed in round 5 of Codex's review** — 14 findings in rounds 1–4, six blocking, all applied; round 5 found none. The Owner's decisions N76–N83 (2026-11-06) shape it. **Implemented on 2026-11-06, under review**: `src/bi_como_codigo/contract.py`, the live predicates in `envelope.py`, `verify`, `check-listing`, `bind-live` and `promote` in `release.py`, the two workflows, `release/contract.json`, `release/public_values.json` and the real fixtures; every mutation of §9 and its control in `tests/test_package_gate.py`; each check's counter-proof, 33 mutants all killed (M52); rounds 1 and 2 of the code's review applied (GIMPL-1-01 to 05, GIMPL-2-01, 02). The real PRs of §9.3 wait for the code's review |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§11).
@@ -387,3 +387,6 @@ The tests:
   which reads live again; re-running only `preview` keeps the old `checked_at` and refuses again.
 - The envelope paths are 64-bit digest prefixes, not full digests; no collision was constructed.
 - M19 is not caught here (N76).
+- The non-disclosure tests of §7 take their markers from the candidate itself — its decrypted
+  cells, totals and current keys —; a Parquet DuckDB cannot read contributes the honest fixture's
+  values and the `fixture_` prefix, which holds only while the fixtures are the data (GIMPL-2-01).
