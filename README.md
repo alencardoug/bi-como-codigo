@@ -26,7 +26,7 @@ in review; no report, portal or publication exists yet. The data is synthetic en
 | [`REVIEW.md`](REVIEW.md) | The record of the plan review: Codex's original proposal, Claude Code's review of it, and Codex's rounds 2 to 5 over the plan |
 | [`CLAUDE.md`](CLAUDE.md) | How this repository is worked on — language, commits, the gate, assisted development and the rules never broken |
 | [`AGENTS.md`](AGENTS.md) | The entry point for any agent, pointing at `CLAUDE.md` |
-| [`docs/adr/`](docs/adr/README.md) | The decision record: 1 accepted, 2 pending |
+| [`docs/adr/`](docs/adr/README.md) | The decision record: 2 accepted, 1 pending |
 | [`docs/encryption_envelope.md`](docs/encryption_envelope.md) | The encryption envelope of the per-profile access, format version 1: the bytes, the reader and the producer, the bounds and the oracles (stage 2.2a) |
 | [`docs/publishing_pipeline.md`](docs/publishing_pipeline.md) | The publishing pipeline of stage 2.2: the candidate, publishing and promotion workflows, the federation to Google Cloud, the environments and the tests of each criterion — a plan in review |
 | [`docs/public_by_design.yml`](docs/public_by_design.yml) | The two demo passwords, public by design (N22), registered for the secrets review |

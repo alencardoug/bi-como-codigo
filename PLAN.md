@@ -50,7 +50,7 @@ the first report of the showcase and the first lesson of the study content.
 | # | Question | Choice |
 |---|---|---|
 | **N1** | Name of the showcase | **`bi-como-codigo`** |
-| **N2** | Data, querying and publishing | **Parquet queried by DuckDB in the browser; Firebase Hosting in a project of its own; GitHub Actions publishes on merge and builds a preview per PR; the DuckDB engine comes from jsDelivr** |
+| **N2** | Data, querying and publishing | **Parquet queried by DuckDB in the browser; Firebase Hosting in a project of its own; GitHub Actions publishes on merge and builds a preview per PR; the DuckDB engine comes from jsDelivr** — the hosting recorded in [ADR-0002](docs/adr/0002-host-on-firebase-hosting-through-identity-federation.md) |
 | **N6** | When to fix the synthetic data | **Now, before anything else** |
 | **N8** | Scope of the ADR for O2 | **Classifying is not exposing**: the classification stays — metadata, and the basis of the policy tags of Stage 13 —, and exposing synthetic data becomes free. It rewrites the rule of [Governance §4](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/governanca_de_dados.md#4-classificação-de-sensibilidade) and settles today's divergence (RP-02) |
 | **N17** | How to organise the two pieces of content | **Two repositories, two sites**; the study content reads the data the showcase publishes and has its own capture for the lessons |
@@ -64,7 +64,7 @@ the first report of the showcase and the first lesson of the study content.
 | **N7** | The study trail after the regeneration | **A notice at the top**: the real outputs were measured on the v1.0.0 data. It goes in only with the next update of the trail, never on its own |
 | **N21** | Name of the study repository | **`caderno-de-dados`** |
 | **N3** | Framework for the reports and the portal | **A comparative prototype on P01** — Evidence against a build of our own with DuckDB-WASM and a charting library —, and the choice after it (stage 2.3) |
-| **N15** | Authentication of the CI pipeline to Firebase | **Identity federation** from GitHub to Google Cloud, with no stored key |
+| **N15** | Authentication of the CI pipeline to Firebase | **Identity federation** from GitHub to Google Cloud, with no stored key — recorded in [ADR-0002](docs/adr/0002-host-on-firebase-hosting-through-identity-federation.md) |
 | **N10** | Does the study clock count `caderno-de-dados`? | **Yes** |
 | **N12** | The showcase in the portfolio | **A link on the page of project A** |
 | **N24** | Language of the new repositories and of the communication between agents | **Construction in English** — code, commits, technical documents, plans, reviews and the communication between Claude Code and Codex; Portuguese for what visitors read, for the study content and for the conversation with the Owner ([`CLAUDE.md`](CLAUDE.md) §2) |
