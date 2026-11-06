@@ -1,0 +1,7 @@
+2026-11-06T03:44:49Z
+iterations=100000 min=70.2ms median=102.6ms max=108.7ms
+iterations=600000 min=367.9ms median=377.7ms max=406.8ms
+iterations=1000000 min=605.8ms median=607.9ms max=735.6ms
+iterations=2000000 min=1215.0ms median=1237.2ms max=1255.8ms
+secure_context=true user_agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36
+cpu=Intel(R) Core(TM) i5-7200U CPU @ 2.50GHz

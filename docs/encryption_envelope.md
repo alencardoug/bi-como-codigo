@@ -17,9 +17,9 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-06 — revision 3: round 2 applied — the counter-proof by predicate, with its table, and the ciphertext range isolated from its equality (ENV-2-01); the rule against the live package, keyed by `package_id` (ENV-2-02). Revision 2 is `fd8ca09`: round 1 of Codex's design review applied — observable refusal codes and a step 0 for the manifest (ENV-1-04), negative cases that reach their step, a third vector and the counter-proof of each check (ENV-1-01), separate DEK and IV reuse tests (ENV-1-02), identities matched over every byte (ENV-1-03). Revision 1 is `29a73b8` |
+| Date | 2026-11-06 — revision 4: round 3 applied — the framing split into too few bytes and a surplus (ENV-3-01) —, with what implementing it found: `foreign_package_rewritten` refused by the salt, `matrix_closed` and its case, one generator for every case, the manifest a file of its own, and §7 implemented. Revision 3 is `0f77c3a`: round 2 applied — the counter-proof by predicate, with its table, and the ciphertext range isolated from its equality (ENV-2-01); the rule against the live package, keyed by `package_id` (ENV-2-02). Revision 2 is `fd8ca09`: round 1 of Codex's design review applied — observable refusal codes and a step 0 for the manifest (ENV-1-04), negative cases that reach their step, a third vector and the counter-proof of each check (ENV-1-01), separate DEK and IV reuse tests (ENV-1-02), identities matched over every byte (ENV-1-03). Revision 1 is `29a73b8` |
 | Author | Claude Code, at the Owner's request (stage 2.2a) |
-| Status | **Specification for review by Codex, before implementation.** Nothing in it is implemented. Measured so far: PBKDF2 latency in Node only (M47); the browser's is pending (§7) |
+| Status | **Implemented, in review by Codex.** Revisions 1–3 were reviewed as a design in rounds 1–3; revision 4 and both readers, the producer, the vectors, the cases and the counter-proof go to round 4. Measured: the cases on both readers, the counter-proof (M48) and the derivation in Node and Chrome (M47, M49) |
 
 **[measured]** has output behind it; **[planned]** is intent. Every number in this document is a
 constant of format version 1 unless it says otherwise.
@@ -164,8 +164,8 @@ cost a derivation, and no field can make the reader allocate or iterate without 
 | `report_id` | 1 to 16 bytes, `^[A-Z][A-Z0-9_]{0,15}$`, matched over every byte (below) | One encoding per identity: no case or Unicode variants |
 | `slot_count` | 1 to 8, strictly ascending `profile_id`, no repetition | One canonical order, so a reordered or duplicated slot is a different, refused header |
 | `profile_id` | 1 to 32 bytes, `^[a-z][a-z0-9_]{0,31}$`, matched over every byte (below) | As `report_id` |
-| `iterations` | 600,000 to 2,000,000 | The floor is the decided count (N67); the ceiling keeps a tampered manifest from hanging a browser — about a second on the machine of M47, by extrapolation: 1,000,000 took 497 ms, and 2,000,000 was not run |
-| `ciphertext_len` | 1 to 32 MiB, and equal to what the file holds | A view of `consumption` is aggregated; 2.4 measures the real sizes [planned] |
+| `iterations` | 600,000 to 2,000,000 | The floor is the decided count (N67); the ceiling keeps a tampered manifest from hanging a browser — 1.24 s in Chrome on the machine of M47 (M49) |
+| `ciphertext_len` | 1 to 32 MiB, and equal to what the file holds — checked as two conditions, enough bytes for the ciphertext and tag, then nothing after them (ENV-3-01) | A view of `consumption` is aggregated; 2.4 measures the real sizes [planned] |
 | `totals_len`, `parquet_len` | §2.4, and summing exactly to the plaintext | |
 
 **How an identity matches** (ENV-1-03). The patterns above are a notation, not an instruction to
@@ -213,6 +213,10 @@ only part this format defines:
   report of `reports`; ids are unique and match §3 byte for byte; lists are sorted; hex is
   lowercase and of the stated length; `iterations` is within the bounds of §3; `file` is exactly
   `<id>.<first 16 hex digits of sha256>.bice`.
+- **The manifest is a file of its own**, holding exactly the keys above: what the exporter
+  publishes about the package otherwise — the eng_dados commit, the time of the read, the
+  contract of each view (stage 2.4) — goes into another file, so that this one's closed key set
+  never has to admit the exporter's fields.
 - **CI validates the manifest strictly**, refusing duplicate keys, unknown keys and any violation
   above, before any envelope is read (stage 2.2b). The browser validates its structure — types,
   lengths, uniqueness, membership — and relies on CI for duplicate keys, since the manifest it
@@ -244,8 +248,9 @@ guess at what changed, since the reader has nothing to tell a wrong password fro
 
 A refusal carries its code and, for every step but 7 and 8, the `predicate_id` of the condition
 that failed (§6.5): the code is what the site and the tests branch on, the `predicate_id` what the
-counter-proof needs. The package checks of §6.4 refuse with `dek_reused`, `iv_reused` and, against
-the live package, `package_id_reused` and `salt_reused`, under the same rule.
+counter-proof needs. The package checks of §6.4 refuse with `unentitled_opens`, `dek_reused`,
+`iv_reused` and, against the live package, `package_id_reused` and `salt_reused`, under the same
+rule.
 
 It returns the totals bytes and the Parquet bytes. The site shows a visitor one message per kind —
 *not entitled* for `not_entitled`, *does not open* for every other code —, never a partial report.
@@ -324,12 +329,15 @@ case proves nothing about the target:
 - a case against step 8 changes bytes after any re-sealing: the last mutation is the one under
   test.
 
-Byte mutations — a bit flipped, a field rewritten, a cut, a byte appended — are applied by each
-suite to the vectors itself. The cases that need sealing — `foreign_envelope`'s other package,
-`foreign_package_rewritten` and `payload_shape` — are **frozen as fixture files** produced by
-`seal_report`, next to the vectors, so that the JavaScript suite, which has no producer, reads
-the same bytes as the Python one. The package checks of §6.4 are the producer's and the gate's,
-in Python only.
+**Every case is materialised once**, by `tests/envelope_fixtures.py`, and committed as
+`tests/vectors/envelope_v1/cases.json` — the envelope bytes, the manifest text, the report and
+profile asked for, the typed password, and the expected code and `predicate_id`. Both readers run
+that file, so they are judged on the same bytes, and a test checks the committed file is exactly
+what the generator builds. The generator writes headers with a writer of its own, field by field,
+not with the module's: a case must hold what the module would never write. The one case not
+committed is `header_ciphertext_range` above the bound, 32 MiB of ciphertext: each suite builds it
+from the P01 vector. The package checks of §6.4 are the producer's and the gate's, in Python
+only.
 
 | Group | Case id | Change | Code (step) |
 |---|---|---|---|
@@ -345,7 +353,7 @@ in Python only.
 | | `header_fixed_byte` | Each byte of offsets 0–14 changed in turn | `header_malformed` (2) |
 | | `header_identity_bytes` | `report_id` or a `profile_id` with a final line feed, out of range, empty or one over its bound, its length byte adjusted to match | `header_malformed` (2) |
 | | `header_slots_shape` | `slot_count` 0 or 9; two slots with the same id; slots out of order | `header_malformed` (2) |
-| | `header_ciphertext_len` | `ciphertext_len` one more or one less than the file holds, within the bounds; and the file cut right after the header or inside the ciphertext or tag | `header_malformed` (2) |
+| | `header_ciphertext_len` | `ciphertext_len` one more or one less than the file holds, within the bounds; and the file cut right after the header or inside the ciphertext or tag. One more and every cut leave too few bytes (`ciphertext_available`); one less leaves a surplus (`exact_end`) | `header_malformed` (2) |
 | | `header_ciphertext_range` | The file **rebuilt** so that it holds exactly what `ciphertext_len` says, and `ciphertext_len` 0 or 33,554,433 (one over 32 MiB): the length agrees, only the range is broken (ENV-2-01). The bytes need not be valid GCM output | `header_malformed` (2) |
 | | `header_iterations_bounds` | A slot's `iterations` 599,999 or 2,000,001, the manifest unchanged | `header_malformed` (2) |
 | **I** identity | `package_expected_differs` | The manifest's `package_id` changed, the envelope unchanged | `identity_mismatch` (3) |
@@ -374,7 +382,8 @@ both with the public passwords:
 - **The whole matrix.** For every profile and every report: an entitled pair opens and its payload
   is the one recorded; an unentitled pair is refused as *not entitled*, **and** the profile's KEK
   fails to unwrap every slot of that envelope — the proof that no wrapped key of it opens for that
-  profile, whatever its label says.
+  profile, whatever its label says; a slot that unwraps is refused as `unentitled_opens`
+  (`matrix_closed`).
 - **No reuse — two separate checks.** Unwrapping every slot gives the raw DEKs: no two envelopes
   of the package share a DEK (`dek_reused`), and no two share an IV (`iv_reused`). The first
   protects the access as well as GCM: a DEK shared by P13 and P01 would let the `logistica` slot
@@ -412,10 +421,13 @@ both with the public passwords:
   | `reuse_control` | Distinct DEKs, distinct IVs | Accepted |
   | `reuse_dek_only` | Two envelopes with the same DEK and different IVs | `dek_reused` |
   | `reuse_iv_only` | Two envelopes with different DEKs and the same IV | `iv_reused` |
-  | `reuse_both` | Two envelopes with the same DEK and the same IV | `dek_reused` and `iv_reused` |
+  | `reuse_both` | Two envelopes with the same DEK and the same IV | `dek_reused`, the DEK check running first; without it, `iv_reused` |
+  | `matrix_same_key` | Two profiles declared with the same password and the same salt, so that their KEKs are one: the unentitled profile unwraps a slot that is not its own | `unentitled_opens` |
 
   Each check is proved on the case only it can catch: without the DEK check, `reuse_dek_only`
-  passes; without the IV check, `reuse_iv_only` does.
+  passes; without the IV check, `reuse_iv_only` does; without `matrix_closed`, `matrix_same_key`.
+  The producer draws a salt per profile, so its own packages never meet `matrix_same_key`; the
+  gate's check is for a package it did not produce.
 
 ### 6.5 The counter-proof of each predicate
 
@@ -454,12 +466,12 @@ wrong case, not a passing one.
 | 2 | `slot_count_range`, `slots_ascending` | `header_slots_shape` — `ascending` covers both repetition and order |
 | 2 | `iterations_bounds` | `header_iterations_bounds` |
 | 2 | `ciphertext_len_range` | `header_ciphertext_range` |
-| 2 | `ciphertext_len_equal`, `exact_end` | `header_ciphertext_len`; `header_trailing_byte` |
+| 2 | `ciphertext_available`, `exact_end` | `header_ciphertext_len` declaring one more, or the file cut after the header, in the ciphertext or in the tag; `header_ciphertext_len` declaring one less, and `header_trailing_byte` |
 | 3 | `package_id_equal`, `report_id_equal` | `package_expected_differs`; `report_served_as_other` |
-| 4 | `slot_set_equal`, `slot_salt_equal`, `slot_iterations_equal` | `slot_removed`, `slot_added`, `foreign_package_rewritten`; `slot_salt_differs`; `slot_iterations_differs` |
+| 4 | `slot_set_equal`, `slot_salt_equal`, `slot_iterations_equal` | `slot_removed`, `slot_added`; `slot_salt_differs`, `foreign_package_rewritten`; `slot_iterations_differs` |
 | 5 | `slot_present` | `not_entitled` |
 | 9 | `payload_magic`, `payload_version`, `totals_len_range`, `parquet_len_minimum`, `payload_exact`, `parquet_magic` | One variant of `payload_shape` each |
-| package | `dek_unique`, `iv_unique` | `reuse_dek_only`; `reuse_iv_only` |
+| package | `dek_unique`, `iv_unique`, `matrix_closed` | `reuse_dek_only`; `reuse_iv_only`; `matrix_same_key` |
 | live, 2.2b | `live_unchanged_identical`, `live_dek_fresh`, `live_iv_fresh`, `live_salt_fresh` | `live_same_id_changed`; `live_dek_reused`; `live_iv_reused`; `live_salt_reused` |
 
 Steps 7 and 8 are refusals of the primitives, `unwrap_failed` and `decrypt_failed`, with no
@@ -478,18 +490,19 @@ possible; they prove the site.
 
 ## 7. Where it is implemented
 
-| Part | Where [planned] | Runs in |
+| Part | Where | Runs in |
 |---|---|---|
-| Constants, `seal_report`, `encrypt_package`, the reader and the package checks, in Python | `src/bi_como_codigo/envelope.py`, with `cryptography` as its first runtime dependency | `make check`, through pytest; the exporter (2.4) and the package gate (2.2b) |
-| The reader in JavaScript — written separately from the Python, from this document | `web/envelope.mjs`, a plain ES module with no dependency, using `globalThis.crypto.subtle` only | `make check`, through `node --test` on Node 20 or later, the same WebCrypto API the browser exposes; the site (2.3 onwards) imports the same file |
-| The vectors and the sealed negative fixtures | `tests/vectors/envelope_v1/`, one JSON file per vector or fixture, and the vectors' manifest | Both suites |
-| The latency of the derivation | `evidence/20261105/` | By hand |
+| Constants, `seal_report`, `encrypt_package`, the reader and the package checks, in Python | `src/bi_como_codigo/envelope.py`, with `cryptography` as its first runtime dependency | `make check`, through pytest (`tests/test_envelope.py`); the exporter (2.4) and the package gate (2.2b) |
+| The reader in JavaScript — written separately from the Python, from this document | `web/envelope.mjs`, a plain ES module with no dependency, using `globalThis.crypto.subtle` only | `make check`, through `node --test` on `tests/js/envelope.test.mjs`, on Node 20 or later, the same WebCrypto API the browser exposes; the site (2.3 onwards) imports the same file |
+| The generator of the vectors and cases, and what it wrote | `tests/envelope_fixtures.py`; `tests/vectors/envelope_v1/` — `manifest.json`, `vectors.json`, `cases.json` | Both suites |
+| The counter-proof of every predicate | `evidence/20261106/m48_counter_proof.py` | By hand, once per change to a reader |
+| The latency of the derivation | `evidence/20261105/` (Node), `evidence/20261106/` (Chrome) | By hand |
 
 **[measured] M47:** PBKDF2-HMAC-SHA-256 with 600,000 iterations through Node's WebCrypto, deriving
-an AES-KW key: median 306 ms of five runs, on an Intel Core i5-7200U with Node v24.18.0. **The
-browser's latency is pending**: it is measured in Chrome on the same machine when the reader exists,
-and the count stays at 600,000 unless the desktop figure goes above about one second — then the
-choice goes back to the Owner (N67).
+an AES-KW key: median 306 ms of five runs, on an Intel Core i5-7200U with Node v24.18.0.
+**[measured] M49:** the same derivation in Chrome 156, headless, on the same machine: 600,000
+iterations median 377.7 ms; 2,000,000, the reader's ceiling, 1,237.2 ms. Below the one second of
+N67, so the count stays at 600,000. A phone is not measured.
 
 ---
 
@@ -497,10 +510,10 @@ choice goes back to the Owner (N67).
 
 **Not verified:**
 
-- the browser's latency of the derivation (§7), and a phone's at all;
-- that Chrome's WebCrypto, which runs on BoringSSL, accepts the same inputs and refuses the same
-  cases as Node's, which runs on OpenSSL — the primitive vectors (§6.1) in the browser are stage
-  2.6's matrix;
+- the latency of the derivation on a phone (§7);
+- that Chrome's WebCrypto, which runs on BoringSSL, refuses the same cases as Node's, which runs on
+  OpenSSL — M49 runs only the derivation in Chrome; the cases and the primitive vectors in the
+  browser are stage 2.6's matrix;
 - the sizes of the real payloads against the 32 MiB bound (stage 2.4).
 
 **Assumptions:**
