@@ -428,3 +428,253 @@ Return the corrected design for review before claiming its no-blocking-finding c
 vectors, counter-proofs, production randomness/retry review and browser latency remain required
 for completion of stage 2.2a after design approval.
 
+## Round 2
+
+### 1. Conclusion
+
+**Changes required.** The revised negative cases can reach their stated refusal steps, and the
+isolated DEK/IV cases repair the round-1 reuse oracle. Two **medium adjustments** remain: the
+counter-proof procedure does not yet prove each validation predicate, and comparison with live
+does not distinguish a new encryption from republication of unchanged ciphertext. No critical or
+high finding was confirmed. This report does not close the design review while these adjustments
+remain open; it does not assess an implementation.
+
+### 2. Reviewed scope and version
+
+Reviewed on 2026-11-06, branch `main`, checkout
+`b8f118b243fc3c52568352092a3396bbfc5142eb`. The comparison is exactly
+`2b1a558629ed1fadab9b16c236366a5d2485f0bd..fd8ca09906a1be903db76071a985ff366464477b`:
+one commit, `fd8ca09`, changing only `docs/encryption_envelope.md` (136 additions, 64 deletions).
+The baseline contains revision 1, originally introduced by `29a73b8`. Checkout commit `b8f118b`
+changes only the dossier; its Status entries were treated as author claims. The working envelope
+document is byte-identical to `fd8ca09` (`git diff fd8ca09 -- docs/encryption_envelope.md` is empty).
+There were no local changes or untracked files initially. This review changes only `DOSSIER.md`;
+round 1, including its Status column, is preserved.
+
+Read the dossier, the pinned diff, the complete revised specification, `CLAUDE.md`, the repository
+review skill, the requested PLAN sections/decisions and RV2-02/RV3-01. Reused round-1 primitive
+and M23 evidence; no uncertain baseline was substituted.
+
+### 3. Findings and evidence
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+| ENV-2-01 | Envelope §6.3 H, §6.5 | Field-only ciphertext-length mutations cannot prove the range guard independently; the pass-through procedure also conflates predicates with whole parsing steps. | `adjustment` | **Fixed** in `docs/encryption_envelope.md` rev. 3. Confirmed by reading rev. 2: a `ciphertext_len` of 0 or above 32 MiB also broke the equality with the file, so the range had no case of its own. Now §6.5 counts by predicate: every refusing condition is one `require(condition, code, predicate_id)` in both implementations, a refusal carries code and `predicate_id`, a table maps each `predicate_id` to its dedicated cases and each suite asserts its module's set equals the table; the mutant takes one condition as true in a /tmp copy with parsing intact, and any end other than the original code and `predicate_id` kills it, errors from a read past the end or a missing slot included; only the dedicated cases must die. New case `header_ciphertext_range`, with the file rebuilt to hold exactly 0 or 33,554,433 bytes; truncation split between `bytes_available` (inside the header) and `ciphertext_len_equal` (after it). Execution when the modules exist, evidence of 2.2a |
+| ENV-2-02 | Envelope §5.2, §6.4 | Live comparison has no identity/idempotency rule for an unchanged encrypted package, so literal cross-comparison rejects an ordinary release that reuses it. | `adjustment` | **Fixed** in rev. 3 §6.4. Confirmed by reading rev. 2: an unchanged package compared with live would repeat every DEK and IV. Now the rule is keyed by `package_id`, the identity of one producer run: the same id as live must be live byte for byte (reports, envelopes, manifest entries, profiles) and is accepted with no reuse check; any difference under it is `package_id_reused`; a different id must share no DEK, IV or salt with live (`dek_reused`, `iv_reused`, `salt_reused`). Six controls specified for 2.2b, the within-package checks unchanged |
+
+**ENV-2-01 — Specify an executable counter-proof for each predicate**
+
+**Medium → adjustment.** `docs/encryption_envelope.md:343`, `:393`–`:399`; the two distinct
+ciphertext-length requirements are at `:84`–`:87` and `:168`. **Confirmed validation gap**, not an
+observed defect in a reader. The range-fixture overlap is **preexisting**, carried from revision 1;
+the ambiguous counter-proof procedure is **introduced in revision 2**.
+
+Changing only `ciphertext_len` to zero or above 32 MiB necessarily also violates equality to the
+actual ciphertext length of any valid starting vector. Removing just the range guard therefore
+leaves both cases returning the same `header_malformed` through the equality check. The ±1 cases
+do not isolate the range either. Removing the entire step-2 validator can kill group H while
+failing to demonstrate that the range guard exists independently.
+
+**Executed predicate counter-proof**, using a permissible 27-byte vector ciphertext, with no
+reader implementation involved:
+
+```text
+Field-only header_ciphertext_len mutations; actual ciphertext=27 bytes
+zero: original=header_malformed; no_bound=header_malformed; no_exact=header_malformed
+above_max: original=header_malformed; no_bound=header_malformed; no_exact=header_malformed
+plus_one: original=header_malformed; no_bound=header_malformed; no_exact=later_step
+minus_one: original=header_malformed; no_bound=header_malformed; no_exact=later_step
+```
+
+Section 6.5 does not resolve this: if “each check” means an individual predicate, not every case
+of its group should fail when it is removed (removing package-id equality leaves the report-id
+case in group I correctly refused). If it means a whole step, it does not independently prove
+the predicates within that step. A literal no-op of step 2 also removes the parsing that supplies
+fields to later steps; a truncated input cannot supply those fields. Bypassing step 5 similarly
+leaves no asking-profile slot for group E. A later code or successful opening is not a defined
+outcome for either bypass in both languages. These are static data-dependency observations, not
+claims that nonexistent production modules crashed.
+
+**Correction:** map each validation predicate to at least one dedicated case and specify how its
+mutant preserves parsing/data flow. Require its dedicated exact-code assertion to fail; do not
+require every unrelated case of the group to fail. Define how an exception from an intentionally
+broken parser counts, instead of requiring only a later code/opening. For the ciphertext range,
+add cases with actual ciphertext lengths zero and 33,554,433 and matching declared lengths,
+refreshing manifest size/hash/file; retain separate in-range length-mismatch cases. These can be
+constructed byte mutations and need not be valid GCM ciphertext: after the range predicate is
+bypassed, a later refusal suffices. This preserves the missing-guard counter-proof rather than
+merely proving another guard at the same step.
+
+**Acceptance:** the design identifies the individual predicate, fixture and allowed mutant outcome
+in both implementations, including truncation and absent slots. Disabling only the ciphertext
+range guard must kill its dedicated tests while equality remains enabled; disabling only equality
+must kill its own tests while the range remains enabled. Execute and paste that evidence when the
+modules exist. Until then, the universal counter-proof claim remains planned and incomplete.
+
+**ENV-2-02 — Distinguish an existing encryption from a new encryption reusing its material**
+
+**Medium → adjustment.** `docs/encryption_envelope.md:258`–`:261`, `:372`–`:377`.
+**Preexisting policy ambiguity**, retained when revision 2 added separate live-comparison codes.
+The four new within-package cases themselves are correct.
+
+An ordinary application-only release can carry the current encrypted package unchanged. No new
+encryption occurred, so its DEKs have not been reused for another encryption; §5.2 explicitly
+preserves unchanged encrypted packages. But §6.4 says to compare their DEKs and IVs with live,
+without excluding the identical package/envelopes. A literal comparison finds every value again
+and refuses both codes. Alternatively, an implementer may silently exempt a matching package id,
+without specifying what happens if bytes under that id differ. Stage 2.2b receives no defined
+acceptance rule for these ordinary inputs. This is a release-policy gap, not an adversarial
+confidentiality claim with the public passwords.
+
+**Executed comparison of per-envelope byte labels** (not an implemented gate):
+
+```text
+reuse_control: []
+reuse_dek_only: ['dek_reused']
+reuse_iv_only: ['iv_reused']
+reuse_both: ['dek_reused', 'iv_reused']
+same encrypted package as live: ['dek_reused', 'iv_reused']
+```
+
+**Correction:** define the boundary explicitly: verified identical published envelopes represent
+the same encryption; different/new encryptions must not reuse live DEKs or IVs. State what proves
+that identity (package/report identity and full envelope digest/bytes), and how changed bytes under
+an existing package id are handled. Keep actual live retrieval/execution assigned to 2.2b.
+**Acceptance:** specify cross-comparison controls for an unchanged package (accepted), a distinct
+fresh package (accepted), a new encryption reusing only a live DEK (`dek_reused`), and one reusing
+only a live IV (`iv_reused`); explicitly cover the same-id/different-bytes case. Implement and
+execute those gate cases in 2.2b without weakening the two within-package guards.
+
+### 4. Status of previous findings and refusal-path audit
+
+| Previous ID | Independent status | Evidence and remaining work |
+|---|---|---|
+| ENV-1-01 | **Partially resolved** | §6.3 now refreshes size/hash/file outside A, uses in-range iterations, supplies P02 with P01-compatible slots, freezes sealed fixtures and adds `other_slot_bit` (`:288`–`:360`). These repair the original unreachable stages. The per-check counter-proof acceptance remains incomplete: ENV-2-01. |
+| ENV-1-02 | **Resolved at design level** | §6.4's accepted control, DEK-only, IV-only and both-reused cases isolate the two predicates (`:381`–`:389`); executed truth-table output above agrees. Removing either predicate lets its dedicated single-reuse case through. ENV-2-02 concerns the separate live-comparison boundary. No actual gate was tested. |
+| ENV-1-03 | **Resolved at design level** | §3 (`:171`–`:179`) explicitly makes every identity byte, length and range normative across declaration, manifest and header; regex engines, trimming and newline exceptions are forbidden. The notation in §2.1/§2.2 is governed by that rule, so it does not reintroduce a regex-engine requirement. M/H include final-LF cases. |
+| ENV-1-04 | **Resolved at design level** | §5.1 (`:234`–`:246`) maps each rejecting step to an observable code and the two visitor messages; §6.3 separates case ids from codes. Wrong passwords/key/salt/count failures all use `unwrap_failed`; GCM failures use `decrypt_failed`. No mutation-origin guessing is required. |
+
+All §6.3 rows were traced statically in the specified order. This is the **earliest intended
+refusal**, not a claim that later checks would accept the mutated bytes:
+
+| Cases examined | Reachability result |
+|---|---|
+| M: `manifest_shape`, `manifest_identity_bytes`, `manifest_iterations_bounds`, `manifest_duplicate_key` | Step 0. The first three rows expressly apply to both readers; the duplicate-key row alone is CI-only. Thus the browser must reject unknown keys, unsorted lists, invalid file forms and out-of-range iterations here as the table requires. §4's abbreviated structural list is not a licence to defer those cases to step 4. |
+| A: `bit_flipped_unrefreshed`, `size_only`, both `foreign_envelope` variants | A structurally valid manifest remains intact; size/hash fail at 1. A size changed by one is still the same JSON type. |
+| H: `header_truncated`, `header_trailing_byte`, `header_fixed_byte`, `header_identity_bytes`, `header_slots_shape`, `header_ciphertext_len`, `header_iterations_bounds` | Refreshed size/hash/file let them reach 2. Length-byte adjustments preserve framing for invalid identity bytes; manifest iteration counts stay valid while the slot violates bounds. They do not need to reach identity/slot equality. Range proof is the separate ENV-2-01 gap. |
+| I: `package_expected_differs`, `report_served_as_other` | Valid changed package hex, or P02 served with P01's refreshed manifest entry, passes 0–2 and fails 3. |
+| S: `slot_salt_differs`, `slot_iterations_differs`, `slot_removed`, `slot_added`, `foreign_package_rewritten` | In-range, shape-valid headers with expected identities reach 4. The added slot must be complete, sorted after `diretoria`, with `slot_count` adjusted, as the earlier-check rule requires. The foreign fixture must retain the expected report id and slot set while retaining foreign salts after rewriting only its package id. These are intentional target-step mismatches; the general preparation bullet cannot override the explicit S rows. |
+| E: `not_entitled` | Logística/P01 passes 0–4 and refuses at 5 without derivation. |
+| U: `wrong_password`, `wrapped_key_bit`, `salt_both_sides`, `iterations_both_sides` | Use an entitled asking profile (P13 permits exercising both). Salt/count changes on both sides remain structurally valid; the old wrap no longer unwraps at 7. This is a per-envelope test, not a claim that the other envelopes still match the modified manifest. |
+| D: `iv_bit`, `tag_bit`, `ciphertext_bit`, `report_id_rewritten`, `package_id_rewritten`, `other_slot_bit` | All reach 8: P02/P01 share slot parameters; changing both package ids preserves equality; opening P13 as Logística leaves its own wrap intact when Diretoria's wrap changes. No re-sealing after the last mutation. |
+| P: `payload_shape` and its magic/version/length/PAR1 variants | Valid sealing and refreshed transport expectations allow 0–8; malformed plaintext is first inspected at 9. Frozen fixtures give JavaScript the same sealed bytes without a JS producer. |
+
+The ordered contract catches header shape at 2, manifest defects at 0, identities at 3 and
+manifest/header slot equality at 4. The refusal codes identify these aggregate checks without
+overlap between steps. Step 6 has no additional format-policy check; it derives using already
+validated parameters. Steps 7/8 have appropriate planned primitive oracles: correct controls,
+known-answer tests, exact failure codes and the other-slot AAD mutation. Replacing a cryptographic
+library is unnecessary, but actual module calls and earlier-check success still need evidence
+when implemented. The throwaway probe below does not satisfy that implementation obligation.
+
+No additional regression was found in §5.2, §7, §8, the Date/Status table or cross-references.
+The renamed “outside these oracles” section has no stale link found by the targeted search.
+The two-million-iteration estimate is now explicitly extrapolated. Nothing claims a browser
+measurement or completed implementation. PLAN §3.6's other obligations retain their assigned
+stages: artifact inspection/live matrix/logout in 2.2b/2.6, exporter totals and real sizes in 2.4;
+browser latency and actual vectors/negative suites remain stage-2.2a work.
+
+### 5. Checks executed; checks not performed
+
+The author's reported `make check` at `fd8ca09` was not counted as reviewer execution. The reviewer
+ran the following command on this checkout, including after writing Round 2, with exit **0**.
+The post-report output follows:
+
+```bash
+UV_CACHE_DIR=/tmp/bi-env-review-r2-uv-cache PYTHONDONTWRITEBYTECODE=1 \
+  PYTEST_ADDOPTS='-p no:cacheprovider' \
+  ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 \
+  make check UV_RUN='uv run --frozen --no-sync'
+```
+
+```text
+secrets review: nothing found in the tracked files
+history review: nothing found (80 occurrence(s) of values public by design, 2 registered; 0 blob(s) skipped)
+docs-check: 18 documents, 99 file links, 36 anchors, 0 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 0 accepted, 3 pending — record consistent
+........................................................................ [ 72%]
+...........................                                              [100%]
+99 passed in 2.81s
+```
+
+These are existing tooling tests, not envelope tests. `git diff --check` passed;
+`git status --short --untracked-files=all` showed only ` M DOSSIER.md`. An executed byte-prefix
+comparison against `git show HEAD:DOSSIER.md` also confirmed:
+
+```text
+Round-1 dossier preserved byte for byte; Round 2 appended only
+```
+
+No dependency installation/sync, eng_dados target, database write, commit or publication was performed.
+
+Throwaway probes are in `/tmp/bi-envelope-review-r2-QCbDOB/`, using system Python **3.10.12** /
+`cryptography` **3.4.8** and Node **v24.18.0**. Commands, all exiting **0**:
+
+```text
+python3 predicate_probe.py
+python3 reachability_probe.py
+node crypto_probe.mjs
+```
+
+The crypto-backed Python step model constructed three deterministic envelopes in one package,
+with actual 600,000-iteration derivations and actual KW/GCM operations. It exercised four accepted
+profile/report controls, eight identity/slot/entitlement cases and sixteen unwrap/decrypt cases.
+**Steps 0–2 were stipulated from constructed valid fields, not implemented or tested.** Representative
+literal output (the complete output was inspected):
+
+```text
+slot_added_well_formed_sorted -> slots_mismatch
+foreign_package_rewritten -> slots_mismatch
+salt_mutation_diretoria -> unwrap_failed
+iterations_mutation_diretoria -> unwrap_failed
+report_id_rewritten -> decrypt_failed
+package_id_rewritten -> decrypt_failed
+other_slot_bit -> decrypt_failed
+crypto-backed step model: 20 cases exported for Node; not a reader implementation
+```
+
+Node consumed those 20 control/crypto cases' bytes, used non-extractable AES-KW/AES-GCM keys and
+agreed on all expected primitive outcomes:
+
+```text
+Node WebCrypto primitive outcomes: 20/20 agree; no JS envelope parser tested
+```
+
+The Node probe tests cryptographic operations, not an independent envelope reader. The Python model
+does not parse a manifest/header or implement the §2.4 parser; it cannot establish actual M/H/P
+behavior. No production vectors, parser mutants or package gate exist to execute. Browser timing,
+Chrome/BoringSSL, preview/artifact inspection and logout were not run: those remain explicitly
+pending/later-stage work. Standards and M47 were not fetched/rerun again because their unchanged
+primitive/measurement evidence is already in round 1; no new standards claim depends on a search.
+
+### 6. Limitations and open questions
+
+This is a design-only review of the pinned revision, including its touched contracts and the
+requested requirements. Static reachability and throwaway predicates are not implementation proof.
+The two findings identify concrete validation/release gaps; no exploit or production failure is
+claimed. No additional unresolved hypothesis is reported as a defect. The predicate/mutant
+contract and unchanged-package policy are the open design points, with acceptance criteria above;
+no Owner clarification was needed to identify them.
+
+### 7. Handoff to Claude Code
+
+- [ ] **ENV-2-01 / remaining ENV-1-01 acceptance:** specify predicate-level cases and executable
+  mutation outcomes for both languages. Isolate ciphertext range from equality; cover data-dependent
+  parsing and absent slots. A dedicated case must kill each predicate's mutant, with actual output
+  supplied when stage 2.2a implements it.
+- [ ] **ENV-2-02:** define verified unchanged-envelope identity and the same-id/different-bytes
+  rule; specify the unchanged/fresh/DEK-only/IV-only cross-live controls for execution in 2.2b.
+- [ ] Retain **ENV-1-02/03/04** as resolved design contracts and implement their specified tests;
+  they have not been validated against production modules. Return the two design adjustments for
+  reassessment before claiming this review closed.
+
