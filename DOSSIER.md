@@ -541,3 +541,188 @@ and the explicitly deferred stage-2.2b work remains outside this round.
 Re-run the repository gate and review the resulting corrections. N69 remains gated on no
 blocking finding; the real §7 acceptance tests remain pending after that review.
 
+
+## Round 2
+
+### 1. Conclusion
+
+**Changes required. The push may not proceed under N69.** The two round-1 security blockers
+are corrected, but their replacement downloader fails on the ordinary GitHub-to-storage redirect
+(IMPL-2-01). It fails closed: no unauthorized deployment was demonstrated. Fix and review this
+regression before enabling the workflows. IMPL-2-02 is only a bounded completeness observation;
+it does not independently justify another round under N72. Stage 2.2's remote acceptance tests
+remain pending.
+
+### 2. Reviewed scope and version
+
+Reviewed exactly `git log 2f7b7e3..5fc5742`: **`5fc5742`**, against baseline `2f7b7e3`.
+The initially clean checkout was **`6a93585`**, whose only additional change is the round-1
+report/status material in this dossier; it supplies no implementation evidence. Round 1 and its
+Status column are preserved verbatim.
+
+Requirements: AGENTS.md, CLAUDE.md §5, pipeline **revision 4**, PLAN §3.4/stage 2.2/N69/N70/N74,
+and envelope §6.4's current package checks. The revision-5 diff only records the extractor and
+provider read-back changes; those changes retain the reviewed trust boundaries and are reflected
+in the workflows. This round reassesses IMPL-1-01–11 and regressions from their fixes, without
+reopening the plan or the deferred stage-2.2b work.
+
+### 3. Findings and evidence
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+| IMPL-2-01 | `src/bi_como_codigo/release.py:159,310–316`; `.github/workflows/publish.yml:56,104` | High — the replacement downloader forwards the GitHub bearer across the archive redirect; Azure rejects it despite the valid signed URL, preventing ordinary candidate/verified downloads. | `blocking` | **Fixed.** Reproduced the mechanism: urllib following a 302 keeps `Authorization` (`previous path … Authorization at the storage URL = Bearer t`). New `_download` sends the token only to GitHub's API URL with redirects not followed, requires an https `Location`, and fetches it with no `Authorization`; `fetch-artifact` and the record download both use it. Test with a local server: the API path saw the bearer, the storage fetch carried none |
+| IMPL-2-02 | `src/bi_como_codigo/release.py:332–342,509` | Low — `_paged` treats the filtered workflow-runs API's 1,000-result cutoff as a complete listing, despite a larger `total_count`. | `observation` | **Fixed.** `_paged` compares a keyed listing's `total_count` with what it read and refuses a shorter one; test with 1,000 of 1,500 runs |
+
+**IMPL-2-01 — High — normal artifact downloads fail at the storage redirect.**
+`fetch_artifact` passes the GitHub token into `_http`, which uses `Request.add_header` for
+Authorization. Python carries that header into redirected requests. GitHub's archive endpoint
+returns a signed storage URL; the GitHub bearer is not an Azure access token. The new downloader
+therefore reaches storage with incompatible authorization and refuses its 401 before extraction.
+Both publishing download steps use this path. The shared helper also serves `_artifact_json`.
+This is a functional blocker for the pipeline, not a demonstrated PR-controlled redirect or
+credential theft.
+
+**Executed:** a loopback API with page-2 artifact discovery and a cross-origin 302 established
+that the exact code forwards the sentinel. Independently, a read-only GitHub GET for public ZIP
+artifact `11467106428` in `actions/upload-artifact` supplied a real signed storage URL. A local
+redirect to that URL then exercised the **unchanged `fetch_artifact` and `_http`**. Only the
+artifact-list response was substituted; no real credential was sent by Python:
+
+```text
+fetch-artifact: API page 2 -> 302 -> different-origin ZIP -> safe_extract PASS
+Authorization sentinel sent to API: 3 requests; forwarded to blob: 1 request
+public artifact 11467106428 ZIP signature: PK; redirect host: productionresultssa6.blob.core.windows.net
+exact fetch_artifact, sentinel bearer: artifact 11467106428 answered 401
+exact fetch_artifact, no forwarded bearer: extracted 2 files
+```
+
+**Counter-evidence considered:** the unsigned-header control succeeds against the very same
+signed URL, ruling out expiry, permissions or a corrupt ZIP as the cause. The earlier local
+server accepted any Authorization header, so its green result alone missed the real service's
+behaviour. The workflows' actual `GITHUB_TOKEN` was not exercised; the normal-run consequence
+follows from the executed header forwarding and Azure's rejection of the unrelated bearer.
+[Python documents header propagation](https://docs.python.org/3.13/library/urllib.request.html#urllib.request.Request.add_header),
+[GitHub documents the archive redirect](https://docs.github.com/en/rest/actions/artifacts#download-an-artifact),
+and [Azure requires its own Entra access tokens for bearer authorization](https://learn.microsoft.com/en-us/rest/api/storageservices/authorize-with-azure-active-directory).
+
+**Correction / validation:** authenticate the GitHub API request while keeping Authorization
+off the signed storage request, for example with an unredirected header or an explicitly handled
+redirect. Retain safe extraction. Add a download-path test whose API requires the bearer and
+whose different-origin storage rejects it; assert both normal artifact layouts extract, API
+errors fail closed, and traversal still writes nothing. Confirm a real signed ZIP download
+without forwarding a GitHub credential. Changing the extractor cannot correct this defect.
+
+**IMPL-2-02 — Low — the helper's own page limit does not detect the server's limit.**
+The runs query uses `event`, `branch` and `status`. GitHub
+[documents a maximum of 1,000 matching results for these filters](https://docs.github.com/en/rest/actions/workflow-runs#list-workflow-runs-for-a-workflow).
+`_paged` ignores `total_count` and returns when page 11 is empty, before its 50-page guard:
+
+```text
+_paged server cap: total_count=1001, returned=1000, calls=11, no incomplete-inventory refusal
+```
+
+A record outside that prefix is missed. **Counter-evidence / severity:** page-2 discovery and
+ambiguity rejection now work; a missing record refuses promotion. Material impact requires more
+than 1,000 newer successful publisher runs while the desired preview is still usable (under
+29 days), implausible for this single-owner fixture stage. This is an observation under N72,
+not an unsafe promotion path. Document the bound, or partition searches by creation time / refuse
+an incomplete `total_count`; validate with the 1,001-result fixture before relying on larger
+inventories.
+
+**Round-1 reassessment** — statuses below are this review's conclusions, not the author's claims:
+
+| Round-1 ID | Assessment | Evidence at `5fc5742` |
+|---|---|---|
+| IMPL-1-01 | Resolved for the extraction escape; replacement download blocked by IMPL-2-01 | `release.py:107–162`, `publish.yml:52–56,100–104`: original traversal ZIP and nine unsafe variants refused before writes; sibling code/control sentinels unchanged. Both layouts produced by the pinned upload bundle extract with exact bytes, directory entries and empty files. No new escape found. |
+| IMPL-1-02 | Resolved | `release.py:483–493`: fake authoritative counts absent / 3,000 / 3,001 refuse before listing; 200 of 250 refuses; protected page-2 file and old name of a rename refuse; ordinary PR admits. |
+| IMPL-1-03 | Resolved | `release.py:258–267`: independently re-encrypted widened and narrowed entitlements both refuse against the unchanged protected declaration; committed fixture verifies. |
+| IMPL-1-04 | Resolved | `candidate.yml:15,31`: checkout and metadata use the same head expression. A temporary diverged-main Git graph confirms head content differs from merge content and selecting head retains the labelled revision. Actual hosted checkout remains unmeasured. |
+| IMPL-1-05 | Resolved | `release.py:581–588`, `publish.yml:121–124`: same-path firebase.json rewrite preserves every other setting; pinned firebase-tools 15.28.2's extractor selects `sandbox-site` despite default `default-project-site`. |
+| IMPL-1-06 | Resolved | `release/setup.sh:14–19`, `release.py:605–615`: live setup check now reads and accepts the provider; altered claim/mapping/issuer/state fixtures refuse in the gate. Recorded condition with tabs/newlines between CEL tokens passes. No environment name is fixed by this change. |
+| IMPL-1-07 | Partially resolved; residual is IMPL-2-02 | `release.py:509–513`: executed `decide` finds matching run #101 and artifact #101 on page 2; a second record there refuses as ambiguous. Service-cap completeness remains bounded as above. |
+| IMPL-1-08 | Resolved | `release.py:285–290,735–740`, `publish.yml:64–67,135–145`: executed verify returns trusted PR/head; record URL reaches the actual decide summary with PR/version/digest/expiry and zero HTTP calls during summary generation. |
+| IMPL-1-09 | Resolved | `tests/test_release.py:412–422`: the new independent oracle passes normally and fails under the original in-memory omission of `site/releases.md` (`1 failed`, expected exit 1). |
+| IMPL-1-10 | Resolved | `release.py:689–699`: matching-channel fixtures accept FINALIZED and refuse DELETED, CREATED and 404 versions, with §4.5 recovery and an exact version-resource GET. |
+| IMPL-1-11 | Resolved | `release.py:281–284`: independent raw, lowercase, uppercase and mixed-case DEK plants all refuse. |
+
+### 4. Checks executed and not performed
+
+**Repository gate — exit 0**, before editing this report:
+
+```text
+ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 UV_CACHE_DIR=/tmp/bi-review-r2-uv \
+  PYTHONDONTWRITEBYTECODE=1 \
+  PYTEST_ADDOPTS='-p no:cacheprovider --basetemp=/tmp/bi-review-r2-pytest' \
+  make check UV_RUN='uv run --frozen --no-sync'
+secrets review: nothing found in the tracked files
+history review: nothing found (94 occurrence(s) of values public by design, 2 registered; 3 blob(s) skipped)
+docs-check: 22 documents, 126 file links, 45 anchors, 5 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 1 accepted, 2 pending — record consistent
+353 passed, 1 warning in 27.05s
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+```
+
+The warning is the intentional duplicate-ZIP-name fixture. The three secret-scanner skips are
+the committed binary envelopes; package verification exercises them but is not a general binary
+secret scan. The JS skip remains the duplicate-JSON-key case covered by Python's strict parser.
+
+**Live read-only setup check — exit 0**, with configuration from `r_03`–`r_05` and a private
+Cloud SDK configuration copy under `/tmp`, removed afterwards:
+
+```text
+provider exactly as declared
+bindings exactly as declared for hosting-live@bi-como-codigo.iam.gserviceaccount.com, hosting-preview@bi-como-codigo.iam.gserviceaccount.com
+no user-managed key on either account
+```
+
+Other checks: the targeted probes above; exact pinned upload-action bundle fetched and only its
+startup export changed under `/tmp` to expose its ZIP builder (no action entrypoint or upload);
+pinned CLI's local configuration extractor; YAML/static workflow inspection, including **zero
+`${{ }}` expressions in all three workflows' `run:` blocks**. The new settings use variables;
+trusted checkout, no persisted checkout credentials, verification before auth, production approval,
+version-only clone and promotion concurrency remain in place. Revision 5 records these fixes
+without changing their placement or weakening revision 4's conditions.
+
+Actionlint **1.7.12** still exits 1 solely on unchanged `promote.yml:43`, `queue: max`.
+Current [GitHub workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idconcurrency)
+explicitly supports that job-level queue with `cancel-in-progress: false`; this is an older
+validator limitation, not a new finding or a measured GitHub parser acceptance.
+
+After appending this report, docs-check again exited 0 and `git diff --check` passed. An
+append-only/content-scope assertion printed:
+
+```text
+round-1 bytes preserved; append-only Round 2; only DOSSIER.md changed
+```
+
+**Not performed:** any workflow in this repository, upload, dispatch, OIDC exchange, deploy,
+clone, remote merge/rerun/concurrency schedule, or remote §7 acceptance test. No new IAM or GitHub
+setting audit beyond setup's read-back was needed for this diff. The public artifact download
+above is read-only service evidence, not execution of this pipeline. `tests/site_fixture.py` was
+not run as a generator, and eng_dados was never changed. Only DOSSIER.md was edited; no commit,
+push or external mutation was made.
+
+### 5. Limitations
+
+Fake APIs establish behaviour for supplied responses, not GitHub run-attempt semantics. The
+public ZIP probe establishes real storage behaviour, but not this repository's hosted job/token
+execution. Successful federation, its negative exchanges, real Hosting routing/served bytes,
+merge methods, reruns and approval schedules still require the planned acceptance runs after
+the blocking correction. Green unit tests did not cover the storage authentication boundary.
+
+Probe sources/logs are under `/tmp/bi-review-r2/`; the gate log is
+`/tmp/bi-review-r2-make-check.log`. Only evidence pasted here belongs to this delivery. No new
+security bypass was found in the scoped corrections; this conclusion does not mark stage 2.2
+complete.
+
+### 6. Handoff acceptance checklist
+
+- [ ] **IMPL-2-01:** keep the bearer on the API request and off the signed storage request;
+  exercise storage that rejects forwarded authorization, a real signed ZIP control, both artifact
+  layouts and traversal refusal; rerun `make check` and review the correction before the N69 push.
+- [ ] **IMPL-2-02:** record the filtered-query bound in the owning document, or detect/partition
+  truncated inventories with a 1,001-result counter-proof before claiming complete enumeration.
+  This observation may remain documented under N72 and does not block the current delivery.
