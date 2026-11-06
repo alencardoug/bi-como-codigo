@@ -127,6 +127,7 @@ the first report of the showcase and the first lesson of the study content.
 | **N81** | What counts as clear report data in the artifact (2026-11-06, PGATE-1-03) | **Every decrypted value, with a public list**: no text of 3 or more characters and no number of 3 or more significant digits or with a fraction — canonical or Brazilian form —, nor the totals, outside an envelope, except the values a protected `release/public_values.json` lists with their reason. Chosen over a row-proximity heuristic and over long-value thresholds, which let a short row through (package_gate §6) |
 | **N82** | The domain of the control sums (2026-11-06, PGATE-1-05) | **Only `SMALLINT`, `INTEGER`, `BIGINT` and `DECIMAL` up to 18 digits are summed**, so DuckDB's 38-digit accumulator cannot overflow within an envelope's bound. Chosen over summing in Python, which would materialise every column and leave DuckDB (package_gate §2.1) |
 | **N83** | The manifest in stage 2.2b's value inspection (2026-11-06, PGATE-2-03) | **Only its free text, the profile labels, is searched**: its other fields are strictly typed and bound to the package by its checks, and mandatory values such as `iterations: 600000` would collide with honest data. Chosen over searching every field with the public list, which random salts and ids would make unpredictable; a number hidden in a typed field by a hostile author is a declared limit (package_gate §6, §11) |
+| **N84** | When eng_dados' stage 13 runs, revised (2026-11-06, ~18:45 local; supersedes N73's order) | **Right after stage 2.2b**, in a session opened in eng_dados, ending with its Google Cloud resources destroyed; then 2.3 to 2.10 here, pinned to the eng_dados commit accepted after it. Nothing of 2.3–2.10 is an input of stage 13 — it replicates eng_dados' own flow and reads eng_dados' own data governance (classification, descriptions, `meta:`, lineage), done in Part I; the portal (2.7) and the project's governance (2.8) consume it, they do not produce it — and the showcase reads eng_dados by pinned commits, so later changes there break nothing here. The Owner's words: "Se houver alguma destas etapas que possamos postergar para viabilizar que a replicação do GCP seja realizada o quanto antes, melhor." Chosen over a reduced first publication after 2.6 and over N73's order |
 
 ### 1.3 Consequences
 
@@ -721,10 +722,11 @@ promise a deadline.
    the acceptance and the tag.
 2. In parallel with Part I, on disposable fixtures only: **2.1, 2.2a, 2.2, 2.2b, 2.3 and 3.1**. No real
    report data reaches Hosting before the gates of §3.4 exist.
-3. After 1.9: **2.4 to 2.10** — the first publication carries the overview, P01 and P13 with the
-   per-profile access, the portal and the governance of the project, promoted from its approved
-   preview —; then, by N73, **stage 13 of eng_dados** — the replication on Google Cloud, in a
-   session opened there, ending with its resources destroyed —; then **2.11** in batches.
+3. After 2.2b, by N84 (which supersedes N73's order): **stage 13 of eng_dados** — the replication
+   on Google Cloud, in a session opened there, ending with its resources destroyed —; then **2.3
+   to 2.10**, pinned to the eng_dados commit accepted after stage 13 — the first publication
+   carries the overview, P01 and P13 with the per-profile access, the portal and the governance of
+   the project, promoted from its approved preview —; then **2.11** in batches.
 4. After 2.10 and 3.1: **3.2 to 3.8**.
 
 ---
