@@ -17,7 +17,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-06 — revision 4: round 3 applied — the framing split into too few bytes and a surplus (ENV-3-01) —, with what implementing it found: `foreign_package_rewritten` refused by the salt, `matrix_closed` and its case, one generator for every case, the manifest a file of its own, and §7 implemented. Revision 3 is `0f77c3a`: round 2 applied — the counter-proof by predicate, with its table, and the ciphertext range isolated from its equality (ENV-2-01); the rule against the live package, keyed by `package_id` (ENV-2-02). Revision 2 is `fd8ca09`: round 1 of Codex's design review applied — observable refusal codes and a step 0 for the manifest (ENV-1-04), negative cases that reach their step, a third vector and the counter-proof of each check (ENV-1-01), separate DEK and IV reuse tests (ENV-1-02), identities matched over every byte (ENV-1-03). Revision 1 is `29a73b8` |
+| Date | 2026-11-06 — revision 5: round 4 applied — numbers judged by value in both readers (ENV-4-01), the control totals validated by the producer (ENV-4-02), every magic byte and every header boundary a case (ENV-4-03). Revision 4 is `ef7b06f`: round 3 applied — the framing split into too few bytes and a surplus (ENV-3-01) —, with what implementing it found: `foreign_package_rewritten` refused by the salt, `matrix_closed` and its case, one generator for every case, the manifest a file of its own, and §7 implemented. Revision 3 is `0f77c3a`: round 2 applied — the counter-proof by predicate, with its table, and the ciphertext range isolated from its equality (ENV-2-01); the rule against the live package, keyed by `package_id` (ENV-2-02). Revision 2 is `fd8ca09`: round 1 of Codex's design review applied — observable refusal codes and a step 0 for the manifest (ENV-1-04), negative cases that reach their step, a third vector and the counter-proof of each check (ENV-1-01), separate DEK and IV reuse tests (ENV-1-02), identities matched over every byte (ENV-1-03). Revision 1 is `29a73b8` |
 | Author | Claude Code, at the Owner's request (stage 2.2a) |
 | Status | **Implemented, in review by Codex.** Revisions 1–3 were reviewed as a design in rounds 1–3; revision 4 and both readers, the producer, the vectors, the cases and the counter-proof go to round 4. Measured: the cases on both readers, the counter-proof (M48) and the derivation in Node and Chrome (M47, M49) |
 
@@ -145,7 +145,8 @@ What AES-GCM encrypts. The reader refuses it unless it is consumed exactly:
 | `q` | `parquet` | One Parquet file: its first and last four bytes are `PAR1` |
 
 The control totals travel encrypted with the report, never in the manifest (PLAN §3.4). They are
-**checked by the package gate in CI** (stage 2.2b), whose JSON parser refuses duplicate keys,
+**checked by the producer before it draws anything** (§5.2, step 1; ENV-4-02) **and by the package
+gate in CI** (stage 2.2b), whose JSON parser refuses duplicate keys, `NaN` and `Infinity`,
 non-UTF-8 bytes and any value other than an object at the top. The browser reader slices them out
 and does not interpret them — the browser's `JSON.parse` keeps the last of two duplicate keys
 silently, so nothing the site shows comes from them.
@@ -213,6 +214,13 @@ only part this format defines:
   report of `reports`; ids are unique and match §3 byte for byte; lists are sorted; hex is
   lowercase and of the stated length; `iterations` is within the bounds of §3; `file` is exactly
   `<id>.<first 16 hex digits of sha256>.bice`.
+- **Numbers are judged by value** (ENV-4-01). `manifest_version`, `envelope_format_version`,
+  `iterations` and `size` are integers: a number whose value is integral and within
+  ±(2^53 − 1), the integers a JavaScript number holds exactly. How it is spelt does not count —
+  `1`, `1.0` and `1e0` are one value, and `JSON.parse` keeps no trace of the difference —, so
+  both readers accept all three and refuse `1.5`, `true`, `9007199254740992` and an infinite
+  value alike. Text that is not JSON — `NaN`, `Infinity`, a cut file — is refused as a wrong
+  type, in the browser as in CI.
 - **The manifest is a file of its own**, holding exactly the keys above: what the exporter
   publishes about the package otherwise — the eng_dados commit, the time of the read, the
   contract of each view (stage 2.4) — goes into another file, so that this one's closed key set
@@ -257,7 +265,8 @@ It returns the totals bytes and the Parquet bytes. The site shows a visitor one 
 
 ### 5.2 The producer
 
-1. Validate the profile declaration (§3) and the payloads (§2.4).
+1. Validate the profile declaration (§3) and the payloads (§2.4) — the control totals parsed as CI
+   will parse them, one UTF-8 JSON object with no repeated key.
 2. Draw `package_id`, then one salt per profile, from the operating system's cryptographic
    generator. Derive each KEK.
 3. For each report: draw a fresh DEK and a fresh IV; wrap the DEK under the KEK of each entitled
@@ -345,12 +354,13 @@ only.
 | | `manifest_identity_bytes` | A profile or report id with a final line feed, a final space, an uppercase letter in a profile id, a lowercase one in a report id, an empty id, one byte over the length bound | `manifest_invalid` (0) |
 | | `manifest_iterations_bounds` | A profile's `iterations` 599,999 or 2,000,001 | `manifest_invalid` (0) |
 | | `manifest_duplicate_key` | A key repeated in an object — **CI's validator only**: the browser's `JSON.parse` cannot see it (§4) | `manifest_invalid` (0) |
+| | `manifest_numbers` | Integral values spelt `1.0`, `1e0`, `1.00000000000000001`, `6e5` and a `size` with `.0` — **accepted, and the report opens**; and `1.5`, `-0` as a `size`, `9007199254740992`, `NaN`, `1e400` and a cut file — refused (§4) | Opens; or `manifest_invalid` (0) |
 | **A** integrity | `bit_flipped_unrefreshed` | One bit of the envelope, the manifest unchanged | `integrity_mismatch` (1) |
 | | `size_only` | The manifest's `size` changed by one, the envelope unchanged | `integrity_mismatch` (1) |
 | | `foreign_envelope` | P02's envelope served as P01, or an envelope of another package, the manifest unchanged | `integrity_mismatch` (1) |
 | **H** header | `header_truncated` | Cut at every field boundary of §2.1–§2.2 that lies before the end of `ciphertext_len`, and inside each multi-byte field | `header_malformed` (2) |
 | | `header_trailing_byte` | One byte appended | `header_malformed` (2) |
-| | `header_fixed_byte` | Each byte of offsets 0–14 changed in turn | `header_malformed` (2) |
+| | `header_fixed_byte` | Each byte of offsets 0–14 changed in turn — the four of the magic each on its own | `header_malformed` (2) |
 | | `header_identity_bytes` | `report_id` or a `profile_id` with a final line feed, out of range, empty or one over its bound, its length byte adjusted to match | `header_malformed` (2) |
 | | `header_slots_shape` | `slot_count` 0 or 9; two slots with the same id; slots out of order | `header_malformed` (2) |
 | | `header_ciphertext_len` | `ciphertext_len` one more or one less than the file holds, within the bounds; and the file cut right after the header or inside the ciphertext or tag. One more and every cut leave too few bytes (`ciphertext_available`); one less leaves a surplus (`exact_end`) | `header_malformed` (2) |
@@ -455,13 +465,13 @@ wrong case, not a passing one.
 
 | Step | `predicate_id` | Dedicated cases (§6.3, §6.4) |
 |---|---|---|
-| 0 | `manifest_keys`, `manifest_types`, `manifest_versions`, `manifest_hex`, `manifest_sorted`, `manifest_unique`, `manifest_membership`, `manifest_entitled`, `manifest_file_form` | One variant of `manifest_shape` each |
+| 0 | `manifest_keys`, `manifest_types`, `manifest_versions`, `manifest_hex`, `manifest_sorted`, `manifest_unique`, `manifest_membership`, `manifest_entitled`, `manifest_file_form` | One variant of `manifest_shape` each; for `manifest_types`, the refused `manifest_numbers` as well |
 | 0 | `manifest_identity_bytes`, `manifest_identity_length` | `manifest_identity_bytes` |
 | 0 | `manifest_iterations_bounds` | `manifest_iterations_bounds` |
 | 0 | `manifest_no_duplicate_keys` — CI only | `manifest_duplicate_key` |
 | 1 | `size_equal`, `sha256_equal` | `size_only`; `bit_flipped_unrefreshed`, `foreign_envelope` |
 | 2 | `bytes_available` | `header_truncated` |
-| 2 | `magic`, `format_version`, `algorithm_bytes`, `length_bytes` | `header_fixed_byte`, by offset |
+| 2 | `magic`, `format_version`, `algorithm_bytes`, `length_bytes` | `header_fixed_byte`, by offset — so that a check of only part of the magic is caught as well (ENV-4-03) |
 | 2 | `report_id_length`, `report_id_bytes`, `profile_id_length`, `profile_id_bytes` | `header_identity_bytes` |
 | 2 | `slot_count_range`, `slots_ascending` | `header_slots_shape` — `ascending` covers both repetition and order |
 | 2 | `iterations_bounds` | `header_iterations_bounds` |
