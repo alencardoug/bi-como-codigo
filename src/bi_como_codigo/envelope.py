@@ -134,8 +134,36 @@ def _hex_ok(value: str, length: int) -> bool:
     return raw is not None and len(raw) == length and all(b in _HEX for b in raw)
 
 
+#: The largest integer both runtimes hold exactly: JavaScript's numbers are
+#: doubles, and `JSON.parse` keeps no trace of how a number was spelt.
+SAFE_INTEGER_MAX = 2**53 - 1
+
+
 def _is_int(value: object) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool)
+    """An integer of the manifest (§4, ENV-4-01): a number whose value is
+    integral and within ±(2^53 - 1), however it was spelt — `1`, `1.0` and
+    `1e0` are one value, as they are to `JSON.parse`. Booleans are not numbers."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return abs(value) <= SAFE_INTEGER_MAX
+    if isinstance(value, float):
+        return value.is_integer() and abs(value) <= SAFE_INTEGER_MAX
+    return False
+
+
+def _strict_json(raw: bytes) -> tuple[bool, object]:
+    """UTF-8, one JSON value, no repeated key and no `NaN` or `Infinity` —
+    what CI accepts (§2.4, §4). Returns (parsed, value); a repeated key is
+    refused by its own predicate, through the hook."""
+
+    def no_constants(name: str) -> object:
+        raise ValueError(name)
+
+    try:
+        return True, json.loads(raw.decode("utf-8"), object_pairs_hook=_refuse_duplicate_keys, parse_constant=no_constants)
+    except (UnicodeDecodeError, ValueError):
+        return False, None
 
 
 @dataclass(frozen=True)
@@ -182,10 +210,8 @@ def _ids_ok(ids: list[str], lead: range, maximum: int) -> tuple[bool, bool]:
 def validate_manifest(raw: bytes) -> Manifest:
     """Step 0, strictly — the CI reader. The browser's is `web/envelope.mjs`,
     which cannot see a duplicate key (§4)."""
-    try:
-        data = json.loads(raw.decode("utf-8"), object_pairs_hook=_refuse_duplicate_keys)
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        raise Refused(MANIFEST_INVALID, "manifest_types") from None
+    parsed, data = _strict_json(raw)
+    require(parsed, MANIFEST_INVALID, "manifest_types")
     return _validate_manifest_object(data)
 
 
@@ -257,10 +283,10 @@ def _validate_manifest_object(data: object) -> Manifest:
     return Manifest(
         package_id=bytes.fromhex(data["package_id"]),
         profiles={
-            p["id"]: Profile(p["id"], p["label"], bytes.fromhex(p["salt"]), p["iterations"], tuple(p["reports"]))
+            p["id"]: Profile(p["id"], p["label"], bytes.fromhex(p["salt"]), int(p["iterations"]), tuple(p["reports"]))
             for p in profiles
         },
-        reports={r["id"]: ReportEntry(r["id"], r["file"], r["sha256"], r["size"]) for r in reports},
+        reports={r["id"]: ReportEntry(r["id"], r["file"], r["sha256"], int(r["size"])) for r in reports},
     )
 
 
@@ -510,9 +536,21 @@ def _validate_declaration(profiles: list[DeclaredProfile], payloads: dict[str, t
             raise ValueError(f"report id {report_id!r} is outside §3")
         if not any(report_id in p.reports for p in profiles):
             raise ValueError(f"report {report_id!r} is entitled to no profile")
+        parsed, value = _totals_json(totals)
+        if not parsed or not isinstance(value, dict):
+            raise ValueError(f"the control totals of {report_id!r} are not one UTF-8 JSON object with no repeated key (§2.4)")
         parse_payload(build_payload(totals, parquet))
         if len(build_payload(totals, parquet)) > CIPHERTEXT_MAX:
             raise ValueError(f"report {report_id!r} is above the 32 MiB bound")
+
+
+def _totals_json(raw: bytes) -> tuple[bool, object]:
+    """The control totals parsed as CI will parse them (§2.4); a repeated key
+    is a failed parse here, not a refusal of the reader."""
+    try:
+        return _strict_json(raw)
+    except Refused:
+        return False, None
 
 
 def _manifest_bytes(package_id: bytes, profiles: list[DeclaredProfile], salts: dict[str, bytes], files: dict[str, bytes]) -> bytes:

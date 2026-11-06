@@ -446,6 +446,138 @@
    "ci_only": true
   },
   {
+   "id": "manifest_numbers__version_as_1.0",
+   "group": "control",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1.0,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.18fbdd86ac589152.bice\",\n      \"sha256\": \"18fbdd86ac589152d688ce93abba2c27d587e11c727da24dda1a4805d95fb084\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": null,
+   "predicate": null,
+   "ci_only": false
+  },
+  {
+   "id": "manifest_numbers__version_as_1e0",
+   "group": "control",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1e0,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.18fbdd86ac589152.bice\",\n      \"sha256\": \"18fbdd86ac589152d688ce93abba2c27d587e11c727da24dda1a4805d95fb084\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": null,
+   "predicate": null,
+   "ci_only": false
+  },
+  {
+   "id": "manifest_numbers__version_rounding_to_1",
+   "group": "control",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1.00000000000000001,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.18fbdd86ac589152.bice\",\n      \"sha256\": \"18fbdd86ac589152d688ce93abba2c27d587e11c727da24dda1a4805d95fb084\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": null,
+   "predicate": null,
+   "ci_only": false
+  },
+  {
+   "id": "manifest_numbers__iterations_as_6e5",
+   "group": "control",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 6e5,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.18fbdd86ac589152.bice\",\n      \"sha256\": \"18fbdd86ac589152d688ce93abba2c27d587e11c727da24dda1a4805d95fb084\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": null,
+   "predicate": null,
+   "ci_only": false
+  },
+  {
+   "id": "manifest_numbers__size_as_float",
+   "group": "control",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.18fbdd86ac589152.bice\",\n      \"sha256\": \"18fbdd86ac589152d688ce93abba2c27d587e11c727da24dda1a4805d95fb084\",\n      \"size\": 174.0\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": null,
+   "predicate": null,
+   "ci_only": false
+  },
+  {
+   "id": "manifest_numbers__version_fractional",
+   "group": "M",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1.5,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.18fbdd86ac589152.bice\",\n      \"sha256\": \"18fbdd86ac589152d688ce93abba2c27d587e11c727da24dda1a4805d95fb084\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": "manifest_invalid",
+   "predicate": "manifest_types",
+   "ci_only": false
+  },
+  {
+   "id": "manifest_numbers__size_negative_zero",
+   "group": "M",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.18fbdd86ac589152.bice\",\n      \"sha256\": \"18fbdd86ac589152d688ce93abba2c27d587e11c727da24dda1a4805d95fb084\",\n      \"size\": -0\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": "manifest_invalid",
+   "predicate": "manifest_types",
+   "ci_only": false
+  },
+  {
+   "id": "manifest_numbers__size_past_safe_integer",
+   "group": "M",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.18fbdd86ac589152.bice\",\n      \"sha256\": \"18fbdd86ac589152d688ce93abba2c27d587e11c727da24dda1a4805d95fb084\",\n      \"size\": 9007199254740992\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": "manifest_invalid",
+   "predicate": "manifest_types",
+   "ci_only": false
+  },
+  {
+   "id": "manifest_numbers__version_nan",
+   "group": "M",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": NaN,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.18fbdd86ac589152.bice\",\n      \"sha256\": \"18fbdd86ac589152d688ce93abba2c27d587e11c727da24dda1a4805d95fb084\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": "manifest_invalid",
+   "predicate": "manifest_types",
+   "ci_only": false
+  },
+  {
+   "id": "manifest_numbers__version_infinite",
+   "group": "M",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1e400,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.18fbdd86ac589152.bice\",\n      \"sha256\": \"18fbdd86ac589152d688ce93abba2c27d587e11c727da24dda1a4805d95fb084\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": "manifest_invalid",
+   "predicate": "manifest_types",
+   "ci_only": false
+  },
+  {
+   "id": "manifest_numbers__not_json",
+   "group": "M",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.18fbdd86ac589152.bice\",\n      \"sha256\": \"18fbdd86ac589152d688ce93abba2c27d587e11c727da24dda1a4805d95fb084\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n  ",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": "manifest_invalid",
+   "predicate": "manifest_types",
+   "ci_only": false
+  },
+  {
    "id": "size_only",
    "group": "A",
    "report": "P01",
@@ -494,18 +626,6 @@
    "ci_only": false
   },
   {
-   "id": "header_truncated__at_1",
-   "group": "H",
-   "report": "P01",
-   "profile": "diretoria",
-   "typed": "senha_complexa_123",
-   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.df7e70e5021544f4.bice\",\n      \"sha256\": \"df7e70e5021544f4834bbee64a9e3789febc4be81470df629cad6ddb03320a5c\",\n      \"size\": 1\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
-   "envelope": "42",
-   "code": "header_malformed",
-   "predicate": "bytes_available",
-   "ci_only": false
-  },
-  {
    "id": "header_truncated__at_2",
    "group": "H",
    "report": "P01",
@@ -542,6 +662,30 @@
    "ci_only": false
   },
   {
+   "id": "header_truncated__at_6",
+   "group": "H",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.361b1ec466f2a96f.bice\",\n      \"sha256\": \"361b1ec466f2a96fba04c251c187d93e4b4e5aaf916c0fe7edc84aca4df3c671\",\n      \"size\": 6\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "424943450101",
+   "code": "header_malformed",
+   "predicate": "bytes_available",
+   "ci_only": false
+  },
+  {
+   "id": "header_truncated__at_7",
+   "group": "H",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.de0a107c0ee0dcea.bice\",\n      \"sha256\": \"de0a107c0ee0dceaf37ebf78afd805d4fcd14e5b48630bccd0a18243df29f8cf\",\n      \"size\": 7\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "42494345010101",
+   "code": "header_malformed",
+   "predicate": "bytes_available",
+   "ci_only": false
+  },
+  {
    "id": "header_truncated__at_8",
    "group": "H",
    "report": "P01",
@@ -549,6 +693,18 @@
    "typed": "senha_complexa_123",
    "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.9383a3e1c02d48d0.bice\",\n      \"sha256\": \"9383a3e1c02d48d01909725c3d651c9b95ba2907959bea247c64a279c140cd08\",\n      \"size\": 8\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
    "envelope": "4249434501010101",
+   "code": "header_malformed",
+   "predicate": "bytes_available",
+   "ci_only": false
+  },
+  {
+   "id": "header_truncated__at_9",
+   "group": "H",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.603b210c268e063e.bice\",\n      \"sha256\": \"603b210c268e063e293dc1c4d42f431cda4a88f119f7cdc677f8a9991ff29e73\",\n      \"size\": 9\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "424943450101010101",
    "code": "header_malformed",
    "predicate": "bytes_available",
    "ci_only": false
@@ -566,6 +722,30 @@
    "ci_only": false
   },
   {
+   "id": "header_truncated__at_11",
+   "group": "H",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.de37cd663209abed.bice\",\n      \"sha256\": \"de37cd663209abed13b9e6065be49cebcc14598b98971041d2e29d22e0436185\",\n      \"size\": 11\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120",
+   "code": "header_malformed",
+   "predicate": "bytes_available",
+   "ci_only": false
+  },
+  {
+   "id": "header_truncated__at_12",
+   "group": "H",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.1ad46de6d0be4bce.bice\",\n      \"sha256\": \"1ad46de6d0be4bcedafc2612848d5d8e2a88e4b5e178fa3feee0aea1249d6d83\",\n      \"size\": 12\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "424943450101010101012010",
+   "code": "header_malformed",
+   "predicate": "bytes_available",
+   "ci_only": false
+  },
+  {
    "id": "header_truncated__at_13",
    "group": "H",
    "report": "P01",
@@ -573,6 +753,18 @@
    "typed": "senha_complexa_123",
    "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.46c6115fb3909acb.bice\",\n      \"sha256\": \"46c6115fb3909acba4467b5c4a74df342537fe1ef34386b8a693a02a99c47aca\",\n      \"size\": 13\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
    "envelope": "4249434501010101010120100c",
+   "code": "header_malformed",
+   "predicate": "bytes_available",
+   "ci_only": false
+  },
+  {
+   "id": "header_truncated__at_14",
+   "group": "H",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.58d23f77542acbb5.bice\",\n      \"sha256\": \"58d23f77542acbb598e55762fad0a3ab50c59d944d479006855fcfa0eefcaedd\",\n      \"size\": 14\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c10",
    "code": "header_malformed",
    "predicate": "bytes_available",
    "ci_only": false
@@ -590,13 +782,13 @@
    "ci_only": false
   },
   {
-   "id": "header_truncated__at_20",
+   "id": "header_truncated__at_23",
    "group": "H",
    "report": "P01",
    "profile": "diretoria",
    "typed": "senha_complexa_123",
-   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.38245de3deafa8e6.bice\",\n      \"sha256\": \"38245de3deafa8e69dc9c3e87576c5d78ae7fa7bf80578657c71907214d034a6\",\n      \"size\": 20\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
-   "envelope": "4249434501010101010120100c102898c670e731",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.297783682f8bae52.bice\",\n      \"sha256\": \"297783682f8bae52d384728be0980f288726c2e4db2f45d6361b3ef532ca50bb\",\n      \"size\": 23\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff6",
    "code": "header_malformed",
    "predicate": "bytes_available",
    "ci_only": false
@@ -626,13 +818,13 @@
    "ci_only": false
   },
   {
-   "id": "header_truncated__at_34",
+   "id": "header_truncated__at_33",
    "group": "H",
    "report": "P01",
    "profile": "diretoria",
    "typed": "senha_complexa_123",
-   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.faa0b089cc41307a.bice\",\n      \"sha256\": \"faa0b089cc41307ae759d006ccb7e4a578b3321982aa98a7f4287addef454ffc\",\n      \"size\": 34\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
-   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da83310696035030",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.23bcda586f9d81d4.bice\",\n      \"sha256\": \"23bcda586f9d81d4675a9235b2486f6c8b7ede515073bb3cd3bf580c03b5aef5\",\n      \"size\": 33\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da833106960350",
    "code": "header_malformed",
    "predicate": "bytes_available",
    "ci_only": false
@@ -674,13 +866,13 @@
    "ci_only": false
   },
   {
-   "id": "header_truncated__at_40",
+   "id": "header_truncated__at_41",
    "group": "H",
    "report": "P01",
    "profile": "diretoria",
    "typed": "senha_complexa_123",
-   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.a00f2dbe97918597.bice\",\n      \"sha256\": \"a00f2dbe979185971c11705b76aeba1caa55d46b438995274ad8214869643ad1\",\n      \"size\": 40\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
-   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da83310696035030310109646972",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.67a030786a6e995b.bice\",\n      \"sha256\": \"67a030786a6e995b89e11a171b54a79a5b84e1bc88c7e40b48a086fb9e4630b1\",\n      \"size\": 41\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265",
    "code": "header_malformed",
    "predicate": "bytes_available",
    "ci_only": false
@@ -698,13 +890,13 @@
    "ci_only": false
   },
   {
-   "id": "header_truncated__at_50",
+   "id": "header_truncated__at_54",
    "group": "H",
    "report": "P01",
    "profile": "diretoria",
    "typed": "senha_complexa_123",
-   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.3282c07b8e253d62.bice\",\n      \"sha256\": \"3282c07b8e253d62163a6dfd6298f76da1704dd6c05ecf1fc93aff8c4d30bfd9\",\n      \"size\": 50\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
-   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.1bde59057b2494fc.bice\",\n      \"sha256\": \"1bde59057b2494fcfca2c280829dbe885f76b8866d3a29f6a57cf3f24ef7e10b\",\n      \"size\": 54\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8",
    "code": "header_malformed",
    "predicate": "bytes_available",
    "ci_only": false
@@ -746,13 +938,13 @@
    "ci_only": false
   },
   {
-   "id": "header_truncated__at_80",
+   "id": "header_truncated__at_86",
    "group": "H",
    "report": "P01",
    "profile": "diretoria",
    "typed": "senha_complexa_123",
-   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.86f0377b8fbe4a68.bice\",\n      \"sha256\": \"86f0377b8fbe4a681413ad37da88ac1144721b3f6b789c6d769ce3055b7a6d66\",\n      \"size\": 80\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
-   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.c7a284373a8b063d.bice\",\n      \"sha256\": \"c7a284373a8b063ddcee276163a5525937c24bed68f623186ee506ff1ade928e\",\n      \"size\": 86\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df0",
    "code": "header_malformed",
    "predicate": "bytes_available",
    "ci_only": false
@@ -770,13 +962,13 @@
    "ci_only": false
   },
   {
-   "id": "header_truncated__at_110",
+   "id": "header_truncated__at_112",
    "group": "H",
    "report": "P01",
    "profile": "diretoria",
    "typed": "senha_complexa_123",
-   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.ddaa4ca616a68c37.bice\",\n      \"sha256\": \"ddaa4ca616a68c37727f684c56e9a5f4f734eb599700b55e5120fcf6b87b34b4\",\n      \"size\": 110\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
-   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.b7efc78c5fa5c815.bice\",\n      \"sha256\": \"b7efc78c5fa5c81560293eaf0cf58b448e4700ab2897ac0cd5c67574e60cd2ed\",\n      \"size\": 112\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002e",
    "code": "header_malformed",
    "predicate": "bytes_available",
    "ci_only": false
@@ -806,13 +998,49 @@
    "ci_only": false
   },
   {
-   "id": "header_fixed_byte__magic",
+   "id": "header_fixed_byte__magic_0",
    "group": "H",
    "report": "P01",
    "profile": "diretoria",
    "typed": "senha_complexa_123",
    "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.0814810ed8c2a372.bice\",\n      \"sha256\": \"0814810ed8c2a3729a1cd39f27d87e9f689148ed8b59e359d93a7f8631fc8a12\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
    "envelope": "4349434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": "header_malformed",
+   "predicate": "magic",
+   "ci_only": false
+  },
+  {
+   "id": "header_fixed_byte__magic_1",
+   "group": "H",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.43d34745e9300a91.bice\",\n      \"sha256\": \"43d34745e9300a916676e5c9738d595ee2a4271061a27e1c6697fdd22e195e05\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4248434501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": "header_malformed",
+   "predicate": "magic",
+   "ci_only": false
+  },
+  {
+   "id": "header_fixed_byte__magic_2",
+   "group": "H",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.bdf1111d4eefe607.bice\",\n      \"sha256\": \"bdf1111d4eefe607b10ef6abb48d76d8e85c64774f0b00e4f21637c3b710de45\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249424501010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
+   "code": "header_malformed",
+   "predicate": "magic",
+   "ci_only": false
+  },
+  {
+   "id": "header_fixed_byte__magic_3",
+   "group": "H",
+   "report": "P01",
+   "profile": "diretoria",
+   "typed": "senha_complexa_123",
+   "manifest": "{\n  \"manifest_version\": 1,\n  \"envelope_format_version\": 1,\n  \"package_id\": \"98c670e7319deff63ff082da83310696\",\n  \"profiles\": [\n    {\n      \"id\": \"diretoria\",\n      \"label\": \"Diretoria\",\n      \"salt\": \"314ff156e8c84ad8f1f60bb676e4948d\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P01\",\n        \"P02\",\n        \"P13\"\n      ]\n    },\n    {\n      \"id\": \"logistica\",\n      \"label\": \"Logística\",\n      \"salt\": \"1770a691bcd53b946b56ddcda491c7de\",\n      \"iterations\": 600000,\n      \"reports\": [\n        \"P13\"\n      ]\n    }\n  ],\n  \"reports\": [\n    {\n      \"id\": \"P01\",\n      \"file\": \"P01.906b838d0f72acf7.bice\",\n      \"sha256\": \"906b838d0f72acf7eeace1968d68709b189918cb60cb89b00b2bee61fe70b2ba\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P02\",\n      \"file\": \"P02.9d7c8e680613b9ed.bice\",\n      \"sha256\": \"9d7c8e680613b9edf8267a80885dd5cb3accc0628ce4e510a32b54b661d05a31\",\n      \"size\": 174\n    },\n    {\n      \"id\": \"P13\",\n      \"file\": \"P13.8918fba1ae3d296b.bice\",\n      \"sha256\": \"8918fba1ae3d296bdd614e1e392591715f44cf545eb760550b3729d7487ed37f\",\n      \"size\": 245\n    }\n  ]\n}\n",
+   "envelope": "4249434401010101010120100c102898c670e7319deff63ff082da8331069603503031010964697265746f726961314ff156e8c84ad8f1f60bb676e4948d000927c0c41e4872a7b4a483d495213f15d3ea1ee4823df01267d0035ee74c5d29355bf638f72cb853bab598fcb1f500002ec8057f65967500000024db7f362e8894de5a460a88f14756bb974904b2580ee49ff57909722e4d874e2e4994a94e1da07a51269386a5ece4c7262452e101",
    "code": "header_malformed",
    "predicate": "magic",
    "ci_only": false

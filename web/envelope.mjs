@@ -115,6 +115,9 @@ function toHex(bytes) {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// An integer of the manifest (§4): an integral value within ±(2^53 - 1).
+// JSON.parse has already turned 1.0 and 1e0 into 1, so spelling cannot and
+// need not be told apart; the Python reader judges by value as well.
 const isInt = (v) => typeof v === "number" && Number.isSafeInteger(v);
 const isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 const sameKeys = (obj, keys) => {
@@ -129,6 +132,20 @@ function idsOk(ids, lead, maximum) {
   const lengths = ids.every((id, i) => id.length >= 1 && (raws[i] === null || raws[i].length <= maximum));
   const content = raws.every((r) => r !== null && identityBytesOk(r, lead));
   return [lengths, content];
+}
+
+// Step 0 from the text of the manifest: what does not parse as JSON — NaN,
+// Infinity, a truncated file — is refused like a wrong type.
+export function parseManifest(text) {
+  let data;
+  let parsed = true;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    parsed = false;
+  }
+  require(parsed, MANIFEST_INVALID, "manifest_types");
+  return validateManifest(data);
 }
 
 // Step 0, the browser's: the structure of §4. A key repeated in the JSON text

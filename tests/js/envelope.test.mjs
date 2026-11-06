@@ -65,7 +65,7 @@ async function keyFor(manifest, profile, typed) {
 
 async function run(manifestText, envelope, report, profile, typed) {
   try {
-    const manifest = env.validateManifest(JSON.parse(manifestText));
+    const manifest = env.parseManifest(manifestText);
     return await env.openReport(manifest, envelope, report, await keyFor(manifest, profile, typed));
   } catch (error) {
     if (error instanceof env.Refused) return error;

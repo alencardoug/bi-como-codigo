@@ -249,6 +249,32 @@ def build() -> dict:
     case("manifest_duplicate_key", "M", p01, manifest_text=duplicated, refresh=False, code=M,
          predicate="manifest_no_duplicate_keys", ci_only=True)
 
+    # Numbers by value, not by spelling (§4, ENV-4-01): both readers accept an
+    # integral value however it is written, and refuse the rest alike.
+    base_text = text(base)
+    size = str(len(p01))
+
+    def spelt(old: str, new: str) -> str:
+        assert base_text.count(old) == 1, old
+        return base_text.replace(old, new)
+
+    numbers = [
+        ("version_as_1.0", spelt('"manifest_version": 1,', '"manifest_version": 1.0,'), None, None),
+        ("version_as_1e0", spelt('"manifest_version": 1,', '"manifest_version": 1e0,'), None, None),
+        ("version_rounding_to_1", spelt('"manifest_version": 1,', '"manifest_version": 1.00000000000000001,'), None, None),
+        ("iterations_as_6e5", spelt('"iterations": 600000,\n      "reports": [\n        "P01"', '"iterations": 6e5,\n      "reports": [\n        "P01"'), None, None),
+        ("size_as_float", spelt(f'"size": {size}\n    }},\n    {{\n      "id": "P02"', f'"size": {size}.0\n    }},\n    {{\n      "id": "P02"'), None, None),
+        ("version_fractional", spelt('"manifest_version": 1,', '"manifest_version": 1.5,'), M, "manifest_types"),
+        ("size_negative_zero", spelt(f'"size": {size}\n    }},\n    {{\n      "id": "P02"', '"size": -0\n    },\n    {\n      "id": "P02"'), M, "manifest_types"),
+        ("size_past_safe_integer", spelt(f'"size": {size}\n    }},\n    {{\n      "id": "P02"', '"size": 9007199254740992\n    },\n    {\n      "id": "P02"'), M, "manifest_types"),
+        ("version_nan", spelt('"manifest_version": 1,', '"manifest_version": NaN,'), M, "manifest_types"),
+        ("version_infinite", spelt('"manifest_version": 1,', '"manifest_version": 1e400,'), M, "manifest_types"),
+        ("not_json", base_text[:-10], M, "manifest_types"),
+    ]
+    for name, manifest_text, code, predicate in numbers:
+        case(f"manifest_numbers__{name}", "M" if code else "control", p01, manifest_text=manifest_text, refresh=False,
+             code=code, predicate=predicate)
+
     # A — integrity (step 1): the manifest unchanged.
     A = "integrity_mismatch"
     case("size_only", "A", p01, manifest=mutated(lambda m: m["reports"][0].update(size=m["reports"][0]["size"] + 1)),
@@ -263,11 +289,20 @@ def build() -> dict:
     f01 = fields_of(p01)
     f13 = fields_of(p13)
     hl = header_len(p01)
-    boundaries = [1, 2, 4, 5, 8, 10, 13, 15, 20, 31, 32, 34, 35, 36, 37, 40, 46, 50, 62, 64, 66, 80, 106, 110, 118, 120]
-    assert hl == 122, hl  # the boundaries above are P01's: one slot of `diretoria`
-    for cut in boundaries:
+    # P01's header, one slot of `diretoria`: every field boundary before the end
+    # of `ciphertext_len`, and a cut inside each field longer than one byte
+    # (ENV-4-03). A cut at 0 would be an empty file, which `size` refuses first.
+    fields = [4] + [1] * 11 + [16, 1, 3, 1, 1, 9, 16, 4, 40, 12, 4]
+    ends, at = [], 0
+    for length in fields:
+        at += length
+        ends.append((at - length, at))
+    assert ends[-1][1] == hl == 122, hl
+    cuts = sorted({end for _, end in ends[:-1]} | {start + length // 2 for (start, end), length in zip(ends, fields) if length > 1})
+    for cut in cuts:
         case(f"header_truncated__at_{cut}", "H", p01[:cut], code=H, predicate="bytes_available")
-    case("header_fixed_byte__magic", "H", flip(p01, 0), code=H, predicate="magic")
+    for at in range(4):
+        case(f"header_fixed_byte__magic_{at}", "H", flip(p01, at), code=H, predicate="magic")
     case("header_fixed_byte__version", "H", flip(p01, 4, 0x03), code=H, predicate="format_version")
     for at in range(5, 10):
         case(f"header_fixed_byte__algorithm_{at}", "H", flip(p01, at, 0x02), code=H, predicate="algorithm_bytes")

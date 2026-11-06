@@ -18,7 +18,7 @@ const subtle = globalThis.crypto.subtle;
 
 async function endOf(manifestText, envelope, report, profile, typed) {
   try {
-    const manifest = env.validateManifest(JSON.parse(manifestText));
+    const manifest = env.parseManifest(manifestText);
     const key = await env.login(manifest, profile, typed);
     await env.openReport(manifest, envelope, report, key);
     return "opened";

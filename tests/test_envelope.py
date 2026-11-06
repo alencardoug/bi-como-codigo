@@ -12,6 +12,7 @@ import re
 import struct
 
 import pytest
+from cryptography.hazmat.primitives.keywrap import aes_key_unwrap
 
 import envelope_fixtures as fx
 from bi_como_codigo import envelope as e
@@ -254,6 +255,20 @@ def declaration():
     return [e.DeclaredProfile(p, fx.LABELS[p], fx.TYPED[p], fx.ENTITLEMENTS[p]) for p in sorted(fx.TYPED)]
 
 
+def materials(manifest_raw: bytes, files: dict[str, bytes]) -> tuple[set[bytes], set[bytes]]:
+    """The real DEKs, unwrapped with the public password of `diretoria`, which
+    every report of the fixtures is entitled to, and the IVs of a package."""
+    manifest = e.validate_manifest(manifest_raw)
+    key = e.login(manifest, "diretoria", fx.TYPED["diretoria"])
+    deks, ivs = set(), set()
+    for data in files.values():
+        header, _ = e.parse_header(data)
+        slot = next(s for s in header.slots if s.profile_id == b"diretoria")
+        deks.add(aes_key_unwrap(key.kek, slot.wrapped_key))
+        ivs.add(header.iv)
+    return deks, ivs
+
+
 def test_encrypt_package_round_trips_and_draws_anew_each_run():
     first_manifest, first_files = e.encrypt_package(declaration(), fx.PAYLOADS)
     second_manifest, second_files = e.encrypt_package(declaration(), fx.PAYLOADS)
@@ -262,6 +277,13 @@ def test_encrypt_package_round_trips_and_draws_anew_each_run():
     assert one["package_id"] != two["package_id"]
     assert {p["salt"] for p in one["profiles"]}.isdisjoint({p["salt"] for p in two["profiles"]})
     assert set(first_files).isdisjoint(second_files)
+    # The keys and IVs themselves, not what they change (ENV-4-04): a new header
+    # alone would change the names and digests even with the same DEK and IV.
+    first_deks, first_ivs = materials(first_manifest, first_files)
+    second_deks, second_ivs = materials(second_manifest, second_files)
+    assert len(first_deks) == len(first_ivs) == len(fx.PAYLOADS)
+    assert first_deks.isdisjoint(second_deks)
+    assert first_ivs.isdisjoint(second_ivs)
     e.check_package(first_manifest, first_files, fx.TYPED, expected=fx.PAYLOADS)
 
 
@@ -284,6 +306,19 @@ def test_encrypt_package_refuses_a_bad_declaration(change):
     change(d)
     with pytest.raises(ValueError):
         e.encrypt_package(d, fx.PAYLOADS)
+
+
+@pytest.mark.parametrize(
+    "totals",
+    [b"xx", b"[]", b"\xff\xff", b'{"x":1,"x":2}', b'{"x": NaN}'],
+    ids=["not_json", "not_an_object", "not_utf8", "repeated_key", "nan"],
+)
+def test_encrypt_package_refuses_totals_that_are_not_one_json_object(totals):
+    """§2.4, §5.2 step 1 (ENV-4-02): checked before anything is drawn."""
+    payloads = dict(fx.PAYLOADS)
+    payloads["P01"] = (totals, fx.PAYLOADS["P01"][1])
+    with pytest.raises(ValueError, match="control totals"):
+        e.encrypt_package(declaration(), payloads)
 
 
 def test_encrypt_package_refuses_a_report_entitled_to_no_profile():
