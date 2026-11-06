@@ -534,8 +534,13 @@ def test_check_version_allows_exactly_hostings_reserved_files(monkeypatch):
 
 
 def test_verify_refuses_a_file_under_the_reserved_urls(repo):
-    deploy = built(repo)
-    (deploy / "__" / "firebase").mkdir(parents=True)
-    (deploy / "__" / "firebase" / "init.js").write_text("x")
-    with pytest.raises(r.Refused):
-        r.verify(repo, deploy)
+    """FIX-1-01: an inclusion list and media types that would admit it, so that
+    only the reserved-URL guard can refuse it."""
+    with open(repo / "release" / "include.txt", "a") as fh:
+        fh.write("site/__/firebase/*\n")
+    with open(repo / "release" / "media_types.txt", "a") as fh:
+        fh.write(".js text/javascript\n")
+    (repo / "site" / "__" / "firebase").mkdir(parents=True)
+    (repo / "site" / "__" / "firebase" / "init.js").write_text("x")
+    with pytest.raises(r.Refused, match="reserved"):
+        r.verify(repo, built(repo))
