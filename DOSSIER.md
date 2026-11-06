@@ -957,3 +957,144 @@ was used; eng_dados was only read.
   controls pass with no record or marker collision; `14.01`, fresh-DEK, `1200` and `-0.75` probes
   remain killed; required suites and the expanded M52 pass. Then reassess closure of GIMPL before
   the outstanding real PRs of package_gate §9.3.
+
+### Round 5 — evidence
+
+#### 1. Conclusion
+
+**No blockers found within the reviewed scope.** No new findings at any severity. The allowlist
+closes GIMPL-4-01 and the residual GIMPL-2-01/GIMPL-1-04 validation gap: the demonstrated short-count,
+short-sum and short-cell diagnostics now fail the oracle, while all eight unmodified controls pass.
+**Batch GIMPL can be closed and the real PRs of package_gate §9.3 can run.** Those PRs and the
+Owner-approved honest promotion remain necessary integration evidence; this does not declare the
+whole project correct or stage 2.2b complete.
+
+#### 2. Reviewed scope and version
+
+Independent regression review of **GIMPL, round 5**, branch `feat/package-gate`, baseline `64ada76`,
+tip `c98d2da5618e9aa811e9075b259fece8fc9515f5`: exactly `c6eecd7`, `96cf77a`, `c98d2da`.
+The initial worktree was clean. Requirements consulted: AGENTS.md, CLAUDE.md, package_gate revision
+5, envelope §6.4–§6.5, publishing_pipeline §4, PLAN N76–N83 and ADR-0003. The delta changes the CLI
+oracle, M52 and review/status documentation; no runtime module or workflow changes. Unchanged code
+was read only to assess the correction and its integration. Earlier findings and author Status
+entries are preserved; no round-5 defect row is added to the findings table. Only `DOSSIER.md` was
+edited in the checkout; experiments used `/tmp/gimpl-r5-probes/`.
+
+#### 3. Findings and evidence
+
+**None: zero blocking findings, adjustments or observations.** No unresolved defect hypothesis
+remains within this scope.
+
+- **GIMPL-4-01 resolved; residual GIMPL-2-01/GIMPL-1-04 resolved within this scope.** Static:
+  `tests/test_package_gate.py:621`–`:632` requires precisely one refusal line on stdout and the
+  summary, empty stderr, no release record, and retains candidate-derived markers. Added diagnostics
+  fail regardless of their length. M52 adds a short-row-count mutant; the independent probes below
+  also exercise the short sum and cell, rather than treating the count alone as their evidence.
+- **The expected-refusal dependency was checked independently.** The test derives its expected
+  exception from `verify`, so equality alone would accept a value embedded in that exception.
+  Static inspection of `contract.py:215`–`:234`, `:274`–`:309`, `:368`–`:376` and
+  `release.py:291`–`:301`, `:332`–`:335` finds only fixed codes, protected report/column identifiers
+  and the fixture path. A temporary test copy additionally pins each complete refusal string,
+  independently of `verify`'s result; all eight unmodified cases pass:
+
+  | CLI case | Exact refusal after `refused: ` |
+  |---|---|
+  | `mut11_type` | `schema_exact (report P01)` |
+  | `mut13_grain` | `grain_unique (report P01)` |
+  | `mut15_sum` | `totals_sums (report P01, column valor)` |
+  | `mut16_shape` | `totals_shape (report P01)` |
+  | `mut17_version` | `totals_version (report P13)` |
+  | `mut18_utf8` | `parquet_unreadable (report P01)` |
+  | `mut05_page` | `clear_value (in index.html)` |
+  | `mut07_totals` | `clear_totals (in index.html)` |
+
+  None embeds a decrypted value, total, key or DuckDB message; none collides with the current
+  candidate markers. The malformed-Parquet exception is replaced by its fixed code.
+- **Executed counter-probes:** separate module copies print P01's decrypted row count before
+  schema validation, its `unidades` sum after totals parsing, or its actual `unidades = 7` cell
+  before schema validation. Copies retain the committed allowlist and independently pinned refusal;
+  extra assertions prove that the injected scalar reached captured CLI stdout. Every failure is
+  at the allowlist's extra-output assertion, with the original refusal unchanged. The original
+  `-0.75` cell diagnostic also remains killed. Nonzero exits below are expected mutant detections:
+
+  ```text
+  unmodified_exact_refusals: exit=0
+  8 passed, 98 deselected in 62.33s (0:01:02)
+  short_count: exit=1
+  8 failed, 98 deselected in 62.69s (0:01:02)
+  short_sum: exit=1
+  1 failed, 105 deselected in 7.13s
+  short_cell: exit=1
+  1 failed, 105 deselected in 7.35s
+  original_cell: exit=1
+  1 failed, 105 deselected in 7.95s
+  ```
+
+  The extra lines are respectively `4` (`5` for the duplicated-row case), `10`, `7` and `-0.75`.
+  The sum/cell probes use `mut15_sum`, still exactly `totals_sums (report P01, column valor)`.
+- **Integration regression check (static):** declarations still precede candidate reads;
+  schema/null/grain precede totals, and content materialisation follows its bounds. Preview still
+  hashes bytes/checks API metadata without opening candidate payloads. `live_version` still flows
+  from bind to the authenticated release-record, `select_record`, decide output and promote input;
+  tip/channel checks precede promotion, already-live precedes the predecessor check and clone.
+  `release.json` still returns only public metadata. No new conflict with the declaration or
+  N76–N83/ADR-0003 was established.
+
+#### 4. Checks executed and results
+
+Reviewer-executed final checks below exited **0**:
+
+| Check | Result |
+|---|---|
+| `make test` | 470 passed, one duplicate-zip-name warning; 259.40 s |
+| `make test-js` | 157 tests: 156 passed, one skipped, zero failed |
+| `make secrets` | Nothing found in tracked files |
+| `make secrets-history` | Nothing found; six non-UTF-8 envelope blobs skipped, not verified by this scanner |
+| `ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 make docs-check` | 25 documents; no broken links, anchors, ADR citations or pinned links |
+| `uv run --frozen python evidence/20261106/m52_package_gate_counter_proof.py` | Unmodified-copy control passed; 35 mutants killed, zero surviving |
+| `/tmp/gimpl-r5-probes.py` | Independent control and deliberately failing mutants shown above |
+
+Literal component output:
+
+```text
+470 passed, 1 warning in 259.40s (0:04:19)
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+secrets review: nothing found in the tracked files
+history review: nothing found (140 occurrence(s) of values public by design, 2 registered; 6 blob(s) skipped)
+docs-check: 25 documents, 160 file links, 54 anchors, 30 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+control (unmodified copy, every mutant's tests): passed
+35 mutants, 35 killed, 0 not
+```
+
+Initial Python invocations exited 2 before executing checks because the default uv cache was
+read-only (`Could not acquire lock` / `Read-only file system`); reruns used
+`UV_CACHE_DIR=/tmp/gimpl-r5-uv-cache`. Probe subprocesses disabled bytecode and pytest's cache.
+The author's `ENG_DADOS_DIR=… make check` green at `96cf77a` (470 passed) and committed M52 35/35
+output are **author-reported**, distinct from these reviewer executions. The aggregate `make check`
+and separate ADR checker were not run; the requested components plus docs-check were run instead.
+No external writes, gcloud/firebase commands, commit, merge, push, deployment or subagent was used;
+eng_dados was only read.
+
+#### 5. Limitations and open questions
+
+No real §9.3 PR, authenticated Hosting API read or deployed record plumbing was exercised. No
+public-live GET was needed for this local oracle correction. CDN purge, clock skew, runner
+installation and DuckDB-WASM compatibility remain unmeasured here. Hostile-parser isolation,
+digest-prefix collisions, re-encoding, the corrupted-fixture fallback, N83's label-only inspection,
+BOOLEAN exclusion and M19's deferral retain their declared limits. The eight CLI cases are the
+current oracle, not exhaustive coverage of every future refusal or arbitrary hostile payload.
+These unchanged integration/declared limits are not new defects in this three-commit delta.
+
+#### 6. Handoff to Claude Code
+
+- [x] **GIMPL-4-01; residual GIMPL-2-01/GIMPL-1-04:** acceptance met in this scope: all three short
+  diagnostics are killed, eight exact-refusal controls pass with no release record, and the
+  required suites and expanded M52 pass. No required corrections remain; no new finding IDs.
+- [ ] **Next integration step, not a correction:** run package_gate §9.3's MUT-05, MUT-11 and
+  MUT-15 real PRs: each must stop in `verify` at its own check, skip `preview`, create no channel
+  and disclose no case value in the logs. Run the honest PR through preview and the Owner-approved
+  promotion, recording live binding and read-back evidence. This review itself authorizes no
+  external write or release.
