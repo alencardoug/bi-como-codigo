@@ -5,7 +5,8 @@
 # a GitHub OIDC token; Google refuses that token (N74, T11).
 name: candidate
 on: pull_request
-permissions: {}
+permissions:
+  id-token: write  # T11: the PR grants itself the OIDC permission
 jobs:
   candidate:
     runs-on: ubuntu-24.04
@@ -20,6 +21,28 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
+      - name: T11 — get a GitHub JWT and try Google's exchange (N74)
+        env:
+          AUDIENCE: //iam.googleapis.com/projects/56481664112/locations/global/workloadIdentityPools/github/providers/github-actions
+        run: |
+          python3 - <<'EOF'
+          import base64, json, os, urllib.request, urllib.error
+          url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"] + "&audience=https:" + os.environ["AUDIENCE"]
+          req = urllib.request.Request(url, headers={"Authorization": "bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]})
+          jwt = json.load(urllib.request.urlopen(req))["value"]
+          body = jwt.split(".")[1]
+          claims = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
+          print("GitHub issued a JWT of", len(jwt), "characters; its claims:", {k: claims.get(k) for k in ("repository", "ref", "workflow_ref", "event_name", "environment")})
+          exchange = json.dumps({"grantType": "urn:ietf:params:oauth:grant-type:token-exchange", "audience": os.environ["AUDIENCE"],
+                                 "scope": "https://www.googleapis.com/auth/cloud-platform", "requestedTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                                 "subjectTokenType": "urn:ietf:params:oauth:token-type:jwt", "subjectToken": jwt}).encode()
+          try:
+              urllib.request.urlopen(urllib.request.Request("https://sts.googleapis.com/v1/token", data=exchange, headers={"Content-Type": "application/json"}))
+              print("UNEXPECTED: Google's STS accepted the PR's token")
+              raise SystemExit(1)
+          except urllib.error.HTTPError as error:
+              print("Google's STS refused the PR's token:", error.code, error.read().decode()[:300])
+          EOF
       - run: make sync
       - name: The PR's own checks, as information
         run: make secrets test test-js docs-check
