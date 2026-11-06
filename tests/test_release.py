@@ -26,6 +26,10 @@ def repo(tmp_path: pathlib.Path) -> pathlib.Path:
     return tmp_path
 
 
+def no_live():
+    return r.NO_LIVE
+
+
 def built(repo: pathlib.Path) -> pathlib.Path:
     out = repo / "deploy"
     r.build(repo, out)
@@ -57,7 +61,7 @@ def test_build_refuses_a_symbolic_link(repo):
 
 
 def test_the_committed_fixture_verifies(repo):
-    body = r.verify(repo, built(repo))
+    body = r.verify(repo, built(repo), live=no_live)
     assert {f["path"] for f in body["files"]} >= {"index.html", "package/manifest.json"}
     assert body["digest"] == r.canonical_digest([(f["path"], f["sha256"]) for f in body["files"]])
 
@@ -77,7 +81,7 @@ def test_verify_refuses_what_must_not_reach_hosting(repo, plant, reason):
     deploy = built(repo)
     plant(deploy)
     with pytest.raises(r.Refused, match=reason):
-        r.verify(repo, deploy)
+        r.verify(repo, deploy, live=no_live)
 
 
 def test_verify_refuses_a_tampered_manifest(repo):
@@ -89,7 +93,7 @@ def test_verify_refuses_a_tampered_manifest(repo):
     manifest["reports"][0]["sha256"] = ("0" if sha[0] != "0" else "1") + sha[1:]
     path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
     with pytest.raises(r.Refused, match="package"):
-        r.verify(repo, deploy)
+        r.verify(repo, deploy, live=no_live)
 
 
 def test_verify_refuses_a_data_key_in_the_clear(repo):
@@ -102,7 +106,7 @@ def test_verify_refuses_a_data_key_in_the_clear(repo):
     dek = r._deks(manifest, envelopes, {p.id: p.password for p in r.profiles(repo)})[0]
     (deploy / "releases.md").write_text(f"key {dek.hex()}")
     with pytest.raises(r.Refused, match="data key"):
-        r.verify(repo, deploy)
+        r.verify(repo, deploy, live=no_live)
 
 
 # --- §2, §4.1: the protected set ------------------------------------------------------
@@ -135,7 +139,7 @@ def run(i, path=".github/workflows/publish.yml", event="workflow_run", branch="m
 
 def record(head="h1", pr=7):
     return json.dumps({"pr": pr, "head_sha": head, "candidate_run": 99, "version": "v1", "channel": "pr-7", "url": "https://s--pr-7.web.app",
-                       "expires": "2026-12-01T00:00:00Z", "digest": "d"}).encode()
+                       "expires": "2026-12-01T00:00:00Z", "digest": "d", "live_version": "none"}).encode()
 
 
 def lookup(runs, artifacts, head="h1"):
@@ -203,7 +207,7 @@ def test_clone_takes_the_version_never_the_channel(monkeypatch):
     calls = []
     live = iter([None, {"release": {"version": {"name": "sites/s/versions/abc123"}}}])
     monkeypatch.setattr(r, "channel", lambda *_: next(live))
-    outcome = r.promote("s", "abc123", "token", run=lambda cmd, check: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    outcome = r.promote("s", "abc123", "none", "token", run=lambda cmd, check: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
     assert outcome == "promoted"
     assert calls == [["firebase", "hosting:clone", "s@abc123", "s:live", "--project", "proj"]]
 
@@ -212,12 +216,12 @@ def test_promote_fails_when_live_does_not_read_back_the_version(monkeypatch):
     live = iter([None, {"release": {"version": {"name": "sites/s/versions/other"}}}])
     monkeypatch.setattr(r, "channel", lambda *_: next(live))
     with pytest.raises(r.Refused, match="live serves other"):
-        r.promote("s", "abc123", "token", run=lambda cmd, check: subprocess.CompletedProcess(cmd, 0))
+        r.promote("s", "abc123", "none", "token", run=lambda cmd, check: subprocess.CompletedProcess(cmd, 0))
 
 
 def test_promote_does_nothing_when_live_already_serves_it(monkeypatch):
     monkeypatch.setattr(r, "channel", lambda *_: {"release": {"version": {"name": "sites/s/versions/abc123"}}})
-    assert r.promote("s", "abc123", "token", run=lambda cmd, check: pytest.fail("cloned")) == "already live"
+    assert r.promote("s", "abc123", "none", "token", run=lambda cmd, check: pytest.fail("cloned")) == "already live"
 
 
 @pytest.mark.parametrize("version", ["", "pr-7:x", "s@v", "a b", "sites/s/versions/x"])
@@ -387,7 +391,9 @@ def test_verify_refuses_entitlements_other_than_the_declaration(repo):
 
     declared = r.profiles(repo)
     widened = [e.DeclaredProfile(p.id, p.label, p.password, ("P01", "P02", "P13")) for p in declared]
-    manifest, files = e.encrypt_package(widened, site_fixture.payloads(declared))
+    from bi_como_codigo import contract as c
+
+    manifest, files = e.encrypt_package(widened, site_fixture.payloads(c.load(repo)[0]))
     package = repo / "site" / "package"
     shutil.rmtree(package)
     package.mkdir()
@@ -395,7 +401,7 @@ def test_verify_refuses_entitlements_other_than_the_declaration(repo):
     for name, data in files.items():
         (package / name).write_bytes(data)
     with pytest.raises(r.Refused, match="entitlements"):
-        r.verify(repo, built(repo))
+        r.verify(repo, built(repo), live=no_live)
 
 
 def test_verify_refuses_a_data_key_in_uppercase_hex(repo):
@@ -408,7 +414,7 @@ def test_verify_refuses_a_data_key_in_uppercase_hex(repo):
     dek = r._deks(manifest, envelopes, {p.id: p.password for p in r.profiles(repo)})[0]
     (deploy / "releases.md").write_text(dek.hex().upper())
     with pytest.raises(r.Refused, match="data key"):
-        r.verify(repo, deploy)
+        r.verify(repo, deploy, live=no_live)
 
 
 def test_build_selects_exactly_what_the_globs_select(repo):
@@ -543,4 +549,4 @@ def test_verify_refuses_a_file_under_the_reserved_urls(repo):
     (repo / "site" / "__" / "firebase").mkdir(parents=True)
     (repo / "site" / "__" / "firebase" / "init.js").write_text("x")
     with pytest.raises(r.Refused, match="reserved"):
-        r.verify(repo, built(repo))
+        r.verify(repo, built(repo), live=no_live)

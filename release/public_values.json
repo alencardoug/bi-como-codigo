@@ -1,0 +1,4 @@
+{
+  "about": "Report values that are public by design (docs/package_gate.md §6, N81): the value inspection does not search for them. Each entry names the value and the reason it is public. Protected, like everything under release/. Empty for the fixtures, whose values are chosen not to collide with the fixture site.",
+  "values": []
+}

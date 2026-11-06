@@ -71,6 +71,10 @@ PAYLOAD_MALFORMED = "payload_malformed"
 DEK_REUSED = "dek_reused"
 IV_REUSED = "iv_reused"
 UNENTITLED_OPENS = "unentitled_opens"
+# §6.4, against the package live (stage 2.2b).
+PACKAGE_ID_REUSED = "package_id_reused"
+SALT_REUSED = "salt_reused"
+LIVE_UNREADABLE = "live_unreadable"
 
 
 class Refused(Exception):
@@ -662,3 +666,55 @@ def check_package(
     require(len(set(deks)) == len(deks), DEK_REUSED, "dek_unique")
     require(len(set(ivs)) == len(ivs), IV_REUSED, "iv_unique")
     return manifest
+
+
+def _raw_deks(manifest: Manifest, files: dict[str, bytes], passwords: dict[str, str]) -> list[bytes]:
+    """Every envelope's DEK, unwrapped by an entitled profile with a declared
+    password. An envelope none of them opens is `live_unreadable`."""
+    keys = {pid: login(manifest, pid, pw) for pid, pw in passwords.items() if pid in manifest.profiles}
+    deks = []
+    for report in manifest.reports.values():
+        header, _ = parse_header(files[report.file])
+        dek = None
+        for pid in sorted(manifest.entitled(report.id)):
+            slot = next((s for s in header.slots if s.profile_id == pid.encode("ascii")), None)
+            if pid not in keys or slot is None:
+                continue
+            try:
+                dek = aes_key_unwrap(keys[pid].kek, slot.wrapped_key)
+                break
+            except InvalidUnwrap:
+                continue
+        require(dek is not None, LIVE_UNREADABLE, "live_opens")
+        deks.append(dek)
+    return deks
+
+
+def check_against_live(
+    manifest_raw: bytes,
+    files: dict[str, bytes],
+    live_manifest_raw: bytes,
+    live_files: dict[str, bytes],
+    passwords: dict[str, str],
+) -> None:
+    """§6.4, against the package live: the same `package_id` must be live
+    unchanged; a different one shares no DEK, IV or salt with live."""
+    manifest = validate_manifest(manifest_raw)
+    live = validate_manifest(live_manifest_raw)
+    if manifest.package_id == live.package_id:
+        same = (
+            manifest.profiles == live.profiles
+            and manifest.reports == live.reports
+            and all(files[r.file] == live_files.get(r.file) for r in manifest.reports.values())
+        )
+        require(same, PACKAGE_ID_REUSED, "live_unchanged_identical")
+        return
+    live_deks = set(_raw_deks(live, live_files, passwords))
+    deks = set(_raw_deks(manifest, files, passwords))
+    require(not (deks & live_deks), DEK_REUSED, "live_dek_fresh")
+    ivs = {parse_header(files[r.file])[0].iv for r in manifest.reports.values()}
+    live_ivs = {parse_header(live_files[r.file])[0].iv for r in live.reports.values()}
+    require(not (ivs & live_ivs), IV_REUSED, "live_iv_fresh")
+    salts = {p.salt for p in manifest.profiles.values()}
+    live_salts = {p.salt for p in live.profiles.values()}
+    require(not (salts & live_salts), SALT_REUSED, "live_salt_fresh")

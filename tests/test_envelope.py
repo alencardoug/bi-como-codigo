@@ -159,14 +159,14 @@ def test_every_group_of_the_specification_has_cases():
 
 
 def spec_predicates() -> set[str]:
-    """The `predicate_id`s of §6.5's table, but the live ones of stage 2.2b."""
+    """The `predicate_id`s of §6.5's table, the live ones of stage 2.2b included."""
     text = SPEC.read_text(encoding="utf-8")
     table = text.split("### 6.5")[1].split("\n### ")[0]
     ids: set[str] = set()
     for line in table.splitlines():
         cells = line.split("|")
         step = cells[1].strip() if len(cells) >= 4 else ""
-        if not step or step in ("Step", "---") or step.startswith("live"):
+        if not step or step in ("Step", "---"):
             continue
         ids |= set(re.findall(r"`([a-z0-9_]+)`", cells[2]))
     return ids
@@ -182,7 +182,8 @@ def test_the_python_module_has_exactly_the_predicates_of_the_specification():
 
 
 def test_each_predicate_has_a_dedicated_case_or_test():
-    covered = {c["predicate"] for c in CASES} | {"ciphertext_len_range", "dek_unique", "iv_unique", "matrix_closed"}
+    covered = {c["predicate"] for c in CASES} | {"ciphertext_len_range", "dek_unique", "iv_unique", "matrix_closed"} | {
+        "live_unchanged_identical", "live_dek_fresh", "live_iv_fresh", "live_salt_fresh", "live_opens"}  # the tests below
     assert spec_predicates() <= covered
 
 
@@ -331,3 +332,77 @@ def test_encrypt_package_refuses_a_report_entitled_to_no_profile():
 def test_build_payload_is_the_layout_of_section_2_4():
     out = e.build_payload(b"{}", b"PAR1xxxxPAR1")
     assert out == b"BICP\x01" + struct.pack(">I", 2) + b"{}" + struct.pack(">I", 12) + b"PAR1xxxxPAR1"
+
+
+# --- §6.4, against the package live (stage 2.2b) ------------------------------------------
+
+
+def _sealed(package_id: bytes, salts: dict[str, bytes], deks: dict[str, bytes], ivs: dict[str, bytes], typed=None):
+    """A package sealed with every input chosen: (manifest bytes, envelopes)."""
+    typed = typed or fx.TYPED
+    keks = {p: fx.kek(p, salts[p], typed=typed[p]) for p in fx.TYPED}
+    files = {}
+    for r in ("P01", "P02", "P13"):
+        slots = [e.SlotInput(p, salts[p], e.ITERATIONS, keks[p]) for p in sorted(fx.ENTITLEMENTS) if r in fx.ENTITLEMENTS[p]]
+        envelope = e.seal_report(package_id, r, slots, deks[r], ivs[r], e.build_payload(*fx.PAYLOADS[r]))
+        files[e.file_name(r, envelope)] = envelope
+    return e._manifest_bytes(package_id, declaration(), salts, files), files
+
+
+def _live_inputs(tag: str) -> dict:
+    return {
+        "package_id": fx.fixed(f"{tag} package", 16),
+        "salts": {p: fx.fixed(f"{tag} salt {p}", 16) for p in fx.TYPED},
+        "deks": {r: fx.fixed(f"{tag} dek {r}", 32) for r in ("P01", "P02", "P13")},
+        "ivs": {r: fx.fixed(f"{tag} iv {r}", 12) for r in ("P01", "P02", "P13")},
+    }
+
+
+@pytest.fixture(scope="module")
+def live_package():
+    return _sealed(**_live_inputs("live"))
+
+
+def _against(live_package, candidate):
+    e.check_against_live(*candidate, *live_package, dict(fx.TYPED))
+
+
+def test_live_unchanged_is_accepted(live_package):
+    _against(live_package, live_package)
+
+
+def test_live_fresh_is_accepted(live_package):
+    _against(live_package, _sealed(**_live_inputs("fresh")))
+
+
+def test_live_same_id_changed_is_package_id_reused(live_package):
+    """live_unchanged_identical: the live package_id, one envelope re-sealed."""
+    inputs = _live_inputs("live")
+    inputs["deks"]["P02"] = fx.fixed("another dek", 32)
+    inputs["ivs"]["P02"] = fx.fixed("another iv", 12)
+    with pytest.raises(e.Refused) as refusal:
+        _against(live_package, _sealed(**inputs))
+    assert (refusal.value.code, refusal.value.predicate_id) == (e.PACKAGE_ID_REUSED, "live_unchanged_identical")
+
+
+@pytest.mark.parametrize(
+    "field, code, predicate",
+    [("deks", e.DEK_REUSED, "live_dek_fresh"), ("ivs", e.IV_REUSED, "live_iv_fresh"), ("salts", e.SALT_REUSED, "live_salt_fresh")],
+    ids=["live_dek_reused", "live_iv_reused", "live_salt_reused"],
+)
+def test_a_new_package_reusing_live_material_is_refused(live_package, field, code, predicate):
+    inputs = _live_inputs("new")
+    key = "logistica" if field == "salts" else "P13"
+    inputs[field][key] = _live_inputs("live")[field][key]
+    with pytest.raises(e.Refused) as refusal:
+        _against(live_package, _sealed(**inputs))
+    assert (refusal.value.code, refusal.value.predicate_id) == (code, predicate)
+
+
+def test_live_unopenable_is_live_unreadable():
+    """live_opens: live sealed under other passwords than the declared ones."""
+    other = {p: pw + "_old" for p, pw in fx.TYPED.items()}
+    live = _sealed(**_live_inputs("old"), typed=other)
+    with pytest.raises(e.Refused) as refusal:
+        _against(live, _sealed(**_live_inputs("fresh")))
+    assert (refusal.value.code, refusal.value.predicate_id) == (e.LIVE_UNREADABLE, "live_opens")
