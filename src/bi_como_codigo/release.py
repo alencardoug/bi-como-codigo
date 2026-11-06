@@ -236,6 +236,8 @@ def verify(root: pathlib.Path, deploy: pathlib.Path, pr: int | None = None, head
             raise Refused(f"{rel}: extension not in media_types.txt")
         if rel.endswith(".map"):
             raise Refused(f"{rel} is a source map")
+        if rel.startswith("__/"):
+            raise Refused(f"{rel} is under Hosting's reserved __/ URLs")
     manifest_path = _package(deploy)
     package_dir = manifest_path.parent
     manifest_raw = manifest_path.read_bytes()
@@ -419,13 +421,20 @@ def served(base_url: str, rel: str) -> bytes:
     return body
 
 
+#: The files Hosting adds to every version under its reserved `/__/` URLs —
+#: measured on the first real deploy (T1, 2026-11-06): they are Hosting's, not
+#: the artifact's, and the artifact may hold nothing under `__/` (verify).
+HOSTING_RESERVED = frozenset({"__/firebase/init.js", "__/firebase/init.json"})
+
+
 def check_version(record: dict, site: str, version: str, base_url: str, token: str) -> None:
     """Exact or nothing (PIPE-1-06): the version's ACTIVE paths are the
-    artifact's, and every served body is the artifact's bytes."""
+    artifact's plus exactly Hosting's reserved ones, and every served body
+    of the artifact's paths is the artifact's bytes."""
     expected = {f["path"]: f["sha256"] for f in record["files"]}
     listed = version_files(site, version, token)
-    if set(listed) != set(expected):
-        raise Refused(f"version {version} holds {sorted(set(listed) ^ set(expected))} unlike the artifact")
+    if set(listed) != set(expected) | HOSTING_RESERVED:
+        raise Refused(f"version {version} holds {sorted(set(listed) ^ (set(expected) | HOSTING_RESERVED))} unlike the artifact")
     for rel, sha in expected.items():
         if hashlib.sha256(served(base_url, rel)).hexdigest() != sha:
             raise Refused(f"{rel} as served is not the verified artifact's bytes")

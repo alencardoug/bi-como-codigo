@@ -5,6 +5,7 @@ Firebase — T1 to T11 of §7 — run on the real pipeline, not here."""
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import pathlib
 import shutil
@@ -516,3 +517,25 @@ def test_paged_refuses_a_listing_shorter_than_its_total(monkeypatch):
     monkeypatch.setattr(r, "_json", get)
     with pytest.raises(r.Refused, match="1000 of 1500"):
         r._paged("u", "t", "workflow_runs")
+
+
+def test_check_version_allows_exactly_hostings_reserved_files(monkeypatch):
+    """Measured on T1's deploy: Hosting adds `__/firebase/init.js` and `.json`."""
+    record = {"files": [{"path": "index.html", "sha256": hashlib.sha256(b"<p>").hexdigest()}]}
+    monkeypatch.setattr(r, "served", lambda base, rel: b"<p>")
+    monkeypatch.setattr(r, "version_files", lambda *a: {"index.html": "h", "__/firebase/init.js": "h", "__/firebase/init.json": "h"})
+    r.check_version(record, "s", "v", "https://x", "t")
+    monkeypatch.setattr(r, "version_files", lambda *a: {"index.html": "h", "__/firebase/init.js": "h", "__/firebase/init.json": "h", "__/x.js": "h"})
+    with pytest.raises(r.Refused, match="unlike the artifact"):
+        r.check_version(record, "s", "v", "https://x", "t")
+    monkeypatch.setattr(r, "version_files", lambda *a: {"index.html": "h"})
+    with pytest.raises(r.Refused, match="unlike the artifact"):
+        r.check_version(record, "s", "v", "https://x", "t")
+
+
+def test_verify_refuses_a_file_under_the_reserved_urls(repo):
+    deploy = built(repo)
+    (deploy / "__" / "firebase").mkdir(parents=True)
+    (deploy / "__" / "firebase" / "init.js").write_text("x")
+    with pytest.raises(r.Refused):
+        r.verify(repo, deploy)

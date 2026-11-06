@@ -168,7 +168,9 @@ A failure here uploads nothing to Hosting: the deploying job depends on this one
    current release's version name, `sites/{site}/versions/{VERSION_ID}`;
 5. **prove the version is the verified artifact, exactly, or fail** (PIPE-1-06): list every page
    of `versions/{VERSION_ID}/files` and require its set of paths, all `ACTIVE`, to equal the
-   artifact's exactly; then fetch every path from the channel's URL, decoding any transfer
+   artifact's exactly plus Hosting's two reserved files, `__/firebase/init.js` and
+   `__/firebase/init.json`, which every version holds and the artifact may not — measured on the
+   first deploy, T1 (M51) —, and nothing else; then fetch every path from the channel's URL, decoding any transfer
    encoding, and require its bytes to equal the artifact's file, by SHA-256. No fallback: a
    representation the check cannot read fails the job. Comparing served bytes avoids reproducing
    the CLI's gzip, whose hash is of its own level-9 stream;

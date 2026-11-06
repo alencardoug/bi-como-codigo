@@ -1,12 +1,13 @@
 # Evidence — 06/11/2026
 
 Claude Code's measurements for stage 2.2a, the encryption envelope, once both readers existed. They
-are M48 to M50 of the plan. Each `*.out.txt` is the literal output of the file with the same stem,
+are M48 to M51 of the plan. Each `*.out.txt` is the literal output of the file with the same stem,
 with its UTC timestamp in the first line.
 
 | File | Measures | Used by |
 |---|---|---|
 | `m48_counter_proof.py`, with `m48_worker.py` and `m48_worker.mjs` | The counter-proof of [envelope §6.5](../../docs/encryption_envelope.md#65-the-counter-proof-of-each-predicate): for every `predicate_id` of `src/bi_como_codigo/envelope.py` and of `web/envelope.mjs`, a copy of the module with that one condition taken as true, and its dedicated cases run against the copy — each must no longer end in its original code and predicate | M48 |
+| `m51_first_preview.out.txt` | Excerpts of GitHub's log of the first publishing run (PR #1): the jobs' conclusions, the channel and version the federated deploy produced, and the exact check's refusal on Hosting's reserved files. The access token is masked by GitHub; the reserved `init.json`, which holds the project's public web configuration, is not copied | M51 |
 | `m50_hosting_clone_source.sh` | How the installed `firebase-tools` parses the source of `hosting:clone` — `<site>:<channel>`, or `<site>@<version>` —, read from its own code, since its `--help` shows only the first | M50; [the pipeline §4.4](../../docs/publishing_pipeline.md#44-the-promotion-workflow-push-to-main) |
 | `m49_browser_latency.mjs` | PBKDF2-HMAC-SHA-256 deriving an AES-KW key in Chrome, headless, through the DevTools protocol, five runs each of 100,000, 600,000, 1,000,000 and 2,000,000 iterations | N67, M49; [envelope §7](../../docs/encryption_envelope.md#7-where-it-is-implemented) |
 

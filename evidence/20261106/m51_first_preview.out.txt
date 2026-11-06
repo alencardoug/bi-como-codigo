@@ -1,0 +1,12 @@
+2026-11-06T06:41:28Z
+Run 42175769408 (publish, workflow_run of candidate run 42175700935, PR #1), jobs:
+  admit: success
+  verify: success
+  preview: failure
+Excerpts of the preview job's log (the access token is masked by GitHub):
+﻿2026-11-06T06:39:40.8398937Z ##[group]Run uv run --frozen python -m bi_como_codigo.release show-channel --site "$SITE" --channel "$CHANNEL"
+2026-11-06T06:39:40.8399885Z ^[[36;1muv run --frozen python -m bi_como_codigo.release show-channel --site "$SITE" --channel "$CHANNEL"^[[0m
+2026-11-06T06:39:40.8424549Z shell: /usr/bin/bash -e {0}
+2026-11-06T06:39:40.8424883Z (the step's environment block omitted: paths and the masked token)
+2026-11-06T06:39:41.2279175Z channel pr-1 serves 30f06cd0acd531ca at https://bi-como-codigo--pr-1-yrquzwhq.web.app, expiring 2026-12-06T06:39:37.626422694Z
+2026-11-06T06:39:41.6186506Z refused: version 30f06cd0acd531ca holds ['__/firebase/init.js', '__/firebase/init.json'] unlike the artifact
