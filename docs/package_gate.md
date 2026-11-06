@@ -18,7 +18,7 @@
 |---|---|
 | Date | 2026-11-06 — revision 5: round 4 applied (PGATE-4-01). Revision 4 is `0788e8a`: round 3 applied (PGATE-3-01, 02). Revision 3 is `b1f6b93`: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
 | Author | Claude Code |
-| Status | **Plan, under Codex's review before execution.** The Owner's decisions N76–N83 (2026-11-06) shape it; nothing of it is implemented |
+| Status | **Plan, reviewed: closed in round 5 of Codex's review** — 14 findings in rounds 1–4, six blocking, all applied; round 5 found none. The Owner's decisions N76–N83 (2026-11-06) shape it. Nothing of it is implemented yet |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§11).
@@ -189,7 +189,8 @@ bound where Hosting's API can be read, in `preview`, before anything is deployed
 1. the live channel's current release: its version ID and release time, or no release;
 2. that version's file list (as `check-version` reads it): under `package/`, exactly the recorded
    `*.bice` paths and `manifest.json` — or no `package/` path at all, for `"none"`;
-3. the release time at least **10 minutes before `checked_at`** — so no release happened between
+3. the **live release's** `releaseTime` — when the version became public, not when it was
+   created — at least **10 minutes before `checked_at`** — so no release happened between
    the public read and this one, nor shortly before it, while a CDN could still serve the previous
    live [assumed: Hosting purges its CDN on a release within that margin, §11].
 
@@ -210,8 +211,9 @@ cannot be split across workflow steps (PGATE-2-04):
 2. **live already serves `VERSION_ID`** → end, nothing to do — a re-run of a successful promotion,
    whose record still names the predecessor it replaced;
 3. otherwise, **live is still `live_version`**, read through Hosting's API: the live channel's
-   current version ID equals it — or there is no live release, for `"none"`. Every deploy makes a
-   new version ID, so any promotion since the preview — A2 included — stops here: *live changed
+   current version ID equals it — or there is no live release, for `"none"`. Every new preview is a
+   new version (a same-site clone makes a new release of the *same* version, which is harmless here),
+   so any other package promoted since this preview — A2 included — stops here: *live changed
    since this preview; a new PR previews against it*, the recovery of pipeline §4.5. An API read that
    fails is a refusal of its own, *live could not be read*, never "changed" and never a pass;
 4. the clone, and its read-back (pipeline §4.4, steps 5–6).
@@ -377,5 +379,9 @@ The tests:
   taken at least 10 minutes after live's release, is that release (§5.2). If not, a stale read with
   the same envelope paths as live — a returning package — would be compared with the wrong
   predecessor; different paths are caught regardless.
+- The 10 minutes of §5.2 compare the runner's clock (`checked_at`) with Hosting's (`releaseTime`):
+  a skew between them shifts the boundary by as much; neither the skew nor the CDN's purge time is
+  measured [PGATE-5, a declared limit]. A refusal there is recovered by re-running the candidate,
+  which reads live again; re-running only `preview` keeps the old `checked_at` and refuses again.
 - The envelope paths are 64-bit digest prefixes, not full digests; no collision was constructed.
 - M19 is not caught here (N76).
