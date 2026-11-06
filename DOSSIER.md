@@ -174,5 +174,370 @@ Filled in by the reviewer. One finding per line, with a verdict.
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| | | | `blocking` · `adjustment` · `observation` | |
+| IMPL-1-01 | `.github/workflows/publish.yml:53,98` | Critical — the pinned downloader extracts traversal entries outside its destination, allowing candidate data to replace trusted code. | `blocking` | **Fixed.** Reproduced from your executed probe (not re-run here; the exploit is yours, on the pinned bundle). `actions/download-artifact` is gone from `publish.yml`: both artifacts are fetched through GitHub's API (`release.py fetch-artifact`: exactly one artifact of that name in the run) and extracted by `safe_extract`, which checks every entry before writing anything — absolute, `..` anywhere, backslash, drive, `.`, repeated names, links and any non-regular type refused — and extracts into a fresh directory with a containment check. Tests: internal and leading traversal, absolute, backslash, drive, dot, symlink and repetition refused with nothing written and no sibling created; both artifact layouts extracted. Plan rev. 5 §4.2–§4.3 say so |
+| IMPL-1-02 | `src/bi_como_codigo/release.py:389–406` | High — the 3,000-file admission guard relies on a field absent from this API response and accepts a truncated protected-path inventory. | `blocking` | **Fixed.** `admit` reads the count from `pulls/{n}` (its `changed_files`), refuses when absent or at/over 3,000, lists every page, and refuses unless the number of listed file objects equals the count; renames add their old name to the protected check without inflating the count. Counter-proof (fake API, 3,000 listed, count absent, protected file beyond the cap): previous module `7 -> ADMITTED`, fixed `refused: PR #7 changes None files`. Tests: absent, 3,000, 3,001, truncated 200 of 250, protected on page 2, rename out of `firebase.json`, an ordinary PR |
+| IMPL-1-03 | `src/bi_como_codigo/release.py:197–199` | Medium — verification takes entitlements from the candidate manifest rather than enforcing the protected profile declaration. | `adjustment` | **Fixed.** `verify` compares the package manifest's profiles, entitlements and report inventory with `release/profiles.json` before the matrix; a widened Logística, re-encrypted consistently, is refused (test) |
+| IMPL-1-04 | `.github/workflows/candidate.yml:13–15,29–33` | Medium — checkout builds the PR merge ref while candidate.json identifies the PR head. | `adjustment` | **Fixed.** `candidate.yml` checks out `github.event.pull_request.head.sha` |
+| IMPL-1-05 | `.github/workflows/publish.yml:116`; `firebase.json:2` | Medium — the deployment ignores FIREBASE_SITE and targets the project's default site. | `adjustment` | **Fixed.** `release.py firebase-config --site "$SITE"` writes the protected `firebase.json` with `hosting.site` set from `FIREBASE_SITE` before the deploy, and refuses a `firebase.json` that names a site itself; test with a site different from the project |
+| IMPL-1-06 | `release/setup.sh:12–21` | Medium — setup check never reads or validates the provider condition required by §5. | `adjustment` | **Fixed.** `setup.sh check` (now needs `PROVIDER` and `REPO`) describes the provider and `release.py check-provider` requires ACTIVE, GitHub's issuer, exactly the five mappings and exactly the condition built from the repository and the two workflow files. Seven JSON mutations refused (other ref, workflow, repository, permissive, no environment mapping, deleted, other issuer), none in Google Cloud |
+| IMPL-1-07 | `src/bi_como_codigo/release.py:425–429` | Medium — promotion searches only the first 100 publishing runs and can miss an unexpired matching record. | `adjustment` | **Fixed.** A `_paged` helper reads every page (100 each) and refuses a collection over 50 pages as not complete; runs and artifact listings in `decide` and `fetch-artifact` use it. Test: 250 items read across pages; an endless collection refused |
+| IMPL-1-08 | `src/bi_como_codigo/release.py:216–220,592–595`; `.github/workflows/publish.yml:136` | Medium — release metadata omits the specified PR/head fields and the preview URL needed in the approval summary. | `adjustment` | **Fixed.** `release.json` carries `pr` and `head_sha` from trusted workflow inputs (`verify --pr --head-sha`); the release record carries the Hosting-returned `url`; `decide`'s summary shows it with the version, digest and expiry, still with no Hosting request |
+| IMPL-1-09 | `tests/test_release.py:37–43` | Medium — the inclusion test compares the build to its own returned inventory; omission of an included file passes. | `adjustment` | **Fixed.** New `test_build_selects_exactly_what_the_globs_select` builds its expected set with `pathlib.Path.glob` over `include.txt`, not with `included_files`, and compares paths and bytes, with an excluded file present |
+| IMPL-1-10 | `src/bi_como_codigo/release.py:558–564` | Medium — check-channel does not check that the approved version exists and is not deleted. | `adjustment` | **Fixed.** `check-channel` reads `sites/{site}/versions/{version}` and requires `FINALIZED`; a channel still naming a DELETED version is refused with §4.5's recovery (test) |
+| IMPL-1-11 | `src/bi_como_codigo/release.py:213–215` | Low — the hexadecimal DEK search accepts the same key written in uppercase. | `observation` | **Fixed.** The hex search runs over the file lowercased; test with the DEK in uppercase |
+
+### 1. Conclusion
+
+**Changes required. The push may not proceed under N69.** IMPL-1-01 breaks the separation
+between candidate data and trusted execution; IMPL-1-02 bypasses the protected-path admission
+condition. The green repository gate does not cover either boundary. Apply the adjustments in
+this delivery as well, then obtain review of the corrections before enabling these workflows.
+
+### 2. Reviewed scope and version
+
+Round 1 of the **implementation** review, against publishing-pipeline revision 4, whose plan
+review closed in round 4. Baseline `7edee2c`; implementation tip `629df8e`; exactly commits
+`ddcff08`, `f314156`, `629df8e`. The working checkout was clean at handoff `2f7b7e3`, which adds
+only this dossier. Sections 1–7 above were read first and are preserved.
+
+Reviewed the handwritten declarations in full, the fixture package through the existing gate
+and targeted probes, the CLI lock through its metadata and a clean temporary installation, and
+the resource records against read-only live queries. Requirements included CLAUDE.md §5,
+PLAN §3.4/stage 2.2/N69/N70/N74, pipeline §§3–6 and the current package checks of envelope §6.4.
+The live-package comparisons and complete package gate explicitly deferred to 2.2b are not
+reported as missing implementation here.
+
+### 3. Findings and evidence
+
+**IMPL-1-01 — Critical — candidate ZIP extraction crosses the trust boundary.**
+`publish.yml:53–58` downloads a PR-produced archive into `candidate/` before running trusted
+Python; `publish.yml:98–104` repeats extraction in the job with an approved OIDC identity.
+The exact pinned download action's [distributed source](https://github.com/actions/download-artifact/blob/d3f86a106a0bac45b974a628896c90dbdf5c8093/dist/index.js#L2233)
+pipes the response into `unzip-stream.Extract`. Its bundled parser strips leading traversal
+components, but leaves internal ones; the extractor uses `path.join(destination, entry.path)`
+without checking containment (bundle lines 110371 and 109870).
+
+**Executed:** fetched that exact bundle, changed only its startup export to expose module
+73555, and called its production `streamExtractExternal` against a loopback HTTP server.
+A ZIP containing `padding/../../trusted.py` overwrote a sibling of the destination:
+
+```text
+streamExtractExternal sibling overwrite: PR-controlled replacement
+```
+
+The probe wrote only under `/tmp/bi-review-zip`. It did not invoke the action entrypoint, upload
+an artifact or request credentials. The honest upload action normally produces safe names;
+that does not authenticate an archive from a job executing arbitrary PR code. Unprotected
+tests can alter the candidate job's uploader at runtime. This upload mechanism is also
+documented in the original researchers' [artifact privilege-escalation analysis](https://github.com/google/security-research/security/advisories/GHSA-cj34-9v6h-grxm).
+The finding rests on the executed pinned bundle, not an advisory's affected-version range.
+
+**Consequence, inferred from the workflow:** candidate extraction can replace `release.py` or
+other executable files in `verify`. That compromised job can produce another traversal archive
+as `verified`, replacing code before `preview` runs it with `id-token: write`. Google's provider
+then sees the legitimate publisher on main in preview; federation cannot distinguish the
+replaced code. Its Hosting Admin identity can deploy, including to live (§5).
+
+**Correction / validation:** establish archive containment before any extraction can write to
+the workspace, actions or runner control files. Use an independently verified safe downloader
+or download without extraction and reject unsafe entries before safely extracting. A later
+`verify` call is insufficient. Replay internal/leading traversal, absolute paths and link entries
+against the exact replacement implementation; assert sibling code and runner control files are
+unchanged, while both normal artifact layouts still work. No remote exploit was attempted.
+
+**IMPL-1-02 — High — admission accepts the API's truncated file list.**
+`release.py:389` reads `commits/{sha}/pulls`, whose response is `pull-request-simple`, without
+`changed_files`. The code defaults the absent count to zero at line 405. After 30 full pages,
+page 31 can be empty at GitHub's 3,000-file cap; the loop ends and neither count comparison
+refuses it. A protected change outside the returned prefix therefore gets a preview, violating
+§4.1/N74. The rename check itself correctly inspects `previous_filename`.
+
+**Executed / source:** a GET for the pinned download action's associated PR returned
+`changed_files_present: False`; GitHub's [REST schema](https://github.com/github/rest-api-description/blob/main/descriptions/api.github.com/api.github.com.json)
+confirms the response type. A fake API supplied 3,000 harmless file objects, then an empty page,
+for a PR whose omitted file is protected:
+
+```text
+3001-file PR; protected file beyond API cap; associated-PR response omits changed_files: 7
+rename on page 2: PR #7 touches the protected set (release/protected.txt): no preview, no live update
+```
+
+**Correction / validation:** obtain the authoritative PR detail/count, refuse the cap
+conservatively, and compare actual file-object counts with the expected count; rename aliases
+must not inflate that count. Test absent metadata, 3,000/3,001 files, truncation below the expected
+count, a protected second-page file and a rename out of the protected set. This is a security
+condition explicitly required at admission, even though today's fixture is small.
+
+**IMPL-1-03 — Medium — the candidate chooses its own entitlement matrix.**
+`release.py:197` retains only the protected declaration's passwords. `check_package` consequently
+uses the candidate manifest's report inventory and profile/report relationships as its expected
+matrix; `DeclaredProfile.reports` is never compared. A consistent exporter mistake can change
+the site's access scope while every entitled/unentitled test remains internally consistent.
+
+**Executed:** in a temporary build, re-encrypted the three harmless reports with Logística
+entitled to P01/P02/P13, keeping the repository declaration unchanged (P13 only):
+
+```text
+widened Logistica entitlement accepted: ['P01', 'P02', 'P13'] ; verified files: 6
+```
+
+**Correction / validation:** compare the strict manifest's inventory and entitlement mapping
+against `release/profiles.json` before accepting the matrix. Test widened/narrowed entitlements
+and missing/extra reports against that protected oracle. The existing matrix/reuse checks do
+run; this finding concerns which declaration defines the expected matrix, not deferred totals
+or comparison with live. Severity reflects a functional access-scope error on synthetic fixtures,
+not confidentiality from holders of the public passwords.
+
+**IMPL-1-04 — Medium — the candidate's recorded revision is not its checkout.**
+`candidate.yml:13–15` supplies no `ref`. The pinned checkout's
+[input helper](https://github.com/actions/checkout/blob/11d5960a326750d5838078e36cf38b85af677262/src/input-helper.ts#L79)
+therefore uses `github.ref`/`github.sha`; for
+[pull_request](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)
+these identify the synthetic merge. Lines 29–33 nevertheless write the PR head as the built
+revision. A branch behind an included change on main previews merged content labelled as its
+head, then encounters the head-versus-merge tree guard at promotion. That guard fails closed;
+it does not repair the incorrect preview provenance. Evidence is static and upstream source;
+no GitHub checkout was executed.
+
+**Correction / validation:** explicitly check out the PR head SHA as §3 requires. Use a temporary
+Git graph where main changes an included file after branching; assert the candidate's files and
+metadata describe the same head, and separately exercise the merge-tree refusal.
+
+**IMPL-1-05 — Medium — the configurable Hosting site is ignored at deployment.**
+`publish.yml:116` passes only the project, and `firebase.json` has neither site nor target.
+The pinned CLI's `requireHostingSite` obtains the project's default site; its
+[configuration extractor](https://github.com/firebase/firebase-tools/blob/v15.28.2/src/hosting/config.ts#L118)
+uses that fallback. Merely setting the workflow's `SITE` environment variable does not configure
+the CLI. Read-back and promotion do use SITE, so changing FIREBASE_SITE for sandbox/qa or a
+secondary site deploys to the default site first and then fails or reads another channel.
+
+**Executed:** installed the exact lock under `/tmp`, then called its extractor with this
+firebase.json and a stubbed default site:
+
+```text
+Configured SITE=sandbox-site; Hosting config resolves to: [ 'default-project-site' ]
+```
+
+**Correction / validation:** materialise the deploy target from FIREBASE_SITE in trusted runtime
+configuration and pass it to the CLI, without fixing an installation name in source. Test with
+different project and site IDs and assert the deploy and all subsequent reads name the same site.
+Today's equal project/site values hide this CLAUDE.md §5 configuration defect.
+
+**IMPL-1-06 — Medium — setup check does not check the provider.**
+`setup.sh:12–21` reads two service-account policies and user-managed keys only. It has no provider
+input/read and cannot establish the exact provider condition promised by §5. A weakened ref or
+workflow restriction would still get a green setup check, undermining the N74 oracle.
+
+**Executed:** with a temporary gcloud stand-in returning the expected account policies and no
+keys, setup exited zero without requesting provider data:
+
+```text
+bindings exactly as declared for live, pre
+no user-managed key on either account
+setup.sh stub exit: 0
+provider describe calls: 0
+```
+
+**Counter-evidence:** an independent live provider describe in this review matches the expected
+condition and environment mapping; no weakened live configuration was found or installed.
+**Correction / validation:** accept the provider's resource name through configuration, read it
+and compare the exact expected condition, required mappings and enabled state. Mutate the JSON
+for another ref/workflow/repository, a permissive condition and a missing environment mapping;
+each must fail locally, without changing Cloud.
+
+**IMPL-1-07 — Medium — record discovery ends after one page.**
+`release.py:425` requests 100 successful publisher runs and never follows another page. An open
+PR's valid preview can remain usable for 30 days while other runs move its publisher off page 1;
+merging it then refuses a record that still exists. Artifact listings at line 428 are similarly
+limited, so the exact-one-record predicate is not established over a complete listing.
+
+**Executed:** a fake API offered 100 newer unrelated successful runs and the matching run on
+page 2:
+
+```text
+100 newer unrelated runs, matching run #101 on page 2: no authenticated release record for wanted
+workflow run list calls: 1
+unrelated artifact lists read: 100
+```
+
+**Correction / validation:** paginate the relevant GitHub collections, or explicitly refuse an
+incomplete inventory instead of treating it as complete. Preserve workflow-ID/path/event/branch,
+head and ambiguity checks. Exercise a matching run on page 2 and a release-record or duplicate
+on a later artifact page, including rerun/attempt fixtures. This is an availability/completeness
+defect; the demonstrated case does not promote an unauthenticated record.
+
+**IMPL-1-08 — Medium — the specified release/approval metadata is incomplete.**
+The object returned at `release.py:216–220` has no PR number or head SHA, despite §4.2 step 3.
+The later release-record does carry those identities, but omits the preview URL that the
+publisher already obtained at `publish.yml:120`. `decide`'s summary at lines 592–595 consequently
+cannot show the preview URL required by §4.4. The Owner is asked to approve a version/channel
+without the specified link to inspect it. Evidence is static schema/data-flow inspection.
+
+**Counter-evidence:** the workflow separately checks candidate.json and writes PR/head from
+trusted workflow inputs; this omission alone is not evidence of a forged association.
+**Correction / validation:** put PR/head into release.json using trusted inputs, carry the
+Hosting-returned URL into the authenticated release record, and display it with the version,
+digest and expiry. Schema/summary tests should assert those fields and confirm `decide` still
+makes no Hosting request.
+
+**IMPL-1-09 — Medium — the inclusion test has no independent inventory oracle.**
+`test_release.py:39` receives `files` from build; lines 41–43 compare deploy to that same list.
+The test establishes agreement between the return value and copies, not that all included
+source files were selected. An ordinary new inclusion can be silently omitted without this
+named check noticing.
+
+**Executed:** monkeypatched `included_files` in memory to omit `site/releases.md`, changed no
+repository file, and ran only the named test with pytest's cache provider disabled:
+
+```text
+mutation: included_files drops site/releases.md
+.                                                                        [100%]
+1 passed in 0.02s
+named inclusion test exit under mutation: 0
+```
+
+**Correction / validation:** construct an independent expected set and compare both returned
+paths and copied bytes to it, covering included, excluded and nested glob paths. The omission
+mutation must fail. The implementation's current globs matched git pathspecs in a separate
+temporary-tree probe; no glob mismatch is asserted here.
+
+**IMPL-1-10 — Medium — channel validation never reads the version resource.**
+`release.py:558–564` checks the channel's embedded version name and expiry only. It never fetches
+`sites/{site}/versions/{version}` or checks deletion, though §4.4 promote step 3 requires version
+existence before proceeding. A channel response naming a version is treated as sufficient.
+
+**Executed:** fake HTTP returned the expected channel/version name and a distant expiry;
+check-channel exited zero with exactly one request, to `sites/s/channels/pr-7`. No request for
+`sites/s/versions/v` was made. This demonstrates the missing check, not a real stale Firebase
+response. **Counter-evidence:** the later clone/read-back still prevents successful promotion
+of a nonexistent version; no wrong live release was demonstrated.
+
+**Correction / validation:** read the exact approved version before cloning, reject missing or
+deleted versions with §4.5's new-PR recovery, and retain the current version/expiry checks. Test
+404/deleted versions despite a matching channel response, alongside advanced-channel, margin,
+empty-live and idempotence cases.
+
+**IMPL-1-11 — Low — the hexadecimal key inspection is case-sensitive.**
+`release.py:214` searches only `dek.hex().encode()`. A temporary artifact with the same DEK in
+uppercase in releases.md passed verification:
+
+```text
+uppercase DEK accepted: True
+```
+
+**Correction / validation:** recognise uppercase and mixed-case hexadecimal representations
+as well as raw bytes; test each independently. This is an observation because the fixture is
+harmless, its passwords are public, and exploiting this spelling difference adds no plausible
+confidentiality impact in this single-owner stage. It limits the claimed inspection by content.
+
+### 4. Checks executed and not performed
+
+**Repository gate — exit 0**, before editing this report:
+
+```text
+ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 UV_CACHE_DIR=/tmp/bi-review-uv \
+  make check UV_RUN='uv run --frozen --no-sync'
+secrets review: nothing found in the tracked files
+history review: nothing found (94 occurrence(s) of values public by design, 2 registered; 3 blob(s) skipped)
+docs-check: 22 documents, 126 file links, 45 anchors, 5 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 1 accepted, 2 pending — record consistent
+322 passed in 24.11s
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+```
+
+The three secret-scanner skips are the binary `.bice` files; they were exercised by package
+verification, but that is not a general binary secret scan. The JS skip is the repeated JSON-key
+case that JSON.parse cannot observe; the strict Python parser covers it.
+
+**Other executed checks:**
+
+- Actionlint **1.7.12**, all three workflows: exit 1, solely `unexpected key "queue"` at
+  promote.yml:43. This diagnostic is disproved by current
+  [GitHub workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idconcurrency),
+  which explicitly supports job-level `queue: max` with `cancel-in-progress: false`. Do not remove
+  the queue to satisfy the older validator. No GitHub parser run was claimed.
+- Fetched source at each pinned action SHA. Artifact upload's least-common-ancestor rule and
+  download-by-name layout match the workflow's normal `candidate/deploy` and `verified/candidate/deploy`
+  paths. Cross-run candidate download supplies run-id and token; same-run verified download uses
+  the internal artifact service and does not need an actions:read GitHub token.
+- Static workflow inspection: no untrusted expression interpolated into `run:`; all checkouts
+  disable persisted credentials; credentialed jobs use environment variables for environment
+  names; candidate has no declared permissions/environment; admit's `if` filters unsuccessful
+  and non-PR runs; forks and protected renames were refused by local probes. Extra contents:read
+  permissions support trusted checkout/check-tip. No workflow-level promotion concurrency exists.
+- Loopback HTTP: identity, gzip, chunked transfer and redirects returned the expected bytes;
+  unsupported br, 404 and incorrect served bytes were refused. Fake Hosting pages exercised
+  pagination, leading-slash normalisation and non-ACTIVE rejection. Release-record ZIP probes
+  accepted the sole expected member and rejected extra/traversal member names without extracting.
+- Fake GitHub data exercised admission and decision paths as detailed above. Existing tests
+  cover clone arguments, idempotence, live read-back, margins and binding rejection. Temporary
+  git inventory confirmed current inclusion globs agree with fnmatch for direct/nested paths.
+- Lock audit: 674 package entries, every non-root entry with integrity and an npm-registry URL;
+  firebase-tools version **15.28.2**, tarball URL/integrity equal to the registry metadata.
+  A clean `/tmp` `npm ci --ignore-scripts --no-audit --no-fund` succeeded: `added 671 packages in 19s`;
+  `firebase --version` printed `15.28.2`. Clone help ran; source confirms `site@version` and reuse
+  of the version within one site. No clone or deploy command was invoked.
+- `release/setup.sh check` against the actual resources — exit 0:
+
+  ```text
+  bindings exactly as declared for hosting-live@bi-como-codigo.iam.gserviceaccount.com, hosting-preview@bi-como-codigo.iam.gserviceaccount.com
+  no user-managed key on either account
+  ```
+
+  The first attempt failed because gcloud wanted to write its read-only configuration directory.
+  Retried with a private configuration copy under `/tmp`, then removed that copy. Independent
+  provider describe returned ACTIVE and the exact expected condition/mapping. Project policy
+  assigned each account only `roles/firebasehosting.admin`.
+- GitHub GETs confirmed preview/production branches limited to main, the Owner required for
+  production with self-review allowed, read-only default workflow permissions and PR approval
+  disabled. Repository and both environment secret counts were each **0**. Registered workflow
+  count and ruleset count were each **0**, consistent with the explicitly pending first push and
+  candidate check name; the missing ruleset is not a new implementation finding.
+
+**Not performed:** GitHub runs, dispatches, OIDC exchanges, Hosting deployment/clone, real
+artifact uploads/downloads, merge/squash/rebase end-to-end cases, rerun/partial-rerun attempt
+behaviour, or concurrency/approval schedules T1–T11. Those require the externally mutating
+execution this review forbids. Neither tests/site_fixture.py nor any eng_dados mutation/target
+was run. No resource, repository setting, commit, push or deployment was created or changed.
+
+### 5. Limitations
+
+Local fake APIs establish code behaviour for their supplied responses, not service behaviour.
+The extraction escape was executed through the exact pinned production extraction function;
+the multi-job credential/deployment consequence is a source-based inference, not a remote
+exploit measurement. Real Hosting routing and bytes, GitHub run-attempt metadata, the three
+merge methods, and OIDC claims remain unmeasured. Correct live IAM/settings today do not prove
+negative token exchanges or make setup's missing provider check complete.
+
+Temporary probe sources/logs are under `/tmp/bi-review-*`; only the evidence pasted here is part
+of the delivery. Only DOSSIER.md was edited. No finding assumes confidential production data,
+and the explicitly deferred stage-2.2b work remains outside this round.
+
+### 6. Handoff acceptance checklist
+
+- [ ] **IMPL-1-01:** exact replacement download/extraction path rejects unsafe archives before
+  writes; sibling code, actions and runner control files survive probes; normal layouts pass.
+- [ ] **IMPL-1-02:** authoritative file counts and cap/truncation refusal; pagination and both
+  names of protected renames tested through admit.
+- [ ] **IMPL-1-03:** protected profile/report mapping is the matrix oracle; widening, narrowing
+  and inventory mutations fail before credentials.
+- [ ] **IMPL-1-04:** candidate checkout and recorded head are identical, including a diverged-main fixture.
+- [ ] **IMPL-1-05:** different configured project/site IDs select the same intended site at deploy,
+  verification and promotion, without installation names in code.
+- [ ] **IMPL-1-06:** setup reads and validates the configured provider; permissive condition,
+  wrong claims/mapping and disabled-provider fixtures fail.
+- [ ] **IMPL-1-07:** complete run/artifact enumeration and page-2/attempt/duplicate-record cases pass.
+- [ ] **IMPL-1-08:** release.json identifies PR/head; authenticated record and approval summary
+  include the Hosting-returned preview URL, with no Hosting access in decide.
+- [ ] **IMPL-1-09:** independent inclusion/bytes oracle rejects the demonstrated omission mutation.
+- [ ] **IMPL-1-10:** missing/deleted approved versions stop before clone with the new-PR recovery;
+  current channel/margin and clone/read-back controls remain tested.
+- [ ] **IMPL-1-11:** case variants of hexadecimal keys are detected, or the documented inspection
+  limitation is explicitly retained in the owning document.
+
+Re-run the repository gate and review the resulting corrections. N69 remains gated on no
+blocking finding; the real §7 acceptance tests remain pending after that review.
 
