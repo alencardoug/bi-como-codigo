@@ -1,0 +1,44 @@
+2026-11-06T13:07:37Z
+Approvals here are Claude Code's under N75, extended by the Owner to this morning; each says so in its comment.
+
+T4 — a preview advanced after approval does not replace the release. PR #8 merged (9b530f8); while promote 42220109667 waited, channel pr-8 was re-deployed by hand from the Owner's machine: pr-8 before=9cbc150b6a5a6900 after=9167fdb6340b207a
+== promote 42220109667: decide=success promote=failure
+2026-11-06T12:46:44.3576633Z 9b530f846651919ea413630908794903decf13f5 is still the tip of main
+2026-11-06T12:46:44.8349282Z refused: channel pr-8 no longer serves 9cbc150b6a5a6900: a new preview and approval are needed (§4.5)
+2026-11-06T12:46:44.8504542Z ##[error]Process completed with exit code 1.
+  approval: approved by alencardoug — Approved by Claude Code under the Owner's delegation N75, extended to the morning of 2026-11-06, for test T4 of stage 2.2 on fixtures: the channel pr-8 was re-deployed by hand (9cbc150b6a5a6900 → 9167fdb6340b207a) whil
+
+T10(b) — an approval after its version's channel is gone does not promote. PR #9 merged (90dec36); while promote 42220566416 waited, channel pr-9 was deleted by hand (hosting:channel:delete).
+== promote 42220566416: decide=success promote=failure
+2026-11-06T12:49:52.1893874Z 90dec36645624e3a4ad2ea609c969ec078ab09ca is still the tip of main
+2026-11-06T12:49:52.7164004Z refused: channel pr-9 no longer serves ca430579c352c2ec: a new preview and approval are needed (§4.5)
+2026-11-06T12:49:52.7310806Z ##[error]Process completed with exit code 1.
+  approval: approved by alencardoug — Approved by Claude Code under the Owner's delegation N75, extended to the morning of 2026-11-06, for test T10(b) of stage 2.2 on fixtures: the channel pr-9 was deleted by hand while this approval waited; promote must ref
+T10's recovery (§4.5) — a new PR touching only site/releases.md, PR #10 merged (d790523):
+== promote 42221023547 attempt 1: decide=success promote=success
+2026-11-06T12:53:14.5825206Z d790523a3b7b4738259e8e7480dd7130f3fe8e68 is still the tip of main
+2026-11-06T12:53:15.1217742Z channel pr-10 still serves 6ef9a34374120154, expiring 2026-12-06T12:52:08.573775887Z
+2026-11-06T12:53:22.5080713Z ^[[32m^[[1m✔ ^[[22m^[[39m Site ^[[1mbi-como-codigo^[[22m version ^[[1m6ef9a34374120154^[[22m has been cloned to site ^[[1mbi-como-codigo^[[22m channel ^[[1mlive^[[22m.
+2026-11-06T12:53:22.7927149Z promoted
+  (the approval of attempt 1 is listed with the run's latest attempt, a re-run; it was given under N75 like the others)
+
+T5 — a re-run of an older promotion does not replace the release, and cannot crowd out the current one.
+(i) promote 42176930285 (PR #1, merged 53eab6e) re-run after PR #10 promoted: decide=success promote=skipped
+2026-11-06T12:54:04.5854675Z nothing to promote: 53eab6e0f84e485b6694098298dff020b642d587 is not the tip of main (d790523a3b7b4738259e8e7480dd7130f3fe8e68): a later merge promotes
+(ii) PIPE-1-04's schedule — A: PR #11 merged (fc594a7), promote 42221606144 waiting for approval; B: PR #12 merged after (dcfabe6), promote 42221895754, its decide passed and its promote job held 'pending' in the group behind A; C: promote 42221023547 (PR #10) re-run, attempt 2:
+== C, attempt 2: decide=success promote=skipped
+2026-11-06T13:05:55.7951150Z nothing to promote: d790523a3b7b4738259e8e7480dd7130f3fe8e68 is not the tip of main (dcfabe6fa36a5a9c07f438655f478ea3b1fda495): a later merge promotes
+== A, approved after B merged: decide=success promote=failure
+2026-11-06T13:06:29.9935779Z refused: fc594a721b1531e323b979e7844ee0e7753535ff is not the tip of main (dcfabe6fa36a5a9c07f438655f478ea3b1fda495): a later merge promotes
+== B, approved after A ended: decide=success promote=success
+2026-11-06T13:06:45.7152994Z dcfabe6fa36a5a9c07f438655f478ea3b1fda495 is still the tip of main
+2026-11-06T13:06:46.4617829Z channel pr-12 still serves 60bb24e8f234a369, expiring 2026-12-06T12:59:02.799435690Z
+2026-11-06T13:06:54.6875945Z ^[[32m^[[1m✔ ^[[22m^[[39m Site ^[[1mbi-como-codigo^[[22m version ^[[1m60bb24e8f234a369^[[22m has been cloned to site ^[[1mbi-como-codigo^[[22m channel ^[[1mlive^[[22m.
+2026-11-06T13:06:55.0384360Z promoted
+
+Read independently afterwards (the Owner's credentials):
+  live serves 60bb24e8f234a369 released 2026-11-06T13:06:53.974Z
+  release 2026-11-06T13:06:53.974Z DEPLOY 60bb24e8f234a369
+  release 2026-11-06T12:53:21.830Z DEPLOY 6ef9a34374120154
+  release 2026-11-06T06:51:34.567Z DEPLOY 04002f0469b184eb
+  https://bi-como-codigo.web.app/releases.md, last line: - 2026-11-06 — T5: B, o merge mais novo, que deve ir ao ar.

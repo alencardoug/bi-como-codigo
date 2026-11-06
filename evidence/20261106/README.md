@@ -32,4 +32,4 @@ run on GitHub and Firebase from 06:39Z: excerpts of GitHub's logs of each run, w
 environment block left out (paths and the masked token), and what was read independently
 afterwards with the Owner's credentials. `t1_first_release` is T1 — and with it T7, the federation
 accepting `publish.yml` and `promote.yml` on `main` in their environments —, approved under N75;
-`t9_no_stored_key` is T9; `t3_t6_t11_refusals` are T3, T6 and T11.
+`t9_no_stored_key` is T9; `t3_t6_t11_refusals` are T3, T6 and T11; `t4_t5_t10_promotions` are T4, T5 in PIPE-1-04's schedule and T10(b) with its recovery, approved under N75 as the Owner extended it to the morning.
