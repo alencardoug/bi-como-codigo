@@ -1,3 +1,4 @@
+# T3: a PR touching the checker.
 """The release checker of the publishing pipeline (docs/publishing_pipeline.md).
 
 Each sub-command is one step a workflow runs; section numbers (§n) are that
