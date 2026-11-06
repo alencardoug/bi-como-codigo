@@ -10,8 +10,8 @@
 > [PLAN §3.4](../PLAN.md#34-the-architecture), with N2 and N15 in
 > [§1.2](../PLAN.md#12-the-decisions) —; the complete package-to-artifact gate with the decryption
 > matrix and the mutation tests, which is stage 2.2b; the envelope (see
-> [`encryption_envelope.md`](encryption_envelope.md)); the decision records of hosting and of the
-> pipeline, born with this stage (pending in the [decision record](adr/README.md#3-pending)).
+> [`encryption_envelope.md`](encryption_envelope.md)); the decisions of hosting and of the
+> pipeline, [ADR-0002](adr/0002-host-on-firebase-hosting-through-identity-federation.md) and [ADR-0003](adr/0003-publish-through-a-trusted-workflow-on-main.md).
 
 | Field | Information |
 |---|---|

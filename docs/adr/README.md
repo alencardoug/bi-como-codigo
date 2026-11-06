@@ -25,12 +25,12 @@
 |---|---|---|---|
 | [ADR-0001](0001-encrypt-each-report-under-the-profile-password.md) | Encrypt each report under the password of the profiles it belongs to | 2026-11-06 | Per-profile encryption; N23, N64–N67 |
 | [ADR-0002](0002-host-on-firebase-hosting-through-identity-federation.md) | Host the showcase on Firebase Hosting, reached only through identity federation | 2026-11-06 | Hosting and publication; N2 (hosting), N15 |
+| [ADR-0003](0003-publish-through-a-trusted-workflow-on-main.md) | Publish through a trusted workflow on main, promoting the approved version ID | 2026-11-06 | CI pipeline; N2 (publishing), N74 |
 
 ## 3. Pending
 
 Each row is an ADR the plan already calls for ([PLAN.md §7](../../PLAN.md#7-what-is-still-decided-at-the-right-moment)),
 written when its component is born.
 
-| Pending | Decision in the plan | Written at |
-|---|---|---|
-| **CI pipeline** | N2, N15 — the candidate and publishing workflows of §3.4 | Stage 2.2 |
+None at present: the three the plan called for so far are accepted. The next is added here when a
+component the plan calls an ADR for comes near, or when a change needs one (§1).

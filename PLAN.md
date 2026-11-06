@@ -50,7 +50,7 @@ the first report of the showcase and the first lesson of the study content.
 | # | Question | Choice |
 |---|---|---|
 | **N1** | Name of the showcase | **`bi-como-codigo`** |
-| **N2** | Data, querying and publishing | **Parquet queried by DuckDB in the browser; Firebase Hosting in a project of its own; GitHub Actions publishes on merge and builds a preview per PR; the DuckDB engine comes from jsDelivr** — the hosting recorded in [ADR-0002](docs/adr/0002-host-on-firebase-hosting-through-identity-federation.md) |
+| **N2** | Data, querying and publishing | **Parquet queried by DuckDB in the browser; Firebase Hosting in a project of its own; GitHub Actions publishes on merge and builds a preview per PR; the DuckDB engine comes from jsDelivr** — the hosting recorded in [ADR-0002](docs/adr/0002-host-on-firebase-hosting-through-identity-federation.md), the publishing in [ADR-0003](docs/adr/0003-publish-through-a-trusted-workflow-on-main.md) |
 | **N6** | When to fix the synthetic data | **Now, before anything else** |
 | **N8** | Scope of the ADR for O2 | **Classifying is not exposing**: the classification stays — metadata, and the basis of the policy tags of Stage 13 —, and exposing synthetic data becomes free. It rewrites the rule of [Governance §4](https://github.com/alencardoug/mvp_eng_dados_1/blob/26b58b3/docs/governanca_de_dados.md#4-classificação-de-sensibilidade) and settles today's divergence (RP-02) |
 | **N17** | How to organise the two pieces of content | **Two repositories, two sites**; the study content reads the data the showcase publishes and has its own capture for the lessons |
@@ -359,6 +359,10 @@ back; search in the catalogue; accessibility and narrow screens.
 - **The study trail** stays in eng_dados, as it is; the study content points to it.
 
 ### 3.4 The architecture
+
+> The hosting is decided in [ADR-0002](docs/adr/0002-host-on-firebase-hosting-through-identity-federation.md) and the trusted
+> workflow in [ADR-0003](docs/adr/0003-publish-through-a-trusted-workflow-on-main.md) (2026-11-06); the pipeline as built is owned by
+> [`docs/publishing_pipeline.md`](docs/publishing_pipeline.md).
 
 ```text
 1. Export, on your machine — eng_dados databases up, the read-only login of N4:
