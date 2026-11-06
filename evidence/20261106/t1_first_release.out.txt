@@ -1,0 +1,36 @@
+2026-11-06T06:52:17Z
+T1 — PR #1, test/t1-preview (site/releases.md only). Candidate rerun 42175700935; publish 42176765743; merge 53eab6e; promote 42176930285.
+== publish 42176765743:
+  admit: success
+  verify: success
+  preview: success
+2026-11-06T06:48:29.5490470Z PR #1 admitted for a preview
+2026-11-06T06:48:40.7152975Z verified 6 file(s); digest f812788b06db69985d60765fbbe422512a482ff2454bcc083b4fe1371db8dac7; package df574c7161f32cc83bdf74fc035080a6
+2026-11-06T06:48:57.8643576Z ^[[36;1mpython3 -c 'import json,sys; a=json.load(open("verified/release.json")); b=json.load(open("again.json")); sys.exit(0 if a == b else "the verified artifact changed")'^[[0m
+2026-11-06T06:48:58.6823386Z verified 6 file(s); digest f812788b06db69985d60765fbbe422512a482ff2454bcc083b4fe1371db8dac7; package df574c7161f32cc83bdf74fc035080a6
+2026-11-06T06:49:14.5327869Z channel pr-1 serves 04002f0469b184eb at https://bi-como-codigo--pr-1-yrquzwhq.web.app, expiring 2026-12-06T06:49:11.606571641Z
+2026-11-06T06:49:16.3150067Z version 04002f0469b184eb is the verified artifact, file for file
+== release-record of 42176765743:
+{
+  "pr": 1,
+  "head_sha": "7083c1c9b173d6457256e224236120f4cfd30bf8",
+  "candidate_run": 42175700935,
+  "version": "04002f0469b184eb",
+  "channel": "pr-1",
+  "url": "https://bi-como-codigo--pr-1-yrquzwhq.web.app",
+  "expires": "2026-12-06T06:49:11.606571641Z",
+  "digest": "f812788b06db69985d60765fbbe422512a482ff2454bcc083b4fe1371db8dac7"
+}
+== promote 42176930285:
+  decide: success
+  promote: success
+2026-11-06T06:50:05.4570105Z promote PR #1: version 04002f0469b184eb of channel pr-1, preview https://bi-como-codigo--pr-1-yrquzwhq.web.app, digest f812788b06db69985d60765fbbe422512a482ff2454bcc083b4fe1371db8dac7, record artifact 13482564297 (sha256 1111e4bfcca5898eba2cb3e1371bb5f92830dfda508949b31120ab616fa8f00b), preview expiring 2026-12-06T06:49:11.606571641Z
+2026-11-06T06:51:22.5120827Z 53eab6e0f84e485b6694098298dff020b642d587 is still the tip of main
+2026-11-06T06:51:23.2849205Z channel pr-1 still serves 04002f0469b184eb, expiring 2026-12-06T06:49:11.606571641Z
+2026-11-06T06:51:35.2022183Z ^[[32m^[[1m✔ ^[[22m^[[39m Site ^[[1mbi-como-codigo^[[22m version ^[[1m04002f0469b184eb^[[22m has been cloned to site ^[[1mbi-como-codigo^[[22m channel ^[[1mlive^[[22m.
+2026-11-06T06:51:35.5301801Z promoted
+== approval of the production job (delegated, N75):
+  approved by alencardoug: Approved by Claude Code under the Owner's delegation N75 (2026-11-06), for test T1 of stage 2.2 on fixtures: version 04002f0469b184eb of channel pr-1, as the release record of publish run 42176765743 names.
+== read independently afterwards, with the Owner's gcloud credentials:
+  live serves 04002f0469b184eb released 2026-11-06T06:51:34.567Z
+  https://bi-como-codigo.web.app/releases.md, last line: - 2026-11-06 — T1: um PR de teste que chega ao ar pela esteira.

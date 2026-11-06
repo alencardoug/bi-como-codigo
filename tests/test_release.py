@@ -56,6 +56,7 @@ def test_build_refuses_a_symbolic_link(repo):
         r.build(repo, repo / "deploy")
 
 
+@pytest.mark.skip(reason="T6: the PR disables its own check; main's verify must still refuse")
 def test_the_committed_fixture_verifies(repo):
     body = r.verify(repo, built(repo))
     assert {f["path"] for f in body["files"]} >= {"index.html", "package/manifest.json"}
