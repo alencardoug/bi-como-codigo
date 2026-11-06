@@ -559,3 +559,261 @@ Required corrections, with acceptance criteria:
 Return the revised **plan** for review before external resource creation. Runtime fixture evidence
 remains required during implementation; this review grants no approval beyond the scoped plan.
 
+## Round 2
+
+### 1. Conclusion
+
+**Changes required.** Three medium adjustments remain, two under their original IDs. **No
+critical/high or blocking finding was demonstrated within this scope.** N70's no-blocker condition
+for creating the external resources is met; apply the adjustments below before relying on the
+affected promotion/recovery flows. This is a plan-level conclusion, not stage-2.2 acceptance.
+Ordinary scheduling and expiry cases remain, so this is not yet the adversarial-only closure
+described by N72.
+
+### 2. Reviewed scope and version
+
+Reviewed on 2026-11-06, branch `main`, checkout HEAD
+`529aca9ffca75e0d69810135b251486443162fa2`, initially clean and six commits ahead of `origin/main`.
+The comparison baseline is explicitly `9fdd32e592a44f95d9afda0e1de1cc61636f49d2`; the reviewed
+delivery is `48148388df2ef3f4ecc33746a93187b6cb23830d`: revision 2 of
+`docs/publishing_pipeline.md` and PLAN's N74/§3.4 correction. Line numbers below refer to that
+revision, identical in the checkout. `fb3a729` was read only for ADR-0001 consistency; no
+contradiction was found. `529aca9` changes only this dossier and supplies the author's Status
+claims, not additional implementation evidence.
+
+Read the scoped diff, the revised pipeline in full, round 1 and its Status, the repository rules
+and review skill, PLAN §3.4/§6.2 and the specified decisions/review requirements. Only this dossier
+was changed; round 1, including its Status cells, is preserved.
+
+### 3. Findings and reassessment
+
+All findings below are **medium — adjustment**. Existing IDs identify residual defects; the new
+API-contract finding is PIPE-2-01. Status is intentionally empty for the author.
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+| PIPE-1-04 | Pipeline §4.4, lines 187–208; T5 | A decision that passed freshness before a newer merge can finish late and evict that merge's pending promotion | `adjustment` | **Fixed** in rev. 3 §4.4: `promote`'s group gets `queue: max`, so a late `decide` cannot evict the newer merge; every queued run re-checks freshness when it runs. Marked as assumed from GitHub's documentation and proved by T5, which gains round 2's schedule (C held by a temporary `sleep` after passing freshness) |
+| PIPE-1-08 | Pipeline §4.5, lines 228–233; `promote` lines 210–214; T10 | The one-day margin is not rechecked after approval, and the stated recovery cannot re-preview a merged PR | `adjustment` | **Fixed** in rev. 3: `promote` step 3 re-checks the one-day margin right before the clone; §4.5's recovery is a new previewable PR (a dated line in `site/releases.md`), since the merged PR is closed to `admit`. T10 gains (a) the margin case with a 25-hour channel and the reachable recovery |
+| PIPE-2-01 | Pipeline §4.4 condition 3, lines 190–195 | Literal run-path equality excludes GitHub's documented `path@ref` representation | `adjustment` | **Fixed** in rev. 3 §4.4 condition 3: the workflow ID resolved from its file, runs listed by ID, `path` accepted bare or as `@main`/`@refs/heads/main`, the latest successful attempt, exactly one `release-record` artifact (two fail as ambiguous), its ID and digest in the summary. T1 keeps the real metadata and exercises full and partial re-runs |
+
+#### Reassessment of PIPE-1-01–08
+
+“Resolved” below means resolved in the plan; none of the proposed workflows or cloud tests ran.
+
+| ID | Reassessment | Evidence |
+|---|---|---|
+| PIPE-1-01 | Resolved | `decide` now uses GitHub only (183–204); every Hosting read is after federation in `promote` (210–224), including empty-live handling. This answers the authenticated-API defect established in round 1. |
+| PIPE-1-02 | Resolved at the trust-design level | N74 explicitly changes the token requirement; all of `.github/` is protected (52–60). The record belongs to a selected publishing run (166–170, 190–195), rather than to PR-writable check fields. See the adversarial analysis and the separate API compatibility adjustment below. |
+| PIPE-1-03 | Resolved at the binding-test design level | T8 now uses allowlisted `promote.yml` on `main` for both successful controls and both cross-account attempts; STS and IAM errors are separate (307). Policy read-back and the local pool-wide-member mutation are explicit (260–262). Actual claim/mapping behaviour remains unmeasured. |
+| PIPE-1-04 | Partially resolved | Moving concurrency to `promote` fixes the original already-obsolete rerun schedule. The delayed-`decide` schedule below remains. |
+| PIPE-1-05 | Resolved | The single command builder and T4b distinguish version and channel forms (217–224, 303). Installed CLI `lib/commands/hosting-clone.js:23–30,78–88` parses `SITE@VERSION` and reuses that version within one site, agreeing with the [tagged source](https://github.com/firebase/firebase-tools/blob/v15.28.2/src/commands/hosting-clone.ts). Read-back detects a wrong release after the fact; it cannot undo it, so T4b is the preventive regression oracle. |
+| PIPE-1-06 | Resolved in the specification | Lines 160–165 require the complete ACTIVE path inventory and every file's byte digest, with no fallback. The [files API](https://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.versions.files/list) supplies pagination and ACTIVE status. HTTP compatibility remains T1 evidence, discussed below. |
+| PIPE-1-07 | Resolved | Lines 55–60, 150 and 206 use the same repository variables for environment declarations and setup/bindings; §5's literal names are explicitly installation values. GitHub [allows `vars` in environment names](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idenvironment). Non-default-name rendering remains implementation evidence. |
+| PIPE-1-08 | Partially resolved | Thirty-day channels and safe missing-version refusal replace indefinite retention. Firebase [documents the maximum and deletion lifecycle](https://firebase.google.com/docs/hosting/manage-hosting-resources#set_the_expiration_of_a_preview_channel). The deadline/recovery defects below remain. |
+
+#### PIPE-1-04 — Freshness before an asynchronous job boundary does not preserve the queue
+
+**Medium — adjustment.** `docs/publishing_pipeline.md:187`, 208, 304.
+
+With A holding the promotion group, C's `decide` passes condition 1 while C is current. It is
+delayed during the remaining GitHub reads. B merges, finishes `decide` first and queues. C then
+finishes and queues, canceling B. After A releases the group, C refuses at its freshness recheck;
+the current B has no pending promotion. Grant the required approvals before B/C contend; A may
+be executing rather than awaiting review. This needs ordinary job/API delay, not PR-controlled code.
+
+GitHub's [job-concurrency contract](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idconcurrency)
+still has one pending slot by default and replaces it on a later arrival. It serializes clones,
+but moving the first freshness check does not make queue admission atomic. T5 currently tests C
+starting after B, which cannot expose this interleaving. Evidence is static scheduling analysis
+and the read-only model below, not an Actions execution.
+
+**Correction and validation:** retain serial cloning and the post-approval freshness check; use
+a non-replacing queue policy, such as the documented `queue: max` within its stated capacity, or
+another mechanism that preserves B. Extend T5 to delay C after its successful freshness read,
+enqueue B, then release C. B must still promote after its approval; C must refuse.
+
+#### PIPE-1-08 — Enforce the deadline at use and give a reachable recovery
+
+**Medium — adjustment.** `docs/publishing_pipeline.md:124`, 200, 210–233, 308.
+
+Two related lifetime gaps remain. First, `decide` checks the one-day margin before the approval
+wait, but `promote` checks only freshness, the channel/version and existence. Approval at day
+29.5 can therefore clone an existing version with twelve hours left, despite §4.5's stated
+one-day validity margin. Thirty days is a maximum channel lifetime, not a reservation made by
+`decide`; [Firebase's lifecycle](https://firebase.google.com/docs/hosting/manage-hosting-resources#set_the_expiration_of_a_preview_channel)
+does not preserve the earlier margin.
+
+Second, T10 has already merged the PR before deleting its channel. Recovery by rerunning its
+candidate or pushing to its branch cannot satisfy `admit`'s “PR is open” requirement at line 124.
+An expired promotion therefore has no working recovery using the instructions given. T10's
+promised successful recovery is unreachable as specified. Evidence is the plan's own predicates
+and the model below; no channel was deleted.
+
+**Correction and validation:** recheck the supported deadline after approval and immediately
+before cloning. Describe recovery through a new previewable PR/new head and its merge/approval,
+or another explicitly trusted recovery path. Keep closed-PR admission closed. T10 must refuse at
+the one-day boundary even while the channel/version exist, then complete the documented recovery
+from an already-merged PR with a new record and approval, leaving live unchanged on refusal.
+
+#### PIPE-2-01 — The documented run path is not necessarily a bare file path
+
+**Medium — adjustment; API-contract mismatch, operational impact inferred.**
+`docs/publishing_pipeline.md:190–195`.
+
+Condition 3 requires each run's `path` to equal `.github/workflows/publish.yml`. GitHub's
+[Get a workflow run response](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run)
+documents `path` as `.github/workflows/build.yml@main`. The equivalent annotated publisher value
+fails the specified literal equality, rejecting a legitimate preview record and preventing
+promotion. There are no runs in this repository to establish which representation it returns;
+this is a demonstrable mismatch with a documented response, not a measured universal failure.
+
+**Correction and validation:** resolve the trusted workflow ID and validate the documented run
+path/ref forms without treating a workflow display name as identity. Add a lookup fixture with
+the annotated `publish.yml@main` value and the bare form if supported, plus wrong-path/ref/event
+and same-name PR counterfeits. T1 must save the real selected metadata and show successful lookup.
+
+#### Trust, HTTP and probe analysis — no additional confirmed defect
+
+**Run origin.** A PR workflow named like the publisher still has its actual workflow ID/path and
+`pull_request` event; renaming it cannot satisfy the `workflow_run` predicate. A different workflow
+named `candidate` can match the name-based `workflows:` filter, but the resulting publisher uses
+the default-branch definition and still runs `admit`; adding/editing that producer touches the
+protected `.github/` set. A PR's added `workflow_run` definition does not replace the default
+branch's publisher. These conclusions follow from GitHub's [event contract](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run),
+not from an executed counterfeit. The run's own metadata must remain distinct from the upstream
+`github.event.workflow_run` payload. No same-name/event-chain bypass of the revised trust boundary
+was demonstrated.
+
+**Reruns and artifacts.** Run ID alone does not identify an attempt. GitHub's [artifact client](https://github.com/actions/toolkit/blob/main/packages/artifact/src/internal/client.ts)
+explicitly allows duplicate artifact names across reruns and defines latest-artifact selection.
+This does not let a PR upload into the trusted publisher's run. Implementation must select the
+successful attempt's record deterministically, retain its artifact ID/digest and approved values,
+and fail closed on missing/ambiguous records. Exercise a full publisher rerun and a partial-job
+rerun in T1/T3. No artifact library/version or lookup code exists yet, so neither safe selection
+nor an incorrect first-match implementation was assumed here.
+
+**Served bytes.** Complete path enumeration plus decoded-body digests is an exact acceptance
+condition for the static fixture, conditional on fetching the intended version. HTTP
+`Content-Encoding` must be handled as well as transfer framing; compare bytes without text or
+newline conversion. Redirect bodies are not file bodies: canonical same-origin requests or
+validated redirects must reach the intended file; errors and unsupported representations fail.
+Firebase [documents `cleanUrls` redirects and trailing-slash behaviour](https://firebase.google.com/docs/hosting/full-config#control_html_extensions)
+and [CDN invalidation on redeploy and cache keys](https://firebase.google.com/docs/hosting/manage-cache).
+Thus routing collisions or stale/mismatched bytes must refuse, not trigger a path/count fallback.
+The protected `firebase.json` does not exist to inspect. T1 must establish behaviour with its
+actual headers/routing, and a same-path changed-byte case must fail. Installed uploader source
+(`lib/deploy/hosting/uploader.js:132–148,197–200`) confirms hashing/uploading its gzip stream;
+no equivalence between that hash and an uncompressed file hash was assumed.
+
+**T8/T11 safety and limits.** The temporary T8 jobs execute reviewed `main` code, request only
+STS/IAM tokens, retain production approval and leave the trust allowlist unchanged. Their
+removal PR and policy read-back are explicit. T11 can run a controlled same-repository PR without
+merging it or invoking Hosting; [requesting a GitHub JWT does not itself grant Google access](https://docs.github.com/en/actions/reference/security/oidc#required-permission).
+Keep JWTs and any unexpectedly returned credentials out of retained evidence; record claims and
+the error, and stop on unexpected success. The no-environment probes encounter a mapper that
+references `assertion.environment` (244): actual STS errors must distinguish mapping/audience
+failure from condition refusal. Google [defines mappings separately from conditions](https://docs.cloud.google.com/iam/docs/workload-identity-federation#attribute-mappings);
+their evaluation/error behaviour was not executed here. The branch probe also changes workflow
+identity, so it alone does not isolate the ref restriction; the exact policy read-back remains
+part of the oracle. Neither caveat demonstrates accepted PR credentials or a binding bypass.
+
+Stage coverage remains T1/T7 for the accepted fixture path, T2 for fork admission, T3/T11 for
+same-repository workflow/token changes, T4/T4b/T5 for immutable and serialized promotion, T6 for
+pre-upload rejection, T8 for federation isolation and T9 for keylessness. T10 covers lifetime
+once corrected. The complete exporter/package gate remains stage 2.2b. Adversarial cancellation
+or manual channel races have no new demonstrated credential/live-content bypass in this
+single-owner, public-password, fixture-only scope; they are limitations, not further findings.
+
+### 4. Checks executed; checks not performed
+
+The authorised repository gate completed; literal excerpts before the report edit:
+
+```sh
+ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 \
+UV_CACHE_DIR=/tmp/bi-como-codigo-review-r2-uv-cache \
+make check UV_RUN='uv run --frozen --no-sync'
+```
+
+```text
+secrets review: nothing found in the tracked files
+history review: nothing found (92 occurrence(s) of values public by design, 2 registered; 0 blob(s) skipped)
+docs-check: 21 documents, 120 file links, 44 anchors, 5 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 1 accepted, 2 pending — record consistent
+279 passed in 16.99s
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+```
+
+A read-only Python model of the specified ordering/predicates exited **0**, with this output:
+
+```text
+Read-only models of the specified predicates, not pipeline executions:
+C/decide starts while tip=C: freshness=True
+B/decide finishes while tip=B: pending=B
+C/decide finishes late: single-slot policy evicts=B, pending=C
+C/promote recheck: freshness=False; B has no remaining queued job
+decide at start: expiry_more_than_one_day=True
+approval at day 29.5: expiry_more_than_one_day=False; unchanged tip/channel and existing version still pass promote steps 2-3
+expiry recovery candidate on merged PR: admit_open=False
+documented annotated run path passes literal planned equality=False
+```
+
+Read-only `gh api --method GET` calls on this repository exited **0**:
+
+```text
+actions/workflows: {"total_count":0,"workflows":[]}
+actions/runs?per_page=1: {"total_count":0,"workflow_runs":[]}
+```
+
+Official documentation and the installed CLI source were read. The full gate was repeated after
+adding this report, with the same overrides; its own exit code was **0**. Literal excerpts:
+
+```text
+docs-check: 21 documents, 120 file links, 44 anchors, 6 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 1 accepted, 2 pending — record consistent
+279 passed in 16.97s
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+```
+
+The read-only preservation/scope check and `git diff --check` exited **0**:
+
+```text
+round_1_preserved_byte_for_byte=True
+round_2_findings=3; empty_status_cells=3
+changed_tracked_files=DOSSIER.md
+git_diff_check=passed
+```
+
+No workflow, cloud resource, environment, probe, token exchange, deployment or clone was created
+or invoked. T1–T11/T4b are future acceptance tests, forbidden to execute in this review. Existing
+IAM/API/billing state was not re-enumerated: it is not needed to establish these plan defects,
+and round 1 already records the read-only gcloud credential-store failure. No command was run in
+the eng_dados checkout; it was supplied only as the gate's read-only link target.
+
+### 5. Limitations and open questions
+
+Runtime GitHub metadata, artifact-attempt selection, ADC compatibility, HTTP serving, exact
+ruleset checks/bypass and final IAM policies remain unmeasured. The plan's fail-closed fixtures
+must resolve those implementation premises; this review does not replace them. Archive extraction,
+complete PR-file enumeration/renames and trusted checkout isolation retain round 1's requirements.
+No Owner ambiguity prevents this review; N74 settles the token requirement, and no new decision
+or approval is requested.
+
+### 6. Handoff to Claude Code
+
+- [ ] **PIPE-1-04:** preserve the current pending promotion under the delayed-`decide` schedule;
+  extend T5, keep one clone at a time and retain freshness checks after approval.
+- [ ] **PIPE-1-08:** enforce the one-day deadline at use; make T10 refuse an existing near-expiry
+  version and then recover from the merged-PR state through a new trusted preview and approval.
+- [ ] **PIPE-2-01:** accept the documented trusted run-path representation while rejecting wrong
+  identity/ref/event and same-name PR runs; retain real T1 metadata as evidence.
+
+Keep the six plan-level resolutions above closed unless implementation evidence contradicts
+them. Fill these Status cells with the corrections and return the scoped changes for review;
+the implementation must still deliver every stage-2.2 fixture proof before claiming completion.
+
