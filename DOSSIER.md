@@ -169,5 +169,262 @@ Filled in by the reviewer. One finding per line, with a verdict.
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| | | | `blocking` · `adjustment` · `observation` | |
+| ENV-1-01 | Envelope §5.1, §6.3 | Several negative cases cannot reach their required refusal step; malformed cases can pass without exercising the parser. | `blocking` | **Fixed** in `docs/encryption_envelope.md` rev. 2. Reproduced by reading rev. 1: `slot_altered` (line 298) did not refresh the hash, so it stopped at step 1; `iterations_altered` −1 is 599,999, out of bounds at step 2; P01 served as P13 failed step 4 on slots; a foreign package failed step 4 on salts. Now: §6.3 states how a case reaches its step (size, `sha256` and `file` recomputed outside group A, iteration counts in bounds, slot set kept, last mutation under test), cases regrouped M/A/H/I/S/E/U/D/P with one code each, a third vector `p02_one_profile` in the same package so P02 served as P01 reaches steps 3 and 8, `other_slot_bit` added (only the AAD catches it), sealed fixtures frozen for the JS suite, and §6.5 requires the counter-proof: each check of steps 0–5, 9 and both reuse checks removed in a /tmp copy must make its group fail |
+| ENV-1-02 | Envelope §6.4 | Both reuse fixtures repeat the IV, so a missing DEK-reuse check passes the prescribed tests. | `blocking` | **Fixed** in rev. 2 §6.4. Reproduced by reading line 326 of rev. 1: both fixtures repeated the IV. Now two codes, `dek_reused` and `iv_reused`, and four cases: `reuse_control` accepted, `reuse_dek_only` (same DEK, different IVs), `reuse_iv_only`, `reuse_both`; each check proved on the case only it catches. The access reason (a DEK shared by P13 and P01 opens P01 through `logistica`) is written down |
+| ENV-1-03 | Envelope §2.1–§2.2, §3 | The identity regexes have different end-of-string semantics in Python and JavaScript. | `adjustment` | **Fixed** in rev. 2 §3. Reproduced: `re.match(r'^[A-Z][A-Z0-9_]{0,15}$', 'P01\n')` gives `True` in Python, `RegExp.test` gives `false` in Node v24.18.0 (`<scratchpad>/env_r1/r03.out`). Now an identity matches over every byte, with no regex engine, no end-of-line allowance, trimming or normalisation, in declaration, manifest and header alike; final line feed cases in groups M and H |
+| ENV-1-04 | Envelope §5.1, §6.3 | Refusal codes conflate test-case labels with causes the reader cannot distinguish. | `adjustment` | **Fixed** in rev. 2 §5.1 and §6.3. Now a table of steps 0–9 with one refusal code per check (`manifest_invalid`, `integrity_mismatch`, `header_malformed`, `identity_mismatch`, `slots_mismatch`, `not_entitled`, `unwrap_failed`, `decrypt_failed`, `payload_malformed`), case ids separate from codes, and the two visitor messages mapped onto the codes. Your Node probe (four unwrap mutations, one `OperationError`) is the reason written down |
+
+### 1. Conclusion
+
+**Changes required.** Two high-severity findings leave essential negative oracles unable to prove
+the required checks. Two medium-severity findings leave validation/error contracts ambiguous
+between implementations. **The design review of stage 2.2a cannot be closed yet.** These are
+specification findings; no production implementation exists to diagnose.
+
+### 2. Reviewed scope and version
+
+Reviewed on 2026-11-06, on branch `main`, checkout
+`2b1a558629ed1fadab9b16c236366a5d2485f0bd`. The comparison is exactly
+`895b8863ce8e41e206d5b2e4b446bdf18c8802c9..887671786099ca5b9a1421a484684309562fee93`:
+commits `29a73b8` and `8876717`, six files, 417 additions and six deletions. The four new files
+are the envelope document and the three files in `evidence/20261105/`. Commit `2b1a558` adds
+only this hand-off and is excluded from the reviewed delivery.
+
+The checkout had **no local changes or untracked files** at the start. All six files' in-scope
+changes were examined, including the complete envelope specification; the requested requirements,
+M23's recorded output, conventions and review skill were consulted. Only `DOSSIER.md` is changed
+by this review. Probes and downloads are under `/tmp/bi-envelope-review-KnUGxf/`; no eng_dados
+target, database, installation, commit or publication was run.
+
+### 3. Findings and evidence
+
+**ENV-1-01 — Make each negative fixture reach the check it claims to prove**
+
+**High → blocking.** `docs/encryption_envelope.md:218`, `:292`, `:298`, `:302`, `:306`, `:310`.
+Evidence is **static control-flow analysis**, not execution of an envelope reader.
+
+Step 1 checks the entire file's size and hash before parsing. The rows for altered wrapped keys,
+salts, iterations and slot sets do not update those expectations; the concluding rule updates them
+only “where the row says so.” They therefore stop at step 1, rather than steps 4 or 7. The
+dossier's §7.3 claims a broader update policy, but the normative specification does not supply it.
+Even granting that intended policy, these other contradictions remain:
+
+| Fixture | Why the stated step is unreachable |
+|---|---|
+| `report_swapped`, P01 rewritten as P13, expected step 8 | P01 has only the `diretoria` slot; P13 requires `diretoria` and `logistica`. After updating size/hash and the report id, step 4 still rejects. Updating only the hash can also leave a size mismatch at step 1. |
+| `package_swapped`, expected steps 3 and 8 | An unchanged foreign file first fails the original manifest hash. After updating size/hash and rewriting its package id, its fresh per-package salts still fail step 4 against the current manifest. |
+| `iterations_altered`, minus one, expected step 4 or 7 | The vectors use 600,000; 599,999 must fail the bound at step 2, even after refreshing the hash. |
+| `malformed`, expected “1 or 2” | An implementation that omits the particular parser check can still pass every such test through the unchanged step-1 hash/size check. |
+
+This either makes conforming readers fail the proposed suite or encourages weakening assertions
+until an absent security/format check passes silently. **Correction:** separate transport-integrity
+tests from parser, manifest-binding, unwrap and GCM tests. Explicitly refresh size, hash and the
+corresponding content-hashed filename for deeper tests. Specify the selected profile/slot and make
+all preceding checks valid. Isolate report/package AAD tests using compatible slot sets and salt
+expectations; do not re-seal after the final AAD mutation. Use an in-range iteration change for
+the equality/unwrap cases. Give manifest-validation failures their own expected stage.
+
+**Acceptance:** each fixture has one reachable refusal stage in both readers; disabling its target
+check makes that test fail. In particular, malformed-envelope tests reach step 2, independently
+of separate step-1 integrity tests. This requires correcting the design now and execution when
+the implementations exist.
+
+**ENV-1-02 — Prove DEK freshness independently of IV freshness**
+
+**High → blocking.** `docs/encryption_envelope.md:322`, `:326`; key lifetime at `:44` and `:243`.
+The specification forbids both repeated DEKs and repeated IVs across envelopes, but both injected
+fixtures repeat the IV. Removing the DEK check leaves both prescribed rejection results unchanged.
+Repeated DEKs with distinct IVs also matter to the access model: a DEK obtained through P13's
+Logística slot could decrypt a P01 encrypted with that same key, using P01's public IV/header.
+
+**Executed counter-proof of the fixture logic**, using only pairs of throwaway byte labels, not an
+implementation of the package gate:
+
+```text
+prescribed same DEK + same IV: IV-only rejects=True, DEK-only rejects=True
+prescribed different DEKs + same IV: IV-only rejects=True, DEK-only rejects=False
+missing same DEK + different IVs: IV-only rejects=False, DEK-only rejects=True
+```
+
+The explicit “no two envelopes share a DEK” requirement was considered; it states the intended
+behavior but does not repair this counter-proof gap. **Correction:** add a same-DEK/different-IV
+fixture, keeping the rest of the package valid, alongside the existing different-DEK/same-IV case
+and a valid control. **Acceptance:** removing either guard independently makes its dedicated test
+fail; the valid control is accepted. Carry this separation into the live-package comparison in
+stage 2.2b.
+
+**ENV-1-03 — Define identity validation as a complete byte match**
+
+**Medium → adjustment.** `docs/encryption_envelope.md:80`, `:97`, `:164`, `:166`, `:203`.
+The document specifies regexes but no matching operation. Python's usual anchored `re.match`
+accepts a final LF before `$`; JavaScript's regex without multiline mode rejects it. LF is an
+ASCII byte and `P01\n` still meets the declared length bound. Thus two plausible implementations
+written from the document disagree on validation. This is a protocol ambiguity, not a claim of
+unauthorized access with today's fixed identifiers.
+
+**Executed** with system Python and Node v24.18.0:
+
+```text
+identity bytes=5030310a
+Python re.match(^[A-Z][A-Z0-9_]{0,15}$)=True
+Python re.fullmatch([A-Z][A-Z0-9_]{0,15})=False
+Node RegExp.test(^[A-Z][A-Z0-9_]{0,15}$)=false
+```
+
+The lowercase profile pattern has the same issue. **Correction:** state that every identity byte
+must be consumed and belong to the listed ASCII ranges, with no newline exception, trimming or
+normalisation; require that rule in the declaration, manifest and header. **Acceptance:** both
+implementations reject a final LF (and other outside-charset bytes) in either identity, including
+lengths within bounds, through the intended validation check after addressing ENV-1-01.
+
+**ENV-1-04 — Separate fixture identifiers from observable refusal codes**
+
+**Medium → adjustment.** `docs/encryption_envelope.md:228`, `:234`, `:292`, `:295`.
+Section 5.1 says refusals carry the codes of §6.3, but that table names mutation causes rather than
+observable errors. A wrong password, a changed wrapped key, or a changed salt/iteration count
+matched in the manifest can all reach the same AES-KW integrity failure. Given only the supplied
+manifest, envelope and password, the reader has no original salt/key/password oracle with which
+to distinguish them. The same ambiguity applies to IV/tag/ciphertext failures at GCM.
+
+**Executed primitive probes** returned `InvalidUnwrap` in Python for all four unwrap cases. Node
+returned the identical name/message for each:
+
+```text
+Node wrong_password -> OperationError: The operation failed for an operation-specific reason
+Node slot_altered -> OperationError: The operation failed for an operation-specific reason
+Node salt_altered -> OperationError: The operation failed for an operation-specific reason
+Node iterations_altered -> OperationError: The operation failed for an operation-specific reason
+```
+
+Treating the table entries as fixture names would resolve this, but conflicts with the current
+reader contract. **Correction:** label them as test-case IDs and define separate refusal codes
+for observable checks/stages, including a shared unwrap-failure code and a shared GCM-failure code.
+Keep the specified visitor messages. **Acceptance:** both readers can return the same specified
+code without guessing the mutation's origin; tests assert that code and the intended stage.
+
+### 4. Checks executed and results
+
+The author's §3 output remains **author-reported**, from `8876717`. The reviewer separately ran
+the authorized gate. The first unmodified invocation exited **2** before running the checks:
+
+```text
+error: Could not acquire lock
+  Caused by: Could not create temporary file
+  Caused by: Read-only file system (os error 30) at path "/home/doug/.cache/uv/.tmpnxrl5q"
+make: *** [Makefile:37: check] Error 2
+```
+
+A later check of the report draft also exited **2** at the secret guard: a quoted diagnostic case
+name followed by a colon looked like a password assignment. Its output ended:
+
+```text
+secrets review: 1 finding(s)
+make: *** [Makefile:37: check] Error 1
+```
+
+The probe was rerun with an arrow separator; the evidence above is its literal rerun output.
+The successful gate invocation used a writable cache and the existing environment, with dependency
+syncing and Python/pytest cache writes disabled. It exited **0**, with no package installation:
+
+```bash
+UV_CACHE_DIR=/tmp/bi-env-review-uv-cache PYTHONDONTWRITEBYTECODE=1 \
+  PYTEST_ADDOPTS='-p no:cacheprovider' \
+  ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 \
+  make check UV_RUN='uv run --frozen --no-sync'
+```
+
+```text
+secrets review: nothing found in the tracked files
+history review: nothing found (80 occurrence(s) of values public by design, 2 registered; 0 blob(s) skipped)
+docs-check: 18 documents, 99 file links, 36 anchors, 0 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 0 accepted, 3 pending — record consistent
+........................................................................ [ 72%]
+...........................                                              [100%]
+99 passed in 2.77s
+```
+
+The extra document versus the author's output is the hand-off at the checkout tip. These 99 tests
+cover existing repository tooling; they are **not envelope implementation tests**.
+`git diff --check` also passed; `git status --short --untracked-files=all` showed only:
+
+```text
+ M DOSSIER.md
+```
+
+Primitive probes were written/run in `/tmp/bi-envelope-review-KnUGxf/`, using system
+`cryptography` **3.4.8** and Node **v24.18.0**:
+
+```text
+Python RFC 7914 section 11: 2/2 vectors PASS
+Python RFC 3394 section 4.6: wrap and unwrap PASS (40 bytes)
+Node RFC 7914 section 11: 2/2 vectors PASS
+Node RFC 3394 section 4.6: wrap and unwrap PASS (40 bytes)
+Python -> Node: 600000-iteration KEK bytes equal; non-extractable KW unwrap and GCM ciphertext||tag PASS
+Node GCM altered IV/AAD/ciphertext: 3/3 refused
+Python GCM appendix B case 16: 32-byte key, 12-byte IV, 20-byte AAD, 60-byte plaintext; encrypt/decrypt PASS
+Expected and actual tag: 76fc6ece0f4e1768cddf8853bb2d551b
+Node GCM appendix B case 16: encrypt/decrypt PASS; tag=76fc6ece0f4e1768cddf8853bb2d551b
+```
+
+Commands were `python3 primitives.py`, `node primitives.mjs`, `python3 gcm_kat.py` and
+`node gcm_kat.mjs` in that directory; the refusal outputs above came from those probes. These
+confirm API/primitive assumptions, not a complete envelope's correctness.
+
+**Sources checked:** [RFC 7914 §11](https://www.rfc-editor.org/rfc/rfc7914#section-11) contains the
+two SHA-256 PBKDF2 vectors; [RFC 3394 §4.6](https://www.rfc-editor.org/rfc/rfc3394#section-4.6)
+contains the 256/256-bit wrap vector. Their text downloads returned HTTP 200 and supplied the
+expected values used by the probes. [RFC 8018 §5.2](https://www.rfc-editor.org/rfc/rfc8018.txt)
+defines PBKDF2, and [SP 800-38D §8](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf)
+states GCM's per-key IV requirement. GCM test case 16 exists in appendix B, with the parameters
+cited, in a [mirrored copy of McGrew and Viega's revised submission](https://csrc.nist.rip/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-revised-spec.pdf)
+(printed page 40, PDF page 42; downloaded HTTP 200). The original submission copy was also
+located on that mirror. The official legacy URL redirects to the modes overview; attempted newer
+NIST paths returned 403, so no working official submission-download URL was established.
+[OWASP's PBKDF2 reference](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#pbkdf2)
+does list 600,000 iterations for HMAC-SHA-256, as N67 says.
+
+**M47 checked by reading, not rerun:** `m47_pbkdf2_latency.mjs:6` runs five derivations at each
+of 100,000/600,000/1,000,000 and selects the sorted middle value. The recorded output's medians
+49.9/306.4/496.6 ms, the 600,000 range 294.1–328.0 ms, runtime and CPU agree with PLAN's M47
+and the envelope's rounded 306 ms. There is no measured 2,000,000 result; “about a second” is an
+extrapolation. Browser timing is consistently marked pending.
+
+### 5. Limitations and resolved hypotheses
+
+No complete envelope vector, producer, reader, package gate or negative suite exists; none was
+implemented for this review. Browser/BoringSSL behavior, desktop/phone latency, real payload
+sizes, Firebase serving/caching, preview behavior and logout cleanup were not exercised. These
+remain implementation/later-stage work, not successful measurements from this review. No database
+was needed. External link checking above was separate from `make check`.
+
+Static reading found no additional primitive misuse or ciphertext-hash circularity. Field order,
+integer endianness, slot byte order, ciphertext/tag separation, exact header AAD span and payload
+framing are defined. Salt rotation is per profile/package; all slots and algorithm/length bytes
+are authenticated; fixed algorithm/version rejection prevents negotiation/downgrade. Expectations
+come from the manifest, and the package id is minted independently. The new-run retry policy and
+explicit-input `seal_report` versus non-injectable `encrypt_package` separation are coherent design
+constraints; their actual call paths still require implementation review.
+
+The browser's reliance on CI for duplicate-key rejection, and CI's exclusive interpretation of
+totals, are explicit trusted-release boundaries. Early `not_entitled` reveals only the already
+public mapping, so no confidentiality/authentication defect is claimed for that ordering. The
+other gates, artifact inspection, browser matrix and logout are assigned to stages 2.2b/2.6;
+export schema/totals and size measurements to 2.4. The unresolved essential oracle problems are
+ENV-1-01/02; this report does not certify any implementation or later stage.
+
+### 6. Handoff to Claude Code
+
+- [ ] **ENV-1-01:** rewrite the fixture preparation/refusal table so each deeper test passes all
+  earlier checks, including size/hash/name, mapping and iteration bounds. Require individual
+  parser and identity/AAD checks to fail their dedicated tests when disabled.
+- [ ] **ENV-1-02:** add isolated DEK-only and IV-only reuse counter-proofs with a valid control;
+  removing either guard must fail its corresponding test.
+- [ ] **ENV-1-03:** require whole-byte identity matching consistently in declarations, manifests
+  and headers; include final-LF cases with identical refusal in both runtimes.
+- [ ] **ENV-1-04:** separate case IDs from the runtime refusal enum; specify observable stage/code
+  expectations implementable by both readers, retaining the two visitor message kinds.
+
+Return the corrected design for review before claiming its no-blocking-finding criterion. Actual
+vectors, counter-proofs, production randomness/retry review and browser latency remain required
+for completion of stage 2.2a after design approval.
 
