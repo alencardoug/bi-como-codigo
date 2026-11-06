@@ -2,21 +2,23 @@
 
 > **What lives here:** how stage 2.2b completes the package-to-artifact gate of the publishing
 > workflow — the report contract it reads, the control totals it recomputes, the checks it adds to
-> `verify` and their order, the comparison with the package already live, the inspection of the
-> finished artifact for clear report values, the fixtures, every mutation and the check that
-> refuses it, and the tests that prove each check.
+> `verify` and their order, the comparison with the package live and how it is bound to the
+> promotion, the inspection of the finished artifact for clear report values, what a refusal may
+> print, the fixtures, every mutation and the check that refuses it, and the tests that prove each
+> check.
 >
 > **What does not:** why there are three gates and where each one sits — [PLAN §3.4](../PLAN.md#34-the-architecture);
 > the envelope's format and its own checks — [`encryption_envelope.md`](encryption_envelope.md),
-> which owns them; the workflows, the federation and the promotion — [`publishing_pipeline.md`](publishing_pipeline.md);
-> the source-to-package gate on the Owner's machine, with the row-level equality that catches M19 —
-> stage 2.4.
+> which owns them, the live predicates included (its §6.4); the workflows job by job, the federation
+> and the promotion's steps — [`publishing_pipeline.md`](publishing_pipeline.md), which gains the
+> step of §5.2 when it is implemented; the source-to-package gate on the Owner's machine, with the
+> row-level equality that catches M19 — stage 2.4.
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-06 — revision 1 |
+| Date | 2026-11-06 — revision 2: round 1 of Codex's review applied (PGATE-1-01 to 06), with the Owner's decisions N80–N82. Revision 1 is `62070ec` |
 | Author | Claude Code |
-| Status | **Plan, for Codex's review before execution.** The Owner's decisions N76–N79 (2026-11-06) shape it; nothing of it is implemented |
+| Status | **Plan, under Codex's review before execution.** The Owner's decisions N76–N82 (2026-11-06) shape it; nothing of it is implemented |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§11).
@@ -25,17 +27,19 @@ tool or service that the stage proves or refutes (§11).
 
 ## 1. What exists, and what the stage adds
 
-| Check of `verify` ([pipeline §4.2](publishing_pipeline.md#42-job-verify--no-credentials)) | Today [measured, stage 2.2] | 2.2b [planned] |
+| Check | Today [measured, stage 2.2] | 2.2b [planned] |
 |---|---|---|
-| Inclusion list, media types, no source map, nothing under `__/` | Yes | Unchanged |
+| Inclusion list, media types, no source map, nothing under `__/` | Yes, in `verify` | Unchanged |
 | The manifest, strictly; the files exactly the manifest's | Yes | Unchanged |
-| Profiles and entitlements equal to `release/profiles.json`; reports equal to the declared ones | Yes | And equal to the contract's (§2) |
+| The inventory and the entitlements | One comparison with `release/profiles.json` | Split and ordered: the trusted declarations agree, then the inventory, then the entitlements (§2.2) |
 | The whole matrix, `dek_unique`, `iv_unique`, `matrix_closed` (envelope §6.4) | Yes | Unchanged |
-| The control totals | No: the payload's totals are not read | Parsed strictly and recomputed from the Parquet (§3) |
-| The Parquet | Only its `PAR1` framing, by the envelope's reader | Opened by DuckDB, its schema, nulls and grain checked against the contract (§4) |
-| Against the package live | No | The four live predicates of envelope §6.4 (§5) |
-| Inspection by content | Parquet magic, `BICP` and DEKs outside an envelope; source-map references | And the decrypted report values outside an envelope (§6) |
-| Fixtures | Stand-ins: `{"fixture": "P01"}` and a 12-byte `PAR1…PAR1` | Real Parquet files with a contract, written by DuckDB (§7) |
+| The control totals | Not read | Parsed strictly and recomputed from the Parquet (§3) |
+| The Parquet | Only its `PAR1` framing, by the envelope's reader | Opened by DuckDB, bounded, its schema, nulls and grain checked against the contract (§4) |
+| Against the package live | No | The four live predicates of envelope §6.4 in `verify` (§5.1), and live bound at the promotion (§5.2) |
+| Inspection by content | Parquet magic, `BICP` and DEKs outside an envelope; source-map references | And every decrypted report value outside an envelope, but the public ones (§6) |
+| What a refusal prints | The checker's message | A fixed code, the report and the check — never a value (§7) |
+| `preview`'s second `verify` | The whole `verify` again, in the job with credentials | The bytes against `verify`'s listing and digest, nothing parsed (§5.3) |
+| Fixtures | Stand-ins: `{"fixture": "P01"}` and a 12-byte `PAR1…PAR1` | Real Parquet files under a contract, written by DuckDB (§8) |
 
 The gate runs in `verify`, with no credential, on `main`'s code; a refusal there uploads nothing
 (pipeline §4.2). Every new file is in the protected set — under `release/` or `src/bi_como_codigo/`
@@ -43,7 +47,9 @@ The gate runs in `verify`, with no credential, on `main`'s code; a refusal there
 
 ---
 
-## 2. The report contract — `release/contract.json` (N79)
+## 2. The report contract (N79)
+
+### 2.1 `release/contract.json`
 
 The accepted shape of each report, pinned in this repository (PLAN §3.5). In 2.2b it describes the
 fixtures; stage 2.4 replaces its entries with the sixteen views, and the exporter and the gate read
@@ -67,47 +73,57 @@ the same file.
 }
 ```
 
-Read strictly, by the same rules as the manifest (envelope §4): duplicate keys, `NaN`, `Infinity`
+Read strictly, by the envelope's rules for the manifest (its §4): duplicate keys, `NaN`, `Infinity`
 and any key outside the ones above refused; report ids by the envelope's rule; column names
-`[a-z][a-z0-9_]{0,62}`, unique within a report; `type` one of DuckDB's names, from a closed list —
-`VARCHAR`, `BOOLEAN`, `SMALLINT`, `INTEGER`, `BIGINT`, `DATE`, `TIMESTAMP`, `TIMESTAMP WITH TIME ZONE`,
-`DECIMAL(p,s)` with `1 ≤ p ≤ 38`, `0 ≤ s ≤ p`; no floating type: a sum is exact or it is not a
-control total. `grain` is a non-empty list of declared columns, all `nullable: false`; `sums` a list
-of declared columns of an integer or decimal type, possibly empty. `version` is a positive integer
-the exporter writes into the totals (§3), so a package exported against another version of a view
-is refused.
+`[a-z][a-z0-9_]{0,62}`, unique within a report; `type` from a closed list of DuckDB's names, each
+read back by `DESCRIBE` as written [measured, PGATE-1, DuckDB 1.5.6] — `VARCHAR`, `BOOLEAN`,
+`SMALLINT`, `INTEGER`, `BIGINT`, `DATE`, `TIMESTAMP`, `TIMESTAMP WITH TIME ZONE`, `DECIMAL(p,s)`
+with `1 ≤ p ≤ 38`, `0 ≤ s ≤ p`; no floating type. `grain` is a non-empty list of declared columns,
+all `nullable: false`; `version` a positive integer.
 
-**Inventory**: the contract's report ids, `release/profiles.json`'s union of entitled reports and
-the manifest's reports must be the same set — a report missing or extra in any of the three is
-refused (`inventory_exact`).
+**`sums`** lists declared columns whose type is `SMALLINT`, `INTEGER`, `BIGINT`, or `DECIMAL(p,s)`
+with **`p ≤ 18`** (N82): DuckDB accumulates them in 38 digits, so no sum of fewer than 10^19 rows can
+overflow, and the 32 MiB bound of an envelope (envelope §3) keeps the row count far below that. A
+column of `DECIMAL(19..38,s)` may exist; it cannot be summed — a contract that lists it is refused
+when it is read. The overflow PGATE-1-05 measured on `DECIMAL(38,2)` is outside this domain, and a
+test at its edge proves the bound (§9).
 
-A change to the contract is a PR that touches `release/`: it gets no preview and promotes nothing
-(ADR-0003); the next content PR is judged by the new contract.
+### 2.2 The order of the inventory checks (PGATE-1-04)
+
+1. **The trusted declarations agree** (`declarations_agree`) — before any candidate byte is read:
+   the contract's report ids equal `release/profiles.json`'s union of entitled reports. Both are
+   protected, so this guards the repository's own state; a PR cannot reach it (admit refuses
+   `release/`), and its case is a test on the two files;
+2. **the inventory** (`inventory_exact`): the manifest's reports equal the contract's — a report
+   missing from the package or extra in it stops here, whatever the manifest's profiles say;
+3. **the entitlements** (`entitlements_exact`): each manifest profile, with its reports, equals
+   `release/profiles.json`'s — today's comparison, now after the inventory.
 
 ---
 
 ## 3. The control totals (N78)
 
-The payload's `totals` (envelope §2.4) are, from 2.2b on, exactly this object:
+The payload's `totals` (envelope §2.4, which points here for their keys) are exactly this object:
 
 ```json
 {"contract_version": 1, "report_version": 1, "rows": 1140, "sums": {"valor": "33076529.47", "unidades": "13920"}}
 ```
 
 - parsed by the envelope's strict JSON (duplicate keys, `NaN`, `Infinity`, non-UTF-8 and a
-  non-object top refused — envelope §2.4), then **exact keys**: those four, no other
-  (`totals_shape`). Stage 2.4 may add keys; it does so by changing this rule, in a protected PR;
+  non-object top refused); then exactly those four keys, `rows` a JSON integer ≥ 0, `sums` an
+  object whose values are JSON strings (`totals_shape`). Stage 2.4 may add keys by changing this
+  rule, in a protected PR;
 - `contract_version` and `report_version` equal to the contract's (`totals_version`);
-- `rows` a non-negative integer equal to DuckDB's `count(*)` over the Parquet (`totals_rows`);
-- `sums` with exactly the contract's `sums` columns as keys, each a string in canonical decimal
-  form — no sign but `-`, no leading zero but a lone `0`, exactly the column's scale after the
-  point, `0` scaled for no row (`0.00`) — equal to DuckDB's `CAST(COALESCE(SUM(c), 0) AS
-  DECIMAL(38,s))` rendered as `VARCHAR` (`totals_sums`). A null cell is not summed; a nullable
-  sum column is allowed and declared.
+- `rows` equal to DuckDB's `count(*)` over the Parquet (`totals_rows`);
+- `sums` with exactly the contract's `sums` columns as keys, each in canonical decimal form — an
+  optional `-`, no leading zero but a lone `0`, exactly the column's scale after the point and no
+  point for scale 0, no `-` on zero — equal to DuckDB's `CAST(COALESCE(SUM(c), 0) AS DECIMAL(38,s))`
+  rendered as `VARCHAR` (`totals_sums`), which renders negative zero as `0.00` and no exponent
+  [measured, PGATE-1]. A null cell is not summed.
 
-The fixtures' totals are computed **independently** of the gate — in Python with `decimal`, from
-the rows the fixture writes —, so a defect shared by DuckDB's sum and the gate's query would not
-pass unseen.
+The fixtures' totals are computed **independently** of the gate — in Python with `decimal`, at a
+precision of 60 digits, from the rows the fixture writes —, so a defect shared by DuckDB's sum and
+the gate's query would not pass unseen.
 
 ---
 
@@ -115,144 +131,184 @@ pass unseen.
 
 For each report, after the matrix has opened it with an entitled profile:
 
-1. the Parquet bytes are written to a fresh temporary directory created by the gate — the path
-   is the gate's, never derived from the candidate — and opened by DuckDB for Python, pinned
-   `duckdb==1.5.6` [planned], on a connection configured before any read with
+1. the Parquet bytes are written to a fresh temporary directory created by the gate — the path is
+   the gate's, never derived from the candidate — and opened by DuckDB for Python, pinned
+   `duckdb==1.5.6` [planned], on a new connection configured before any read with
    `autoinstall_known_extensions=false`, `autoload_known_extensions=false`, `threads=1` and a
-   `memory_limit`, then `lock_configuration=true`;
+   `memory_limit`, then `lock_configuration=true`. These settings exist and lock [measured,
+   PGATE-1]; they are **not** a sandbox — external access stays enabled and another local file is
+   readable [measured, PGATE-1] —, which matters only if a hostile Parquet can make DuckDB read a
+   path, and none of the gate's queries takes a path or a setting from the candidate;
 2. **schema** (`schema_exact`): `DESCRIBE SELECT * FROM read_parquet(path)` gives exactly the
-   contract's columns, in order, with exactly its types — a column renamed, added, removed,
-   reordered or retyped is refused. Parquet does not carry `NOT NULL` from DuckDB, so nullability is
-   checked on the data, next step [measured, 2026-11-06: every column read back as nullable];
+   contract's columns, in order, with exactly its types. Nullability is checked on the data, next
+   step, since DuckDB's Parquet reads back every column as nullable [measured, 2026-11-06];
 3. **nulls** (`not_null`): `count(*) FILTER (WHERE c IS NULL)` is 0 for each `nullable: false`
    column;
-4. **grain** (`grain_unique`): `count(*) = count(DISTINCT (grain columns))` — a duplicated row
-   breaks it, and so does any two rows that share the grain;
-5. **totals** (§3).
+4. **grain** (`grain_unique`): `count(*) = count(DISTINCT (grain columns))`;
+5. **totals** (§3);
+6. **the bound on what is materialised** (`content_bound`): before any value leaves DuckDB for §6,
+   `sum(octet_length(c))` over every `VARCHAR` column and `count(*)` times the column count are
+   each under a fixed bound — a 34 KB Parquet can expand to 67 MB of strings [measured, PGATE-1].
+   The job also gets a `timeout-minutes`.
 
-A Parquet DuckDB cannot read is refused as `parquet_unreadable`, with DuckDB's message. The file is
-data from a PR, opened in a job with no credential and a read-only token (pipeline §4.2): a parser
-defect exploited here reaches nothing that can deploy.
+A Parquet DuckDB cannot read, or a query that fails, is refused as `parquet_unreadable` — with no
+DuckDB message (§7). The Parquet is data from a PR, opened in `verify`, a job with no credential and
+a read-only token; after §5.3 no other job opens it.
 
 ---
 
-## 5. Against the package live (envelope §6.4)
+## 5. The package live
 
-`verify` reads the package that live serves, from the site's public URL — `https://<FIREBASE_SITE>.web.app/package/manifest.json`, the site from the repository variable, never written in the code — with no credential, since live is public:
+### 5.1 In `verify` — the predicates, against what live serves (envelope §6.4)
 
-- **404** on the manifest is **no live package** — the first release — and the four predicates
-  are not run, which `release.json` records (`live: none`); any other status but 200, a redirect,
-  or a manifest the strict validator refuses, fails the gate (`live_unreadable`) — never "no
-  package";
+`verify` reads live's package from the site's public URL — `https://<FIREBASE_SITE>.web.app/package/manifest.json`,
+the site from the repository variable, never written in the code — with no credential:
+
+- **404** on the manifest is **no live package**; any other status but 200, a redirect, or a
+  manifest the strict validator refuses, fails the gate (`live_unreadable`);
 - each envelope the live manifest lists is fetched and must match its manifest entry's size and
   SHA-256 (`live_unreadable` otherwise);
-- then, with the candidate:
-  - **the same `package_id`**: the candidate must be live unchanged — the same report set, each
-    envelope byte-identical, each manifest entry and profile entry equal (`live_unchanged_identical`,
-    refusing `package_id_reused`);
-  - **a different `package_id`**: no DEK of the candidate equals one of live's (`live_dek_fresh`,
-    `dek_reused`), no IV (`live_iv_fresh`, `iv_reused`), no profile salt (`live_salt_fresh`,
-    `salt_reused`). IVs and salts are public — header and manifest —; live's DEKs are unwrapped with
-    the declared public passwords, by any entitled profile. A live envelope that no declared
-    password opens fails the gate (`live_unreadable`): a password change is not a case 2.2b
-    handles (N22 fixes them) — it is refused, not skipped.
+- the predicates of envelope §6.4 then run — the same `package_id` must be live unchanged
+  (`package_id_reused`); a different one may share no DEK, IV or salt with live (`dek_reused`,
+  `iv_reused`, `salt_reused`). Live's DEKs are unwrapped with the declared public passwords; a live
+  envelope that none of them opens fails the gate (`live_unreadable`) — N22 fixes the passwords, and
+  a change of them is not a case of 2.2b;
+- `release.json` records **what was compared**: `live_envelopes`, the sorted list of live's
+  envelope paths — each name carries the first 16 hex digits of the envelope's SHA-256, which the
+  manifest validator and the integrity check bind to its bytes — or `"none"` after a 404.
 
-**Why reading live in `verify` is enough.** Between this check and the promotion, another release
-can go live. But only the newest merge promotes (`decide` condition 1, `promote` step 2), and a PR
-whose merge changed included content relative to its head — which another package's merge does —
-needs a new preview (`decide` condition 4), so the release that reaches live was compared with the
-live of its own last preview [planned argument, for the review].
+### 5.2 In `promote` — live is still what `verify` compared (PGATE-1-01, N80)
 
-The live predicates are proved on fixtures by the six cases of envelope §6.4, with live served by
-a stand-in in the tests (§9), and once against the real live in a PR (§9.3).
+The comparison is only as good as its predecessor: with two PRs in flight, B can be previewed
+against L, then A promoted, then B approved — and B would replace A without having been compared
+with it [PGATE-1-01's schedule]. So `promote`, after the approval and right before the clone — in
+the serialised job, after the re-checks of the tip and of the channel (pipeline §4.4, steps 2–3) —
+reads live's current version through Hosting's API, lists its files (as `check-version` does), and
+requires its `package/*.bice` paths to equal the recorded `live_envelopes` — none, if `"none"`.
+Otherwise it stops: *live changed since this preview; a new PR previews against it* — the recovery
+of pipeline §4.5. The read is the API's, not the CDN's, so a stale public read in `verify` fails
+closed here instead of passing. Nothing is parsed or decrypted in this job.
+
+### 5.3 `preview` no longer re-runs `verify` (PGATE-1-06)
+
+Today `preview` re-runs the whole `verify` on the downloaded artifact. From 2.2b it only checks the
+artifact's files against `verify`'s `release.json` — each path and SHA-256, and the canonical digest
+—, so the job that holds a credential never opens a Parquet nor decrypts a payload.
 
 ---
 
-## 6. The inspection for clear report values
+## 6. The inspection for clear report values (N81)
 
 The finished artifact is already searched for a Parquet magic, `BICP`, a DEK and source maps
-outside an envelope (pipeline §4.2). After the matrix, the gate knows every decrypted value, so it
-adds: no non-envelope file of `deploy/` contains, as bytes,
-- the totals object of any report, as decrypted (`clear_totals`);
-- any `VARCHAR` cell value of 12 characters or more, in UTF-8 (`clear_value`);
-- any `sums` value of 6 characters or more, as the canonical decimal string (`clear_value`).
+outside an envelope (pipeline §4.2). After the matrix, the gate knows every decrypted value; no
+non-envelope file of `deploy/` may contain, as bytes:
 
-The thresholds keep short labels and small numbers — which a page legitimately says — from
-refusing an honest artifact; a value re-encoded (escaped, reformatted, base64) is not found. Both
-are declared limits (§11), not guarantees: the guarantee against a leak is that the site is built
-only from the inclusion list and the package, and that every page is a protected-or-reviewed file.
+- the totals object of any report, as decrypted (`clear_totals`);
+- any `VARCHAR` cell value of **3 or more characters**, in UTF-8 (`clear_value`);
+- any numeric cell value or sum with **3 or more significant digits, or with a non-zero fraction**,
+  in its canonical form (§3) and in the Brazilian one — `.` for thousands, `,` for decimals,
+  `33.076.529,47` — (`clear_value`);
+- **except** a value listed in `release/public_values.yml` — protected —, each entry with the reason
+  it is public by design, as `docs/public_by_design.yml` does for the passwords: a label that the
+  governance portal shows, say. The list starts empty for the fixtures.
+
+Dates and timestamps are searched in ISO form (`2026-01-01`), as values of 3 or more characters.
+Declared limits, not guarantees (§11): a value re-encoded — escaped, base64, rendered in another
+format — is not found; a number of one or two significant digits, or a text of one or two
+characters, is not searched, since a page legitimately says them.
 
 ---
 
-## 7. The fixtures
+## 7. What a refusal may print (PGATE-1-02)
+
+A decrypted value must not reach a log either. Every refusal of the new checks is a fixed code
+— `schema_exact`, `grain_unique`, `totals_sums`, … — with the report id and, where it helps, a
+column name, both public in the contract; never a cell, a total, an operand or a DuckDB message.
+Every exception raised while a payload is open — DuckDB's included — is caught at the gate's
+boundary and replaced by its code with `from None`, so no traceback carries it. The tests capture
+stdout, stderr and the step summary of the CLI on the negative cases of §9 and require none of the
+case's values in them.
+
+---
+
+## 8. The fixtures
 
 `tests/site_fixture.py` writes, with DuckDB, one small table per fixture report — P01, P02 and
 P13, as today —, built to exercise every check: a decimal and an integer sum column, a nullable
-column, a two-column grain in one report, a `VARCHAR` value over the threshold of §6. Its values
-are invented placeholders (`fixture_a`, `fixture_b`, …), not figures of eng_dados: no report data
-reaches the repository before stage 2.4 (CLAUDE.md §6, rule 2). It computes the totals in Python
-(§3), writes `release/contract.json`'s fixture entries once (a protected file, committed), and
-seals the package with the envelope's producer, as in 2.2.
+column, a two-column grain in one report, a date. Its values are invented placeholders
+(`fixture_a`, …), not figures of eng_dados: no report data reaches the repository before stage 2.4
+(CLAUDE.md §6, rule 2). It computes the totals in Python (§3), writes `release/contract.json`'s
+fixture entries once (a protected file, committed), and seals the package with the envelope's
+producer, as in 2.2. Mutations whose payload the producer would refuse — malformed totals — are
+sealed with `seal_report`, the layer below (PGATE-1).
 
 ---
 
-## 8. The mutations (N76)
+## 9. The mutations and their tests (N76)
 
-Each mutation is a candidate `deploy/` that is valid in every respect but one, built by the tests
-from the fixture package; each must stop in `verify`, with the named check, before anything is
-uploaded. Sealed mutations are re-encrypted by the envelope's producer, so they pass the matrix and
-reach the check under test.
+Each mutation is a candidate `deploy/` valid in every respect but one, built by the tests from the
+fixture package; sealed mutations are re-encrypted, so they pass the matrix and reach the check
+under test.
 
 | Id | Mutation (PLAN §3.4) | Stops at |
 |---|---|---|
 | MUT-01 | A tampered manifest — an envelope's `sha256` wrong | Envelope `integrity_mismatch` (2.2's T6) |
 | MUT-02 | A reused key/IV pair — two envelopes with one DEK and one IV | `dek_reused` |
 | MUT-03 | The same, IV only | `iv_reused` |
-| MUT-04 | Injected clear data — a `.json` holding a Parquet | Inspection, Parquet magic (2.2's T6) |
-| MUT-05 | Injected clear data — a page holding a decrypted label value | `clear_value` |
-| MUT-06 | Injected clear data — a page holding a report's totals | `clear_totals` |
-| MUT-07 | A missing view — a report of the contract absent from package and profiles | `inventory_exact` |
-| MUT-08 | An extra view — a report in the package and profiles, not in the contract | `inventory_exact` |
-| MUT-09 | A changed type — `valor` written as `DOUBLE` | `schema_exact` |
-| MUT-10 | A column renamed, and one dropped | `schema_exact` |
-| MUT-11 | A duplicated row | `grain_unique` |
-| MUT-12 | A null in a non-nullable column | `not_null` |
-| MUT-13 | Totals that do not match: `rows` off by one; one sum off by one cent | `totals_rows`; `totals_sums` |
-| MUT-14 | Totals malformed: a duplicate key; a sum as a JSON number; an extra key | Strict JSON; `totals_shape` |
-| MUT-15 | Totals of another contract or report version | `totals_version` |
-| MUT-16 | A Parquet DuckDB cannot read, with valid `PAR1` framing | `parquet_unreadable` |
-| MUT-17 | The live `package_id` with one envelope re-sealed | `package_id_reused` |
-| MUT-18 | A new `package_id` reusing a DEK, an IV, a salt of live | `dek_reused`, `iv_reused`, `salt_reused` |
+| MUT-04 | Injected clear data — `site/releases.md` holding a Parquet | Inspection, Parquet magic |
+| MUT-05 | Injected clear data — `site/index.html` holding a short row, `fixture_a 1.25 2` | `clear_value` |
+| MUT-06 | The same, a number alone, in Brazilian form | `clear_value` |
+| MUT-07 | The same, a report's totals | `clear_totals` |
+| MUT-08 | A missing view — a contract report absent from the package | `inventory_exact` |
+| MUT-09 | An extra view — a report in the package, not in the contract | `inventory_exact` |
+| MUT-10 | An entitlement changed — `logistica` entitled to P01 in the manifest | `entitlements_exact` |
+| MUT-11 | A changed type — `valor` written as `DOUBLE` | `schema_exact` |
+| MUT-12 | A column renamed; one dropped; two reordered | `schema_exact` |
+| MUT-13 | A duplicated row | `grain_unique` |
+| MUT-14 | A null in a non-nullable column | `not_null` |
+| MUT-15 | Totals that do not match: `rows` off by one; one sum off by one cent | `totals_rows`; `totals_sums` |
+| MUT-16 | Totals malformed: a duplicate key; a sum as a JSON number; an extra key | Strict JSON; `totals_shape`; `totals_shape` |
+| MUT-17 | Totals of another contract or report version | `totals_version` |
+| MUT-18 | A Parquet DuckDB cannot read, with valid `PAR1` framing; and one with invalid UTF-8 in a `VARCHAR` | `parquet_unreadable`, its values absent from the output (§7) |
+| MUT-19 | A Parquet over the content bound | `content_bound` |
+| MUT-20 | The live `package_id` with one envelope re-sealed | `package_id_reused` |
+| MUT-21 | A new `package_id` reusing a DEK, an IV, a salt of live | `dek_reused`, `iv_reused`, `salt_reused` |
+| MUT-22 | PGATE-1-01's schedule: previewed against L, live became A before the approval | `promote`, §5.2: live changed |
 | — | M19, two labels swapped | **Not at this gate** (N76): counts, sums and grain are unchanged; stage 2.4's row-level equality with the views refuses it |
 
----
+The tests:
 
-## 9. The tests
-
-1. **Every mutation in `make check`**: a test per row of §8 runs `release.verify` — the function
-   the workflow runs — on the mutated `deploy/`, and asserts the refusal names its check; a control
-   test runs it on the unmutated fixture and passes. The live stand-in is a function the test
-   passes in place of the HTTP reader.
+1. **Every mutation in `make check`**: a test per row runs `release.verify` — the function the
+   workflow runs — on the mutated `deploy/` (MUT-22 runs the promotion's check against a stand-in of
+   Hosting's API) and asserts the exact code and predicate; the controls — the honest fixture; a
+   fresh package against live; the live package unchanged; a promotion whose live did not change;
+   a re-run of a successful promotion — pass. Each new check has its edge cases as tests too: sums
+   at `DECIMAL(18,s)`'s limit and with cancellation in either row order, `BIGINT` at its limits,
+   scale 0, negative zero, no row, all null; a contract listing a `DECIMAL(19,s)` sum refused;
+   `declarations_agree` on two disagreeing files.
 2. **A counter-proof per new check**, like M48 (envelope §6.5): a copy of the module with that one
    check made to pass, and its mutation run against the copy — it must no longer stop there. The
    run's literal output goes into `evidence/`.
-3. **On GitHub, three real PRs** — MUT-09, MUT-13 and MUT-17 —, each touching only `site/`, each
-   refused in `verify` with `preview` skipped and no channel created, read back afterwards; and one
-   honest PR, the regenerated fixture package, previewed, merged and promoted under the Owner's
-   approval, with the live predicates run against the package live before it.
+3. **On GitHub, three real PRs** — MUT-05, MUT-11 and MUT-15 —, each touching only `site/`, each
+   refused in `verify` with `preview` skipped, no channel created, and the run's log read for the
+   case's values (§7); and one honest PR, the regenerated fixture package, previewed against live,
+   merged and promoted **under the Owner's approval**, the step of §5.2 passing.
 
 ---
 
 ## 10. What changes elsewhere
 
-- `pyproject.toml` and `uv.lock`: `duckdb==1.5.6` as the second runtime dependency (N77), with the
-  stage that uses it.
-- `release/contract.json`: new. `src/bi_como_codigo/contract.py`: new — the contract, the totals
-  and the Parquet checks; `release.py`'s `verify` calls it and gains the live read.
-- `publish.yml`: the `verify` job gets `FIREBASE_SITE` for the live URL.
-- `docs/encryption_envelope.md` §2.4: the totals' keys are now this document's (§3), extended by
-  2.4; §6.4's live table: run at 2.2b, with its evidence.
-- PLAN: N76–N79; stage 2.2b's criterion as N76 writes it; stage 2.4 gains M19.
+- `pyproject.toml` and `uv.lock`: `duckdb==1.5.6`, the second runtime dependency (N77).
+- `release/contract.json`, `release/public_values.yml`: new. `src/bi_como_codigo/contract.py`: new
+  — the contract, the totals, the Parquet checks and the value inspection; `release.py`'s `verify`
+  calls it and gains the live read, and a `check-live` command for §5.2.
+- `publish.yml`: `verify` gets `FIREBASE_SITE` and a `timeout-minutes`; `preview` checks the listing
+  instead of re-running `verify` (§5.3). `promote.yml`: the step of §5.2. Both protected, in one
+  reviewed PR, like every change of `.github/`.
+- `docs/encryption_envelope.md` §2.4: the totals' keys are this document's (§3), extended by 2.4;
+  §6.4's live table: run at 2.2b, with its evidence. `docs/publishing_pipeline.md` §4.2–§4.4: the
+  changes above, in its own words.
+- PLAN: N76–N82; stage 2.2b's criterion as N76 writes it; stage 2.4 gains M19.
 
 ---
 
@@ -260,10 +316,10 @@ reach the check under test.
 
 - [assumed] DuckDB 1.5.6 reads every Parquet that DuckDB-WASM, chosen at 2.3, reads, and gives
   the same types — the versions differ; 2.3 measures it on the fixtures.
-- [assumed] The public URL serves live's current package after a promotion, under
-  `Cache-Control: no-cache`; a stale read would compare with the previous live, which the argument
-  of §5 makes harmless but not exact.
-- [assumed] DuckDB's configuration locks keep a hostile Parquet from loading an extension or
-  reaching the network.
-- The value inspection of §6 does not find a re-encoded value, nor a value under its thresholds.
+- [assumed] Hosting's API lists a version's files with the paths `check-version` already reads;
+  §5.2 relies on the paths only.
+- [assumed] No Parquet, however hostile, makes DuckDB read a path the gate did not give it; the
+  locks of §4 are not a sandbox, and no such path was found in PGATE-1.
+- The value inspection of §6 does not find a re-encoded value, a number of one or two significant
+  digits, nor a text of one or two characters.
 - M19 is not caught here (N76).
