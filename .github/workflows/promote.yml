@@ -31,6 +31,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: uv run --frozen python -m bi_como_codigo.release decide
+      # TEMPORARY — T5 in round 2's schedule (docs/publishing_pipeline.md §7):
+      # C's decide, having passed condition 1 while C was the tip, is held
+      # here while B merges and queues behind A; then released, its promote
+      # must queue behind B, not replace it, and refuse at step 2. Only C's
+      # run is held. Removed by the PR that closes T5.
+      - name: Hold C's decide after it passed (T5)
+        if: steps.decide.outputs.promote == 'true' && steps.decide.outputs.pr == '16'
+        run: sleep 1200
 
   promote:
     needs: decide
