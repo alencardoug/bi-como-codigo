@@ -1126,3 +1126,167 @@ The new Status cell is empty. Secrets and docs-check also passed after the repor
   unchanged re-promotion. Keep decryption out of promote and bind any manifest evidence to the
   API-selected version; do not restore revision 3's unbound public hash.
 
+### Round 5 — evidence
+
+#### 1. Conclusion
+
+**No blockers found within the reviewed scope.** No new findings of any severity; no PGATE-5 IDs
+are assigned and the findings table above is unchanged. Revision 5 closes PGATE-4-01's returning-
+package schedule without adding credentialed decryption. The plan can be implemented and batch
+PGATE closed on the plan side. Implementation acceptance, including the declared infrastructure
+assumptions, remains to be demonstrated; this does not certify the entire plan or project.
+
+#### 2. Reviewed scope and version
+
+- Branch: `main`; HEAD: `ecff7d50f6ca25f5312ee40230a1ad0d380a4220`.
+- Explicit baseline: `83b3f479c1d35bc7e438ac602766564b320c9495`.
+- Exactly `7b9b1ed` and `ecff7d5`: package_gate revision 5, N80's refinement and the author's
+  round 4 Status. Earlier findings and owning documents were integration evidence. No gate
+  implementation changed in this range.
+- Clean working tree at entry. Only this section was appended to DOSSIER.md; earlier findings,
+  Status cells and evidence are preserved. No code, test or other document was edited; no commit,
+  remote write, deployment or eng_dados operation was performed. No subagents were used.
+
+#### 3. Findings by severity and reassessment
+
+**None: blocking 0, adjustment 0, observation 0.** Static evidence and an executed decision model
+support the following assessments; model result names below are descriptive, not implemented CLI
+codes or predicate IDs.
+
+| Previous finding | Revision 5 assessment | Evidence |
+|---|---|---|
+| PGATE-4-01 | Resolved in the plan | docs/package_gate.md:189–200 binds R to A's version; :212–217 refuses R after B and A2, even with equal envelope paths. |
+| PGATE-2-05, PGATE-3-02 | Manifest-identity omission addressed under the declared freshness premise | The bound version covers its manifest as well as its envelopes. There is no second, unbound public manifest hash in promote. CDN freshness remains an assumption at :376–379. |
+| PGATE-1-01 | Original schedule remains refused | A predecessor changed after preview has a different version ID; promote stops before clone. A change between the public read and preview fails the paths or release-time condition. |
+| PGATE-3-01, PGATE-2-04 | Bootstrap and rerun controls retained | The no-release alternative at :189/:198 entails no nonexistent-version file/time read. An existing version without package/ binds its actual ID. Already-live precedes the predecessor comparison at :209–217. |
+
+The A → B → A2 schedule was rerun with R pending: R binds vA; B binds vA and promotes; after the
+new margin, A2 binds vB and promotes as vA2; R then refuses vA2. Each operation can satisfy the
+existing tip, channel and included-tree conditions; no new constraint on merges is needed.
+An unchanged package in a newly deployed preview remains promotable while its bound predecessor
+is unchanged. A successful rerun exits already-live after tip/channel checks.
+
+MUT-23 was examined in both windows: appearance between verify and preview refuses at §5.2 step 2
+(the table's case); appearance after preview refuses at §5.3 step 3. MUT-22 and MUT-24 refuse in
+promote; MUT-25 refuses in preview. Both bootstrap controls pass. API-read failure is modeled as
+its own refusal before deploy/clone, consistent with the existing throwing helpers
+(src/bi_como_codigo/release.py:388–415); it is not converted to absence or a successful comparison.
+The final command's exact failure codes remain implementation tests, not measured behavior here.
+
+Binding in preview adds only trusted API metadata and comparisons. Section 5.4 retains digest-only
+artifact checking; neither credentialed job decrypts or opens Parquet. release.json comes from
+the trusted verify job, and §5.2/§10 carries API-derived live_version through the authenticated
+release-record, Record and decide. The run/artifact authentication of pipeline §4.4 and
+release.py:467–503 gives a PR no new writable record path. Missing or malformed new fields must
+fail closed when implemented; no compatibility default to none is specified. No new conflict
+with N2, N22/23, N74, N76–N83, ADR-0003 or CLAUDE.md §6 rules 2/3 was found in this correction.
+
+#### 4. Checks executed and results
+
+Reviewer-executed commands all exited 0. UV_CACHE_DIR=/tmp/pgate-r5-uv-cache and
+PYTHONDONTWRITEBYTECODE=1 were set; pytest also used PYTEST_ADDOPTS='-p no:cacheprovider'.
+Literal result excerpts:
+
+```text
+make test:
+357 passed, 1 warning in 35.14s
+
+make secrets:
+secrets review: nothing found in the tracked files
+
+make secrets-history:
+skipped (3) — skipped is not verified:
+history review: nothing found (126 occurrence(s) of values public by design, 2 registered; 3 blob(s) skipped)
+
+ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 make docs-check:
+docs-check: 25 documents, 153 file links, 53 anchors, 23 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+```
+
+The warning is the intentional duplicate ZIP entry. The skipped history blobs are the three
+encrypted .bice files; their non-text contents were not verified by that scanner.
+
+An inline Python decision model, with stand-in API states and no file/remote mutations, exercised
+26 assertions. It models the declared order and explicit no-release alternative, not the future
+gate, HTTP consistency or real workflow execution. Literal excerpts from the final run:
+
+```text
+MUT-24 R promotion after A2 => live_changed
+A/A2 package paths equal => True
+MUT-22 changed predecessor => live_changed
+first release no release: preview => ('bound', 'none')
+first release no release: promote => promoted
+first release no package: preview => ('bound', 'vEmpty')
+first release no package: promote => promoted
+MUT-23 before preview => paths_changed
+MUT-23 after preview => live_changed
+MUT-25 recent release => release_too_recent
+long verify: read at +2min, preview at +22min => release_too_recent
+preview-only retry keeps old timestamp => release_too_recent
+candidate rerun: fresh read at +22min => ('bound', 'vA')
+same-path release during long verify => release_too_recent
+unchanged re-promotion => promoted
+successful rerun => already_live
+preview channel API failure => api_read_failed
+preview file API failure => api_read_failed
+promote API failure before clone => api_read_failed
+runner 1s behind at real +10min => release_too_recent
+runner 1s ahead at real +9min59s => bound
+Decision-model assertions: 26 passed; no remote state changed
+```
+
+The author's green ENG_DADOS_DIR=… make check at ecff7d5 is **author-reported**, not reviewer-
+executed. Full make check and the JavaScript suite were not rerun: this range changes no code,
+and neither would execute the unimplemented binding. No live transition, GitHub workflow or
+future mutation suite was executed; no new DuckDB experiment was needed for this metadata change.
+
+#### 5. Limitations and open questions
+
+The margin is anchored to the public read's checked_at, not preview's current time or verify's
+completion. A read at release +2 minutes still refuses when preview starts at +22 minutes. This
+is N80's intended conservative refusal of an otherwise honest candidate, not a permanent lockout:
+rerunning the candidate after the margin reruns verify and obtains a fresh read/timestamp. Merely
+rerunning preview with its old record cannot recover. A release during a long verify also refuses,
+including the returning-package case with equal paths.
+
+The age comparison crosses clocks. Runner skew shifts its boundary: the model above demonstrates
+a one-second early pass or late refusal. No runner/Hosting skew bound or CDN transition duration
+was measured. Consequently ten minutes is a safety allowance under the explicit *well within ten
+minutes* purge premise, not a proven real-time minimum or unconditional freshness guarantee.
+[Hosting's cache documentation](https://firebase.google.com/docs/hosting/manage-cache) describes
+automatic static-cache invalidation on redeploy, but supplies no measured bound for this site.
+The API defines releaseTime as the time the version becomes public, so implementation must use
+the **live release's** timestamp, not the preview version's creation/finalization time
+([Release reference](https://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.releases#Release)).
+
+Same-site cloning preserves the version while creating a new release
+([Hosting resource documentation](https://firebase.google.com/docs/hosting/manage-hosting-resources)).
+Returning the exact same immutable version is harmless to the comparison; A2's changed label
+requires another version. Thus :214's “any promotion” should be understood in the pipeline's
+new-preview context, not as a claim that every Hosting release creates a new version.
+
+These are declared infrastructure/implementation validation limits, not evidence of an observed
+stale-read bypass or an ordinary pipeline defect. Sanitation of actual CLI/native output,
+authenticated field serialization, all exact-reason mutations, regenerated honest fixtures,
+DuckDB-WASM compatibility and hostile-parser behavior remain implementation acceptance. No open
+Owner decision is required by this narrow review.
+
+#### 6. Handoff to Claude Code
+
+No required plan corrections or new finding IDs. PGATE-4-01 is resolved at the plan level.
+Proceed with implementation and retain its already-required acceptance checks:
+
+- [ ] PGATE-4-01 / MUT-24: R refuses before clone after A → B → A2, with equal A/A2 envelope
+  paths and different profile labels; authenticate the carried live_version throughout.
+- [ ] PGATE-1-01, PGATE-3-01 and PGATE-2-04: exact-reason MUT-22/23/25, both first releases,
+  unchanged re-promotion, successful rerun, separate API failures, and candidate-rerun recovery
+  with a fresh checked_at all behave as specified. Keep inapplicable reads out of the no-release arm.
+- [ ] PGATE-2-05 / PGATE-3-02: measure the declared freshness premise and timing behavior during
+  implementation; retain fail-closed metadata handling, credential-free decryption and sanitized
+  output. Record limitations as unverified until evidence exists; do not infer them from green
+  legacy tests.
+
+Final verification: git diff --check exited 0. Removing this appended round recovered HEAD's
+DOSSIER.md byte for byte, including the complete findings table and Status cells; git diff
+--name-only listed only DOSSIER.md. Secrets and docs-check also passed after the report was added;
+the latter counted 24 decision citations after the new review text, with every other count unchanged.
+
