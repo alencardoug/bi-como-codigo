@@ -1,0 +1,7 @@
+{
+  "about": "The one declaration of the showcase's profiles (PLAN §3.2, N22, N23). Both passwords are public by design and registered in docs/public_by_design.yml. In stage 2.2 the reports are fixtures.",
+  "profiles": [
+    {"id": "diretoria", "label": "Diretoria", "password": "senha_complexa_123", "reports": ["P01", "P02", "P13"]},
+    {"id": "logistica", "label": "Logística", "password": "complexa_senha_321", "reports": ["P13"]}
+  ]
+}

@@ -1,0 +1,5 @@
+# The only extensions deploy/ may hold, with the type Hosting serves them as.
+.html text/html
+.md text/markdown
+.json application/json
+.bice application/octet-stream

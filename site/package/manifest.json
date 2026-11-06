@@ -1,0 +1,47 @@
+{
+  "manifest_version": 1,
+  "envelope_format_version": 1,
+  "package_id": "df574c7161f32cc83bdf74fc035080a6",
+  "profiles": [
+    {
+      "id": "diretoria",
+      "label": "Diretoria",
+      "salt": "19222570593e3a7eede524f7b1e45f9c",
+      "iterations": 600000,
+      "reports": [
+        "P01",
+        "P02",
+        "P13"
+      ]
+    },
+    {
+      "id": "logistica",
+      "label": "Logística",
+      "salt": "c7ad441f2acc5adebd6c4337eb918c20",
+      "iterations": 600000,
+      "reports": [
+        "P13"
+      ]
+    }
+  ],
+  "reports": [
+    {
+      "id": "P01",
+      "file": "P01.52ac319b77e20924.bice",
+      "sha256": "52ac319b77e20924943eecd45ef8f1109b3d404e8df48be8937d308d0ec3aa4d",
+      "size": 181
+    },
+    {
+      "id": "P02",
+      "file": "P02.6f2834bb50346c5e.bice",
+      "sha256": "6f2834bb50346c5e512644ff7654806187d48229f0397197811a84a870784cc8",
+      "size": 181
+    },
+    {
+      "id": "P13",
+      "file": "P13.68011daba04f9311.bice",
+      "sha256": "68011daba04f9311082e9ccbcb2ee42c026dafb4bef09177ec6da3e80eba3866",
+      "size": 251
+    }
+  ]
+}

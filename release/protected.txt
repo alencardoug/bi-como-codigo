@@ -1,0 +1,10 @@
+# The protected set (docs/publishing_pipeline.md §2): a PR touching any of these
+# gets no preview and no live update. A line ending in / is a prefix. This file
+# is under release/, so it protects itself.
+.github/
+firebase.json
+release/
+src/bi_como_codigo/
+Makefile
+pyproject.toml
+uv.lock

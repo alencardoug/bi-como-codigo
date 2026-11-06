@@ -1,0 +1,7 @@
+# The inclusion list (docs/publishing_pipeline.md §2, PLAN §3.4): the only
+# files of site/ that may enter deploy/, one glob per line. Everything else of
+# the repository never reaches Hosting.
+site/index.html
+site/releases.md
+site/package/manifest.json
+site/package/*.bice
