@@ -3,12 +3,16 @@
 # exactly as declared (T8's binding oracle). Read-only: it creates, changes and
 # deletes nothing. Configuration by environment variable, never fixed here:
 #   PROJECT, POOL (projects/<number>/locations/global/workloadIdentityPools/<id>),
+#   PROVIDER (the provider's id in that pool), REPO (owner/name),
 #   SA_PREVIEW, SA_LIVE, ENV_PREVIEW, ENV_PRODUCTION
-# Run: PROJECT=… POOL=… SA_PREVIEW=… SA_LIVE=… ENV_PREVIEW=… ENV_PRODUCTION=… sh release/setup.sh check
+# Run: PROJECT=… POOL=… PROVIDER=… REPO=… SA_PREVIEW=… SA_LIVE=… ENV_PREVIEW=… ENV_PRODUCTION=… sh release/setup.sh check
 set -eu
 test "${1:-}" = check || { echo "usage: sh release/setup.sh check"; exit 2; }
 dir=$(mktemp -d)
 trap 'rm -rf "$dir"' EXIT
+pool_id=${POOL##*/}
+gcloud iam workload-identity-pools providers describe "$PROVIDER" --workload-identity-pool="$pool_id" --location=global --project="$PROJECT" --format=json > "$dir/provider.json"
+REPO="$REPO" uv run --frozen python -m bi_como_codigo.release check-provider --provider "$dir/provider.json"
 gcloud iam service-accounts get-iam-policy "$SA_PREVIEW" --project="$PROJECT" --format=json > "$dir/preview.json"
 gcloud iam service-accounts get-iam-policy "$SA_LIVE" --project="$PROJECT" --format=json > "$dir/live.json"
 uv run --frozen python -m bi_como_codigo.release check-bindings --pool "$POOL" \

@@ -133,7 +133,7 @@ def run(i, path=".github/workflows/publish.yml", event="workflow_run", branch="m
 
 
 def record(head="h1", pr=7):
-    return json.dumps({"pr": pr, "head_sha": head, "candidate_run": 99, "version": "v1", "channel": "pr-7",
+    return json.dumps({"pr": pr, "head_sha": head, "candidate_run": 99, "version": "v1", "channel": "pr-7", "url": "https://s--pr-7.web.app",
                        "expires": "2026-12-01T00:00:00Z", "digest": "d"}).encode()
 
 
@@ -253,3 +253,218 @@ def test_bindings_refuse_anything_wider_or_other(live_policy):
     """PIPE-1-03: a pool-wide member, tried here on JSON, never in Google Cloud."""
     with pytest.raises(r.Refused):
         r.check_bindings({"pre": policy("preview"), "live": live_policy}, POOL, {"pre": "preview", "live": "production"})
+
+
+# --- round 1 of the implementation review ---------------------------------------------
+
+import io
+import zipfile
+
+
+def zipped(entries: list[tuple[str, bytes, int | None]]) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, data, mode in entries:
+            info = zipfile.ZipInfo(name)
+            if mode is not None:
+                info.external_attr = mode << 16
+            zf.writestr(info, data)
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize(
+    "name, mode",
+    [("padding/../../trusted.py", None), ("../trusted.py", None), ("/etc/passwd", None), ("a\\..\\b", None),
+     ("C:/x", None), ("./a", None), ("link", 0o120777)],
+    ids=["internal_traversal", "leading_traversal", "absolute", "backslash", "drive", "dot", "symlink"],
+)
+def test_safe_extract_refuses_before_writing_anything(tmp_path, name, mode):
+    """IMPL-1-01: the archive the pinned download action would have extracted unchecked."""
+    archive = zipped([("deploy/index.html", b"ok", None), (name, b"PR code", mode)])
+    with pytest.raises(r.Refused):
+        r.safe_extract(archive, tmp_path / "out")
+    assert not (tmp_path / "out").exists()
+    assert not (tmp_path / "trusted.py").exists()
+
+
+def test_safe_extract_refuses_a_repeated_entry(tmp_path):
+    with pytest.raises(r.Refused, match="repeats"):
+        r.safe_extract(zipped([("a.txt", b"1", None), ("a.txt", b"2", None)]), tmp_path / "out")
+
+
+def test_safe_extract_keeps_both_artifact_layouts(tmp_path):
+    archive = zipped([("deploy/package/manifest.json", b"{}", 0o100644), ("candidate.json", b"{}", None), ("deploy/", b"", 0o040755)])
+    names = r.safe_extract(archive, tmp_path / "out")
+    assert sorted(names) == ["candidate.json", "deploy/package/manifest.json"]
+    assert (tmp_path / "out" / "deploy" / "package" / "manifest.json").read_bytes() == b"{}"
+
+
+def fake_api(monkeypatch, pages: dict[str, object]):
+    calls = []
+
+    def answer(url, token):
+        calls.append(url)
+        for prefix, value in pages.items():
+            if url.startswith(prefix):
+                return value(url) if callable(value) else value
+        raise AssertionError(url)
+
+    monkeypatch.setattr(r, "_json", answer)
+    return calls
+
+
+def pr_files(n, protected_at=None):
+    files = [{"filename": f"site/f{i}.html"} for i in range(n)]
+    if protected_at is not None:
+        files[protected_at] = {"filename": "release/protected.txt"}
+    return files
+
+
+def page_of(files):
+    def get(url):
+        import re
+
+        page = int(re.search(r"[?&]page=(\d+)", url).group(1))
+        return files[(page - 1) * 100 : page * 100]
+    return get
+
+
+API = "https://api.github.com/repos/o/r"
+PULL = [{"number": 7, "state": "open", "head": {"sha": "h", "repo": {"full_name": "o/r"}}}]
+
+
+@pytest.mark.parametrize(
+    "changed_files, listed, reason",
+    [(None, 5, "cannot all be listed"), (3000, 3000, "cannot all be listed"), (3001, 3000, "cannot all be listed"), (250, 200, "lists 200 of its 250")],
+    ids=["count_absent", "at_cap", "over_cap", "truncated"],
+)
+def test_admit_refuses_a_file_list_it_cannot_prove_complete(monkeypatch, changed_files, listed, reason):
+    """IMPL-1-02: the count from the PR's own detail, and the listed objects equal to it."""
+    detail = {"number": 7} if changed_files is None else {"number": 7, "changed_files": changed_files}
+    fake_api(monkeypatch, {f"{API}/commits/h/pulls": PULL, f"{API}/pulls/7/files": page_of(pr_files(listed)), f"{API}/pulls/7": detail})
+    with pytest.raises(r.Refused, match=reason):
+        r.admit("o/r", "o/r", "h", "t")
+
+
+def test_admit_finds_a_protected_file_on_a_later_page(monkeypatch):
+    fake_api(monkeypatch, {f"{API}/commits/h/pulls": PULL, f"{API}/pulls/7/files": page_of(pr_files(150, protected_at=140)), f"{API}/pulls/7": {"changed_files": 150}})
+    with pytest.raises(r.Refused, match="protected set"):
+        r.admit("o/r", "o/r", "h", "t")
+
+
+def test_admit_counts_a_rename_once_and_checks_its_old_name(monkeypatch):
+    files = [{"filename": "site/new.html", "previous_filename": "firebase.json"}, {"filename": "site/a.html"}]
+    fake_api(monkeypatch, {f"{API}/commits/h/pulls": PULL, f"{API}/pulls/7/files": page_of(files), f"{API}/pulls/7": {"changed_files": 2}})
+    with pytest.raises(r.Refused, match="firebase.json"):
+        r.admit("o/r", "o/r", "h", "t")
+
+
+def test_admit_accepts_an_ordinary_pr(monkeypatch):
+    fake_api(monkeypatch, {f"{API}/commits/h/pulls": PULL, f"{API}/pulls/7/files": page_of(pr_files(3)), f"{API}/pulls/7": {"changed_files": 3}})
+    assert r.admit("o/r", "o/r", "h", "t") == 7
+
+
+def test_admit_refuses_a_fork():
+    with pytest.raises(r.Refused, match="fork"):
+        r.admit("o/r", "someone/r", "h", "t")
+
+
+def test_paged_reads_every_page_and_refuses_an_endless_one(monkeypatch):
+    fake_api(monkeypatch, {"u": page_of([{"i": i} for i in range(250)])})
+    assert len(r._paged("u", "t")) == 250
+    fake_api(monkeypatch, {"u": lambda url: [{}] * 100})
+    with pytest.raises(r.Refused, match="pages"):
+        r._paged("u", "t")
+
+
+def test_verify_refuses_entitlements_other_than_the_declaration(repo):
+    """IMPL-1-03: Logística widened to every report, re-encrypted consistently."""
+    import sys
+    sys.path.insert(0, str(ROOT / "tests"))
+    import site_fixture
+    from bi_como_codigo import envelope as e
+
+    declared = r.profiles(repo)
+    widened = [e.DeclaredProfile(p.id, p.label, p.password, ("P01", "P02", "P13")) for p in declared]
+    manifest, files = e.encrypt_package(widened, site_fixture.payloads(declared))
+    package = repo / "site" / "package"
+    shutil.rmtree(package)
+    package.mkdir()
+    (package / "manifest.json").write_bytes(manifest)
+    for name, data in files.items():
+        (package / name).write_bytes(data)
+    with pytest.raises(r.Refused, match="entitlements"):
+        r.verify(repo, built(repo))
+
+
+def test_verify_refuses_a_data_key_in_uppercase_hex(repo):
+    """IMPL-1-11."""
+    deploy = built(repo)
+    from bi_como_codigo import envelope as e
+
+    manifest = e.validate_manifest((deploy / "package" / "manifest.json").read_bytes())
+    envelopes = {p.name: p.read_bytes() for p in (deploy / "package").glob("*.bice")}
+    dek = r._deks(manifest, envelopes, {p.id: p.password for p in r.profiles(repo)})[0]
+    (deploy / "releases.md").write_text(dek.hex().upper())
+    with pytest.raises(r.Refused, match="data key"):
+        r.verify(repo, deploy)
+
+
+def test_build_selects_exactly_what_the_globs_select(repo):
+    """IMPL-1-09: an oracle apart from `included_files` — pathlib's own glob."""
+    globs = r.inclusion(repo)
+    expected = sorted({p.relative_to(repo).as_posix() for g in globs for p in repo.glob(g) if p.is_file()})
+    (repo / "site" / "notes.txt").write_text("excluded")
+    files = r.build(repo, repo / "deploy")
+    assert files == expected
+    for rel in expected:
+        assert (repo / "deploy" / rel[len("site/"):]).read_bytes() == (repo / rel).read_bytes()
+    assert not (repo / "deploy" / "notes.txt").exists()
+
+
+def test_firebase_config_names_the_configured_site(repo, tmp_path):
+    """IMPL-1-05: a site different from the project's."""
+    shutil.copy(ROOT / "firebase.json", repo / "firebase.json")
+    r.firebase_config(repo, "sandbox-site", tmp_path / "firebase.json")
+    assert json.loads((tmp_path / "firebase.json").read_text())["hosting"]["site"] == "sandbox-site"
+
+
+PROVIDER = {
+    "state": "ACTIVE",
+    "oidc": {"issuerUri": "https://token.actions.githubusercontent.com"},
+    "attributeMapping": dict(r.REQUIRED_MAPPING),
+    "attributeCondition": r.expected_condition("o/r", [".github/workflows/publish.yml", ".github/workflows/promote.yml"]),
+}
+
+
+def test_provider_exactly_as_declared_passes():
+    r.check_provider(PROVIDER, "o/r", [".github/workflows/publish.yml", ".github/workflows/promote.yml"])
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda p: p.update(attributeCondition=p["attributeCondition"].replace("refs/heads/main'", "refs/heads/dev'", 1)),
+        lambda p: p.update(attributeCondition=p["attributeCondition"].replace("promote.yml", "other.yml")),
+        lambda p: p.update(attributeCondition=p["attributeCondition"].replace("'o/r'", "'x/r'")),
+        lambda p: p.update(attributeCondition="true"),
+        lambda p: p["attributeMapping"].pop("attribute.environment"),
+        lambda p: p.update(state="DELETED"),
+        lambda p: p.update(oidc={"issuerUri": "https://example.com"}),
+    ],
+    ids=["other_ref", "other_workflow", "other_repository", "permissive", "no_environment_mapping", "deleted", "other_issuer"],
+)
+def test_provider_refuses_any_widening(change):
+    """IMPL-1-06: mutations tried on JSON, never in Google Cloud."""
+    p = json.loads(json.dumps(PROVIDER))
+    change(p)
+    with pytest.raises(r.Refused):
+        r.check_provider(p, "o/r", [".github/workflows/publish.yml", ".github/workflows/promote.yml"])
+
+
+def test_check_channel_refuses_a_deleted_version(monkeypatch, capsys):
+    """IMPL-1-10: the channel still names the version, but the version is gone."""
+    monkeypatch.setattr(r, "channel", lambda *_: {"release": {"version": {"name": "sites/s/versions/v"}}, "expireTime": "2099-01-01T00:00:00Z"})
+    monkeypatch.setattr(r, "_http", lambda url, *a, **k: (200, {}, json.dumps({"status": "DELETED"}).encode()))
+    assert r.main(["check-channel", "--site", "s", "--channel", "pr-7", "--version", "v"]) == 1
+    assert "DELETED" in capsys.readouterr().out

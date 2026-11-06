@@ -15,7 +15,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-06 — revision 4: round 3 applied — T5's oracle by schedule (PIPE-3-01), the queue's capacity stated (PIPE-3-02). Revision 3 is `ac5e64f`: round 2 applied — a queue for `promote` (PIPE-1-04), the margin re-checked at use and a recovery through a new PR (PIPE-1-08), the run's documented `path@ref` and its attempts (PIPE-2-01). Revision 2 is `4814838`: round 1 of Codex's review applied — Hosting reads moved to the authenticated job (PIPE-1-01); the record authenticated by its run, all of `.github/` protected, and the guarantee narrowed by the Owner to no credential Google accepts (PIPE-1-02, N74); T8 in two layers (PIPE-1-03); no workflow-level concurrency (PIPE-1-04); T4b (PIPE-1-05); exact served bytes, no fallback (PIPE-1-06); environment names as variables (PIPE-1-07); the approval's lifetime (PIPE-1-08). Revision 1 is `88d4c33` |
+| Date | 2026-11-06 — revision 5: what round 1 of the implementation's review changed in the plan — artifacts extracted by the checker, not by the download action (IMPL-1-01); the provider read back by `setup.sh check` (IMPL-1-06). Revision 4 is `84edb66`: round 3 applied — T5's oracle by schedule (PIPE-3-01), the queue's capacity stated (PIPE-3-02). Revision 3 is `ac5e64f`: round 2 applied — a queue for `promote` (PIPE-1-04), the margin re-checked at use and a recovery through a new PR (PIPE-1-08), the run's documented `path@ref` and its attempts (PIPE-2-01). Revision 2 is `4814838`: round 1 of Codex's review applied — Hosting reads moved to the authenticated job (PIPE-1-01); the record authenticated by its run, all of `.github/` protected, and the guarantee narrowed by the Owner to no credential Google accepts (PIPE-1-02, N74); T8 in two layers (PIPE-1-03); no workflow-level concurrency (PIPE-1-04); T4b (PIPE-1-05); exact served bytes, no fallback (PIPE-1-06); environment names as variables (PIPE-1-07); the approval's lifetime (PIPE-1-08). Revision 1 is `88d4c33` |
 | Author | Claude Code, under the Owner's mandate for the night (N68) |
 | Status | **Reviewed: closed in round 4 of Codex's review** — 13 findings in rounds 1–3, three blocking, all applied; round 4, on regressions only, found none (N72). Executable under N70. Created on 2026-11-06, after round 2 found no blocking item: the federation of §5 and the GitHub environments and variables of §6 — the ruleset waits for the candidate's check to exist. The files of §2 are written and tested on fixtures with no network (`tests/test_release.py`); none has run on GitHub, and no test of §7 has run. The records of what was created are `evidence/20261106/r_*.txt` |
 
@@ -136,7 +136,11 @@ summary, unless every condition holds:
 `permissions: { actions: read }`. With `main`'s checkout and `main`'s checker:
 
 1. download the artifact `candidate` of that run **as data** — no script of it is executed, no
-   hook, no `npm install`;
+   hook, no `npm install` —, through GitHub's API, and extract it with the checker's own
+   extractor, which refuses before writing anything an entry that is absolute, holds `..`, a
+   backslash or a drive, repeats, or is a link. Not with `actions/download-artifact`: the pinned
+   version writes an entry such as `padding/../../x` outside its destination (IMPL-1-01), and the
+   candidate job runs a PR's code, so the archive's names are data;
 2. `python -m bi_como_codigo.release verify`: every file under the inclusion list and none outside
    it; only the media types the list allows; the fixture package validated by the envelope's
    strict manifest validator and opened for every profile through the whole matrix with the
@@ -154,7 +158,7 @@ A failure here uploads nothing to Hosting: the deploying job depends on this one
 
 `permissions: { id-token: write, actions: read }`, `environment: ${{ vars.ENV_PREVIEW }}`.
 
-1. download `verified`; recompute its digests and compare with `release.json`;
+1. download `verified` the same way; verify it again and compare with `release.json`;
 2. authenticate through federation (`google-github-actions/auth`, with `workload_identity_provider`
    and `service_account: SA_PREVIEW`, `create_credentials_file: true`), which leaves Application
    Default Credentials for `firebase-tools` [assumed, §9];
@@ -274,7 +278,8 @@ nothing else, each impersonable only by the identities of its own environment:
 | `hosting-preview@bi-como-codigo.iam.gserviceaccount.com` | `roles/firebasehosting.admin` | `principalSet://iam.googleapis.com/projects/<number>/locations/global/workloadIdentityPools/github/attribute.environment/preview` |
 | `hosting-live@bi-como-codigo.iam.gserviceaccount.com` | `roles/firebasehosting.admin` | `principalSet://…/attribute.environment/production` |
 
-After creating them, `release/setup.sh check` reads both policies back (`gcloud iam
+After creating them, `release/setup.sh check` reads the provider back — active, GitHub's issuer,
+exactly the mappings and the condition above (IMPL-1-06) — and both policies (`gcloud iam
 service-accounts get-iam-policy`) and requires each to hold **exactly** its one member above, and
 the provider's condition to be exactly the one written: the binding oracle of T8.
 

@@ -101,6 +101,67 @@ def profiles(root: pathlib.Path = ROOT) -> list[e.DeclaredProfile]:
     return [e.DeclaredProfile(p["id"], p["label"], p["password"], tuple(p["reports"])) for p in data["profiles"]]
 
 
+# --- artifacts, fetched and extracted safely (IMPL-1-01) --------------------------
+
+
+def safe_extract(archive: bytes, out: pathlib.Path) -> list[str]:
+    """Extracts a zip into `out`, which must not exist, refusing — before
+    anything is written — any entry that is absolute, holds `..`, a backslash
+    or a drive, repeats, or is anything but a regular file or directory. An
+    artifact is the output of a job that may have run a PR's code: its names
+    are data, and no name may reach outside `out`."""
+    import io
+    import stat
+    import zipfile
+
+    if out.exists():
+        raise Refused(f"{out} exists: an artifact is extracted into a fresh directory")
+    with zipfile.ZipFile(io.BytesIO(archive)) as zf:
+        infos = zf.infolist()
+        seen: set[str] = set()
+        for info in infos:
+            name = info.filename
+            parts = name.rstrip("/").split("/")
+            mode = info.external_attr >> 16
+            if (not name or name.startswith("/") or "\\" in name or ":" in parts[0] or any(p in ("", ".", "..") for p in parts)):
+                raise Refused(f"artifact entry {name!r} is not a plain relative path")
+            kind = stat.S_IFMT(mode)
+            if kind and kind not in (stat.S_IFREG, stat.S_IFDIR):
+                raise Refused(f"artifact entry {name!r} is not a regular file or directory")
+            key = name.rstrip("/")
+            if key in seen:
+                raise Refused(f"artifact entry {name!r} repeats")
+            seen.add(key)
+        out.mkdir(parents=True)
+        root = out.resolve()
+        written = []
+        for info in infos:
+            target = (out / info.filename).resolve()
+            if root not in target.parents and target != root:
+                raise Refused(f"artifact entry {info.filename!r} leaves the destination")
+            if info.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with zf.open(info) as src, open(target, "xb") as dst:
+                dst.write(src.read())
+            written.append(info.filename)
+        return written
+
+
+def fetch_artifact(repo: str, run_id: int, name: str, out: pathlib.Path, token: str) -> list[str]:
+    """The one artifact `name` of a run, downloaded through GitHub's API —
+    never by an action that extracts it unchecked — and extracted safely."""
+    artifacts = _paged(f"{GITHUB}/repos/{repo}/actions/runs/{run_id}/artifacts", token, "artifacts")
+    matching = [a for a in artifacts if a["name"] == name and not a.get("expired")]
+    if len(matching) != 1:
+        raise Refused(f"run {run_id} holds {len(matching)} artifacts named {name!r}; exactly one is needed")
+    status, _, body = _http(matching[0]["archive_download_url"], token, accept="application/vnd.github+json")
+    if status != 200:
+        raise Refused(f"artifact {matching[0]['id']} answered {status}")
+    return safe_extract(body, out)
+
+
 # --- §3: build -------------------------------------------------------------------
 
 
@@ -164,7 +225,7 @@ def _package(deploy: pathlib.Path) -> pathlib.Path:
     return manifests[0]
 
 
-def verify(root: pathlib.Path, deploy: pathlib.Path) -> dict:
+def verify(root: pathlib.Path, deploy: pathlib.Path, pr: int | None = None, head_sha: str | None = None) -> dict:
     """The candidate re-judged as data: inclusion, media types, the package
     through the whole matrix and the inspection by content. Returns the body
     of `release.json`."""
@@ -194,7 +255,14 @@ def verify(root: pathlib.Path, deploy: pathlib.Path) -> dict:
     stray = {p.name for p in package_dir.glob("*.bice")} - set(envelopes)
     if stray:
         raise Refused(f"envelopes not in the manifest: {sorted(stray)}")
-    passwords = {p.id: p.password for p in profiles(root)}
+    declared = profiles(root)
+    declared_map = {p.id: set(p.reports) for p in declared}
+    manifest_map = {pid: set(p.reports) for pid, p in manifest.profiles.items()}
+    if manifest_map != declared_map:
+        raise Refused(f"the package's profiles and entitlements {manifest_map} are not release/profiles.json's {declared_map}")
+    if set(manifest.reports) != set().union(*declared_map.values()):
+        raise Refused(f"the package's reports {sorted(manifest.reports)} are not the declared ones")
+    passwords = {p.id: p.password for p in declared}
     try:
         e.check_package(manifest_raw, envelopes, passwords)
     except (e.Refused, ValueError) as refusal:
@@ -210,10 +278,13 @@ def verify(root: pathlib.Path, deploy: pathlib.Path) -> dict:
                 raise Refused(f"{rel} holds a clear payload outside an envelope")
         if SOURCE_MAP in data:
             raise Refused(f"{rel} references a source map")
+        lowered = data.lower()
         for dek in deks:
-            if dek in data or dek.hex().encode() in data:
+            if dek in data or dek.hex().encode() in lowered:
                 raise Refused(f"{rel} holds a data key in the clear")
     return {
+        "pr": pr,
+        "head_sha": head_sha,
         "package_id": manifest.package_id.hex(),
         "files": [{"path": rel, "sha256": sha} for rel, sha in files],
         "digest": canonical_digest(files),
@@ -252,6 +323,23 @@ def _json(url: str, token: str | None) -> dict:
     if status != 200:
         raise Refused(f"GET {url} answered {status}")
     return json.loads(body)
+
+
+#: A collection longer than this is refused, never read as if complete.
+PAGES_MAX = 50
+
+
+def _paged(url: str, token: str, key: str | None = None) -> list[dict]:
+    """Every item of a GitHub collection, 100 a page (IMPL-1-07)."""
+    items: list[dict] = []
+    sep = "&" if "?" in url else "?"
+    for page in range(1, PAGES_MAX + 1):
+        data = _json(f"{url}{sep}per_page=100&page={page}", token)
+        batch = data[key] if key else data
+        items.extend(batch)
+        if len(batch) < 100:
+            return items
+    raise Refused(f"{url} has more than {PAGES_MAX} pages: not read as complete")
 
 
 HOSTING = "https://firebasehosting.googleapis.com/v1beta1"
@@ -331,6 +419,7 @@ class Record:
     candidate_run: int
     version: str
     channel: str
+    url: str
     expires: str
     digest: str
     artifact_id: int
@@ -360,7 +449,7 @@ def select_record(runs: list[dict], head_sha: str, artifacts_of, download) -> Re
             continue
         return Record(
             int(body["pr"]), body["head_sha"], int(body["candidate_run"]), body["version"], body["channel"],
-            body["expires"], body["digest"], int(records[0]["id"]), hashlib.sha256(raw).hexdigest(),
+            body["url"], body["expires"], body["digest"], int(records[0]["id"]), hashlib.sha256(raw).hexdigest(),
         )
     raise Refused(f"no authenticated release record for {head_sha}")
 
@@ -391,19 +480,14 @@ def admit(repo: str, head_repo: str, head_sha: str, token: str) -> int:
     if len(pulls) != 1:
         raise Refused(f"{len(pulls)} open PRs have the head {head_sha}; exactly one is needed")
     number = pulls[0]["number"]
-    changed: list[str] = []
-    page = 1
-    while True:
-        files = _json(f"{api}/pulls/{number}/files?per_page=100&page={page}", token)
-        for f in files:
-            changed.append(f["filename"])
-            if f.get("previous_filename"):
-                changed.append(f["previous_filename"])
-        if len(files) < 100:
-            break
-        page += 1
-    if pulls[0].get("changed_files", 0) >= PR_FILES_MAX or len({c for c in changed}) < pulls[0].get("changed_files", 0):
-        raise Refused(f"PR #{number}'s files cannot all be listed: no preview")
+    detail = _json(f"{api}/pulls/{number}", token)
+    expected = detail.get("changed_files")
+    if not isinstance(expected, int) or expected >= PR_FILES_MAX:
+        raise Refused(f"PR #{number} changes {expected!r} files: its files cannot all be listed, no preview")
+    files = _paged(f"{api}/pulls/{number}/files", token)
+    if len(files) != expected:
+        raise Refused(f"PR #{number} lists {len(files)} of its {expected} files: no preview")
+    changed = [f["filename"] for f in files] + [f["previous_filename"] for f in files if f.get("previous_filename")]
     hits = touches_protected(changed, protected())
     if hits:
         raise Refused(f"PR #{number} touches the protected set ({', '.join(sorted(set(hits)))}): no preview, no live update")
@@ -422,10 +506,10 @@ def decide(repo: str, sha: str, token: str, now: dt.datetime, git=subprocess.run
         raise Refused(f"PR #{pr['number']} is not from {repo}")
     head = pr["head"]["sha"]
     workflow = _json(f"{api}/actions/workflows/publish.yml", token)["id"]
-    runs = _json(f"{api}/actions/workflows/{workflow}/runs?event=workflow_run&branch=main&status=success&per_page=100", token)["workflow_runs"]
+    runs = _paged(f"{api}/actions/workflows/{workflow}/runs?event=workflow_run&branch=main&status=success", token, "workflow_runs")
     record = select_record(
         runs, head,
-        lambda run: _json(f"{api}/actions/runs/{run['id']}/artifacts?per_page=100", token)["artifacts"],
+        lambda run: _paged(f"{api}/actions/runs/{run['id']}/artifacts", token, "artifacts"),
         lambda artifact: _artifact_json(artifact, token),
     )
     if record.pr != pr["number"]:
@@ -452,7 +536,7 @@ def _artifact_json(artifact: dict, token: str) -> bytes:
         names = archive.namelist()
         if names != ["release-record.json"]:
             raise Refused(f"artifact {artifact['id']} holds {names}, not release-record.json")
-        return archive.read("release-record.json")
+        return archive.read("release-record.json")  # read in memory; nothing is extracted
 
 
 # --- §4.4: promote -------------------------------------------------------------------
@@ -494,6 +578,43 @@ def check_bindings(policies: dict[str, dict], pool: str, environments: dict[str,
             raise Refused(f"{account}'s policy is {found}, not exactly {expected}")
 
 
+def firebase_config(root: pathlib.Path, site: str, out: pathlib.Path) -> None:
+    """The protected `firebase.json` with the configured site, written at run
+    time, so the deploy names the same site every read does (IMPL-1-05)."""
+    config = json.loads((root / "firebase.json").read_text(encoding="utf-8"))
+    if "site" in config["hosting"] or "target" in config["hosting"]:
+        raise Refused("firebase.json must not name a site: it comes from FIREBASE_SITE")
+    config["hosting"]["site"] = site
+    out.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+
+def expected_condition(repo: str, workflows: list[str]) -> str:
+    refs = " || ".join(f"assertion.workflow_ref=='{repo}/{w}@refs/heads/main'" for w in workflows)
+    return f"assertion.repository=='{repo}' && assertion.ref=='refs/heads/main' && ({refs})"
+
+
+REQUIRED_MAPPING = {
+    "google.subject": "assertion.sub",
+    "attribute.repository": "assertion.repository",
+    "attribute.workflow_ref": "assertion.workflow_ref",
+    "attribute.ref": "assertion.ref",
+    "attribute.environment": "assertion.environment",
+}
+
+
+def check_provider(provider: dict, repo: str, workflows: list[str]) -> None:
+    """IMPL-1-06: the provider read back — active, GitHub's issuer, exactly the
+    mappings §5 declares and exactly its condition."""
+    if provider.get("state") != "ACTIVE" or provider.get("disabled"):
+        raise Refused(f"provider state {provider.get('state')}")
+    if (provider.get("oidc") or {}).get("issuerUri") != "https://token.actions.githubusercontent.com":
+        raise Refused("provider issuer is not GitHub's")
+    if provider.get("attributeMapping") != REQUIRED_MAPPING:
+        raise Refused(f"provider mapping is {provider.get('attributeMapping')}")
+    if " ".join(provider.get("attributeCondition", "").split()) != expected_condition(repo, workflows):
+        raise Refused(f"provider condition is {provider.get('attributeCondition')!r}")
+
+
 # --- the command line ----------------------------------------------------------------
 
 
@@ -521,12 +642,22 @@ def main(argv: list[str] | None = None) -> int:
     v = sub.add_parser("verify")
     v.add_argument("--deploy", type=pathlib.Path, required=True)
     v.add_argument("--record", type=pathlib.Path, required=True)
+    v.add_argument("--pr", type=int)
+    v.add_argument("--head-sha")
     c = sub.add_parser("check-version")
     for name in ("--record", "--site", "--version", "--base-url"):
         c.add_argument(name, required=True)
     ch = sub.add_parser("check-channel")
     for name in ("--site", "--channel", "--version"):
         ch.add_argument(name, required=True)
+    fa = sub.add_parser("fetch-artifact")
+    fa.add_argument("--run", type=int, required=True)
+    fa.add_argument("--name", required=True)
+    fa.add_argument("--out", type=pathlib.Path, required=True)
+    fc = sub.add_parser("firebase-config")
+    fc.add_argument("--site", required=True)
+    cp = sub.add_parser("check-provider")
+    cp.add_argument("--provider", type=pathlib.Path, required=True)
     cb = sub.add_parser("check-bindings")
     cb.add_argument("--pool", required=True)
     cb.add_argument("--binding", action="append", required=True, help="account=environment=policy.json")
@@ -548,7 +679,7 @@ def main(argv: list[str] | None = None) -> int:
             files = build(ROOT, args.out)
             _summary(f"built {len(files)} file(s) into {args.out}")
         elif args.command == "verify":
-            body = verify(ROOT, args.deploy)
+            body = verify(ROOT, args.deploy, args.pr, args.head_sha)
             args.record.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
             _summary(f"verified {len(body['files'])} file(s); digest {body['digest']}; package {body['package_id']}")
         elif args.command == "check-version":
@@ -559,9 +690,23 @@ def main(argv: list[str] | None = None) -> int:
             data = channel(args.site, args.channel, token)
             if data is None or channel_version(data) != args.version:
                 raise Refused(f"channel {args.channel} no longer serves {args.version}: a new preview and approval are needed (§4.5)")
+            status, _, body = _http(f"{HOSTING}/sites/{args.site}/versions/{args.version}", token)
+            state = json.loads(body).get("status") if status == 200 else None
+            if state != "FINALIZED":
+                raise Refused(f"version {args.version} is {state or f'absent ({status})'}: a new preview and approval are needed (§4.5)")
             if not margin_ok(data["expireTime"], dt.datetime.now(dt.timezone.utc)):
                 raise Refused(f"channel {args.channel} expires {data['expireTime']}, within a day: recover through a new PR (§4.5)")
             _summary(f"channel {args.channel} still serves {args.version}, expiring {data['expireTime']}")
+        elif args.command == "fetch-artifact":
+            names = fetch_artifact(os.environ["GITHUB_REPOSITORY"], args.run, args.name, args.out, os.environ["GITHUB_TOKEN"])
+            _summary(f"artifact {args.name} of run {args.run}: {len(names)} file(s), extracted safely")
+        elif args.command == "firebase-config":
+            firebase_config(ROOT, args.site, ROOT / "firebase.json")
+            _summary(f"firebase.json names site {args.site}")
+        elif args.command == "check-provider":
+            check_provider(json.loads(args.provider.read_text(encoding="utf-8")), os.environ["REPO"],
+                           [".github/workflows/publish.yml", ".github/workflows/promote.yml"])
+            _summary("provider exactly as declared")
         elif args.command == "check-bindings":
             policies, environments = {}, {}
             for item in args.binding:
@@ -588,9 +733,9 @@ def main(argv: list[str] | None = None) -> int:
             _summary(f"channel {args.channel} serves {channel_version(data)} at {data['url']}, expiring {data['expireTime']}")
         elif args.command == "decide":
             record = decide(os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_SHA"], os.environ["GITHUB_TOKEN"], dt.datetime.now(dt.timezone.utc))
-            _output({"promote": "true", **{k: getattr(record, k) for k in ("pr", "version", "channel", "expires", "digest", "artifact_id", "artifact_sha256")}})
+            _output({"promote": "true", **{k: getattr(record, k) for k in ("pr", "version", "channel", "url", "expires", "digest", "artifact_id", "artifact_sha256")}})
             _summary(
-                f"promote PR #{record.pr}: version {record.version} of channel {record.channel}, "
+                f"promote PR #{record.pr}: version {record.version} of channel {record.channel}, preview {record.url}, "
                 f"digest {record.digest}, record artifact {record.artifact_id} (sha256 {record.artifact_sha256}), "
                 f"preview expiring {record.expires}"
             )
