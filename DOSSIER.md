@@ -133,5 +133,314 @@ Filled in by the reviewer. One finding per line, with a verdict.
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| | | | `blocking` · `adjustment` · `observation` | |
+| PGATE-1-01 | docs/package_gate.md:160 | High: the package promoted can replace a live package it was never compared with | `blocking` | Applied in rev. 2 (§5.1–§5.2), by the Owner's N80: `verify` records `live_envelopes`; `promote` reads live through the API before the clone and stops if it changed; MUT-22 is the schedule. |
+| PGATE-1-02 | docs/package_gate.md:133 | High: raw DuckDB diagnostics disclose decrypted report values | `blocking` | Applied (§7): fixed codes with report id and column only, every exception replaced `from None`; the CLI's stdout, stderr and summary captured on the negative cases; MUT-18 adds the invalid-UTF-8 case. |
+| PGATE-1-03 | docs/package_gate.md:175 | High: direct clear rows below the thresholds pass the proposed inspection | `blocking` | Applied (§6) by the Owner's N81: every decrypted text ≥ 3 characters and number ≥ 3 significant digits or with a fraction, canonical and Brazilian, except a protected public list; MUT-05–07 are the short row, the number alone and the totals. |
+| PGATE-1-04 | docs/package_gate.md:214 | Medium: MUT-07/08 stop at existing entitlement checks, not inventory_exact | `adjustment` | Applied (§2.2): `declarations_agree` on the two trusted files first, then `inventory_exact`, then `entitlements_exact`; MUT-08–10 reach each. |
+| PGATE-1-05 | docs/package_gate.md:104 | Medium: the SUM expression rejects valid DECIMAL(38,s) data with a representable total | `adjustment` | Applied (§2.1) by the Owner's N82: summed columns limited to integer types and DECIMAL(p≤18); edge tests at the limit, cancellation in both orders, BIGINT limits, scale 0, negative zero, empty, all null; the oracle at 60 digits. |
+| PGATE-1-06 | docs/package_gate.md:133 | Low: the no-deploy-capability claim overlooks preview's second verify call | `observation` | Applied (§5.3): `preview` checks paths and SHA-256 against `verify`'s listing and digest, and never re-runs `verify`; §4's claim narrowed to that. |
+
+### Round 1 — evidence
+
+#### 1. Conclusion
+
+**Changes required.** Three blocking defects affect the live comparison and the prohibition on
+clear report values leaving CI. Two adjustments concern refusal attribution and exact totals. The
+observation concerns an adversarial parser-exploit premise, not a demonstrated exploit.
+
+#### 2. Reviewed scope and version
+
+- Branch: main; HEAD: 018252d82bd819652bb7791059652d3b0bec713a.
+- Explicit baseline: 7cf36c2c8c5f950c7e2d754146df29c66f6c1a16, also origin/main when checked.
+- Only 349fe45, 62070ec and 018252d were reviewed as changes. Existing code and owning documents
+  were read as integration evidence. This is a plan review; the new gate is not implemented.
+- Working tree was clean at entry. Only this review section of DOSSIER.md was changed; no commit,
+  remote write, deployment or eng_dados operation was performed.
+
+#### 3. Findings
+
+**PGATE-1-01 — Compare against the package actually replaced. High / blocking.**
+
+Where: docs/package_gate.md:160; docs/encryption_envelope.md:402;
+src/bi_como_codigo/release.py:537; docs/publishing_pipeline.md:229.
+
+Static counterexample: live is L. A previews against L and merges as MA, awaiting approval. B
+branches from MA and previews while L is still live. B has a fresh package_id but reuses a DEK/IV
+pair from A, distinct from L's; within-package uniqueness still holds. Both of B's verify calls
+can finish before A's promotion. The Owner then approves A while MA is still main's tip: A goes
+live. B then merges as MB and is approved. B's head already includes MA, so its included tree
+equals its merge's tree; MB is the tip. Neither decide condition 1 nor 4 refuses either promotion.
+B replaces A without comparison to A, and the reused pair reaches live. No direct push or narrow
+race is needed. A stale CDN read is therefore not established as harmless by the same argument
+at docs/package_gate.md:263.
+
+Correction: bind the comparison to promotion under the existing serialization. Either redo the
+reuse predicates against the actual predecessor, using the exact approved candidate, or record
+the checked predecessor and refuse promotion if it changed. Keep the predicates owned by the
+envelope document and link the execution protocol from the pipeline document.
+Validate the schedule above with reuse and fresh controls, plus unchanged-package recovery and
+idempotent reruns. No live schedule was executed in this review.
+
+**PGATE-1-02 — Do not publish DuckDB's raw error text. High / blocking.**
+
+Where: docs/package_gate.md:133; src/bi_como_codigo/release.py:786.
+
+The plan explicitly returns DuckDB's message. Executed on 1.5.6: a Parquet written with an
+uncompressed VARCHAR, then modified to contain invalid UTF-8, passes DESCRIBE and count(*).
+Reading its grain/value produces this diagnostic (temporary path elided):
+
+```text
+Invalid Input Error: Invalid string encoding found in Parquet file "…": value "report_probe_label_abcde\xFF" is not valid UTF8!
+```
+
+The SUM error in PGATE-1-05 also contains the decrypted operands. Forwarding either diagnostic to
+the refusal summary, or allowing an unhandled exception traceback, puts clear data in CI logs
+even though upload is refused. This is a failure-path leak, independent of the artifact scan.
+
+Correction: translate every DuckDB failure into a stable, sanitized code and safe report/check
+identifiers; suppress raw messages and exception chaining in public logs and summaries. Do not
+include values in comparison diagnostics either. Validate through the CLI with captured stdout,
+stderr and step summary: the malformed UTF-8 and overflow cases must refuse without their cell
+values, totals or key material appearing anywhere in those outputs.
+
+**PGATE-1-03 — Length thresholds do not enforce N76's clear-data gate. High / blocking.**
+
+Where: docs/package_gate.md:175; docs/package_gate.md:180; PLAN.md:122; PLAN.md:397.
+
+A page can directly contain a row such as fixture_a, 1.25, 2. The label has fewer than twelve
+characters, the sum strings have fewer than six, and the full totals JSON is absent. Individual
+numeric cells are not searched at all. All package/schema/matrix checks remain valid, and
+index.html is included and previewable. Executed simulation of the declared byte predicates on
+an HTML table containing that row:
+
+```text
+{'PAR1': False, 'BICP': False, 'clear_totals': False, 'long_value': False, 'long_sum': False}
+```
+
+This is a direct, unencoded row leak, including an ordinary accidental pre-rendered table;
+it does not depend on the adversarial re-encoding limit. Another encrypted row can supply §7's
+required long fixture label. Inclusion allows index.html's contents and does not make them safe;
+Owner review is not CI's refusal. N76 excludes M19, not short clear rows.
+
+Correction: specify a checkable content rule covering short labels and numeric cells, with
+explicit handling of approved public text, instead of treating inclusion/review as the guarantee.
+If the intended guarantee is narrower, obtain an Owner decision and align the owning requirements.
+Validate a direct short-row leak, a numeric-only leak and long-value leaks in included files,
+alongside the honest index.html and releases.md. The simulation is not a run of an implemented
+2.2b gate.
+
+**PGATE-1-04 — Make the inventory mutations reach their declared check. Medium / adjustment.**
+
+Where: docs/package_gate.md:80; docs/package_gate.md:214; docs/package_gate.md:232;
+src/bi_como_codigo/release.py:257.
+
+The existing verifier compares manifest entitlements to the protected release/profiles.json
+before the matrix or any new Parquet checks. Removing P02 from the package and its manifest
+profiles, or adding P03 to both, therefore stops there. Executed with real DuckDB Parquet files
+sealed by encrypt_package and the unchanged repository declaration:
+
+```text
+missing_P02 => the package's profiles and entitlements
+extra_P03 => the package's profiles and entitlements
+```
+
+If "profiles" instead means changing release/profiles.json in the candidate PR, admit refuses
+the protected path before verify. Neither interpretation proves inventory_exact as §8/§9 require.
+
+Correction: explicitly consolidate/reorder the inventory and entitlement predicates and update
+their refusal mapping, or attribute these candidate mutations to the existing check and give
+inventory_exact a separate trusted-contract/declaration-drift case. Preserve enforcement of the
+declared entitlement mapping. Validate each original mutation through release.verify with the
+exact code/predicate, and perform the counter-proof on a case that actually reaches that predicate.
+
+**PGATE-1-05 — Exact final totals can overflow the intermediate SUM. Medium / adjustment.**
+
+Where: docs/package_gate.md:74; docs/package_gate.md:104.
+
+Executed on 1.5.6: a 403-byte Parquet with unique INTEGER ids and DECIMAL(38,2) values M, M, -M,
+where M = 999999999999999999999999999999999999.99. Its final total is representable in the
+declared type, all rows are valid, and the grain is unique. Nevertheless the planned query fails:
+
+```sql
+SELECT CAST(CAST(COALESCE(SUM(valor),0) AS DECIMAL(38,2)) AS VARCHAR)
+FROM read_parquet(?);
+```
+
+```text
+Out of Range Error: Overflow in HUGEINT addition: 99999999999999999999999999999999999999 + 99999999999999999999999999999999999999
+exact Python total: 999999999999999999999999999999999999.99
+```
+
+Thus an honest package allowed by the closed type list can fail despite correct independently
+computed totals. The final cast cannot repair intermediate overflow. This is an allowed-domain
+edge case; no claim is made that the current retail views contain such amounts.
+
+Correction: use an exact accumulator that supports the declared domain, or explicitly constrain
+and validate the supported domain against the authorized source contracts. Set sufficient precision
+in the independent Python oracle as well. Validate cancellation in different row orders, boundary
+DECIMAL(38,s), INTEGER/BIGINT sums, scale zero, negative zero, empty and all-null inputs; sanitize
+any unsupported-range refusal as PGATE-1-02 requires.
+
+**PGATE-1-06 — The new parser also runs in a deploy-capable job. Low / observation.**
+
+Where: docs/package_gate.md:133; docs/package_gate.md:252;
+.github/workflows/publish.yml:80; .github/workflows/publish.yml:110.
+
+The claim that a parser exploit "reaches nothing that can deploy" only describes job verify.
+Job preview invokes the same release.verify again, with id-token: write and the trusted preview
+environment. Adding DuckDB to that function also adds native parsing there, before the auth
+action but within the job eligible for the accepted federation identity. The plan changes only
+the first caller's live-URL environment input; the second caller currently has SITE rather than
+FIREBASE_SITE and needs an explicit integration contract too.
+
+Correction: preferably keep deep parsing in the unprivileged job and let preview authenticate
+the downloaded bytes against the verified listing/digest, without reopening Parquet. Otherwise
+document and test the actual isolation boundary instead of making the quoted claim. Validate
+both workflow callers and the honest preview path. This is an observation because exploitation
+requires a separate, unproven parser vulnerability; no RCE, credential theft or candidate-controlled
+path/setting injection was demonstrated.
+
+#### 4. Checks executed and results
+
+Initial make test, make secrets and make secrets-history attempts exited 2 because uv's default
+cache was read-only. Retried with UV_CACHE_DIR=/tmp/pgate-review-uv-cache; their actual outputs were:
+
+```text
+make test:
+357 passed, 1 warning in 33.13s
+
+make secrets:
+secrets review: nothing found in the tracked files
+
+make secrets-history:
+skipped (3) — skipped is not verified:
+  3465b63e867b  site/package/P01.52ac319b77e20924.bice  skipped: not UTF-8 text
+  2dd399f81d55  site/package/P02.6f2834bb50346c5e.bice  skipped: not UTF-8 text
+  55b744ce87bf  site/package/P13.68011daba04f9311.bice  skipped: not UTF-8 text
+history review: nothing found (120 occurrence(s) of values public by design, 2 registered; 3 blob(s) skipped)
+```
+
+The warning is the suite's intentional duplicate ZIP entry. Also executed, with the same cache
+override and ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1:
+
+```text
+make docs-check:
+docs-check: 25 documents, 153 file links, 54 anchors, 23 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+```
+
+Throwaway probes used uv run --no-project --with duckdb==1.5.6 python, under /tmp; repository
+dependencies were read for the envelope/verifier probes. In addition to the outputs above:
+
+```text
+DuckDB 1.5.6
+type VARCHAR => VARCHAR
+type BOOLEAN => BOOLEAN
+type SMALLINT => SMALLINT
+type INTEGER => INTEGER
+type BIGINT => BIGINT
+type DATE => DATE
+type TIMESTAMP => TIMESTAMP
+type TIMESTAMP WITH TIME ZONE => TIMESTAMP WITH TIME ZONE
+type DECIMAL(38,0) => DECIMAL(38,0)
+type DECIMAL(38,2) => DECIMAL(38,2)
+sum INTEGER => 3
+sum BIGINT => 9223372036854775808
+varchar -0.00 DECIMAL(38,2) => 0.00
+varchar 100000000000000000000000000000000000.01 DECIMAL(38,2) => 100000000000000000000000000000000000.01
+varchar -100000000000000000000000000000000000.01 DECIMAL(38,2) => -100000000000000000000000000000000000.01
+varchar -1 DECIMAL(38,0) => -1
+json stdlib rows => 9007199254740993
+seal_report duplicate totals => matrix passed
+```
+
+The type-family spelling concern was not reproduced. Ordered schema comparison is consistent
+with a pinned ordered exporter projection. Scale-zero output is an integer string; negative zero
+normalizes to zero and exact string equality rejects its alternate spelling. Large positive and
+negative decimals rendered without exponent notation. The browser does not interpret totals, so
+its manifest-number bound alone does not require a 2^53 limit on an exactly parsed totals.rows.
+Malformed totals are reachable using seal_report; encrypt_package's earlier validation is therefore
+not a defect in itself. Tests must choose that lower layer for deliberately invalid payloads.
+
+Public GETs, with no credential, returned:
+
+```text
+/package/manifest.json status=200 type=application/json cache=no-cache
+manifest sha256=f6e08264554d61a8cfe89d4eb7f5d2d9ee6e2e5f2790d05441b2397667534eb9 package_id=df574c7161f32cc83bdf74fc035080a6 reports=P01,P02,P13
+/package/pgate-review-does-not-exist.json status=404 type=text/html; charset=utf-8 cache=no-cache
+```
+
+The author's ENG_DADOS_DIR=… make check result at 018252d remains **author-reported** (§3 above).
+The reviewer did not run make check or the JavaScript suite, and did not reproduce historical
+GitHub/Firebase runs. No new workflow execution was possible within the read-only review scope.
+
+#### 5. Limitations and open questions
+
+- DuckDB's named settings exist and lock_configuration rejects later changes. They are not a
+  filesystem or process sandbox: enable_external_access remained true, and reading another
+  temporary file still succeeded. No hostile-Parquet external-reference or extension exploit
+  was demonstrated, and no candidate-selected SQL path/setting was found in the proposed flow.
+  Literal probe output:
+
+  ```text
+  setting autoinstall_known_extensions => False
+  setting autoload_known_extensions => False
+  setting threads => 1
+  setting memory_limit => 61.0 MiB
+  setting lock_configuration => True
+  locked change => Invalid Input Error: Cannot change configuration option "threads" - the configuration has been locked
+  external access => True
+  read other file while locked => probe-only
+  ```
+
+- A 34,579-byte Parquet with 8,192 unique ids and repeated 8,192-character strings passed the
+  grain query under a 16MB memory_limit; fetching its strings materialized 67,108,864 bytes in
+  Python and increased RSS high-water by 130,432 KiB. This proves that memory_limit plus the
+  ciphertext bound is not a whole-process allocation bound; it does not prove that a future
+  streaming implementation will materialize the same result. Decompression bombs, deeply nested
+  metadata and hard time/RSS limits remain unvalidated.
+  Literal output of this separate connection/probe:
+
+  ```text
+  parquet extension at new connection: True
+  compressed file bytes: 34579
+  grain: (8192, 8192)
+  memory_limit: 15.2 MiB
+  fetched bytes: 67108864
+  RSS high-water increase KiB: 130432
+  ```
+
+- The GET proves current reachability, not freshness across a promotion. The 404-as-first-release
+  heuristic has no independent bootstrap/history check; a wrong endpoint or false/stale 404 would
+  skip comparison by specification. No false 404 for the real manifest was observed. This remains
+  a validation gap alongside the confirmed scheduling defect, not a measured CDN failure.
+- Every PLAN §3.4 mutation has a §8 category or N76's explicit M19 exclusion. Exact reachability
+  still needs the corrected tests. In particular, specify an included container for MUT-04:
+  today's only included .json path is the manifest; a new arbitrary .json stops at inclusion.
+  Also align MUT-14's number-valued sum with §3's type/canonical predicate; JSON numbers themselves
+  are valid strict JSON. Three representative real PRs can exercise the shared workflow path,
+  but do not replace exact per-variant function assertions and the honest promotion proof.
+- N78's exact-keys change is explicitly scheduled in §10 for the envelope's owning document;
+  it is not an undisclosed override. Keep a single owner when applying the corrections.
+  Clearly labelled disposable fixtures are already authorized by the stage plan and baseline;
+  they are not a new source of showcase report data. Control sums check exported values and do
+  not redefine the views' metrics. Stage 2.4's inventory expansion can unwrap old live envelopes
+  using their own manifest and the unchanged passwords; no warehouse access is needed.
+- DuckDB-WASM compatibility, the final fixture/content policy, the future exporter's exact
+  projection and live password/profile migrations were not measured. This review does not
+  extend N75's past delegation: §9 correctly requires the Owner's approval for the honest promotion.
+
+#### 6. Handoff to Claude Code
+
+- [ ] PGATE-1-01: bind comparison to the actual live predecessor at promotion; the A/B schedule
+  must reject reuse while fresh, unchanged and rerun controls behave as specified.
+- [ ] PGATE-1-02: sanitize all data-reader/comparison failures; captured CLI logs and summaries
+  must contain neither decrypted operands/cells nor keys in the negative cases.
+- [ ] PGATE-1-03: replace the threshold-based guarantee or obtain an explicit Owner decision
+  narrowing it; direct short-row and numeric-only leaks must be covered alongside honest pages.
+- [ ] PGATE-1-04: declare a reachable inventory/refusal order and isolated cases; assert exact
+  refusal codes/predicates through release.verify and execute their counter-proofs.
+- [ ] PGATE-1-05: make totals exact throughout the supported numeric domain; the cancellation
+  example and integer, empty, null and canonical-format controls must pass with a real oracle.
+- [ ] PGATE-1-06: record or correct the credentialed-parser exposure in its owning document;
+  specify the two verifier callers' inputs and prove that preview authenticates the checked bytes.
 
