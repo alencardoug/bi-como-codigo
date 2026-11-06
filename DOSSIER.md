@@ -726,3 +726,77 @@ complete.
 - [ ] **IMPL-2-02:** record the filtered-query bound in the owning document, or detect/partition
   truncated inventories with a 1,001-result counter-proof before claiming complete enumeration.
   This observation may remain documented under N72 and does not block the current delivery.
+
+
+## Round 3
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+
+No new findings.
+
+**Conclusion:** IMPL-2-01 and IMPL-2-02 are fixed as their Status claims. No blocking or
+adjustment finding remains in this scope. **The push may proceed under N69, and the
+implementation review can be closed under N72.** Remaining adversarial response forms have no
+demonstrated plausible impact for this stage and do not justify another round. Stage 2.2's
+remote acceptance tests remain pending; closing this review does not mark the stage complete.
+
+**Scope:** exactly `git diff 6a93585..0221bd9`, including the two added tests. Checkout
+`b3d93dc` adds only dossier material. Rounds 1–2 and their Status columns are preserved.
+
+- **IMPL-2-01 resolved:** both `fetch_artifact` and `_artifact_json` use `_download`. An actual
+  loopback API received the sentinel bearer; different-origin HTTPS storage rejected a bearer
+  control with 401 and accepted the helper's requests without Authorization. Direct API 200
+  works. Relative, non-HTTPS and missing Locations fail closed; no credentialed redirect was
+  followed. A read-only public artifact GET confirmed GitHub's absolute HTTPS 302 and a real
+  signed ZIP download through the exact helper. This supports the
+  [documented archive redirect](https://docs.github.com/en/rest/actions/artifacts#download-an-artifact).
+- **IMPL-2-02 resolved:** complete keyed listings pass, including exact page boundaries;
+  truncated runs and artifact listings refuse. Unkeyed lists and keyed responses without
+  `total_count` still work. GitHub's run-artifacts endpoint returned `total_count=1` and one
+  artifact in the read-only control, consistent with its
+  [response contract](https://docs.github.com/en/rest/actions/artifacts#list-workflow-run-artifacts).
+  The fix detects the larger advertised total; it does not remove GitHub's
+  [filtered-run limit](https://docs.github.com/en/rest/actions/workflow-runs#list-workflow-runs-for-a-workflow).
+
+**Checks executed:** independent probe `/tmp/bi-review-r3/probe.py` — exit 0:
+
+```text
+download: direct 200; 301/302/303/307/308; TLS storage + extra redirect without Authorization PASS
+download: relative/http/missing Location, API 403/410, storage 404 refused PASS
+consumers: flat/nested ZIP extraction, direct 200, record JSON; traversal before writes + extra record member refusal PASS
+pagination: complete keyed/unkeyed 0/1/100/250/1000 and missing total_count PASS
+pagination: runs + artifacts truncated 1000/1001, 1000/1500 and 250/251 refused PASS
+public artifact 11474510910: GitHub 302, absolute HTTPS Location; exact _download through local API -> real storage: ZIP valid (1 member(s)), no storage bearer supplied PASS
+```
+
+The initial live-probe attempt could not extract Location from `gh --include` output; the
+successful rerun parsed the redirect trace from `gh --verbose`. Neither credentials nor signed
+URLs were printed. The live first hop used `gh api` GET; the helper's first hop used the local
+sentinel-authenticated API, followed by real storage. The hosted `GITHUB_TOKEN` was not exercised.
+
+Repository gate — **exit 0**, log `/tmp/bi-review-r3-make-check.log`:
+
+```text
+ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 UV_CACHE_DIR=/tmp/bi-review-r3-uv \
+  PYTHONDONTWRITEBYTECODE=1 \
+  PYTEST_ADDOPTS='-p no:cacheprovider --basetemp=/tmp/bi-review-r3-pytest' \
+  make check UV_RUN='uv run --frozen --no-sync'
+secrets review: nothing found in the tracked files
+history review: nothing found (94 occurrence(s) of values public by design, 2 registered; 3 blob(s) skipped)
+docs-check: 22 documents, 126 file links, 45 anchors, 5 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 1 accepted, 2 pending — record consistent
+355 passed, 1 warning in 27.95s
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+```
+
+The warning, binary secret-scan skips and JavaScript skip retain round 2's stated limits.
+
+**Remaining limits:** no live inventory over 1,000 runs, concurrent inventory changes, hosted
+workflow/token execution, OIDC exchange, deployment, promotion, or remote §7 acceptance schedule
+was exercised. Pagination depends on the API's advertised totals, not a snapshot guarantee.
+No GitHub or Cloud resource was changed; eng_dados was only read. Only `DOSSIER.md` was edited;
+no commit, push or dispatch was made.
