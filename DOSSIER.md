@@ -141,11 +141,11 @@ Filled in by the reviewer. One finding per line, with a verdict.
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| GIMPL-1-01 | src/bi_como_codigo/release.py:247 | Medium: candidate bytes are read before declarations_agree | `adjustment` | |
-| GIMPL-1-02 | src/bi_como_codigo/contract.py:275 | Medium: totals validation preempts schema/null/grain checks | `adjustment` | |
-| GIMPL-1-03 | src/bi_como_codigo/release.py:365, :564, :736 | Medium: live transport/time/read-back failures escape the refusal boundary | `adjustment` | |
-| GIMPL-1-04 | tests/test_package_gate.py:534 | Medium validation gap: the non-disclosure test accepts a decrypted-cell-print mutant | `adjustment` | |
-| GIMPL-1-05 | src/bi_como_codigo/contract.py:225 | Low: boolean true is accepted as either numeric totals version | `observation` | |
+| GIMPL-1-01 | src/bi_como_codigo/release.py:247 | Medium: candidate bytes are read before declarations_agree | `adjustment` | Applied: the declarations are loaded and compared before `listing` (release.py, verify); test `test_declarations_agree_before_any_candidate_byte` with a listing spy and an excluded file. |
+| GIMPL-1-02 | src/bi_como_codigo/contract.py:275 | Medium: totals validation preempts schema/null/grain checks | `adjustment` | Applied: `parse_totals` moved after the grain in `_check`; four combination tests (schema+version, schema+shape, null+shape, grain+version) assert the first check. |
+| GIMPL-1-03 | src/bi_como_codigo/release.py:365, :564, :736 | Medium: live transport/time/read-back failures escape the refusal boundary | `adjustment` | Applied: `_public_get` maps transport/TLS/gzip failures to status 0 → `live_unreadable`; `bind_live` maps any exception to "live could not be read" and requires an offset in `releaseTime`; `promote` distinguishes "nothing was cloned" from an unconfirmed read-back; CLI tests return 1 with the summary and no traceback. |
+| GIMPL-1-04 | tests/test_package_gate.py:534 | Medium validation gap: the non-disclosure test accepts a decrypted-cell-print mutant | `adjustment` | Applied: the non-disclosure oracle runs through the CLI on eight negative cases (type, grain, sum, shape, version, invalid UTF-8, a short row in the page, the totals in the page), with markers for every unambiguous decrypted value, the totals, the `fixture_` prefix and every DEK in hex, and requires no release record; M52 adds the totals-printing mutant, killed. |
+| GIMPL-1-05 | src/bi_como_codigo/contract.py:225 | Low: boolean true is accepted as either numeric totals version | `observation` | Applied: version fields must be JSON integers (`type is int`); `test_a_boolean_version_is_refused`; M52 mutant killed; package_gate §3 says so. |
 
 ### Round 1 — evidence
 
