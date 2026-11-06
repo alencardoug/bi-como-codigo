@@ -1,0 +1,22 @@
+# TEMPORARY — T8 of docs/publishing_pipeline.md §7, the provider's condition.
+# Dispatched on main and on a branch; no environment, so GitHub's environment
+# branch policy cannot be what refuses. Google's STS must refuse both: this
+# file is not publish.yml or promote.yml, and a branch is not refs/heads/main.
+# Removed by the PR that closes T8.
+name: federation-probe
+on: workflow_dispatch
+permissions: {}
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: STS refuses this workflow's token
+        env:
+          WIF_PROVIDER: ${{ vars.WIF_PROVIDER }}
+        run: python3 evidence/20261106/t8_probe.py --provider "$WIF_PROVIDER" --expect-sts refused
