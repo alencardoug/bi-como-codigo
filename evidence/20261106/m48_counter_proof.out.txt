@@ -1,0 +1,91 @@
+2026-11-06T03:48:48Z
+commit under test: working tree on b6af5bf, envelope.py sha256 626f436d9bc4f644, envelope.mjs sha256 a241d41c4fc20b28
+== python: 45 predicates in src/bi_como_codigo/envelope.py
+  manifest_no_duplicate_keys: 1 case(s) killed; mutant ends: opened
+  manifest_types: 5 case(s) killed; mutant ends: error AttributeError; error TypeError; integrity_mismatch/size_equal; manifest_invalid/manifest_identity_bytes; manifest_invalid/manifest_iterations_bounds
+  manifest_keys: 4 case(s) killed; mutant ends: error KeyError; opened
+  manifest_versions: 2 case(s) killed; mutant ends: opened
+  manifest_hex: 3 case(s) killed; mutant ends: integrity_mismatch/sha256_equal; opened; slots_mismatch/slot_salt_equal
+  manifest_identity_length: 2 case(s) killed; mutant ends: manifest_invalid/manifest_file_form; manifest_invalid/manifest_identity_bytes
+  manifest_identity_bytes: 6 case(s) killed; mutant ends: error TypeError; manifest_invalid/manifest_file_form; manifest_invalid/manifest_sorted; opened
+  manifest_iterations_bounds: 2 case(s) killed; mutant ends: opened
+  manifest_unique: 2 case(s) killed; mutant ends: opened
+  manifest_sorted: 3 case(s) killed; mutant ends: opened
+  manifest_membership: 1 case(s) killed; mutant ends: opened
+  manifest_entitled: 1 case(s) killed; mutant ends: opened
+  manifest_file_form: 1 case(s) killed; mutant ends: opened
+  bytes_available: 26 case(s) killed; mutant ends: error IndexError; error error; header_malformed/algorithm_bytes; header_malformed/length_bytes; header_malformed/magic; header_malformed/profile_id_bytes; header_malformed/report_id_bytes
+  magic: 1 case(s) killed; mutant ends: decrypt_failed/None
+  format_version: 1 case(s) killed; mutant ends: decrypt_failed/None
+  algorithm_bytes: 5 case(s) killed; mutant ends: decrypt_failed/None
+  length_bytes: 5 case(s) killed; mutant ends: decrypt_failed/None
+  report_id_length: 2 case(s) killed; mutant ends: header_malformed/report_id_bytes; identity_mismatch/report_id_equal
+  report_id_bytes: 3 case(s) killed; mutant ends: identity_mismatch/report_id_equal
+  slot_count_range: 2 case(s) killed; mutant ends: header_malformed/profile_id_length; slots_mismatch/slot_set_equal
+  profile_id_length: 2 case(s) killed; mutant ends: header_malformed/profile_id_bytes; slots_mismatch/slot_set_equal
+  profile_id_bytes: 2 case(s) killed; mutant ends: slots_mismatch/slot_set_equal
+  slots_ascending: 2 case(s) killed; mutant ends: decrypt_failed/None; slots_mismatch/slot_set_equal
+  iterations_bounds: 2 case(s) killed; mutant ends: slots_mismatch/slot_iterations_equal
+  ciphertext_len_range: 2 case(s) killed; mutant ends: decrypt_failed/None
+  ciphertext_available: 4 case(s) killed; mutant ends: header_malformed/exact_end
+  exact_end: 2 case(s) killed; mutant ends: decrypt_failed/None; opened
+  payload_exact: 3 case(s) killed; mutant ends: error error; payload_malformed/parquet_magic
+  payload_magic: 1 case(s) killed; mutant ends: opened
+  payload_version: 1 case(s) killed; mutant ends: opened
+  totals_len_range: 3 case(s) killed; mutant ends: payload_malformed/payload_exact
+  parquet_len_minimum: 1 case(s) killed; mutant ends: payload_malformed/parquet_magic
+  parquet_magic: 2 case(s) killed; mutant ends: opened
+  size_equal: 1 case(s) killed; mutant ends: opened
+  sha256_equal: 3 case(s) killed; mutant ends: decrypt_failed/None; identity_mismatch/package_id_equal; identity_mismatch/report_id_equal
+  package_id_equal: 1 case(s) killed; mutant ends: opened
+  report_id_equal: 1 case(s) killed; mutant ends: opened
+  slot_set_equal: 2 case(s) killed; mutant ends: decrypt_failed/None
+  slot_salt_equal: 2 case(s) killed; mutant ends: decrypt_failed/None; unwrap_failed/None
+  slot_iterations_equal: 1 case(s) killed; mutant ends: decrypt_failed/None
+  slot_present: 1 case(s) killed; mutant ends: error IndexError
+  matrix_closed: 1 case(s) killed; mutant ends: opened
+  dek_unique: 1 case(s) killed; mutant ends: opened
+  iv_unique: 1 case(s) killed; mutant ends: opened
+== javascript: 41 predicates in web/envelope.mjs
+  manifest_types: 5 case(s) killed; mutant ends: error TypeError; integrity_mismatch/size_equal; manifest_invalid/manifest_hex; manifest_invalid/manifest_iterations_bounds; slots_mismatch/slot_iterations_equal
+  manifest_keys: 4 case(s) killed; mutant ends: manifest_invalid/manifest_types; opened
+  manifest_versions: 2 case(s) killed; mutant ends: opened
+  manifest_hex: 3 case(s) killed; mutant ends: integrity_mismatch/sha256_equal; opened; slots_mismatch/slot_salt_equal
+  manifest_identity_length: 2 case(s) killed; mutant ends: manifest_invalid/manifest_file_form; manifest_invalid/manifest_identity_bytes
+  manifest_identity_bytes: 6 case(s) killed; mutant ends: error TypeError; manifest_invalid/manifest_file_form; manifest_invalid/manifest_sorted; opened
+  manifest_iterations_bounds: 2 case(s) killed; mutant ends: opened
+  manifest_unique: 2 case(s) killed; mutant ends: opened
+  manifest_sorted: 3 case(s) killed; mutant ends: opened
+  manifest_membership: 1 case(s) killed; mutant ends: opened
+  manifest_entitled: 1 case(s) killed; mutant ends: opened
+  manifest_file_form: 1 case(s) killed; mutant ends: opened
+  bytes_available: 26 case(s) killed; mutant ends: header_malformed/algorithm_bytes; header_malformed/ciphertext_len_range; header_malformed/format_version; header_malformed/iterations_bounds; header_malformed/length_bytes; header_malformed/magic; header_malformed/profile_id_bytes; header_malformed/profile_id_length; header_malformed/report_id_bytes; header_malformed/report_id_length; header_malformed/slot_count_range
+  magic: 1 case(s) killed; mutant ends: decrypt_failed/null
+  format_version: 1 case(s) killed; mutant ends: decrypt_failed/null
+  algorithm_bytes: 5 case(s) killed; mutant ends: decrypt_failed/null
+  length_bytes: 5 case(s) killed; mutant ends: decrypt_failed/null
+  report_id_length: 2 case(s) killed; mutant ends: header_malformed/report_id_bytes; identity_mismatch/report_id_equal
+  report_id_bytes: 3 case(s) killed; mutant ends: identity_mismatch/report_id_equal
+  slot_count_range: 2 case(s) killed; mutant ends: header_malformed/profile_id_length; slots_mismatch/slot_set_equal
+  profile_id_length: 2 case(s) killed; mutant ends: header_malformed/profile_id_bytes; slots_mismatch/slot_set_equal
+  profile_id_bytes: 2 case(s) killed; mutant ends: slots_mismatch/slot_set_equal
+  slots_ascending: 2 case(s) killed; mutant ends: decrypt_failed/null; slots_mismatch/slot_set_equal
+  iterations_bounds: 2 case(s) killed; mutant ends: slots_mismatch/slot_iterations_equal
+  ciphertext_len_range: 2 case(s) killed; mutant ends: decrypt_failed/null
+  ciphertext_available: 4 case(s) killed; mutant ends: header_malformed/exact_end
+  exact_end: 2 case(s) killed; mutant ends: decrypt_failed/null; opened
+  payload_exact: 3 case(s) killed; mutant ends: payload_malformed/parquet_len_minimum; payload_malformed/parquet_magic; payload_malformed/totals_len_range
+  payload_magic: 1 case(s) killed; mutant ends: opened
+  payload_version: 1 case(s) killed; mutant ends: opened
+  totals_len_range: 3 case(s) killed; mutant ends: payload_malformed/payload_exact
+  parquet_len_minimum: 1 case(s) killed; mutant ends: payload_malformed/parquet_magic
+  parquet_magic: 2 case(s) killed; mutant ends: opened
+  size_equal: 1 case(s) killed; mutant ends: opened
+  sha256_equal: 3 case(s) killed; mutant ends: decrypt_failed/null; identity_mismatch/package_id_equal; identity_mismatch/report_id_equal
+  package_id_equal: 1 case(s) killed; mutant ends: opened
+  report_id_equal: 1 case(s) killed; mutant ends: opened
+  slot_set_equal: 2 case(s) killed; mutant ends: decrypt_failed/null
+  slot_salt_equal: 2 case(s) killed; mutant ends: decrypt_failed/null; unwrap_failed/null
+  slot_iterations_equal: 1 case(s) killed; mutant ends: decrypt_failed/null
+  slot_present: 1 case(s) killed; mutant ends: unwrap_failed/null
+== 236 dedicated case runs, 0 surviving

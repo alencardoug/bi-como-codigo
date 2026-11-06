@@ -14,8 +14,9 @@ demonstrated by encryption in a static site — access scoped to the key supplie
 ([PLAN.md §3.2](PLAN.md#32-the-showcase)) —, with every change going through a reviewed pull request.
 The plan says what gets built, in what order and why ([PLAN.md](PLAN.md)).
 
-**Status: stage 2.1 of the plan — the foundation.** The plan review is closed; no report, portal or
-publication exists yet. The data is synthetic end to end, and all of it comes from mvp_eng_dados_1.
+**Status: stage 2.2a of the plan — the encryption envelope.** Part I, the maintenance release of
+mvp_eng_dados_1, is done; here, the envelope that gives each profile its reports is implemented and
+in review; no report, portal or publication exists yet. The data is synthetic end to end, and all of it comes from mvp_eng_dados_1.
 
 ## Map
 
@@ -31,12 +32,14 @@ publication exists yet. The data is synthetic end to end, and all of it comes fr
 | [`docs/regeneration_runbook.md`](docs/regeneration_runbook.md) | The runbook of stage 1.4: how stage 1.6 regenerates eng_dados v1.1.0 — every checkpoint with a command, an oracle and a restart point, the rollback cut and the recovery package —, and the record of its review by Codex |
 | [`evidence/`](evidence/20261022/README.md) | The read-only probes behind every measurement in the plan, with their literal outputs — [M1–M18](evidence/20261022/README.md) and [M19–M26](evidence/20261023/README.md) |
 | [`.claude/skills/`](.claude/skills/review/SKILL.md) | The `review` and `adr` skills: the hand-off between agents, and the decision record as one transaction |
-| `src/`, `tests/`, `Makefile` | The checks of this repository and their tests, run by `make check` |
+| [`web/envelope.mjs`](web/envelope.mjs) | The envelope's reader for the browser: WebCrypto only, the same file in the tests and in the site |
+| `src/`, `tests/`, `Makefile` | The checks of this repository, the envelope's producer and Python reader, their tests and the envelope's vectors and cases, run by `make check` |
 
 ## Checking the repository
 
-`make check` is the gate before every commit. It needs [uv](https://docs.astral.sh/uv/) and a local
-checkout of mvp_eng_dados_1, named by `ENG_DADOS_DIR`, to verify the pinned links into it.
+`make check` is the gate before every commit. It needs [uv](https://docs.astral.sh/uv/), Node 20 or
+later for the envelope's JavaScript reader, and a local checkout of mvp_eng_dados_1, named by
+`ENG_DADOS_DIR`, to verify the pinned links into it.
 
 ```bash
 make sync
