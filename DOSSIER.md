@@ -1035,3 +1035,72 @@ Keep PIPE-1-01–08 and PIPE-2-01 closed at the plan level unless implementation
 contradicts their premises. Record the two responses in Status; fixture execution must still
 supply the stage's measured acceptance evidence before claiming completion.
 
+## Round 4
+
+No findings within this regression-only scope; no PIPE-4 IDs are assigned.
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+
+### Conclusion
+
+**The plan review can be closed under N72, and the plan can be executed under N70.**
+Revision 4 introduces no demonstrated regression, failed correction or new contradiction.
+This closes the plan review, not stage 2.2: implementation must still supply the fixture proofs.
+
+- **PIPE-3-01 closed at the plan level:** T5 now rejects obsolete C at `decide` condition 1
+  without queuing in PIPE-1-04's schedule; delayed C, which passed that condition before B
+  merged, rejects at `promote` step 2. B survives in both schedules; A's refusal is conditional
+  on B merging before A's approval, and clones remain serialized. These oracles agree with
+  §4.4's unchanged freshness checks.
+- **PIPE-3-02 closed as an observation:** §4.4 now bounds the guarantee to 100 pending jobs
+  and declares that excess arrivals are refused. This agrees with GitHub's
+  [job-concurrency reference](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idconcurrency),
+  which cancels additional arrivals when full. Waiting for a later merge is a declared
+  availability limit, not a promise of automatic retry.
+
+### Checks executed
+
+Reviewed on 2026-11-06, initially clean at `6614b7475f348ddb30ca7615b471d4a55808e69f`.
+Read the repository rules and review skill, rounds 1–3 with Status, the complete pipeline plan,
+and the relevant PLAN requirements (N70/N72/N74, §3.4 and stage 2.2). Inspected exactly
+`git log 6614b74~2..84edb66` and its diff: only `84edb66`, three changed lines in
+`docs/publishing_pipeline.md`. `6614b74` supplies the preceding report/Status only.
+Traced T5's schedules against §4.4 and checked the capacity wording against the official
+documentation above. These are static checks, not Actions measurements.
+
+The authorised gate exited **0** (full output in `/tmp/bi-como-codigo-review-r4-check.log`):
+
+```sh
+ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 \
+UV_CACHE_DIR=/tmp/bi-como-codigo-review-r4-uv-cache \
+make check UV_RUN='uv run --frozen --no-sync'
+```
+
+```text
+secrets review: nothing found in the tracked files
+history review: nothing found (92 occurrence(s) of values public by design, 2 registered; 0 blob(s) skipped)
+docs-check: 21 documents, 120 file links, 44 anchors, 6 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 1 accepted, 2 pending — record consistent
+279 passed in 17.17s
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+```
+
+After the report edit, `docs-check`, the byte-preservation/scope assertions and
+`git diff --check` exited **0**; only `DOSSIER.md` differs from HEAD.
+
+### Remaining limits
+
+T1–T11/T4b remain unexecuted. Runtime queue/environment ordering, run/attempt metadata,
+artifact retrieval, federation/ADC and Hosting compatibility still require implementation
+evidence. Capacity saturation can leave the latest merge unpublished until a later eligible
+merge; no saturation experiment or automatic recovery was proved. Previously declared trusted
+extraction, PR-file enumeration, exact-byte and policy-read-back requirements remain unchanged;
+the complete package gate remains stage 2.2b. These earlier limits are not new findings.
+
+Only `DOSSIER.md` was edited; rounds 1–3 are preserved. No external mutation, eng_dados change,
+commit, push, deployment or subagent was used.
+
