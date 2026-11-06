@@ -144,6 +144,8 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | PGATE-2-03 | docs/package_gate.md:204 | Medium: mandatory public metadata and release dates can refuse an honest package | `adjustment` | Applied (§6) with the Owner's N83: in the manifest only the profile labels are searched; date collisions go through the public list, tested both ways (MUT-07d); fixtures chosen not to collide; MUT-07c a value in a label; the three numeric spellings specified, negatives and grouped integers tested. |
 | PGATE-2-04 | docs/package_gate.md:184 | Medium: the new check-live command has no ordering rule that preserves successful reruns | `adjustment` | Applied (§5.2): one command, ordered — tip and channel, already live → end, then the predecessor, then the clone; `live` carried through `release-record`, `Record` and `decide`; whole-command rerun, unchanged re-promotion and first-release controls. |
 | PGATE-2-05 | docs/package_gate.md:176 | Low: envelope paths do not identify the manifest included in the live comparison | `observation` | Applied (§5.1–§5.2): the manifest's SHA-256 recorded and compared at `promote`, from the site's URL, failing closed; MUT-23 is the label change; the 64-bit prefix declared in §11. |
+| PGATE-3-01 | docs/package_gate.md:196 | High: the first release has no recorded manifest hash and cannot pass the predecessor check | `blocking` | Applied in rev. 4 (§5.2 step 3): recorded `"none"` requires only that live has no package — no live release, or a live version with no `package/` path —; a package that appeared refuses (MUT-23); both honest first-release controls through the whole command. |
+| PGATE-3-02 | docs/package_gate.md:198 | Medium: the public manifest hash is not bound to the API-selected live version | `adjustment` | Applied (§5.2): the public manifest hash is removed; the identity is the API's file list only, as N80 says; a manifest-only change on live is declared (§5.2, §11) — the pipeline cannot produce one, since the same `package_id` requires identical manifest and profile entries; an API read failure is its own refusal. |
 
 ### Round 1 — evidence
 
@@ -712,4 +714,240 @@ files changed: DOSSIER.md
 - [ ] PGATE-2-05: record the identity limitation in the owning protocol or strengthen the binding
   to include the manifest. Prove the stated behavior for same envelopes with different profile
   labels, and retain the unchanged-package control without credentialed decryption.
+
+### Round 3 — evidence
+
+#### 1. Conclusion
+
+**Changes required.** The first-release protocol cannot satisfy its mandatory passing control as
+written, and a new PR cannot recover it. The added manifest hash also mixes an API-selected version
+with an unbound public response: stale reads can refuse an honest replacement or pass MUT-23.
+The latter results are protocol counterexamples, not observations of a malfunctioning CDN. The
+plan-side batch cannot close yet; this conclusion covers only the specified three commits.
+
+#### 2. Reviewed scope and version
+
+- Branch: `main`; HEAD: `f5691ed01dab3df6fa0fbd0f71813dcefaf9f2b8`.
+- Explicit baseline: `3262446933e134184b79ffae59b74b0e245a756c`.
+- Exactly `4956c1c`, `b1f6b93`, `f5691ed`: N83, package_gate revision 3 and the author's round 2
+  Status entries. Existing implementation and owning documents were read for integration evidence.
+  This is a plan review; no new gate or workflow implementation exists to execute.
+- Clean working tree at entry. Only two table rows and this section were added to DOSSIER.md;
+  earlier findings, Status entries and evidence are preserved. No commit, remote write, deployment
+  or eng_dados operation was performed. Probe data lived under `/tmp`.
+
+#### 3. Findings by severity
+
+**PGATE-3-01 — Give the absent predecessor an executable passing branch. High / blocking.**
+
+Where: docs/package_gate.md:168, :181, :196, :310; docs/publishing_pipeline.md:235;
+src/bi_como_codigo/release.py:398, :412.
+
+Section 5.1 records the literal `"none"` after a manifest 404. Section 5.2 step 3 makes only the
+envelope paths conditional on that state: it still requires live's manifest to have the recorded
+SHA-256. There is neither a manifest nor a recorded hash in this case. With no live version,
+listing that version is undefined too. The honest first release reaches step 3 because its target
+VERSION_ID is not already live. A fail-closed implementation therefore refuses instead of cloning.
+
+Evidence: static contradiction with the explicit first-release control at :310 and the pipeline's
+empty-live rule. An executed model of the complete declared order reached the manifest refusal;
+the existing `served()` function, with `_http` replaced by a 404 stand-in, returned:
+
+```text
+first release => refuse 404/no recorded hash
+actual served() on bootstrap 404 => package/manifest.json served 404
+```
+
+Disproof considered: the passing test expresses the intended result, and step 2 fixes successful
+reruns, but neither supplies an absence branch at step 3. This is a specification gap, not an
+observed implementation failure. It is blocking because every initial publication to an empty
+target fails and the prescribed new-PR recovery records `"none"` again; progress requires inventing
+a rule or bypassing the gate, including for another configured environment.
+
+Correction: explicitly distinguish no live version/no live package from a present predecessor.
+For recorded `"none"`, prove package absence using the selected current-version state (or absent
+version), without listing a nonexistent version or requiring a nonexistent manifest hash. Refuse
+if a package has appeared; retain strict errors for unreadable present state. Specify this in the
+protocol and its scheduled owning-document update. Validate the whole promotion command with no
+live version, an existing version without a package, and a package appearing after verify. The
+first two honest controls pass; the last refuses before cloning. A new PR must not be required to
+bootstrap a target that is still empty.
+
+**PGATE-3-02 — Bind the manifest comparison to the version being replaced. Medium / adjustment.**
+
+Where: docs/package_gate.md:196, :203, :301; src/bi_como_codigo/release.py:398, :412;
+docs/encryption_envelope.md:404; docs/publishing_pipeline.md:173.
+
+The API supplies the current version's envelope paths, but the manifest hash comes from a second
+surface, the public live URL. Nothing binds that response to the API-selected version. Decoding
+gzip identifies the response bytes, not their version. Consequently the claim that a stale
+manifest read fails closed, "never open", is false for the very same-path case MUT-23 adds.
+
+Executed ordered model, using valid manifests and independently valid distinct packages for L/A:
+
+```text
+MUT-22 => refuse paths
+MUT-23 fresh => refuse manifest
+MUT-23 stale => clone
+recovery against A; public URL stale at L => refuse manifest
+new recovery PR; same stale URL => refuse manifest
+recovery after convergence => clone
+```
+
+For MUT-23, record `(paths P, hash H0)`, then let the actual live manifest change only its label
+to hash H1. The changed manifest still passed the existing decryption matrix with the same
+envelopes. The API still returns P; a stale public response with H0 satisfies both comparisons,
+so step 3 passes despite the changed predecessor. A fresh response with H1 correctly refuses.
+
+The ordinary false-refusal schedule is different: after L → A, a recovery preview reads fresh A
+and records `(PA, HA)`. Live stays A, but promotion's public read returns older L. Its API paths
+correctly equal PA; the unrelated manifest hash refuses an honest promotion as "live changed".
+Another PR repeats the failure while that view remains stale. Fail closed protects against many
+reuse schedules, but is neither a consistency proof nor an effective recovery for this mismatch.
+Severity is medium for that ordinary-release availability case; the demonstrated silent MUT-23
+case itself needs a manifest-only transition that the revised same-id verify normally forbids.
+
+Disproof/limits: no such CDN event was measured. The public endpoint currently returns
+`Cache-Control: no-cache`, and fresh reads make these controls behave correctly. A proof that all
+relevant public reads are version-consistent would disprove the stale schedules, but revision 3
+instead expressly claims safety when reads are stale. No ordinary compliant-pipeline reuse bypass
+or practical digest-prefix collision was demonstrated.
+
+Correction: specify a verifiable binding between the manifest response/identity and the
+API-selected current version, with defined handling of consistency lag. For example, authenticate
+the response against that version's file metadata using a measured representation mapping, or
+prove an immutable version-specific read. Hosting's file hash is of compressed storage bytes;
+do not substitute the raw manifest SHA-256 without proving that mapping. Keep decryption out of
+promote, retain the already-live guard, and distinguish an unconfirmed read from an actual changed
+predecessor. Validate fresh/stale cross-surface combinations, repeated recovery, MUT-22/23 and
+unchanged re-promotion through the whole command; neither old manifest bytes nor a new PR alone
+may establish the missing binding.
+
+#### 4. Reassessment and checks executed
+
+| Previous finding | Revision 3 assessment | Evidence |
+|---|---|---|
+| PGATE-2-01 | Resolved in the plan | The revised UTF-8 aggregate executed on real Parquet, returning 15 bytes for accented input and 0 for empty/all-null input; the expansion case returned 67,108,864 bytes. No binder error or NULL remained. |
+| PGATE-2-02 | Resolved in the plan | Totals.rows is now explicit. In the executed byte-predicate model, count-only HTML was caught as clear_value, with no honest-site hits. |
+| PGATE-2-03 | Resolved in the plan | N83 exempts typed metadata, not labels. Numeric-metadata, label-leak and listed/unlisted date controls behaved as specified. The closed manifest has no additional free-text field. |
+| PGATE-2-04 | Partially resolved | The order now preserves reruns and unchanged re-promotion; authenticated live propagation is explicit. Its first-release control conflicts with step 3 (PGATE-3-01). |
+| PGATE-2-05 | Partially resolved | A fresh manifest hash catches same-path label changes; its public response lacks version binding (PGATE-3-02). The 64-bit prefix limitation is declared. |
+| PGATE-1-01 | Partially resolved | Original L → A → B with changed paths refuses at promotion. Record propagation and ordering are specified; the remaining predecessor protocol issues are PGATE-3-01/02. |
+| PGATE-1-03 | Resolved in the plan under N81/N83 | Direct short text, fractions, counts and totals have predicates; the protected public list handles honest collisions. Accepted small-value/encoding limits remain explicit. |
+
+Executed probes used DuckDB 1.5.6 in a throwaway environment. A 1,140-row real Parquet prototype
+had unique labels, DECIMAL(18,2), a nullable INTEGER and a DATE; its independently computed total
+was 1425.00. It was encrypted with the existing producer and passed existing release.verify.
+This is not execution of the future gate or its unspecified final fixture. A separate implementation
+of revision 3's byte predicates over that prototype and the actual page/releases.md produced:
+
+```text
+DuckDB 1.5.6
+accented content bytes => 15
+empty content bytes => 0
+all_null content bytes => 0
+oversized content bytes => 67108864 ; file bytes => 35359
+real Parquet rows/grain/sum => (1140, 1140, '1425.00')
+existing verify accepts real-payload prototype => True
+honest page/releases/labels predicate hits => []
+honest numeric metadata contains 600000 => True
+eligible text 600000 matches a manifest label => False
+MUT-07b row-count-only hits => [('index.html', 'clear_value')]
+MUT-07c eligible value in label hits => [('package/manifest.json', 'clear_value')]
+MUT-07d date collision unlisted => [('releases.md', 'clear_value')]
+MUT-07d date collision listed => []
+MUT-07 totals-only hits => [('index.html', 'clear_totals'), ('index.html', 'clear_value')]
+numeric spellings -1234.50 => ['-1.234,50', '-1234,50', '-1234.50']
+numeric spellings 1140 => ['1.140', '1140']
+```
+
+The full totals also contain individual values; implementation must retain §6's totals-first
+refusal to satisfy MUT-07's exact code. The new content-bound constant and final fixture are not
+implemented; the expansion measurement alone is not an executed content_bound refusal.
+
+The ordered promotion model also returned:
+
+```text
+rerun => already live ; order=tip,channel,already-live
+unchanged package under another VERSION_ID => clone ; order=tip,channel,already-live,predecessor-paths,predecessor-manifest,clone,read-back
+retired rerun => refuse tip
+```
+
+There is no newly PR-writable record source in the proposed `live` wiring. Section 5.1 makes
+main's verify compute it, preview copies it from this run's authenticated verified artifact, and
+select_record still authenticates publisher/run provenance before reading fields. Executed with
+an added live field: candidate/pull_request and publisher@PR records refused; the trusted
+publisher/workflow_run/main record was accepted. Current Record drops live, as expected before
+implementation; revision 3 explicitly schedules changing it. This probe validates existing
+provenance filtering, not future field validation or workflow-output serialization.
+
+All reviewer checks below exited 0, with `UV_CACHE_DIR=/tmp/pgate-r3-uv-cache` and
+`PYTHONDONTWRITEBYTECODE=1`:
+
+```text
+make test:
+357 passed, 1 warning in 33.46s
+
+make secrets:
+secrets review: nothing found in the tracked files
+
+make secrets-history:
+skipped (3) — skipped is not verified:
+  3465b63e867b  site/package/P01.52ac319b77e20924.bice  skipped: not UTF-8 text
+  2dd399f81d55  site/package/P02.6f2834bb50346c5e.bice  skipped: not UTF-8 text
+  55b744ce87bf  site/package/P13.68011daba04f9311.bice  skipped: not UTF-8 text
+history review: nothing found (124 occurrence(s) of values public by design, 2 registered; 3 blob(s) skipped)
+
+ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 make docs-check:
+docs-check: 25 documents, 153 file links, 53 anchors, 22 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+```
+
+The warning is the intentional duplicate ZIP entry. Public credential-free GETs returned:
+
+```text
+/package/manifest.json status=200 type=application/json cache=no-cache
+manifest SHA-256=f6e08264554d61a8cfe89d4eb7f5d2d9ee6e2e5f2790d05441b2397667534eb9
+/package/pgate-r3-does-not-exist.json status=404 type=text/html; charset=utf-8 cache=no-cache
+```
+
+The author's green `ENG_DADOS_DIR=… make check` at f5691ed is **author-reported**, not
+reviewer-executed. Full make check, the JavaScript suite and historical GitHub runs were not
+re-executed; they add no execution of this unimplemented plan. No new workflow, promotion or
+CDN transition was performed within the read-only scope.
+
+Final `git diff --check` exited 0. Removing only the two new rows and this appended section
+recovered HEAD's DOSSIER.md byte for byte; `git diff --name-only` listed only DOSSIER.md. Both new
+Status cells are empty.
+
+#### 5. Limitations and open questions
+
+- Stale-read scenarios above are executed decision models; the GETs prove present reachability,
+  not the frequency, duration or existence of cross-version CDN lag. The promised first-release
+  behavior cannot be established by today's already-populated live site. Both require controlled
+  integration evidence when implemented; neither author claims nor legacy green tests supply it.
+- N83 leaves only labels as free text: profile/report ids are constrained and matched to protected
+  declarations; file names, hashes, salts and integral numeric fields have the envelope's closed
+  validation/bindings. Deliberate encoding in those typed fields remains N83's accepted limit.
+  Do not extend this exemption to any future separate exporter-metadata file.
+- No new credential or decrypted-value leak was found in the corrections. Section 7's sanitized
+  failures and §5.3's digest-only preview remain required but unimplemented; actual CLI/native
+  stderr, annotations and summaries still need their planned tests. Preserve strict authenticated
+  live-field validation/transport; do not default missing old records to `"none"`.
+- No new conflict with CLAUDE.md §6 rules 2/3 was found: these are explicitly disposable fixtures,
+  not a replacement source for showcase reports; control sums audit columns without redefining
+  warehouse metrics. N76 still leaves M19 to stage 2.4. Owning-document updates remain scheduled
+  by §10. DuckDB-WASM compatibility and hostile-parser isolation remain unmeasured, outside this
+  narrow correction review.
+
+#### 6. Handoff to Claude Code
+
+- [ ] PGATE-3-01: define the absent-predecessor branch and its authoritative absence check. Whole
+  command tests must pass first release with no current version and with a version lacking a
+  package, refuse a package appearing since verify, and preserve rerun/unchanged controls. No
+  nonexistent hash/listing request and no bypass or endless new-PR recovery may be required.
+- [ ] PGATE-3-02: bind manifest identity to the current API version and specify consistency-lag
+  handling. Prove the representation mapping or immutable read used; stale old bytes must not
+  pass MUT-23, an honest unchanged predecessor must remain promotable after recovery, and a truly
+  changed predecessor must still refuse as MUT-22/23. Keep decryption out of promote and carry
+  only authenticated live metadata through release-record, Record and decide.
 
