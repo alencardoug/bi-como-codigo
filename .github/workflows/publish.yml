@@ -120,8 +120,12 @@ jobs:
       - run: npm ci --prefix release/firebase-tools --ignore-scripts --no-audit --no-fund
       - name: firebase.json names the configured site (IMPL-1-05)
         run: uv run --frozen python -m bi_como_codigo.release firebase-config --site "$SITE"
+      # TEMPORARY — T10(a) (docs/publishing_pipeline.md §7): a channel of 24 h
+      # 15 min, so decide passes condition 5 right after the merge and promote,
+      # approved some 20 minutes later, is under the one-day margin at its
+      # step 3 while channel and version still exist. 30d again when T10 closes.
       - name: Deploy to the PR's channel
-        run: release/firebase-tools/node_modules/.bin/firebase hosting:channel:deploy "$CHANNEL" --expires 30d --project "$FIREBASE_PROJECT" --json
+        run: release/firebase-tools/node_modules/.bin/firebase hosting:channel:deploy "$CHANNEL" --expires 1455m --project "$FIREBASE_PROJECT" --json
       - id: channel
         env:
           GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
