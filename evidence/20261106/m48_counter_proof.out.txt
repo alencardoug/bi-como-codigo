@@ -1,8 +1,8 @@
-2026-11-06T03:48:48Z
-commit under test: working tree on b6af5bf, envelope.py sha256 626f436d9bc4f644, envelope.mjs sha256 a241d41c4fc20b28
+2026-11-06T04:07:08Z
+commit under test: working tree on d994012 with round 4 applied, envelope.py sha256 8b65233c305c0172, envelope.mjs sha256 e2123facfae15655
 == python: 45 predicates in src/bi_como_codigo/envelope.py
   manifest_no_duplicate_keys: 1 case(s) killed; mutant ends: opened
-  manifest_types: 5 case(s) killed; mutant ends: error AttributeError; error TypeError; integrity_mismatch/size_equal; manifest_invalid/manifest_identity_bytes; manifest_invalid/manifest_iterations_bounds
+  manifest_types: 11 case(s) killed; mutant ends: error AttributeError; error TypeError; integrity_mismatch/size_equal; manifest_invalid/manifest_identity_bytes; manifest_invalid/manifest_iterations_bounds; manifest_invalid/manifest_versions
   manifest_keys: 4 case(s) killed; mutant ends: error KeyError; opened
   manifest_versions: 2 case(s) killed; mutant ends: opened
   manifest_hex: 3 case(s) killed; mutant ends: integrity_mismatch/sha256_equal; opened; slots_mismatch/slot_salt_equal
@@ -14,8 +14,8 @@ commit under test: working tree on b6af5bf, envelope.py sha256 626f436d9bc4f644,
   manifest_membership: 1 case(s) killed; mutant ends: opened
   manifest_entitled: 1 case(s) killed; mutant ends: opened
   manifest_file_form: 1 case(s) killed; mutant ends: opened
-  bytes_available: 26 case(s) killed; mutant ends: error IndexError; error error; header_malformed/algorithm_bytes; header_malformed/length_bytes; header_malformed/magic; header_malformed/profile_id_bytes; header_malformed/report_id_bytes
-  magic: 1 case(s) killed; mutant ends: decrypt_failed/None
+  bytes_available: 31 case(s) killed; mutant ends: error IndexError; error error; header_malformed/algorithm_bytes; header_malformed/length_bytes; header_malformed/magic; header_malformed/profile_id_bytes; header_malformed/report_id_bytes
+  magic: 4 case(s) killed; mutant ends: decrypt_failed/None
   format_version: 1 case(s) killed; mutant ends: decrypt_failed/None
   algorithm_bytes: 5 case(s) killed; mutant ends: decrypt_failed/None
   length_bytes: 5 case(s) killed; mutant ends: decrypt_failed/None
@@ -47,7 +47,7 @@ commit under test: working tree on b6af5bf, envelope.py sha256 626f436d9bc4f644,
   dek_unique: 1 case(s) killed; mutant ends: opened
   iv_unique: 1 case(s) killed; mutant ends: opened
 == javascript: 41 predicates in web/envelope.mjs
-  manifest_types: 5 case(s) killed; mutant ends: error TypeError; integrity_mismatch/size_equal; manifest_invalid/manifest_hex; manifest_invalid/manifest_iterations_bounds; slots_mismatch/slot_iterations_equal
+  manifest_types: 11 case(s) killed; mutant ends: error TypeError; integrity_mismatch/size_equal; manifest_invalid/manifest_hex; manifest_invalid/manifest_iterations_bounds; manifest_invalid/manifest_versions; slots_mismatch/slot_iterations_equal
   manifest_keys: 4 case(s) killed; mutant ends: manifest_invalid/manifest_types; opened
   manifest_versions: 2 case(s) killed; mutant ends: opened
   manifest_hex: 3 case(s) killed; mutant ends: integrity_mismatch/sha256_equal; opened; slots_mismatch/slot_salt_equal
@@ -59,8 +59,8 @@ commit under test: working tree on b6af5bf, envelope.py sha256 626f436d9bc4f644,
   manifest_membership: 1 case(s) killed; mutant ends: opened
   manifest_entitled: 1 case(s) killed; mutant ends: opened
   manifest_file_form: 1 case(s) killed; mutant ends: opened
-  bytes_available: 26 case(s) killed; mutant ends: header_malformed/algorithm_bytes; header_malformed/ciphertext_len_range; header_malformed/format_version; header_malformed/iterations_bounds; header_malformed/length_bytes; header_malformed/magic; header_malformed/profile_id_bytes; header_malformed/profile_id_length; header_malformed/report_id_bytes; header_malformed/report_id_length; header_malformed/slot_count_range
-  magic: 1 case(s) killed; mutant ends: decrypt_failed/null
+  bytes_available: 31 case(s) killed; mutant ends: header_malformed/algorithm_bytes; header_malformed/ciphertext_len_range; header_malformed/format_version; header_malformed/iterations_bounds; header_malformed/length_bytes; header_malformed/magic; header_malformed/profile_id_bytes; header_malformed/profile_id_length; header_malformed/report_id_bytes; header_malformed/report_id_length; header_malformed/slot_count_range
+  magic: 4 case(s) killed; mutant ends: decrypt_failed/null
   format_version: 1 case(s) killed; mutant ends: decrypt_failed/null
   algorithm_bytes: 5 case(s) killed; mutant ends: decrypt_failed/null
   length_bytes: 5 case(s) killed; mutant ends: decrypt_failed/null
@@ -88,4 +88,4 @@ commit under test: working tree on b6af5bf, envelope.py sha256 626f436d9bc4f644,
   slot_salt_equal: 2 case(s) killed; mutant ends: decrypt_failed/null; unwrap_failed/null
   slot_iterations_equal: 1 case(s) killed; mutant ends: decrypt_failed/null
   slot_present: 1 case(s) killed; mutant ends: unwrap_failed/null
-== 236 dedicated case runs, 0 surviving
+== 264 dedicated case runs, 0 surviving

@@ -902,3 +902,329 @@ No Owner clarification was necessary.
   Design approval alone will not complete 2.2a: independent fixed-vector consumption, primitive
   vectors, actual predicate inventories/mutants and browser latency remain required there.
 
+
+## Round 4
+
+### 1. Conclusion
+
+**Changes required.** No critical or high-severity defect was found within the reviewed scope.
+ENV-3-01's framing split works, and the original per-predicate counter-proof is now executable
+and reproduced. Four **medium adjustments** remain: numeric manifest acceptance differs between
+readers; the producer accepts invalid control-total bytes; required fixed-header cases are
+missing; and the freshness test passes with repeated DEKs and IVs across runs. One low-severity
+documentation observation is recorded. **Stage 2.2a's implementation review cannot be closed yet.**
+The previous design findings no longer block it; the new findings concern implementation and
+validation. This conclusion does not approve later stages or the project as a whole.
+
+### 2. Reviewed scope and version
+
+Reviewed on 2026-11-06, branch `main`, checkout
+`d99401299c9d05a05ff51006a064c21bef9f6760`. The comparison is exactly
+`b6af5bf67be7623b4fe7a1cf2723c095337b2c2f..d4b5dc3`: **four commits**, `ef7b06f`,
+`442703e`, `9087d5e`, `d4b5dc3`; 21 files, 4,176 additions and 47 deletions. The baseline is
+the round-3 tree, specification revision 3 without implementation. Checkout commit `d994012`
+only changes `DOSSIER.md`, filling ENV-3-01's Status, and is excluded from the delivery delta.
+There were no local changes or untracked files initially. Only this Round 4 is appended;
+rounds 1–3 and their Status entries are preserved.
+
+Read the previous reports and Status claims, repository conventions and review skill, the pinned
+diff, revised specification, both implementations, generator, suites, evidence scripts/outputs,
+lock/dependency changes and the requested PLAN requirements/decisions. Generated vectors/cases
+were checked against the generator by the gate and consumed by both suites; their long hex strings
+were not treated as an independent oracle. Probes and mutants are under
+`/tmp/bi-env-review-r4/`; gate/M48/M49 logs are `/tmp/bi-env-review-r4-{check,m48,m49}.txt`.
+No subagent, installation, eng_dados command, commit, push or deployment was used.
+
+### 3. Findings and evidence
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+| ENV-4-01 | `envelope.py:137`, `:201`; `web/envelope.mjs:118`, `:144` | Numeric JSON representations produce different manifest acceptance, beyond the documented duplicate-key exception. | `adjustment` | **Fixed.** Reproduced: `manifest_version` 1.0 → Python `manifest_invalid/manifest_types`, JS accepted. Now both judge numbers by value (spec rev. 5 §4): integral and within ±(2^53−1), spelling ignored; Python also refuses `NaN`/`Infinity` tokens (`parse_constant`) and integers past 2^53−1; JS gains `parseManifest(text)`, so text that is not JSON is `manifest_invalid/manifest_types` too. 11 shared `manifest_numbers__*` cases (5 accepted and opening, 6 refused). Counter-proof: on the previous Python module `-k "manifest_numbers or totals"` gives `11 failed, 9 passed`, on the fixed one `20 passed`; the previous JS module ends `version_nan` and `not_json` in `error SyntaxError`, the fixed one `11 cases, 0 not as expected` |
+| ENV-4-02 | `envelope.py:495`–`:515`; envelope §5.2 step 1 | Producer validation checks totals framing but accepts malformed JSON, non-object JSON and non-UTF-8 totals. | `adjustment` | **Fixed.** Reproduced: `encrypt_package` accepted `xx`, `[]`, `\xff\xff` and `{"x":1,"x":2}` as totals. Now `_validate_declaration` parses the totals as CI will (UTF-8, one object, no repeated key, no `NaN`) before anything is drawn; spec rev. 5 §2.4 and §5.2 step 1 say so. Five parametrised tests, which fail on the previous module (counted in ENV-4-01's `11 failed`) and pass now |
+| ENV-4-03 | `tests/envelope_fixtures.py:266`–`:275`; envelope §6.3 H | Fixed-header fixtures omit magic-byte offsets 1–3 and several required field-boundary cuts; partial magic checking survives. | `adjustment` | **Fixed.** Reproduced: `header_fixed_byte__magic` flipped offset 0 only; cuts omitted 6, 7, 9, 11, 12, 14. Now the generator computes the header's fields and cuts at every boundary before the end of `ciphertext_len` and inside every multi-byte field (31 cuts), and flips each magic byte (`magic_0`…`magic_3`). Counter-proof with your partial-magic mutants: Python `3 failed, 1 passed`; JS `header_fixed_byte__magic_1..3: decrypt_failed/null (expected header_malformed/magic)`. M48 rerun: 264 dedicated runs, 0 surviving |
+| ENV-4-04 | `tests/test_envelope.py:257`–`:265` | The freshness test never compares actual DEKs or IVs between runs; repeated per-report material passes. | `adjustment` | **Fixed.** Confirmed by reading: the test compared package ids, salts and names only. Now it unwraps the real DEKs with `diretoria`'s public password and reads the IVs of both runs, and asserts both sets disjoint. Counter-proof: a /tmp copy drawing DEK and IV from `sha256(report_id)` gives `1 failed` on `draws_anew`; the production module passes |
+| ENV-4-05 | `PLAN.md:22` | The three prior rounds contain seven findings, while the new Status says six. | `observation` | **Fixed.** PLAN's Status now says seven findings in the three design rounds, and five in round 4 |
+
+**ENV-4-01 — Define and enforce the same numeric manifest contract**
+
+**Medium → adjustment. Introduced by this implementation.** Python's `_is_int` accepts only
+non-boolean Python integers; JavaScript's `Number.isSafeInteger` accepts integral values after
+`JSON.parse`, which erases decimal/exponent spelling. Changing only `manifest_version` from
+`1` to `1.0`, or `iterations` from `600000` to `600000.0`, or a valid `size` to the same number
+with `.0`, makes Python refuse `manifest_invalid/manifest_types` while JavaScript validates and
+**opens the unchanged P01 envelope**. Executed in `probes.py`, `probes.mjs` and `extra.mjs`:
+
+```text
+version_1.0 Python -> manifest_invalid/manifest_types
+iterations_600000.0 Python -> manifest_invalid/manifest_types
+size_integral_float Python -> manifest_invalid/manifest_types
+version_1.0 JavaScript full open -> accepted
+iterations_600000.0 JavaScript full open -> accepted
+size_integral_float JavaScript full open -> accepted
+```
+
+The reverse mismatch also exists: `size = 9007199254740992` passes Python's validator and fails
+JavaScript's. Both reject `size = -0`. A fractional literal `1.00000000000000001` rounds to 1
+in JavaScript and opens, while Python refuses its float. These latter probes establish additional
+numeric edges; the oversized size cannot match a format-v1 envelope and is not an access bypass.
+
+**Disproof considered:** the current producer emits integer tokens, and the trusted CI path rejects
+these changed manifests. There is no demonstrated release-path bypass. Nevertheless, ordinary
+JSON serialization can emit integral decimal/exponent tokens; the explicitly requested reader
+agreement, with duplicate keys as its exception, is unmet independently of hostile inputs.
+
+**Correction/validation:** specify numeric value/type/range semantics in §4 and implement them
+consistently, including `size`'s upper range. Account explicitly for information lost by
+`JSON.parse`; do not try to distinguish decimal token spelling after parsing. Add shared integral
+float/exponent, boolean, fractional, negative-zero and safe-integer-boundary cases, asserting the
+same validation result and refusal pair in both runtimes. Preserve the production manifest control.
+
+**ENV-4-02 — Validate the producer's totals before encryption**
+
+**Medium → adjustment. Introduced by this implementation.** `_validate_declaration` calls
+`parse_payload(build_payload(...))`, which checks lengths and Parquet framing but treats totals
+as opaque bytes. With one valid profile/report and `PAR1xxxxPAR1`, `encrypt_package` returned a
+package for each of `b'xx'`, `b'[]'`, `b'\xff\xff'`, and `b'{"x":1,"x":2}'` as totals;
+`check_package` accepted every resulting package. These are executed production-path calls in
+`probes.py`, using normal `secrets` randomness, not calls to the permissive `seal_report` layer.
+
+Section 2.4 requires one UTF-8 JSON object; §5.2 step 1 requires the producer to validate its
+payloads before drawing material. A malformed totals encoder can therefore deliver a successful
+package today, with the round-trip comparison merely comparing invalid bytes to themselves.
+
+**Disproof considered:** §2.4 explicitly defers CI's strict JSON check to stage 2.2b, and the
+browser intentionally does not interpret totals. Neither missing browser interpretation nor the
+unimplemented future CI gate is reported as a defect here. The current producer's step-1 payload
+validation is a separate obligation; it does not require knowing stage 2.4's eventual totals keys.
+
+**Correction/validation:** strictly decode and parse totals in producer input validation, reject
+duplicate keys and non-object roots, and retain the framing/size checks. Prove the four cases above
+fail before encryption and a valid object still round-trips. Keep browser totals opaque and the
+future CI validation independently required.
+
+**ENV-4-03 — Materialise every prescribed fixed-header mutation**
+
+**Medium → adjustment. Introduced by the fixture implementation; the specification already
+requires these cases.** `header_fixed_byte` changes offset 0 and offsets 4–14, leaving magic
+bytes 1, 2 and 3 untouched. The hard-coded truncation list also omits field boundaries 6, 7, 9,
+11, 12 and 14, despite §6.3 requiring every boundary before the end of `ciphertext_len`.
+
+Executed counterexample: copies under `/tmp` changed only Python's `magic == MAGIC` to
+`magic[:1] == MAGIC[:1]`, and JavaScript's `equalBytes(magic, MAGIC)` to
+`magic[0] === MAGIC[0]`. **All 60 committed group-H cases still passed in each language**, with
+their exact original code/predicate assertions. The Python mutant accepted parsed headers with
+corruption at offsets 1, 2 and 3. The real modules correctly reject those headers; this finding
+concerns the claimed oracle, not a current parser acceptance bug.
+
+**Disproof considered:** M48 does kill the mutant that removes the entire `magic` predicate.
+That is genuine evidence, but does not prove the predicate checks every required magic byte.
+The independent writer and generator freshness test faithfully reproduce the incomplete list.
+
+**Correction/validation:** extend the generator to mutate each offset 0–14 and cut at every
+specified boundary, regenerate the committed cases, and run both suites and M48. Each omitted
+magic-byte mutation must reach `header_malformed/magic` in both readers, and the partial-magic
+mutants must fail those tests. Retain inside-field and post-header truncation coverage.
+
+**ENV-4-04 — Compare actual DEKs and IVs in the freshness test**
+
+**Medium → adjustment. Introduced by this test.** Different package ids, salts and encrypted
+filenames do not prove fresh DEKs/IVs: the header changes the AAD, wrapped keys and digest even
+when per-report material repeats. The within-package uniqueness checks also cannot detect reuse
+of a different key/IV for each report across two calls.
+
+Executed `/tmp` mutant: replaced only the two production draws for DEK and IV with
+`sha256(report_id.encode()).digest()` and its first 12 bytes. Package ids and salts continued to
+use `secrets`. Calling the existing
+`test_encrypt_package_round_trips_and_draws_anew_each_run` against that copied module passed.
+An additional probe actually unwrapped the DEKs and read the IVs from both packages:
+
+```text
+constant per-report DEK+IV mutant -> freshness test PASSED; actual materials repeated=True
+```
+
+**Disproof considered:** the real production code at `envelope.py:556`–`:568` uses `secrets`
+for every draw, has no injectable randomness parameter, and shows no current material-reuse bug.
+The issue is a test that would stay green after a realistic regression to cached/derived per-report
+material, contrary to its name and §5.2's fresh-every-encryption requirement.
+
+**Correction/validation:** unwrap the real keys from both produced packages and assert the two DEK
+sets and two IV sets are disjoint, alongside the existing checks. Prove DEK-only and IV-only
+cross-run reuse mutants fail separately. Keep these probes/test doubles outside the production API.
+
+**ENV-4-05 — Correct the prior-review count**
+
+**Low → observation. Introduced in `d4b5dc3`.** PLAN's new Status records “three rounds — six
+findings, two blocking”; the preserved tables contain four ENV-1 ids, two ENV-2 ids and ENV-3-01:
+**seven findings**, two blocking. Static evidence only. This does not change the stage's explicit
+in-review status or any cryptographic behavior. Correct the count to seven and compare it with
+the three tables when updating the plan; no new runtime check is necessary.
+
+### 4. Status of previous findings and focused audit
+
+| Previous ID | Independent status | Evidence and remaining scope |
+|---|---|---|
+| ENV-3-01 | **Resolved** | Python `:343`–`:344` and JS `:251`–`:252` implement availability then exact end. Original ±1/trailing/cut cases reach their assigned ids. M48 separately kills four `ciphertext_available` and two `exact_end` cases in each language. |
+| ENV-2-01 | **Resolved for its original contract** | Physically rebuilt zero/33,554,433-byte bodies isolate range from framing. Both suites assert original pairs; M48 kills both range cases in both readers and every currently declared predicate. New fixture omissions are ENV-4-03. |
+| ENV-1-01 | **Resolved for the previous reachability/counter-proof findings** | Refreshed integrity fields, in-range deeper mutations, sealed bad payloads and exact code/id checks reach their targets; M48 reproduced. This does not establish the completeness challenged by ENV-4-03. |
+| ENV-2-02 | **Resolved design; execution remains 2.2b's** | Same-id immutable snapshot and different-id freshness rules remain in §6.4, with six controls and four live mutants explicitly planned. No live comparison is claimed by this implementation. |
+| ENV-1-02 | **Resolved within-package implementation** | Separate DEK-only/IV-only cases and guards execute; `reuse_both` returns DEK first; M48's two isolated package mutants open. Cross-run test weakness is ENV-4-04. |
+| ENV-1-03 | **Resolved** | Both readers enforce ASCII identity bytes directly, including final LF; prefix-first ordering and all 256 byte values in sampled leading/following positions agreed in the extra parser probes. |
+| ENV-1-04 | **Resolved** | Observable refusal codes and predicate ids agree on committed cases; primitive failures carry Python `None`/JS `null`. Numeric step-0 disagreement is ENV-4-01. |
+
+Static review and additional execution found no further confirmed primitive misuse: field offsets,
+big-endian u32s, slot ordering, exact ciphertext/tag framing and payload bounds agree; AAD is the
+raw complete header, AES-KW uses the specified KEK size, and GCM uses a 12-byte IV and 128-bit tag.
+The producer draws package id, per-profile salts, DEKs and IVs only through `secrets`; a failed call
+returns nothing and a retry makes new draws, with no material cache or production deterministic
+switch. Its names use the envelope digest, its manifest validates, and it self-checks expected
+payloads before returning. This is bounded static review of the retry path, not a forced-failure
+retry experiment.
+
+The package checker opens every entitled pair to expected bytes when supplied (always supplied by
+the producer), refuses unentitled pairs and attempts their KEKs against every slot. The real raw
+DEKs and IVs feed the separate uniqueness guards. `matrix_same_key` reaches
+`unentitled_opens/matrix_closed`, and its mutant opens. Taking one entitled slot's DEK for the
+uniqueness list cannot mask an ordinary wrong-key slot: every entitled slot must already decrypt
+the same authenticated envelope. No cryptographic multi-key construction was attempted.
+
+The generator's header writer is separate, but its valid vectors, parsed source fields, constants
+and payload builder use the production module. It is not an independent format implementation.
+Frozen committed outputs, the explicit payload-layout assertion and the separately coded JS reader
+provide the independent checks; generator equality alone would not. ENV-4-03 is a demonstrated
+limit of the current combined oracles.
+
+Both spec-table parsers extract the current inventory correctly: 45 Python ids, 41 JS ids, excluding
+the four planned live predicates and the appropriate CI/package predicates. A Python AST check
+found 52 actual `require` calls/45 ids; all match M48's regex. All 48 JS calls/41 ids also match;
+there are no multiline calls to omit. Throwaway controls detected both a new legal module
+predicate absent from the table and a new table predicate absent from Python. JS's corresponding
+set-equality assertion was inspected and passed in the suite. These regexes depend on the
+specification's prescribed single-line call form. Exactly one shared case has `ci_only` set:
+`manifest_duplicate_key`; JS skips that case only.
+
+M48's Python worker asserts the imported module path is inside its mutant directory and the test
+helper uses that same module; fixture imports append the original source path without shadowing
+it. The JS worker imports the supplied mutant URL. Outcomes compare with the committed expected
+original code and predicate, whose original assertions pass in the suites. Error outcomes are
+permitted by §6.5. The rerun's entire 89-line result body is byte-identical to the recorded body;
+recorded source-hash prefixes match the reviewed modules. Thus the original M48 result is real,
+with the coverage limitation in ENV-4-03.
+
+The browser module retains only the returned login key and returned payload views as its public
+results, with no logging or global key/plaintext cache. Static calls and a WebCrypto boundary probe
+confirmed KEKs are non-extractable/`unwrapKey` only and DEKs non-extractable/`decrypt` only.
+Logout and caller retention are still stage 2.6's responsibility.
+
+Makefile's Node-major check, test-file wildcard and recursive `test-js` gate execute as documented;
+README/CLAUDE gate claims agree with the integration. `cryptography>=46,<47` agrees with the lock's
+46.0.7 and installed environment; no dependency sync was needed. N68–N72 remain recorded mandate/
+anticipated decisions, not independently verified conversation history or authorization for this
+reviewer. N71's fallback was not needed; M49 is below N67's second at 600,000. M47's browser-pending
+text describes its earlier measurement; M49 and the revised specification explicitly supply the
+later Chrome result. Phone timing, Chrome refusal coverage, actual live checks and artifact/preview
+oracles remain marked unmeasured/planned in their assigned stages.
+
+### 5. Checks executed; checks not performed
+
+The reviewer ran the requested gate before appending this report, reading its own exit code: **0**.
+
+```bash
+UV_CACHE_DIR=/tmp/bi-env-review-r4-uv-cache PYTHONDONTWRITEBYTECODE=1 \
+  PYTEST_ADDOPTS='-p no:cacheprovider' \
+  ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 \
+  make check UV_RUN='uv run --frozen --no-sync'
+```
+
+Relevant literal output (the individual JS test lines are omitted):
+
+```text
+secrets review: nothing found in the tracked files
+history review: nothing found (82 occurrence(s) of values public by design, 2 registered; 0 blob(s) skipped)
+docs-check: 19 documents, 103 file links, 38 anchors, 0 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 0 accepted, 3 pending — record consistent
+255 passed in 17.29s
+ℹ tests 138
+ℹ pass 137
+ℹ fail 0
+ℹ skipped 1
+```
+
+M48 command, with the same `/tmp` uv cache and bytecode writes disabled, exited **0**:
+`uv run --frozen --no-sync python evidence/20261106/m48_counter_proof.py`.
+
+```text
+== python: 45 predicates in src/bi_como_codigo/envelope.py
+== javascript: 41 predicates in web/envelope.mjs
+== 236 dedicated case runs, 0 surviving
+```
+
+Runtime: Python **3.13.14**, `cryptography` **46.0.7**, Node **v24.18.0**.
+Additional `/tmp` Python/Node probes exited **0**. Representative literal output:
+
+```text
+Binary parser differential -> 2180/2180 agree (values and exact refusals)
+Fresh Python production package -> JS opened 4/4 prefix-related profiles; KEKs non-extractable, unwrapKey only
+WebCrypto DEK trace -> non-extractable, decrypt only
+Python inventory controls -> extra legal module predicate detected; extra table predicate detected
+Python mutation coverage -> all 52 require calls matched; 45 distinct ids; no multiline calls
+JS mutation coverage -> all 48 require calls matched; 41 distinct ids; no multiline calls
+```
+
+The differential corpus covers every cut of the two-slot vector, three byte-flip masks at every
+envelope position, all 256 values at sampled first/following report/profile bytes, prefix-related
+slot orders, payload cuts/byte changes and length extremes. It compares returned field bytes as
+well as exact refusals; it is not exhaustive. The extra production package uses `a`, `a0`, `a_`,
+`aa`, and all four profiles open it in JS. Numeric and surviving-mutant outputs are recorded with
+the respective findings, not counted as successful conformance.
+
+`node evidence/20261106/m49_browser_latency.mjs` also exited **0**, with a throwaway profile:
+
+```text
+2026-11-06T03:57:55Z
+iterations=100000 min=61.0ms median=82.3ms max=107.1ms
+iterations=600000 min=359.9ms median=389.0ms max=562.2ms
+iterations=1000000 min=603.1ms median=611.1ms max=624.0ms
+iterations=2000000 min=1197.3ms median=1203.3ms max=1241.4ms
+```
+
+It reports a secure context, HeadlessChrome 156 and Intel i5-7200U. The author's committed medians
+377.7/1237.2 ms and range at 600,000 agree exactly with M49's recorded output; this rerun supports
+the latency decision without replacing that historical measurement. It measures derivation only.
+
+No full negative suite in Chrome, phone timing, live package comparison, CI upload/artifact
+inspection, preview matrix, logout, actual Parquet interpretation or exporter schema/totals
+semantics was run: those are outside this stage or explicitly deferred. Standards/OWASP links
+were not fetched again; unchanged standard-vector values and round-1 source evidence were reused,
+and the current known-answer tests ran in both suites. No network/source claim is inferred from
+the latency probe. The fixture generator was imported only, never run as a rewriting script.
+
+After appending the report, the secrets guard and docs-check both exited **0**;
+`git diff --check` passed. A byte-prefix/scope assertion confirmed rounds 1–3 and their
+Status entries are preserved byte for byte and only `DOSSIER.md` changed.
+
+### 6. Limitations and open questions
+
+There is no confirmed current production DEK/IV reuse or browser key-extraction defect. The two
+surviving test mutants establish validation gaps, not vulnerabilities in the unmodified readers.
+The numeric contract needs an explicit consistent choice; no Owner clarification was needed to
+establish the disagreement. Strict totals validation here concerns only the current producer's
+input contract; future CI must still validate totals independently. No hypothesis about hostile
+multi-key ciphertexts, arbitrary mutated in-memory manifests or later release workflows is promoted
+to a finding. Public passwords and the trusted release path remain the stated threat boundary.
+Review conclusions are limited to the four pinned commits and the requirements examined above.
+
+### 7. Handoff to Claude Code
+
+- [ ] **ENV-4-01:** specify one numeric manifest contract and add shared decimal/exponent, boolean,
+  fraction, negative-zero and range controls. Both validators and complete reader outcomes must
+  agree, with only the documented duplicate-key distinction.
+- [ ] **ENV-4-02:** reject invalid UTF-8/JSON, non-object and duplicate-key totals in producer
+  validation before encryption; prove rejection and retain a valid-object round trip.
+- [ ] **ENV-4-03:** regenerate all fixed-byte and field-boundary cases required by §6.3; prove
+  partial-magic mutants fail in Python and JS; rerun both suites and M48 with updated evidence.
+- [ ] **ENV-4-04:** compare unwrapped DEKs and parsed IVs across producer calls; independently kill
+  DEK-only and IV-only reuse mutants without adding a production determinism hook.
+- [ ] **ENV-4-05:** correct PLAN's prior-review count to seven.
+- [ ] Preserve the resolved ENV-3-01 framing split and existing exact refusal assertions. Keep
+  ENV-2-02's live controls and stage 2.2b/2.6 checks explicitly pending until executed there.
+
