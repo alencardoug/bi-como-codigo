@@ -139,6 +139,11 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | PGATE-1-04 | docs/package_gate.md:214 | Medium: MUT-07/08 stop at existing entitlement checks, not inventory_exact | `adjustment` | Applied (§2.2): `declarations_agree` on the two trusted files first, then `inventory_exact`, then `entitlements_exact`; MUT-08–10 reach each. |
 | PGATE-1-05 | docs/package_gate.md:104 | Medium: the SUM expression rejects valid DECIMAL(38,s) data with a representable total | `adjustment` | Applied (§2.1) by the Owner's N82: summed columns limited to integer types and DECIMAL(p≤18); edge tests at the limit, cancellation in both orders, BIGINT limits, scale 0, negative zero, empty, all null; the oracle at 60 digits. |
 | PGATE-1-06 | docs/package_gate.md:133 | Low: the no-deploy-capability claim overlooks preview's second verify call | `observation` | Applied (§5.3): `preview` checks paths and SHA-256 against `verify`'s listing and digest, and never re-runs `verify`; §4's claim narrowed to that. |
+| PGATE-2-01 | docs/package_gate.md:149 | High: the content-bound query cannot bind a VARCHAR, and its aggregate has no empty-input result | `blocking` | Applied in rev. 3 (§4 step 6): `COALESCE(SUM(octet_length(encode(c))), 0)`, re-measured on 1.5.6 (15 bytes for `fixture_a`+`ação`; 0 for no row and all null); tests on accented, empty, all-null and an oversized table. |
+| PGATE-2-02 | docs/package_gate.md:206 | High: a clear scalar row count is outside every declared value predicate | `blocking` | Applied (§6): the totals' `rows` searched with the numbers; MUT-07b is the count alone in HTML. |
+| PGATE-2-03 | docs/package_gate.md:204 | Medium: mandatory public metadata and release dates can refuse an honest package | `adjustment` | Applied (§6) with the Owner's N83: in the manifest only the profile labels are searched; date collisions go through the public list, tested both ways (MUT-07d); fixtures chosen not to collide; MUT-07c a value in a label; the three numeric spellings specified, negatives and grouped integers tested. |
+| PGATE-2-04 | docs/package_gate.md:184 | Medium: the new check-live command has no ordering rule that preserves successful reruns | `adjustment` | Applied (§5.2): one command, ordered — tip and channel, already live → end, then the predecessor, then the clone; `live` carried through `release-record`, `Record` and `decide`; whole-command rerun, unchanged re-promotion and first-release controls. |
+| PGATE-2-05 | docs/package_gate.md:176 | Low: envelope paths do not identify the manifest included in the live comparison | `observation` | Applied (§5.1–§5.2): the manifest's SHA-256 recorded and compared at `promote`, from the site's URL, failing closed; MUT-23 is the label change; the 64-bit prefix declared in §11. |
 
 ### Round 1 — evidence
 
@@ -443,4 +448,268 @@ GitHub/Firebase runs. No new workflow execution was possible within the read-onl
   example and integer, empty, null and canonical-format controls must pass with a real oracle.
 - [ ] PGATE-1-06: record or correct the credentialed-parser exposure in its owning document;
   specify the two verifier callers' inputs and prove that preview authenticates the checked bytes.
+
+### Round 2 — evidence
+
+#### 1. Conclusion
+
+**Changes required.** Two blocking defects would reject the honest fixture at the content bound
+or allow a clear control value through. Two adjustments concern honest-content collisions and
+promotion ordering. The observation concerns predecessor identity outside the ordinary transitions
+of the revised gate; no practical hash-collision attack was demonstrated.
+
+#### 2. Reviewed scope and version
+
+- Branch: `main`; HEAD: `3262446933e134184b79ffae59b74b0e245a756c`.
+- Explicit comparison baseline: `018252d82bd819652bb7791059652d3b0bec713a`.
+- Exactly `87c9df4`, `f517d86`, `3262446`, affecting PLAN.md, docs/package_gate.md and DOSSIER.md.
+  Existing code and owning documents were read for integration evidence, not reviewed as a new
+  implementation. This remains a plan review: the revised gate does not exist yet.
+- Clean working tree at entry. Only DOSSIER.md's review table and this new evidence section were
+  changed. Round 1, including the author's Status entries, is preserved. No commit, remote write,
+  deployment or eng_dados operation was performed.
+
+#### 3. Findings by severity
+
+**PGATE-2-01 — Make the content-bound query executable, including empty input. High / blocking.**
+
+Where: docs/package_gate.md:149; docs/package_gate.md:154; docs/package_gate.md:285.
+
+Executed on DuckDB 1.5.6, using a real Parquet with `rotulo VARCHAR`, `valor DECIMAL(18,2)`,
+`unidades INTEGER`, `dia DATE`, a unique grain and correct independent totals:
+
+```text
+honest Parquet rows/grain => (1, 1)
+honest Parquet totals => ('1.25', '600000')
+planned content_bound => Binder Error: No function matches the given name and argument types 'octet_length(VARCHAR)'. You might need to add explicit type casts.
+```
+
+The available overloads are BLOB and BIT. Thus the literal `sum(octet_length(c))` over the
+fixture's VARCHAR fails and becomes `parquet_unreadable`; the honest fixture cannot pass, and
+MUT-19 cannot reach its promised refusal. A separate control using `octet_length(encode(c))`
+returned 15 for `fixture_a` plus `ação`, but SUM returned NULL for both zero rows and all-null
+VARCHAR cells. Those inputs are allowed; comparing that result with a bound is not defined by
+the plan and can refuse them too. This is query execution, not a run of the future gate.
+
+Correction: specify a UTF-8 byte-length expression supported by the pinned engine, with an
+explicit zero for an empty/all-null aggregate, for example
+`COALESCE(SUM(octet_length(encode(c))), 0)`. Validate a real honest Parquet, accented strings,
+empty/all-null VARCHAR inputs, and an oversized control refused specifically as `content_bound`.
+
+**PGATE-2-02 — Inspect the scalar control count too. High / blocking.**
+
+Where: docs/package_gate.md:206; docs/package_gate.md:208; PLAN.md:127;
+docs/encryption_envelope.md:147.
+
+N81 says every decrypted value, with the public-list exception. Section 6 searches the complete
+totals object and numeric cells/sums, but not `totals.rows` by itself. An ordinary build that
+prints the report's record count can therefore publish a clear encrypted control figure.
+
+Executed counterexample: a real Parquet of 1,140 unique `fixture_<i>` labels, `valor=1.25`, all-null
+nullable `unidades`, and `dia=2026-01-01`; totals are rows 1140, valor 1425.00, unidades 0. The
+package was sealed and passed the existing matrix/verifier. The complete new byte predicates of
+§6 were simulated over the non-envelope artifact, before and after appending `<p>1140</p>` to
+index.html, including Brazilian renderings:
+
+```text
+schema/rows/grain/sum => 1140 1140 1425.00
+honest artifact declared-value hits => []
+row-count-only artifact declared-value hits => []
+existing verify accepted artifact => True
+totals.rows leaked outside envelope => True
+totals.rows among numeric cells or sums => False
+```
+
+This is a direct decimal spelling, without escaping or another format. No future gate was run;
+the omission follows statically from the exhaustive list in §6. The corrected content-bound
+expression is needed to reach this inspection at all (PGATE-2-01).
+
+Correction: include the eligible scalar count from the parsed totals in the canonical/Brazilian
+inspection, under N81's thresholds and public list. Add an isolated row-count-only mutation and
+counter-proof: with all earlier checks valid it must refuse as `clear_value`; the honest control
+and explicitly approved public values must still pass.
+
+**PGATE-2-03 — Resolve public-content collisions before promising honest acceptance. Medium / adjustment.**
+
+Where: docs/package_gate.md:204; docs/package_gate.md:211; docs/package_gate.md:215;
+docs/encryption_envelope.md:200; site/releases.md:6.
+
+Excluding envelopes alone does not exclude the manifest's public metadata. An allowed VARCHAR
+cell `600000` necessarily matches its mandatory iterations field, irrespective of encryption.
+The numeric case also applies when that integer meets the chosen significant-digit convention.
+A DATE cell `2026-11-06` matches the existing release log. Neither artifact contains a rendered
+report cell. Nevertheless §6's unconditional substring rule refuses them, with the fixture's
+public list required to start empty. Executed byte probes confirmed:
+
+```text
+numeric scan canonical 600000 in honest manifest => True
+matching manifest field => iterations: 600000
+ISO date 2026-11-06 in honest releases.md => True
+```
+
+Package ids, salts and digest-bearing names inside manifest.json also admit incidental matches
+for short hex/numeric values. The exact future fixture rows are not specified, so this is a
+demonstrated allowed-input collision, not a claim that every possible fixture fails. The same
+issue recurs with ordinary data and the later public governance content.
+
+Correction: state how the fixtures and public metadata obtain approved exceptions under N81,
+and test the actual honest page, release log and manifest together. Use the protected list with
+specific public reasons where appropriate; a broader structural exemption needs an explicit
+Owner-compatible rule. Do not simply exempt all manifest bytes: its free-text profile labels
+currently need only be strings, so that would admit injected values there. Validate deliberate
+metadata/date collisions and unlisted leaks in HTML, releases.md and manifest labels. Specify
+signed Brazilian decimals and scale-zero integer grouping in the same test contract.
+
+**PGATE-2-04 — Order the predecessor check after the already-live guard. Medium / adjustment.**
+
+Where: docs/package_gate.md:184; docs/package_gate.md:305; docs/package_gate.md:285;
+docs/publishing_pipeline.md:235; src/bi_como_codigo/release.py:590.
+
+The plan introduces a separate `check-live` command in promote.yml, after steps 2–3 and before
+the clone, but never orders it against step 4. Today step 4 is inside the existing `promote`
+command. Placing the new command before that existing call refuses an ordinary successful rerun:
+B was checked against L and promoted; its unchanged record still names L, while live now names B.
+It stops before reaching the already-live guard, contradicting §9's promised passing rerun.
+
+Executed with symbolic predecessor lists and the existing `release.promote`, replacing Hosting
+with an in-memory stand-in and making any clone an assertion failure:
+
+```text
+successful rerun: predecessor check before step 4 => refuse
+successful rerun: retained step 4 => already live
+```
+
+This is a protocol-ordering gap, not evidence of an implemented regression. Reading "right before
+the clone" as *after step 4* would fix it; write that order explicitly in the pipeline's owning
+protocol and command integration. After tip/channel checks: if live already serves the approved
+VERSION_ID, finish; otherwise compare the recorded predecessor, treating absent live as empty,
+and only then clone. N80 still applies to every replacement. Validate the full command/workflow
+sequence on rerun, unchanged-package re-promotion under another VERSION_ID, first release, and
+MUT-22; testing `check-live` alone cannot prove the rerun control.
+
+**PGATE-2-05 — Envelope paths omit part of the predecessor identity. Low / observation.**
+
+Where: docs/package_gate.md:176; docs/package_gate.md:187;
+docs/encryption_envelope.md:404; src/bi_como_codigo/envelope.py:233.
+
+Executed: change only `profiles[0].label` in a generated manifest and keep all envelopes:
+
+```text
+manifest-only label change passes matrix => True
+live paths equal => True
+live package_id equal => True
+profile entries equal => False
+manifest hashes equal => False
+```
+
+Such manifests are valid; the pre-2.2b verifier compares entitlement sets, not labels. The API path
+comparison cannot distinguish their versions, although the owning same-package predicate compares
+profile entries too. Conversely, changing package_id or a used profile's salt with those same
+envelope bytes does NOT yield another valid package: the header binds both. This disproves that
+stronger proposed counterexample. Also, the 16-hex prefix is a truncated digest, not proof of
+byte identity; no collision was constructed.
+
+The observation is low because an ordinary transition through the revised same-id check would
+already reject the label change. Exposing the gap needs a pre-gate/Owner-created live version,
+an out-of-protocol write, or an adversarial collision. No ordinary revised-pipeline bypass was
+demonstrated. Correction: bind the manifest as well, or document and test precisely the trusted
+version/transition assumptions under which path equality is used. Do not equate a raw SHA-256
+with Hosting's compressed-file hash. Validate a same-envelope/different-label predecessor and a
+normal unchanged re-promotion, without moving decryption into the credentialed job.
+
+#### 4. Round 1 reassessment and checks executed
+
+| Round 1 finding | Assessment of revision 2 | Evidence and remaining condition |
+|---|---|---|
+| PGATE-1-01 | Partially resolved | The original L → A → B schedule now refuses at promotion when A's paths differ from L's. Stale-CDN reads and false 404s likewise refuse if the API lists different envelopes. PGATE-2-04 and 05 qualify reruns and identity. |
+| PGATE-1-02 | Resolved in the plan | Fixed codes and `from None` replace raw diagnostics. A subprocess boundary harness on malformed UTF-8 emitted only `refused: parquet_unreadable`, no stderr, and no marker in stdout/stderr/summary. Python retained `__context__` but set `__suppress_context__`; the current CLI prints only the caught Refused. No native DuckDB stderr leak was reproduced. This was a harness, not the future CLI or GitHub annotations. |
+| PGATE-1-03 | Partially resolved | `fixture_a` and `1.25` now meet §6's predicates; Brazilian numeric and full-totals mutations have declared checks. PGATE-2-02 and 03 remain. |
+| PGATE-1-04 | Resolved in the plan | `declarations_agree` precedes candidate reads; independently valid but disagreeing trusted files are testable via the root argument. A strictly valid missing/extra inventory reaches `inventory_exact` before entitlement comparison; entitlements alone reach `entitlements_exact`. The counter-proof may then stop at a later predicate, as envelope §6.5 permits. |
+| PGATE-1-05 | Resolved in the plan | N82 excludes the demonstrated DECIMAL(38,s) sum. Executed DECIMAL(18,2) limit/cancellation in both orders, BIGINT extremes, scale 0, negative zero, empty and all-null sums all matched an independent 60-digit decimal oracle. The new empty content-bound issue is PGATE-2-01. |
+| PGATE-1-06 | Resolved in the plan | Listing plus per-file hashes and canonical digest authenticate the already-verified bytes without reopening Parquet. The later check-version and authenticated release-record steps remain; §5.3 does not replace them. Actual workflow integration is not implemented. |
+
+Promotion variants were walked through against the owning protocol, with a symbolic path-equality
+probe: original schedule refuses; unchanged-package re-promotion passes when the predecessor is
+unchanged; first release compares empty to empty; stale package/404 reads refuse against a
+nonempty different API listing. A direct Owner push between preview and approval changes main's
+tip and stops at promote step 2, before this check. A successful rerun requires the ordering in
+PGATE-2-04. These are static/model results, not live Hosting measurements.
+
+Executed with `UV_CACHE_DIR=/tmp/pgate-r2-uv-cache`; each command exited 0:
+
+```text
+make test:
+357 passed, 1 warning in 38.99s
+
+make secrets:
+secrets review: nothing found in the tracked files
+
+make secrets-history:
+skipped (3) — skipped is not verified:
+  3465b63e867b  site/package/P01.52ac319b77e20924.bice  skipped: not UTF-8 text
+  2dd399f81d55  site/package/P02.6f2834bb50346c5e.bice  skipped: not UTF-8 text
+  55b744ce87bf  site/package/P13.68011daba04f9311.bice  skipped: not UTF-8 text
+history review: nothing found (122 occurrence(s) of values public by design, 2 registered; 3 blob(s) skipped)
+
+ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 make docs-check:
+docs-check: 25 documents, 153 file links, 53 anchors, 22 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+```
+
+The warning is the intentional repeated ZIP entry. DuckDB probes used
+`uv run --no-project --with duckdb==1.5.6 python` under /tmp, with the repository's existing
+cryptography dependency read for envelope probes. No fixture generator was run against site/.
+The author's `ENG_DADOS_DIR=… make check` at 3262446 is **author-reported**, not reviewer-executed.
+
+Final `git diff --check` exited 0. A byte comparison against HEAD's dossier, after removing only
+the five inserted rows and the appended section, and `git diff --name-only` returned:
+
+```text
+original dossier preserved byte-for-byte: True
+new findings with empty Status: 5
+files changed: DOSSIER.md
+```
+
+#### 5. Limitations and open questions
+
+- No future gate, counter-proof suite, workflow, GitHub annotation or live promotion was executed:
+  none is implemented, and this review permits no remote writes. Historical run claims were not
+  revalidated. Full `make check` and the JavaScript suite were not run; the permitted individual
+  checks above cover the review's local validation. Green legacy tests do not validate this plan.
+- From None suppresses traceback rendering, not arbitrary logging or native writes. Actual CLI
+  tests must capture subprocess stdout/stderr (including native file descriptors), annotations,
+  step summary and release.json; the successful record must remain restricted to public metadata.
+  Column names from the protected contract are public; substituting actual unknown candidate
+  names in diagnostics is not authorized by §7.
+- Carry `live_envelopes` through the authenticated release-record/decide/promote path. Today the
+  release-record omits it, Record/select_record drop it, and verified expires after 7 days while a
+  preview lasts 30. The plan's required comparison implies this wiring, but does not specify it;
+  do not depend on retrieving the expired verified artifact or invent a missing-field default.
+- MUT-01 must change a digest digit after the filename's 16-digit prefix, or consistently refresh
+  the name and path, to reach integrity_mismatch. Today's T6 unit case changes the first digit and
+  instead fails manifest_file_form. This existing test is integration evidence, not a new scoped
+  code defect; revision 2's exact-code assertions must use a reachable case.
+- No new violation of synthetic-source rule 2 or metric rule 3 was found: disposable fixtures are
+  explicitly authorized by the stage plan; control sums audit exported columns, not business
+  metrics. M19 remains local to 2.4 by N76. Section 10 explicitly schedules the owning-document
+  updates for totals and workflow steps; their present future-tense differences are not separate
+  defects. Preserve one owner when implementing those updates.
+- DuckDB-WASM compatibility, hostile-parser isolation, actual exporter projections and CDN/API
+  behavior across a real promotion remain unmeasured. The content scan's declared encoding and
+  small-value exclusions remain limitations accepted by N81, not new findings.
+
+#### 6. Handoff to Claude Code
+
+- [ ] PGATE-2-01: use a supported UTF-8 byte length and zero for empty/all-null aggregates. Honest,
+  accented and empty controls pass; oversized data reaches exactly content_bound.
+- [ ] PGATE-2-02: cover scalar totals.rows. A count-only HTML mutation reaches clear_value; its
+  counter-proof and honest/public-value controls establish attribution and acceptance.
+- [ ] PGATE-2-03: make approved public-content handling concrete under N81. Manifest and release
+  date collisions pass with documented public reasons; unlisted HTML/Markdown/manifest-label
+  leaks fail; negative Brazilian decimals and grouped scale-zero integers are covered.
+- [ ] PGATE-2-04: state and integrate step 4 before predecessor refusal, then check immediately
+  before a replacement clone. Full-sequence rerun, unchanged re-promotion and first-release
+  controls pass; MUT-22 still refuses. Carry the authenticated predecessor record through approval.
+- [ ] PGATE-2-05: record the identity limitation in the owning protocol or strengthen the binding
+  to include the manifest. Prove the stated behavior for same envelopes with different profile
+  labels, and retain the unchanged-package control without credentialed decryption.
 
