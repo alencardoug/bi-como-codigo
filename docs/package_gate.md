@@ -16,7 +16,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-06 — revision 3: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
+| Date | 2026-11-06 — revision 4: round 3 applied (PGATE-3-01, 02). Revision 3 is `b1f6b93`: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
 | Author | Claude Code |
 | Status | **Plan, under Codex's review before execution.** The Owner's decisions N76–N83 (2026-11-06) shape it; nothing of it is implemented |
 
@@ -176,9 +176,7 @@ the site from the repository variable, never written in the code — with no cre
   a change of them is not a case of 2.2b;
 - `release.json` records **what was compared**, as `live`: the sorted list of live's envelope
   paths — each name carries the first 16 hex digits of the envelope's SHA-256, which the manifest
-  validator and the integrity check bind to its bytes — and the SHA-256 of live's manifest bytes,
-  since the paths alone do not identify it (a profile label can change with the same envelopes,
-  PGATE-2-05); or `"none"` after a 404. It is public metadata, like the rest of the record. The
+  validator and the integrity check bind to its bytes —; or `"none"` after a 404. It is public metadata, like the rest of the record. The
   preview job copies it into the authenticated `release-record` (pipeline §4.3), `decide` reads it
   with the record and passes it to `promote` — the `verified` artifact, kept 7 days, is not relied
   on.
@@ -193,16 +191,27 @@ cannot be split across workflow steps (PGATE-2-04):
 1. the re-checks of the tip and of the channel (pipeline §4.4, steps 2–3);
 2. **live already serves `VERSION_ID`** → end, nothing to do — a re-run of a successful promotion,
    whose record still names the predecessor it replaced;
-3. otherwise, **live is still what `verify` compared**: live's current version is read through
-   Hosting's API and its files listed (as `check-version` does); its `package/*.bice` paths must
-   equal the recorded ones — none, for `"none"` — and live's manifest, fetched from the site's URL
-   and decoded as `check-version` decodes, must have the recorded SHA-256. Otherwise it stops: *live
-   changed since this preview; a new PR previews against it* — the recovery of pipeline §4.5;
+3. otherwise, **live is still what `verify` compared**, read only through Hosting's API (N80):
+   - recorded **`"none"`** (PGATE-3-01): live must have no package — no live channel release, or a
+     live version whose file list has no path under `package/`. A package that appeared since
+     `verify` stops it; nothing else is required, since there is no predecessor to compare;
+   - recorded **paths**: live's current version's file list (as `check-version` reads it) must
+     hold, under `package/`, exactly the recorded `*.bice` paths and `manifest.json`.
+
+   Otherwise it stops: *live changed since this preview; a new PR previews against it* — the
+   recovery of pipeline §4.5. An API read that fails is a refusal of its own, *live could not be
+   read*, never "changed" and never a pass;
 4. the clone, and its read-back (pipeline §4.4, steps 5–6).
 
-The paths come from the API, not the CDN, so a stale public read in `verify` fails closed here; a
-stale manifest read here fails closed too, never open. Nothing is parsed beyond the manifest's
-bytes, nothing is decrypted in this job.
+Every read here is the API's, so a stale public read in `verify` fails closed at this step, and no
+CDN response decides a promotion. Nothing is parsed or decrypted in this job.
+
+**What the paths do not identify** (PGATE-2-05, PGATE-3-02): a live manifest changed with the same
+envelopes — a profile label, say. The pipeline cannot produce one: under the same `package_id`
+`verify` requires every manifest and profile entry unchanged (envelope §6.4), and a new
+`package_id` means new envelopes, since the header carries it. It takes a write to live outside
+the pipeline, which §11 declares. Binding the manifest's bytes to the API's version would need
+Hosting's stored-file hash, which is of the compressed upload, not of the bytes — not attempted.
 
 ### 5.3 `preview` no longer re-runs `verify` (PGATE-1-06)
 
@@ -298,7 +307,7 @@ under test.
 | MUT-20 | The live `package_id` with one envelope re-sealed | `package_id_reused` |
 | MUT-21 | A new `package_id` reusing a DEK, an IV, a salt of live | `dek_reused`, `iv_reused`, `salt_reused` |
 | MUT-22 | PGATE-1-01's schedule: previewed against L, live became A before the approval | `promote`, §5.2 step 3: live changed |
-| MUT-23 | Live's envelopes unchanged, its manifest changed (a profile label) | `promote`, §5.2 step 3: live changed |
+| MUT-23 | A package appeared on live after a `verify` that recorded `"none"` | `promote`, §5.2 step 3: live changed |
 | — | M19, two labels swapped | **Not at this gate** (N76): counts, sums and grain are unchanged; stage 2.4's row-level equality with the views refuses it |
 
 The tests:
@@ -307,7 +316,8 @@ The tests:
    workflow runs — on the mutated `deploy/` (MUT-22 runs the promotion's check against a stand-in of
    Hosting's API) and asserts the exact code and predicate; the controls — the honest fixture, with its page, `releases.md` and
    manifest; a fresh package against live; the live package unchanged; a promotion whose live did
-   not change; the first release, against `"none"`; a re-run of a successful promotion, through the
+   not change; the first release against `"none"`, with no live release and with a live version holding no
+   `package/`, both through the whole command; a re-run of a successful promotion, through the
    whole command — pass. Each new check has its edge cases as tests too: sums
    at `DECIMAL(18,s)`'s limit and with cancellation in either row order, `BIGINT` at its limits,
    scale 0, negative zero, no row, all null; `content_bound` on accented text, no row and all null,
@@ -354,6 +364,7 @@ The tests:
   digits, nor a text of one or two characters; in the manifest it searches only the labels, so a
   hostile author could encode a number in a strictly typed field such as `iterations` (N83, an
   adversarial limit).
-- The live identity of §5.2 is the envelope paths — 64-bit digest prefixes, not full digests — and
-  the manifest's SHA-256; no collision was constructed (PGATE-2-05).
+- The live identity of §5.2 is the envelope paths — 64-bit digest prefixes, not full digests —;
+  no collision was constructed. A manifest changed on live with the same envelopes is not seen,
+  and takes a write to live outside the pipeline (§5.2).
 - M19 is not caught here (N76).
