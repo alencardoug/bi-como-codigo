@@ -15,7 +15,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-06 — revision 2: round 1 of Codex's review applied — Hosting reads moved to the authenticated job (PIPE-1-01); the record authenticated by its run, all of `.github/` protected, and the guarantee narrowed by the Owner to no credential Google accepts (PIPE-1-02, N74); T8 in two layers (PIPE-1-03); no workflow-level concurrency (PIPE-1-04); T4b (PIPE-1-05); exact served bytes, no fallback (PIPE-1-06); environment names as variables (PIPE-1-07); the approval's lifetime (PIPE-1-08). Revision 1 is `88d4c33` |
+| Date | 2026-11-06 — revision 3: round 2 applied — a queue for `promote` (PIPE-1-04), the margin re-checked at use and a recovery through a new PR (PIPE-1-08), the run's documented `path@ref` and its attempts (PIPE-2-01). Revision 2 is `4814838`: round 1 of Codex's review applied — Hosting reads moved to the authenticated job (PIPE-1-01); the record authenticated by its run, all of `.github/` protected, and the guarantee narrowed by the Owner to no credential Google accepts (PIPE-1-02, N74); T8 in two layers (PIPE-1-03); no workflow-level concurrency (PIPE-1-04); T4b (PIPE-1-05); exact served bytes, no fallback (PIPE-1-06); environment names as variables (PIPE-1-07); the approval's lifetime (PIPE-1-08). Revision 1 is `88d4c33` |
 | Author | Claude Code, under the Owner's mandate for the night (N68) |
 | Status | **Plan for review by Codex, before execution.** Nothing in it exists yet but the Firebase project `bi-como-codigo` and its default Hosting site, created on 2026-11-06 at the Owner's request. Its resources are created only after the review finds no blocking item (N70) |
 
@@ -187,12 +187,16 @@ it ends green with "nothing to promote", or red with the reason:
 1. `github.sha` is **the current tip of `main`** (`git ls-remote`): a rerun of an older run, or a
    run overtaken by a later merge, stops here — before it can queue for `promote`;
 2. the push is the merge of exactly one PR (`commits/{sha}/pulls`), merged, from this repository;
-3. **the authenticated record** (PIPE-1-02): among the runs of the publishing workflow — found by
-   the workflow's ID on `main`, and each run's `path` equal to `.github/workflows/publish.yml`,
-   `event` equal to `workflow_run`, `head_branch` equal to `main`, all set by GitHub —, the latest
-   successful one whose triggering candidate run is for that PR's **head SHA**; its artifact
-   `release-record`, downloaded by that run's ID, names the same PR, head SHA and candidate run. A
-   check run or a URL a PR could write does not enter;
+3. **the authenticated record** (PIPE-1-02): the publishing workflow's ID is resolved from its
+   file (`actions/workflows/publish.yml`), and its runs are listed by that ID — never by display
+   name. A run counts when GitHub's own fields say it is the publisher on `main`: its `path` is
+   `.github/workflows/publish.yml`, bare or followed by `@main` or `@refs/heads/main` — the
+   documented form is `path@ref` (PIPE-2-01) —, its `event` is `workflow_run` and its
+   `head_branch` is `main`. Of those, the latest **successful attempt** whose triggering candidate
+   run is for that PR's **head SHA** is taken; it must hold exactly one artifact `release-record`
+   — two, from re-runs, is ambiguous and fails —, whose ID and SHA-256 enter the summary, and which
+   names the same PR, head SHA and candidate run. A check run or a URL a PR could write does not
+   enter;
 4. the tree of the merge, restricted to the inclusion list, equals the tree of the PR's head for
    the same paths (`git diff --quiet <head> <merge> -- <included paths>`): what was previewed is
    what was merged. A merge that changed included content — a conflict resolution, a squash of a
@@ -205,13 +209,18 @@ credential, and Hosting's control-plane reads require one (PIPE-1-01).
 
 **Job `promote`** — `needs: decide`, `environment: ${{ vars.ENV_PRODUCTION }}` — the Owner approves
 it in GitHub's interface —, `permissions: { id-token: write }`,
-`concurrency: { group: promote, cancel-in-progress: false }`, one clone at a time:
+`concurrency: { group: promote, cancel-in-progress: false, queue: max }`, one clone at a time.
+Without `queue: max` a group holds one pending job and a later arrival replaces it: a `decide`
+that passed condition 1 and finished late, after a newer merge's, would evict the newer one
+(PIPE-1-04). With the queue, every admitted run waits its turn and each re-checks freshness when
+it runs, so the newest merge is never dropped [assumed from GitHub's documentation; T5 proves it]:
 
 1. authenticate as `SA_LIVE`;
 2. re-check condition 1 — time passed while waiting for the approval;
 3. read `sites/{site}/channels/pr-<n>`: its release's version is still the recorded `VERSION_ID`
-   — **a preview advanced while the approval waited stops here**; and the version exists, not
-   deleted with an expired channel (§4.5);
+   — **a preview advanced while the approval waited stops here** —, the version exists, not
+   deleted with an expired channel, and the channel's expiry is still more than one day away,
+   re-checked now and not only before the approval (§4.5);
 4. read `sites/{site}/channels/live`: if it already serves `VERSION_ID`, end — nothing to do (a
    rerun after success); an empty live channel, on the first release, is not an error;
 5. `python -m bi_como_codigo.release promote --version VERSION_ID`, which runs exactly
@@ -227,10 +236,13 @@ it in GitHub's interface —, `permissions: { id-token: write }`,
 
 A preview channel lives 30 days (§4.3); when it expires, Firebase deletes the channel, its
 releases and the versions no other release references, within a day (PIPE-1-08). So an approval
-is valid only while the record's expiry is more than a day away (`decide`, condition 5) and the
-version exists (`promote`, step 3). Past that, the recovery is a new preview — re-run the
-candidate workflow on the PR, or push to it — and a new approval of the new version. A new build
-or the channel's latest version is never substituted under the old approval.
+is valid only while the channel's expiry is more than a day away — checked by `decide`
+(condition 5) and again by `promote` right before the clone (step 3) — and the version exists.
+Past that, the recovery is **a new previewable PR**: the merged PR is closed and `admit` admits
+only open ones, so a re-run of its candidate cannot help (PIPE-1-08). The new PR touches only
+non-protected content — a dated line in `site/releases.md` is enough —, is previewed, merged and
+approved like any other, and promotes its own version. A new build or the channel's latest
+version is never substituted under the old approval.
 
 ---
 
@@ -296,16 +308,16 @@ what counts as passing. All of them run on the fixture site; none touches report
 
 | # | Criterion | How | Passes when |
 |---|---|---|---|
-| T1 | A test PR gets a preview, and its promotion is the same version ID | A PR changing `site/index.html`; merge; approve `production` | The authenticated record's `VERSION_ID` equals the live channel's version after promotion, read from the API; §4.3 step 5 passed on the real fixture |
+| T1 | A test PR gets a preview, and its promotion is the same version ID | A PR changing `site/index.html`; merge; approve `production`; then a full re-run and a partial re-run of the publisher for another PR | The authenticated record's `VERSION_ID` equals the live channel's version after promotion, read from the API; §4.3 step 5 passed on the real fixture, with the headers and routing of the real `firebase.json`; the selected run's metadata, as GitHub returned it, kept; after re-runs, `decide` either selects one record deterministically or fails on two |
 | T2 | A fork's PR gets no credentials | A PR from a fork — of an organisation of the Owner's, created on the web (N70); without it, a `workflow_run` payload with another `head_repository` replayed against `admit` locally, the limit declared | `admit` stops; `preview` never starts; the run's log has no token request |
 | T3 | A same-repository PR changing the checker, the workflows or `firebase.json` gets no preview and no live update | PRs touching `src/bi_como_codigo/release.py`, `firebase.json`, the candidate's `permissions`, and one adding a fourth workflow; then a PR previewed at H1 that adds, at H2, a workflow writing a counterfeit record and check run copying H1's version (PIPE-1-02); merge one of them | `admit` stops on every one; after the merge, `decide` finds no authenticated record for the merged head and promotes nothing |
 | T4 | A preview advanced after approval does not replace the release | A PR previewed and merged; while `promote` waits for the Owner's approval, the channel `pr-<n>` is re-deployed by hand from the Owner's machine with other content — no workflow can do it once the PR is closed (§4.1) —; then the Owner approves | `promote` stops at its step 3: the channel's version is no longer the recorded one; live unchanged |
 | T4b | The clone takes the version, never the channel (PIPE-1-05) | A unit test of `release.py promote` against a stand-in `firebase` that records its arguments; and the same test against a copy whose command uses `{site}:pr-<n>` | The real command is exactly `hosting:clone {site}@{VERSION_ID} {site}:live`; the channel-form copy fails the test. The race between step 3 and the clone is not reproduced in CI: step 6's read-back is what catches it, and the stand-in shows the command could not have taken the channel |
-| T5 | A rerun of an older job does not replace the current release, and cannot crowd out the current one | Two PRs merged one after the other, both promoted, then the first one's promotion re-run; and the schedule of PIPE-1-04 — A waiting for approval, B merged and waiting, C, an older run, re-run | The re-run stops at `decide`'s condition 1; in the schedule, C stops at `decide` without queuing, B reaches `promote` and publishes after its approval, A stops at its step 2, and at most one clone runs at a time |
+| T5 | A rerun of an older job does not replace the current release, and cannot crowd out the current one | Two PRs merged one after the other, both promoted, then the first one's promotion re-run; the schedule of PIPE-1-04 — A waiting for approval, B merged and waiting, C, an older run, re-run —; and round 2's — C's `decide` passing freshness, then held (a `sleep` in a temporary copy of `decide` on `main`, removed after) while B merges and queues, then released | The re-run stops at `decide`'s condition 1; in both schedules B stays queued and publishes after its approval, C and A refuse at `promote` step 2, and at most one clone runs at a time |
 | T6 | A tampered manifest and a planted clear file are rejected, and nothing is uploaded | Two PRs: one with a manifest whose `sha256` of one envelope is wrong; one with a `.txt` holding a Parquet's bytes under the inclusion list | `verify` fails; `preview` never starts; the channel does not exist |
 | T7 | Federation accepts the publishing workflow on `main` in its environment | T1 itself | The token exchange succeeds |
 | T8 | … and rejects another workflow, another ref and another environment | **Two layers, tested apart** (PIPE-1-03). *The provider's condition:* a throwaway `federation-probe.yml` on `main` and the same file on a branch, both exchanging their token at Google's STS directly, with no environment — so GitHub's environment branch policy cannot be what refuses. *The bindings:* a temporary probe job added to `promote.yml` on `main` — an allowlisted workflow and ref, through a reviewed PR —, in each environment, exchanging its token at STS and then asking IAM Credentials for an access token of **each** service account: `preview` → `SA_PREVIEW` (control) and `preview` → `SA_LIVE`, `production` → `SA_LIVE` (control) and `production` → `SA_PREVIEW`. Then the probe file and the probe job are removed by another PR, and `release/setup.sh check` re-reads the policies | The condition refuses both probes at STS, with the error kept. In the bindings, STS succeeds for every probe job and IAM Credentials succeeds only for the two controls; the two cross attempts fail with a permission error, kept. A local copy of the expected policies with a pool-wide member makes `setup.sh check` fail — tried on the JSON, never installed in Google Cloud |
-| T10 | An approval past its version's life does not promote (PIPE-1-08) | A PR previewed and merged; before approving, its channel is deleted by hand (`hosting:channel:delete`), which schedules its version for deletion; then the Owner approves | `promote` stops at step 3 — the channel or the version is gone —, with the recovery of §4.5 in the error; live unchanged. Then a new preview and approval promote normally |
+| T10 | An approval past its version's life does not promote (PIPE-1-08) | (a) A PR previewed with `--expires` of 25 hours in a temporary copy of the preview step, merged, and approved while the channel still exists: under the one-day margin at `promote`; (b) a PR previewed and merged, its channel deleted by hand (`hosting:channel:delete`) before approving | (a) `promote` stops at step 3 on the margin, though channel and version exist; (b) it stops on the missing channel or version; both with §4.5's recovery in the error and live unchanged. Then the recovery — a new PR touching `site/releases.md` — previews, merges, is approved and promotes its own version |
 | T11 | A PR's own token is refused by Google (N74) | A same-repository PR whose candidate workflow is edited to `permissions: { id-token: write }` and tries the STS exchange; the PR gets no preview by §4.1 | GitHub issues the JWT; Google's STS refuses it on the provider's condition, error kept; nothing deployed |
 | T9 | No stored key | `gcloud iam service-accounts keys list --managed-by=user` for both accounts; the repository's and environments' secrets listed | Both lists empty |
 
