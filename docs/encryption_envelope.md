@@ -17,7 +17,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-06 — revision 2: round 1 of Codex's design review applied — observable refusal codes and a step 0 for the manifest (ENV-1-04), negative cases that reach their step, a third vector and the counter-proof of each check (ENV-1-01), separate DEK and IV reuse tests (ENV-1-02), identities matched over every byte (ENV-1-03). Revision 1 is `29a73b8` |
+| Date | 2026-11-06 — revision 3: round 2 applied — the counter-proof by predicate, with its table, and the ciphertext range isolated from its equality (ENV-2-01); the rule against the live package, keyed by `package_id` (ENV-2-02). Revision 2 is `fd8ca09`: round 1 of Codex's design review applied — observable refusal codes and a step 0 for the manifest (ENV-1-04), negative cases that reach their step, a third vector and the counter-proof of each check (ENV-1-01), separate DEK and IV reuse tests (ENV-1-02), identities matched over every byte (ENV-1-03). Revision 1 is `29a73b8` |
 | Author | Claude Code, at the Owner's request (stage 2.2a) |
 | Status | **Specification for review by Codex, before implementation.** Nothing in it is implemented. Measured so far: PBKDF2 latency in Node only (M47); the browser's is pending (§7) |
 
@@ -242,6 +242,11 @@ guess at what changed, since the reader has nothing to tell a wrong password fro
 | 8 | The ciphertext and tag are decrypted with the header as authenticated data | `decrypt_failed` |
 | 9 | The payload parses under §2.4, exactly | `payload_malformed` |
 
+A refusal carries its code and, for every step but 7 and 8, the `predicate_id` of the condition
+that failed (§6.5): the code is what the site and the tests branch on, the `predicate_id` what the
+counter-proof needs. The package checks of §6.4 refuse with `dek_reused`, `iv_reused` and, against
+the live package, `package_id_reused` and `salt_reused`, under the same rule.
+
 It returns the totals bytes and the Parquet bytes. The site shows a visitor one message per kind —
 *not entitled* for `not_entitled`, *does not open* for every other code —, never a partial report.
 
@@ -335,12 +340,13 @@ in Python only.
 | **A** integrity | `bit_flipped_unrefreshed` | One bit of the envelope, the manifest unchanged | `integrity_mismatch` (1) |
 | | `size_only` | The manifest's `size` changed by one, the envelope unchanged | `integrity_mismatch` (1) |
 | | `foreign_envelope` | P02's envelope served as P01, or an envelope of another package, the manifest unchanged | `integrity_mismatch` (1) |
-| **H** header | `header_truncated` | Cut at every field boundary of §2.1–§2.2 and inside the ciphertext | `header_malformed` (2) |
+| **H** header | `header_truncated` | Cut at every field boundary of §2.1–§2.2 that lies before the end of `ciphertext_len`, and inside each multi-byte field | `header_malformed` (2) |
 | | `header_trailing_byte` | One byte appended | `header_malformed` (2) |
 | | `header_fixed_byte` | Each byte of offsets 0–14 changed in turn | `header_malformed` (2) |
 | | `header_identity_bytes` | `report_id` or a `profile_id` with a final line feed, out of range, empty or one over its bound, its length byte adjusted to match | `header_malformed` (2) |
 | | `header_slots_shape` | `slot_count` 0 or 9; two slots with the same id; slots out of order | `header_malformed` (2) |
-| | `header_ciphertext_len` | `ciphertext_len` 0, above 32 MiB, one more or one less than the file holds | `header_malformed` (2) |
+| | `header_ciphertext_len` | `ciphertext_len` one more or one less than the file holds, within the bounds; and the file cut right after the header or inside the ciphertext or tag | `header_malformed` (2) |
+| | `header_ciphertext_range` | The file **rebuilt** so that it holds exactly what `ciphertext_len` says, and `ciphertext_len` 0 or 33,554,433 (one over 32 MiB): the length agrees, only the range is broken (ENV-2-01). The bytes need not be valid GCM output | `header_malformed` (2) |
 | | `header_iterations_bounds` | A slot's `iterations` 599,999 or 2,000,001, the manifest unchanged | `header_malformed` (2) |
 | **I** identity | `package_expected_differs` | The manifest's `package_id` changed, the envelope unchanged | `identity_mismatch` (3) |
 | | `report_served_as_other` | P02's envelope served as P01 | `identity_mismatch` (3) |
@@ -373,8 +379,31 @@ both with the public passwords:
   of the package share a DEK (`dek_reused`), and no two share an IV (`iv_reused`). The first
   protects the access as well as GCM: a DEK shared by P13 and P01 would let the `logistica` slot
   of P13 open P01. Fresh random values make an accidental repeat negligible, not impossible; the
-  checks make it caught. Where the live package is available, its DEKs and IVs are compared too,
-  with the same two codes — the gate reads it at stage 2.2b [planned].
+  checks make it caught. Against the live package, the rule is in the next item.
+- **Against the live package** (ENV-2-02). A `package_id` names **one run of the producer**, so
+  the comparison starts from it:
+  - **the same `package_id` as live**: the candidate must be live **unchanged** — the same set of
+    reports and, for each, byte-identical envelope bytes and manifest entry, and the same profile
+    entries. It is the same encryption, promoted again, and it is accepted with no reuse check,
+    since nothing was encrypted. Any difference under that `package_id` — one envelope byte, one
+    report more or less, a salt — is refused as `package_id_reused`: either a new encryption that
+    reused the identity or a changed file under it;
+  - **a different `package_id`**: a new run. None of its DEKs and none of its IVs may equal any
+    of live's (`dek_reused`, `iv_reused`), and none of its salts may equal live's
+    (`salt_reused`), since salts are fresh per package (§1).
+
+  The gate reads live and runs these at stage 2.2b [planned], with these controls:
+
+  | Case id | Candidate | Expected |
+  |---|---|---|
+  | `live_unchanged` | The live package, byte for byte | Accepted |
+  | `live_fresh` | A new run of the producer | Accepted |
+  | `live_same_id_changed` | The live `package_id` with one envelope re-sealed, or one byte of an envelope changed and its manifest entry refreshed | `package_id_reused` |
+  | `live_dek_reused` | A new `package_id`, one envelope sealed with a DEK of live and a fresh IV | `dek_reused` |
+  | `live_iv_reused` | A new `package_id`, one envelope sealed with a fresh DEK and an IV of live | `iv_reused` |
+  | `live_salt_reused` | A new `package_id` with a profile's salt equal to live's | `salt_reused` |
+
+  The within-package checks above do not change: they run on every candidate, unchanged or not.
 - **The injected-reuse tests** (ENV-1-02), each a package sealed by `seal_report` that is valid in
   every other respect:
 
@@ -388,15 +417,56 @@ both with the public passwords:
   Each check is proved on the case only it can catch: without the DEK check, `reuse_dek_only`
   passes; without the IV check, `reuse_iv_only` does.
 
-### 6.5 The counter-proof of each check
+### 6.5 The counter-proof of each predicate
 
-A case that passes against a reader missing its check proves nothing (ENV-1-01). So, once, when
-the implementations exist, each check of steps 0–5 and 9 and each of `dek_reused` and `iv_reused`
-is removed in turn — replaced by a pass-through in a **copy** of the module under `/tmp`, never by
-a switch in the module itself — and the cases of its group are run against that copy: every one
-of them must then fail, giving a later code or opening. Steps 7 and 8 are the primitives' own
-refusals and have no check to remove; their cases are proved by reaching step 7 or 8 with every
-earlier check passing. The literal output of that run goes into the evidence of stage 2.2a.
+A case that passes against a reader missing its check proves nothing (ENV-1-01). The unit of the
+counter-proof is the **predicate** — one condition that refuses —, not the step (ENV-2-01): a step
+holds several predicates, and removing a whole step would also remove the parsing later steps
+read from.
+
+**How the predicates are written.** In both implementations every refusing condition is exactly
+one call of the form `require(condition, code, predicate_id)`, with the `predicate_id` of the table
+below, and a refusal carries both the code and the `predicate_id`. The table is the declaration:
+each suite asserts that the set of `predicate_id`s in its module equals the table's, so that
+neither a predicate without a case nor a case without a predicate can exist.
+
+**The mutant.** For one `predicate_id` at a time, a script copies the module to `/tmp` and
+replaces that one `require` by its condition being taken as true; parsing and data flow stay as
+written, so the copy reads the same fields. Never a switch in the module itself. The dedicated
+cases of that predicate are then run against the copy, and each must be **killed**: it no longer
+ends in the original code with the original `predicate_id`. Any other end kills it — another
+predicate's refusal, a later code, a successful open, or an error that is not a refusal, such as a
+read past the end of a truncated buffer or a missing slot after `slot_present` is removed. The
+other cases of the step are not required to fail. The tests assert the code and the
+`predicate_id` exactly, so a case refused by a neighbouring predicate in the original module is a
+wrong case, not a passing one.
+
+| Step | `predicate_id` | Dedicated cases (§6.3, §6.4) |
+|---|---|---|
+| 0 | `manifest_keys`, `manifest_types`, `manifest_versions`, `manifest_hex`, `manifest_sorted`, `manifest_unique`, `manifest_membership`, `manifest_entitled`, `manifest_file_form` | One variant of `manifest_shape` each |
+| 0 | `manifest_identity_bytes`, `manifest_identity_length` | `manifest_identity_bytes` |
+| 0 | `manifest_iterations_bounds` | `manifest_iterations_bounds` |
+| 0 | `manifest_no_duplicate_keys` — CI only | `manifest_duplicate_key` |
+| 1 | `size_equal`, `sha256_equal` | `size_only`; `bit_flipped_unrefreshed`, `foreign_envelope` |
+| 2 | `bytes_available` | `header_truncated` |
+| 2 | `magic`, `format_version`, `algorithm_bytes`, `length_bytes` | `header_fixed_byte`, by offset |
+| 2 | `report_id_length`, `report_id_bytes`, `profile_id_length`, `profile_id_bytes` | `header_identity_bytes` |
+| 2 | `slot_count_range`, `slots_ascending` | `header_slots_shape` — `ascending` covers both repetition and order |
+| 2 | `iterations_bounds` | `header_iterations_bounds` |
+| 2 | `ciphertext_len_range` | `header_ciphertext_range` |
+| 2 | `ciphertext_len_equal`, `exact_end` | `header_ciphertext_len`; `header_trailing_byte` |
+| 3 | `package_id_equal`, `report_id_equal` | `package_expected_differs`; `report_served_as_other` |
+| 4 | `slot_set_equal`, `slot_salt_equal`, `slot_iterations_equal` | `slot_removed`, `slot_added`, `foreign_package_rewritten`; `slot_salt_differs`; `slot_iterations_differs` |
+| 5 | `slot_present` | `not_entitled` |
+| 9 | `payload_magic`, `payload_version`, `totals_len_range`, `parquet_len_minimum`, `payload_exact`, `parquet_magic` | One variant of `payload_shape` each |
+| package | `dek_unique`, `iv_unique` | `reuse_dek_only`; `reuse_iv_only` |
+| live, 2.2b | `live_unchanged_identical`, `live_dek_fresh`, `live_iv_fresh`, `live_salt_fresh` | `live_same_id_changed`; `live_dek_reused`; `live_iv_reused`; `live_salt_reused` |
+
+Steps 7 and 8 are refusals of the primitives, `unwrap_failed` and `decrypt_failed`, with no
+predicate to remove: their cases are proved by reaching step 7 or 8 with every earlier predicate
+passing — their refusals carry no `predicate_id`, and the tests assert that as well as the code
+— and by the controls that open. The run of every mutant, with its literal output, goes into the evidence of stage
+2.2a; the live predicates', into 2.2b's.
 
 ### 6.6 What is outside these oracles
 
