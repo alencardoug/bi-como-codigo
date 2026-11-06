@@ -26,6 +26,7 @@ publication exists yet. The data is synthetic end to end, and all of it comes fr
 | [`CLAUDE.md`](CLAUDE.md) | How this repository is worked on — language, commits, the gate, assisted development and the rules never broken |
 | [`AGENTS.md`](AGENTS.md) | The entry point for any agent, pointing at `CLAUDE.md` |
 | [`docs/adr/`](docs/adr/README.md) | The decision record: 0 accepted, 3 pending |
+| [`docs/encryption_envelope.md`](docs/encryption_envelope.md) | The encryption envelope of the per-profile access, format version 1: the bytes, the reader and the producer, the bounds and the oracles (stage 2.2a) |
 | [`docs/public_by_design.yml`](docs/public_by_design.yml) | The two demo passwords, public by design (N22), registered for the secrets review |
 | [`docs/regeneration_runbook.md`](docs/regeneration_runbook.md) | The runbook of stage 1.4: how stage 1.6 regenerates eng_dados v1.1.0 — every checkpoint with a command, an oracle and a restart point, the rollback cut and the recovery package —, and the record of its review by Codex |
 | [`evidence/`](evidence/20261022/README.md) | The read-only probes behind every measurement in the plan, with their literal outputs — [M1–M18](evidence/20261022/README.md) and [M19–M26](evidence/20261023/README.md) |
