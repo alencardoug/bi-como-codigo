@@ -1,0 +1,9 @@
+# T3: a PR adding a workflow of its own.
+name: extra
+on: pull_request
+permissions: {}
+jobs:
+  noop:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "an added workflow"
