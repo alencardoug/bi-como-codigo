@@ -531,21 +531,60 @@ def test_check_listing_refuses_a_changed_artifact(repo):
 # --- §7: what a refusal prints -----------------------------------------------------------------------
 
 
-def test_the_cli_prints_no_value_of_a_refused_report(repo, monkeypatch, capfd, tmp_path):
-    """PGATE-1-02: stdout, stderr — native ones included — and the summary."""
-    seal(repo, payloads(repo, P01=payload(repo, "P01", parquet=_invalid_utf8_parquet(repo))))
+def markers(repo) -> set[str]:
+    """Every decrypted value of the fixture that cannot occur by chance in
+    public metadata — texts, decimals in both spellings, the totals —, and
+    every DEK of the package, raw-as-hex in both cases (GIMPL-1-04)."""
+    k = contract(repo)
+    out = {"fixture_"}  # the prefix of every decrypted label, even a corrupted one
+    for rid, data in sf.ROWS.items():
+        out.add(sf.totals(k, k.reports[rid], data).decode())
+        for row in data:
+            for value in row:
+                if isinstance(value, str):
+                    out.add(value)
+                elif isinstance(value, Decimal) and value != value.to_integral_value():
+                    out.update(c.spellings(f"{value:f}"))
+    manifest, files = committed(repo)
+    m = e.validate_manifest(manifest)
+    for dek in r._deks(m, files, {p.id: p.password for p in r.profiles(repo)}):
+        out.update({dek.hex(), dek.hex().upper()})
+    return out
+
+
+def _cli_mutations():
+    return {
+        "mut11_type": lambda repo: seal(repo, payloads(repo, P01=payload(repo, "P01", types={"valor": "DOUBLE"}))),
+        "mut13_grain": lambda repo: seal(repo, payloads(repo, P01=payload(repo, "P01", rows("P01") + [rows("P01")[0]]))),
+        "mut15_sum": lambda repo: seal(repo, payloads(repo, P01=payload(repo, "P01", totals=_totals(repo, sum={"valor": "14.01"})))),
+        "mut16_shape": lambda repo: seal(repo, payloads(repo, P01=payload(repo, "P01", totals=_totals(repo, extra=1)))),
+        "mut17_version": lambda repo: seal(repo, payloads(repo, P13=payload(repo, "P13", totals=_totals(repo, "P13", report_version=2)))),
+        "mut18_utf8": lambda repo: seal(repo, payloads(repo, P01=payload(repo, "P01", parquet=_invalid_utf8_parquet(repo)))),
+        "mut05_page": lambda repo: (repo / "site" / "index.html").write_text("<p>fixture_a 1.25</p>"),
+        "mut07_totals": lambda repo: (repo / "site" / "index.html").write_text(payload(repo, "P13")[0].decode()),
+    }
+
+
+@pytest.mark.parametrize("case", sorted(_cli_mutations()))
+def test_the_cli_prints_no_value_of_a_refused_package(repo, monkeypatch, capfd, tmp_path, case):
+    """PGATE-1-02, GIMPL-1-04: through the CLI, every negative case — stdout,
+    stderr, native ones included, and the step summary — holds no decrypted
+    value and no key, and no release record is written."""
+    honest = markers(repo)
+    _cli_mutations()[case](repo)
     deploy = repo / "deploy"
     r.build(repo, deploy)
-    summary = tmp_path / "summary.md"
+    summary, record = tmp_path / "summary.md", tmp_path / "rel.json"
     monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
     monkeypatch.setattr(r, "ROOT", repo)
     monkeypatch.setattr(r, "read_live", lambda site: r.NO_LIVE)
-    assert r.main(["verify", "--deploy", str(deploy), "--record", str(tmp_path / "rel.json"), "--site", "s"]) == 1
+    assert r.main(["verify", "--deploy", str(deploy), "--record", str(record), "--site", "s"]) == 1
     out, err = capfd.readouterr()
     text = out + err + summary.read_text()
-    assert "parquet_unreadable" in text
-    for value in ("fixture_", "1.25", "3.50", "14.00"):
-        assert value not in text
+    assert "refused:" in text and "Traceback" not in text
+    assert not record.exists()
+    leaked = sorted(m for m in honest if m in text)
+    assert not leaked, leaked
 
 
 # --- the edges of each check ----------------------------------------------------------------------
@@ -608,3 +647,112 @@ def test_which_numbers_are_searched(value, eligible):
 @pytest.mark.parametrize("text, scale, ok", [("0.00", 2, True), ("-0.00", 2, False), ("01.00", 2, False), ("1.5", 2, False), ("7", 0, True), ("7.0", 0, False), ("-12.34", 2, True)])
 def test_the_canonical_decimal_form(text, scale, ok):
     assert c.canonical_ok(text, scale) is ok
+
+
+# --- GIMPL-1: the order of the checks, the live boundaries, the version types ------------------
+
+
+def test_declarations_agree_before_any_candidate_byte(repo, monkeypatch):
+    """GIMPL-1-01: disagreeing declarations stop the gate before the candidate is listed."""
+    path = repo / "release" / "contract.json"
+    data = json.loads(path.read_text())
+    data["reports"]["P04"] = data["reports"]["P01"]
+    path.write_text(json.dumps(data))
+    deploy = repo / "deploy"
+    r.build(repo, deploy)
+    (deploy / "forbidden.txt").write_text("x")
+    monkeypatch.setattr(r, "listing", lambda d: pytest.fail("the candidate was read"))
+    with pytest.raises(r.Refused, match="declarations_agree"):
+        r.verify(repo, deploy, live=no_live)
+
+
+@pytest.mark.parametrize(
+    "case, code",
+    [
+        (lambda repo: payload(repo, "P01", types={"valor": "DOUBLE"}, totals=_totals(repo, contract_version=2)), "schema_exact"),
+        (lambda repo: payload(repo, "P01", types={"valor": "DOUBLE"}, totals=_totals(repo, extra=1)), "schema_exact"),
+        (lambda repo: payload(repo, "P01", [rows("P01")[0], ("fixture_b", None, 1)], totals=_totals(repo, extra=1)), "not_null"),
+        (lambda repo: payload(repo, "P01", rows("P01") + [rows("P01")[0]], totals=_totals(repo, contract_version=2)), "grain_unique"),
+    ],
+    ids=["schema_then_version", "schema_then_shape", "null_then_shape", "grain_then_version"],
+)
+def test_the_parquet_checks_come_before_the_totals(repo, case, code):
+    """GIMPL-1-02: §4's order — schema, nulls, grain, then the totals."""
+    seal(repo, payloads(repo, P01=case(repo)))
+    refused(repo, code, where="P01")
+
+
+@pytest.mark.parametrize("key", ["contract_version", "report_version"])
+def test_a_boolean_version_is_refused(repo, key):
+    """GIMPL-1-05: JSON's `true` is not the version 1."""
+    seal(repo, payloads(repo, P01=payload(repo, "P01", totals=_totals(repo, **{key: True}))))
+    refused(repo, "totals_version", where="P01")
+
+
+def test_read_live_a_transport_failure_is_live_unreadable():
+    with pytest.raises(r.Refused, match="live_unreadable"):
+        r.read_live("s", get=lambda url: (0, b""))
+
+
+def test_public_get_turns_a_transport_failure_into_no_status(monkeypatch):
+    import urllib.error
+
+    class Opener:
+        def open(self, *a, **k):
+            raise urllib.error.URLError("temporary DNS failure")
+
+    monkeypatch.setattr(r.urllib.request, "build_opener", lambda *a: Opener())
+    assert r._public_get("https://s.web.app/package/manifest.json") == (0, b"")
+
+
+def _raise_transport(*a, **k):
+    import urllib.error
+    raise urllib.error.URLError("temporary DNS failure")
+
+
+def test_bind_live_a_transport_failure(monkeypatch):
+    monkeypatch.setattr(r, "channel", _raise_transport)
+    with pytest.raises(r.Refused, match="live could not be read"):
+        r.bind_live("s", record(PATHS), "t")
+
+
+def test_bind_live_a_release_time_without_offset(hosting):
+    hosting.version, hosting.files, hosting.released = "vA", [*PATHS, "package/manifest.json"], "2026-11-06T10:00:00"
+    with pytest.raises(r.Refused, match="live could not be read"):
+        r.bind_live("s", record(PATHS), "t")
+
+
+def test_promote_a_transport_failure_clones_nothing(monkeypatch):
+    monkeypatch.setattr(r, "channel", _raise_transport)
+    with pytest.raises(r.Refused, match="nothing was cloned"):
+        r.promote("s", "vB", "vA", "t", run=lambda cmd, check: pytest.fail("cloned"))
+
+
+def test_promote_a_failed_read_back_is_unconfirmed(monkeypatch):
+    import subprocess
+    reads = iter([{"release": {"version": {"name": "sites/s/versions/vA"}}}])
+
+    def channel(*a):
+        try:
+            return next(reads)
+        except StopIteration:
+            _raise_transport()
+
+    monkeypatch.setattr(r, "channel", channel)
+    with pytest.raises(r.Refused, match="unconfirmed"):
+        r.promote("s", "vB", "vA", "t", run=lambda cmd, check: subprocess.CompletedProcess(cmd, 0))
+
+
+@pytest.mark.parametrize("command", ["bind-live", "promote"])
+def test_the_cli_turns_a_transport_failure_into_a_refusal(monkeypatch, capfd, tmp_path, command):
+    monkeypatch.setattr(r, "channel", _raise_transport)
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    rec = tmp_path / "rel.json"
+    rec.write_text(json.dumps(record(PATHS)))
+    argv = {"bind-live": ["bind-live", "--site", "s", "--record", str(rec)],
+            "promote": ["promote", "--site", "s", "--version", "vB", "--live-version", "vA"]}[command]
+    assert r.main(argv) == 1
+    out, err = capfd.readouterr()
+    assert "Traceback" not in out + err
+    assert "live could not be read" in summary.read_text()

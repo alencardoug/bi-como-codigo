@@ -222,6 +222,8 @@ def parse_totals(raw: bytes, contract: Contract, report: Report) -> dict:
         raise Refused(TOTALS_SHAPE, report.id)
     if any(not isinstance(v, str) for v in sums.values()):
         raise Refused(TOTALS_SHAPE, report.id)
+    if any(type(data[k]) is not int for k in ("contract_version", "report_version")):  # not a boolean (GIMPL-1-05)
+        raise Refused(TOTALS_VERSION, report.id)
     if data["contract_version"] != contract.version or data["report_version"] != report.version:
         raise Refused(TOTALS_VERSION, report.id)
     if set(sums) != set(report.sums):
@@ -270,23 +272,23 @@ def _q(name: str) -> str:
 
 
 def check_payload(contract: Contract, report: Report, totals_raw: bytes, parquet: bytes) -> Values:
-    """§3 and §4 for one opened report. Any failure of DuckDB is
-    `parquet_unreadable`, with no message (§7)."""
-    totals = parse_totals(totals_raw, contract, report)
+    """§3 and §4 for one opened report, in §4's order — schema, nulls, grain,
+    then the totals (GIMPL-1-02). Any failure of DuckDB is `parquet_unreadable`,
+    with no message (§7)."""
     with tempfile.TemporaryDirectory(prefix="bice-gate-") as tmp:
         path = pathlib.Path(tmp) / "report.parquet"
         path.write_bytes(parquet)
         try:
             con = _connect()
             con.execute(f"CREATE VIEW t AS SELECT * FROM read_parquet('{path.as_posix()}')")
-            return _check(con, report, totals, totals_raw)
+            return _check(con, contract, report, totals_raw)
         except Refused:
             raise
         except Exception:
             raise Refused(PARQUET_UNREADABLE, report.id) from None
 
 
-def _check(con, report: Report, totals: dict, totals_raw: bytes) -> Values:
+def _check(con, contract: Contract, report: Report, totals_raw: bytes) -> Values:
     schema = [(row[0], row[1]) for row in con.execute("DESCRIBE SELECT * FROM t").fetchall()]
     if schema != [(c.name, c.type) for c in report.columns]:
         raise Refused(SCHEMA_EXACT, report.id)
@@ -297,6 +299,7 @@ def _check(con, report: Report, totals: dict, totals_raw: bytes) -> Values:
     rows, distinct = con.execute(f"SELECT count(*), count(DISTINCT ({grain})) FROM t").fetchone()
     if rows != distinct:
         raise Refused(GRAIN_UNIQUE, report.id)
+    totals = parse_totals(totals_raw, contract, report)
     if totals["rows"] != rows:
         raise Refused(TOTALS_ROWS, report.id)
     for name in report.sums:

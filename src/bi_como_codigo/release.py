@@ -242,6 +242,13 @@ def verify(
     live, and the inspection by content. `live()` returns live's package —
     (manifest bytes, envelopes by file name) — or `NO_LIVE`. Returns the body
     of `release.json`."""
+    declared = profiles(root)
+    declared_map = {p.id: set(p.reports) for p in declared}
+    try:  # package_gate §2.2, step 1: before any candidate byte is read (GIMPL-1-01)
+        contract, public = c.load(root)
+        c.declarations_agree(contract, declared_map)
+    except c.Refused as refusal:
+        raise Refused(str(refusal)) from None
     globs = [g[len(SITE) + 1 :] for g in inclusion(root)]
     allowed = media_types(root)
     files = listing(deploy)
@@ -254,13 +261,6 @@ def verify(
             raise Refused(f"{rel} is a source map")
         if rel.startswith("__/"):
             raise Refused(f"{rel} is under Hosting's reserved __/ URLs")
-    declared = profiles(root)
-    declared_map = {p.id: set(p.reports) for p in declared}
-    try:
-        contract, public = c.load(root)
-        c.declarations_agree(contract, declared_map)  # package_gate §2.2, step 1
-    except c.Refused as refusal:
-        raise Refused(str(refusal)) from None
     manifest_path = _package(deploy)
     package_dir = manifest_path.parent
     manifest_raw = manifest_path.read_bytes()
@@ -356,6 +356,8 @@ def _public_get(url: str) -> tuple[int, bytes]:
             return response.status, body
     except urllib.error.HTTPError as error:
         return error.code, b""
+    except (OSError, EOFError, ValueError):  # transport, TLS, a truncated gzip (GIMPL-1-03)
+        return 0, b""
 
 
 def read_live(site: str, get=_public_get):
@@ -550,7 +552,11 @@ def check_listing(deploy: pathlib.Path, record: dict) -> None:
 
 
 def _when(text: str) -> dt.datetime:
-    return dt.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    """An RFC 3339 time with its offset; a time without one is refused."""
+    when = dt.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    if when.tzinfo is None:
+        raise ValueError("a time without its offset")
+    return when
 
 
 def bind_live(site: str, record: dict, token: str) -> str:
@@ -569,17 +575,18 @@ def bind_live(site: str, record: dict, token: str) -> str:
                 raise changed
             return "none"
         released = _when(data["release"]["releaseTime"])
+        settled = released <= _when(checked_at) - LIVE_SETTLED
         held = sorted(p for p in version_files(site, version, token) if p.startswith("package/"))
     except Refused as refusal:
         if refusal is changed:
             raise
         raise Refused("live could not be read") from None
-    except (KeyError, TypeError, ValueError):
+    except Exception:  # transport, shape, time (GIMPL-1-03): never a pass, never "changed"
         raise Refused("live could not be read") from None
     expected = [] if compared == "none" else sorted([*compared, "package/manifest.json"])
     if held != expected:
         raise changed
-    if released > _when(checked_at) - LIVE_SETTLED:
+    if not settled:
         raise changed
     return version
 
@@ -735,8 +742,8 @@ def promote(site: str, version: str, live_version: str, token: str, run=subproce
     must still be the version the preview bound; then the clone."""
     try:
         before = channel_version(channel(site, "live", token))
-    except Refused:
-        raise Refused("live could not be read") from None
+    except Exception:  # transport included (GIMPL-1-03); nothing cloned
+        raise Refused("live could not be read; nothing was cloned") from None
     if before == version:
         return "already live"
     if (before or "none") != live_version:
@@ -744,7 +751,10 @@ def promote(site: str, version: str, live_version: str, token: str, run=subproce
     result = run(clone_command(site, version), check=False)
     if result.returncode != 0:
         raise Refused(f"hosting:clone exited {result.returncode}")
-    after = channel_version(channel(site, "live", token))
+    try:
+        after = channel_version(channel(site, "live", token))
+    except Exception:
+        raise Refused(f"the clone ran, and live could not be read back: whether it serves {version} is unconfirmed") from None
     if after != version:
         raise Refused(f"live serves {after}, not {version}")
     return "promoted"
