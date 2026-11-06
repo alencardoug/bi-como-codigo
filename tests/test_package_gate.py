@@ -618,12 +618,17 @@ def test_the_cli_prints_no_value_of_a_refused_package(repo, monkeypatch, capfd, 
     monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
     monkeypatch.setattr(r, "ROOT", repo)
     monkeypatch.setattr(r, "read_live", lambda site: r.NO_LIVE)
+    with pytest.raises(r.Refused) as expected:  # the one refusal the gate gives this case
+        r.verify(repo, deploy, live=no_live)
+    capfd.readouterr()
     assert r.main(["verify", "--deploy", str(deploy), "--record", str(record), "--site", "s"]) == 1
     out, err = capfd.readouterr()
-    text = out + err + summary.read_text()
-    assert "refused:" in text and "Traceback" not in text
+    # An allowlist, not only markers (GIMPL-4-01): stdout and the summary hold exactly the refusal
+    # line, stderr nothing — so no value of any length, a short count included, can be printed.
+    line = f"refused: {expected.value}\n"
+    assert (out, err, summary.read_text()) == (line, "", line)
     assert not record.exists()
-    leaked = sorted(m for m in honest if m in text)
+    leaked = sorted(m for m in honest if m in out + err + summary.read_text())
     assert not leaked, leaked
 
 
