@@ -678,3 +678,227 @@ no Owner clarification was needed to identify them.
   they have not been validated against production modules. Return the two design adjustments for
   reassessment before claiming this review closed.
 
+## Round 3
+
+### 1. Conclusion
+
+**Changes required.** Revision 3 repairs the isolated ciphertext-range fixtures, makes the mutant
+procedure executable at design level and resolves the unchanged-live-package policy. One **medium
+adjustment**, ENV-3-01, remains: two newly named framing predicates express the same equality, so
+their prescribed original-code/original-predicate assertions cannot both be reached. No critical
+or high finding was confirmed. **The design review of stage 2.2a cannot be closed yet.** The
+remaining issue affects the specified test suite, not an adversarial use of the public passwords.
+
+### 2. Reviewed scope and version
+
+Reviewed on 2026-11-06, branch `main`, checkout
+`b6af5bf67be7623b4fe7a1cf2723c095337b2c2f`. The comparison is exactly
+`b8f118b243fc3c52568352092a3396bbfc5142eb..0f77c3a80c9d1df833fb02f807596ef3d5ace51d`:
+one commit, `0f77c3a`, changing only `docs/encryption_envelope.md` (84 additions, 14 deletions).
+The baseline is the round-2 tree, containing specification revision 2 (`fd8ca09`). The checkout's
+specification is byte-identical to `0f77c3a`; `b6af5bf` changes only the dossier and is excluded
+from the design delta. Initially there were no local changes or untracked files.
+
+Read rounds 1–2 and their Status claims, the pinned diff, the full revised specification, the
+repository conventions/review skill and the requested PLAN/REVIEW requirements. Reused the
+unchanged primitive evidence from round 1 and read M23's source/output; no new cryptographic
+measurement is inferred from them. Only this Round 3 is appended to `DOSSIER.md`.
+
+### 3. Findings and evidence
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+| ENV-3-01 | Envelope §6.3 H, §6.5 | `ciphertext_len_equal` and `exact_end` duplicate the same framing equality; one necessarily masks the other's dedicated original refusal. | `adjustment` | **Fixed** in `docs/encryption_envelope.md` rev. 4, as your alternative: two non-overlapping conditions, `ciphertext_available` (enough bytes for ciphertext and tag: declared one more, and every cut after the header) and `exact_end` (nothing after them: declared one less, and the appended byte). Confirmed independently before your report: implementing rev. 3 hit the same equivalence. The implementation that goes to round 4 has both, each with its dedicated cases; M48 kills them separately in both languages (`ciphertext_available: 4 case(s) killed; mutant ends: header_malformed/exact_end`, `exact_end: 2 case(s) killed; mutant ends: decrypt_failed/None; opened`) |
+
+**ENV-3-01 — Give the framing equality one predicate, or define a distinct availability check**
+
+**Medium → adjustment.** `docs/encryption_envelope.md:348`, `:440`–`:457`; the normative length
+equation is at `:84`–`:87` and `:168`. **Introduced in revision 3** by the two-predicate inventory;
+revision 2 required exact framing but did not assign two separately reachable predicate ids.
+This is a confirmed specification/test-contract defect, not an observed production-reader bug.
+
+Let `L` be the file length, `H` the parsed header length and `c` the declared ciphertext length.
+With the fixed 16-byte tag, the literal checks are equivalent:
+
+```text
+ciphertext_len_equal: c == L - H - 16
+exact_end:            H + c + 16 == L
+```
+
+Section 6.5 assigns `header_ciphertext_len` to the first and `header_trailing_byte` to the second,
+and requires the unmodified module to return each exact predicate id. With equality first, an
+appended byte already fails `ciphertext_len_equal`; removing `exact_end` changes nothing. With
+`exact_end` first, it instead masks the length-mismatch cases. This includes `ciphertext_len`
+one less than the file holds, expressly retained in §6.3: it leaves an extra byte just as the
+appended-byte case does. No ordering of these two literal equalities makes both dedicated
+original refusals reachable.
+
+**Disproof considered:** a parser could compare `c` with the length of a slice read for the
+ciphertext, reserving a subsequent end check for surplus bytes. That is a workable *availability*
+check, but the declared-one-less variant then reaches `exact_end`, not its assigned
+`ciphertext_len_equal`. The specification must define that split and the variant mapping if this
+is intended; the current equality language does not do so.
+
+**Executed evidence:** boundary-only models in Python and an ES module, with real header bytes
+from the round-2 throwaway fixture (27 ciphertext bytes), reproduce the literal-equality reading.
+Both copy/rewrite/import procedures ran under `/tmp`. Representative literal Node output:
+
+```text
+mutant ciphertext_len_equal / declared_plus_one -> ["header_malformed","exact_end"]; killed=true
+mutant ciphertext_len_equal / declared_minus_one -> ["header_malformed","exact_end"]; killed=true
+mutant exact_end / trailing_byte -> ["header_malformed","ciphertext_len_equal"]; killed=false
+```
+
+Python agreed; its arithmetic probe also checked the equivalent truth values for 101 framing
+deltas. These are models of the specified conditions, with other header checks stipulated and
+cryptography omitted, not independent implementations or production vectors.
+
+**Correction and acceptance:** preferably use one exact-file-length predicate and assign appended
+bytes, in-range ±1 declarations and post-header truncations to it. Alternatively define separate
+insufficient-data and surplus-data conditions, remapping the minus-one variant explicitly. Keep
+`ciphertext_len_range` independent. Every retained predicate must have an original case reaching
+its exact code/id with preceding predicates passing, and that case must kill its single-condition
+mutant in both languages. No weakening to code-only assertions is needed.
+
+### 4. Status of previous findings and focused audit
+
+| Previous ID | Independent status | Evidence and remaining work |
+|---|---|---|
+| ENV-2-01 | **Partially resolved** | §6.3 now rebuilds actual ciphertext lengths 0 and 33,554,433 with matching declarations (`:349`); both range mutants reached the next step in Python/Node models while equality stayed enabled. §6.5 now specifies condition-level mutation, exact refusal pairs and non-refusal errors (`:427`–`:442`). Header truncation is separated from post-header truncation. The new duplicate framing predicates leave the exhaustive counter-proof contract incomplete: ENV-3-01. |
+| ENV-2-02 | **Resolved at design level** | §6.4 (`:383`–`:406`) identifies an encryption by `package_id`, requires an unchanged snapshot for the same id, rejects changes as `package_id_reused`, and checks DEK/IV/salt freshness for a different id. Six controls are assigned to 2.2b. Abstract executed controls below agree; no actual live gate was tested. |
+| ENV-1-01 | **Partially resolved** | The round-2 repairs to earlier-step reachability remain intact. Revision 3 fixes the range isolation and defines executable outcomes for truncated reads and missing slots, but its universal per-predicate proof still needs ENV-3-01. |
+| ENV-1-02 | **Resolved at design level** | Separate `dek_unique`/`iv_unique` predicates and DEK-only/IV-only cases remain (`:407`–`:418`, `:462`). The live rule no longer rejects unchanged encryption as new reuse. Actual gate execution remains pending. |
+| ENV-1-03 | **Resolved at design level** | The byte-by-byte identity rules in §3 (`:171`–`:179`) and manifest/header invalid-byte cases are unchanged; no regex-engine ambiguity returns. |
+| ENV-1-04 | **Resolved at design level** | §5.1 (`:227`–`:251`) preserves observable codes; §6.5 explicitly gives primitive refusals no predicate id (`:465`–`:469`). The new package codes agree with §6.4. No cause-of-mutation guessing is required. |
+
+The predicate-table extraction found **48 ids, 48 unique**. Static audit of the reader's format,
+manifest, identity and binding requirements found no further omitted category. CI-only duplicate
+keys, Python-only package checks and deferred live checks retain their stated scopes (§6.3 and
+the table); they are not extra checks for the JavaScript reader. The whole matrix still exercises
+actual reader/primitive calls and payload expectations under §6.4, rather than replacing them
+with a check of labels. This remains an implementation obligation.
+
+- **Dedicated variants:** the table's “one variant each” is a construction requirement, not proof
+  that fixtures already exist. For example, `parquet_len_minimum` can be isolated by `q=8`,
+  `PAR1PAR1` and matching plaintext lengths; the intact magic and exact framing then pass.
+- **Slot repetition/order:** strict bytewise `previous < current` rejects both equality and
+  descending order. One `slots_ascending` predicate suffices; no second uniqueness guard is needed.
+- **Truncation:** `bytes_available` now governs reads of the header only. Cuts before the complete
+  `ciphertext_len` reach it; cuts after a complete header can reach the framing check without a
+  ciphertext/tag read failing first. Python/Node models exercised both paths. Their conflict is
+  between the two framing predicates, not between header availability and framing.
+- **Mutation mechanism:** leaving the call/id present and replacing only its condition by
+  `True`/`true` is executable in both languages and preserves the inventory and parsing. The
+  executed copies produced a Python `struct.error` and a Node `RangeError` after bypassing header
+  availability. These are explicitly killed outcomes under §6.5, distinct from original refusals.
+  No production switch or cryptographic-library mutation is required.
+
+For live comparison, the same-id snapshot rule includes report membership, envelope bytes, report
+manifest entries and profile entries; “any difference” excludes changed salts/metadata under the
+old identity. The required byte comparisons must not be weakened to a digest-prefix comparison
+or a comparison of selected fields. The abstract probe represented entries as byte snapshots;
+it did **not** implement extraction/comparison of JSON entry bytes. Formatting-only differences
+do not imply a new encryption; with public passwords and the trusted release path, no access or
+material-reuse impact was demonstrated on that representational edge. No additional finding is
+raised. An application-only release can retain the published package unchanged.
+
+`salt_reused` does not conflict with §1 or §5.2: a new run draws new salts; catching a repeat causes
+the whole candidate to be discarded, while the same unchanged encryption skips cross-live reuse.
+Within-package DEK/IV checks still apply. The same-id changed-byte control requires the specified
+snapshot refusal before attempting to open that corrupted envelope; 2.2b must demonstrate that
+code as well as the validly re-sealed variant.
+
+No other confirmed regression was found in the Date/Status table, cross-references, §5.1 codes
+or measured/planned labels. PLAN §3.6's remaining obligations keep their earlier assignments:
+module vectors/negative suites and browser timing in 2.2a; artifact/live checks in 2.2b; preview
+matrix/logout in 2.6; exporter totals/schema and real sizes in 2.4.
+
+### 5. Checks executed; checks not performed
+
+The author-reported run at `0f77c3a` was not counted as reviewer execution. The reviewer ran this
+command on the checkout before writing Round 3; its own exit code was **0**:
+
+```bash
+UV_CACHE_DIR=/tmp/bi-env-review-r3-uv-cache PYTHONDONTWRITEBYTECODE=1 \
+  PYTEST_ADDOPTS='-p no:cacheprovider' \
+  ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 \
+  make check UV_RUN='uv run --frozen --no-sync'
+```
+
+```text
+secrets review: nothing found in the tracked files
+history review: nothing found (80 occurrence(s) of values public by design, 2 registered; 0 blob(s) skipped)
+docs-check: 18 documents, 99 file links, 36 anchors, 0 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 0 accepted, 3 pending — record consistent
+........................................................................ [ 72%]
+...........................                                              [100%]
+99 passed in 2.87s
+```
+
+The same command after writing the report also exited **0**, with the same guard/document
+results and final output `99 passed in 2.93s`. `git diff --check` passed. The executed prefix/scope
+assertions printed:
+
+```text
+Rounds 1–2, including Status columns, preserved byte for byte; Round 3 appended only
+Only DOSSIER.md changed; envelope identical to 0f77c3a
+```
+
+These are existing tooling tests, not envelope tests. Throwaway probes are under
+`/tmp/bi-envelope-review-r3-wa9zsxbc/`, using system Python **3.10.12**, `cryptography` **3.4.8**
+(version checked; no new crypto operation needed), and Node **v24.18.0**. Commands exiting **0**:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 boundary_probe.py
+node boundary_probe.mjs
+PYTHONDONTWRITEBYTECODE=1 python3 live_probe.py
+```
+
+Both boundary probes used physically rebuilt 0/33,554,433-byte ciphertext bodies. Their
+range mutants reached `later_step`, header-availability mutants raised non-refusal errors, and
+literal framing duplicates produced the ENV-3-01 output above. `live_probe.py` checks predicates
+over byte labels, not sealed packages; its six primary outcomes were:
+
+```text
+live_unchanged -> ('accepted', None)
+live_fresh -> ('accepted', None)
+live_same_id_changed -> ('package_id_reused', 'live_unchanged_identical')
+live_dek_reused -> ('dek_reused', 'live_dek_fresh')
+live_iv_reused -> ('iv_reused', 'live_iv_fresh')
+live_salt_reused -> ('salt_reused', 'live_salt_fresh')
+```
+
+Bypassing each live predicate admitted its dedicated abstract case. Additional same-id envelope,
+report-set, report-entry and profile-entry differences were refused. This supports policy logic,
+not live retrieval, manifest serialization or cryptographic gate correctness.
+
+No envelope module, real negative suite or production mutant exists to run. Browser/BoringSSL,
+latency, preview/artifact inspection, logout and actual live comparison were not executed.
+Standards and unchanged primitive vectors were not fetched/rerun: their round-1 evidence is reused,
+and this delta changes no algorithm or parameter. No package installation/sync, eng_dados target,
+database operation, commit, push or deployment was performed.
+
+### 6. Limitations and open questions
+
+This is a design-only review of the pinned delta and previous findings. The models demonstrate
+specified predicate relationships, not the behavior of a future reader or gate. Module inventories,
+all dedicated variants and all mutant outcomes still need execution when implemented. No new
+cryptographic misuse or plausible public-password attack was confirmed. ENV-3-01 is the only
+remaining actionable design finding in this scope; no other hypothesis is promoted to a defect.
+No Owner clarification was necessary.
+
+### 7. Handoff to Claude Code
+
+- [ ] **ENV-3-01 / remaining ENV-2-01 and ENV-1-01:** consolidate the framing equality or define
+  non-overlapping insufficient/surplus conditions and their exact variant-to-id mapping. Acceptance:
+  original tests for ±1 declarations, appended bytes and post-header/tag cuts reach their assigned
+  ids; every retained framing predicate has a reachable dedicated original refusal and a killed
+  single-condition mutant. Retain the independent rebuilt range cases. Return this finite design
+  correction for reassessment before closing the design review.
+- [ ] **ENV-2-02, resolved design:** in 2.2b execute all six live controls, compare the complete
+  immutable package inputs, and prove all four live mutants, including the corrupted same-id case's
+  `package_id_reused` result. Preserve the within-package checks on unchanged candidates.
+- [ ] **ENV-1-02/03/04, resolved design:** retain their contracts in the future implementations.
+  Design approval alone will not complete 2.2a: independent fixed-vector consumption, primitive
+  vectors, actual predicate inventories/mutants and browser latency remain required there.
+
