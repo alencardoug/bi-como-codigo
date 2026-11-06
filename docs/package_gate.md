@@ -18,7 +18,7 @@
 |---|---|
 | Date | 2026-11-06 — revision 5: round 4 applied (PGATE-4-01). Revision 4 is `0788e8a`: round 3 applied (PGATE-3-01, 02). Revision 3 is `b1f6b93`: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 5 of Codex's review** — 14 findings in rounds 1–4, six blocking, all applied; round 5 found none. The Owner's decisions N76–N83 (2026-11-06) shape it. **Implemented on 2026-11-06, under review**: `src/bi_como_codigo/contract.py`, the live predicates in `envelope.py`, `verify`, `check-listing`, `bind-live` and `promote` in `release.py`, the two workflows, `release/contract.json`, `release/public_values.json` and the real fixtures; every mutation of §9 and its control in `tests/test_package_gate.py`; each check's counter-proof, 27 mutants all killed (M52). The real PRs of §9.3 wait for the code's review |
+| Status | **Plan, reviewed: closed in round 5 of Codex's review** — 14 findings in rounds 1–4, six blocking, all applied; round 5 found none. The Owner's decisions N76–N83 (2026-11-06) shape it. **Implemented on 2026-11-06, under review**: `src/bi_como_codigo/contract.py`, the live predicates in `envelope.py`, `verify`, `check-listing`, `bind-live` and `promote` in `release.py`, the two workflows, `release/contract.json`, `release/public_values.json` and the real fixtures; every mutation of §9 and its control in `tests/test_package_gate.py`; each check's counter-proof, 30 mutants all killed (M52); round 1 of the code's review applied (GIMPL-1-01 to 05). The real PRs of §9.3 wait for the code's review |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§11).
@@ -113,7 +113,8 @@ The payload's `totals` (envelope §2.4, which points here for their keys) are ex
   non-object top refused); then exactly those four keys, `rows` a JSON integer ≥ 0, `sums` an
   object whose values are JSON strings (`totals_shape`). Stage 2.4 may add keys by changing this
   rule, in a protected PR;
-- `contract_version` and `report_version` equal to the contract's (`totals_version`);
+- `contract_version` and `report_version` JSON integers — not booleans, which Python's equality would
+  take for 1 (GIMPL-1-05) — equal to the contract's (`totals_version`);
 - `rows` equal to DuckDB's `count(*)` over the Parquet (`totals_rows`);
 - `sums` with exactly the contract's `sums` columns as keys, each in canonical decimal form — an
   optional `-`, no leading zero but a lone `0`, exactly the column's scale after the point and no
@@ -249,7 +250,8 @@ its checks, and carry no free content —:
   the tests prove both ways: a deliberate collision refused while unlisted, accepted once listed.
 
 Dates and timestamps are searched in ISO form (`2026-01-01`, `2026-01-01 10:00:00`), as values of
-3 or more characters.
+3 or more characters. `BOOLEAN` cells are not searched: two values, `true` and `false`, are not a
+figure, and every script says them.
 Declared limits, not guarantees (§11): a value re-encoded — escaped, base64, rendered in another
 format — is not found; a number of one or two significant digits, or a text of one or two
 characters, is not searched, since a page legitimately says them.

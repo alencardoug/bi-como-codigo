@@ -1,4 +1,4 @@
-2026-11-06T21:14:34Z
+2026-11-06T22:05:52Z
 control (unmodified copy, every mutant's tests): passed
 declarations_agree: killed (tests/test_package_gate.py -k 'declarations_agree')
 inventory_exact: killed (tests/test_package_gate.py -k 'mut08 or mut09')
@@ -13,6 +13,9 @@ totals_shape (types): killed (tests/test_package_gate.py -k 'mut16 and number')
 totals_version: killed (tests/test_package_gate.py -k 'mut17')
 content_bound: killed (tests/test_package_gate.py -k 'mut19')
 parquet_unreadable, no value in the log: killed (tests/test_package_gate.py -k 'prints_no_value')
+a decrypted value printed (GIMPL-1-04): killed (tests/test_package_gate.py -k 'prints_no_value')
+totals_version: no boolean (GIMPL-1-05): killed (tests/test_package_gate.py -k 'boolean_version')
+the public GET's transport failures (GIMPL-1-03): killed (tests/test_package_gate.py -k 'public_get_turns')
 clear_value and clear_totals: killed (tests/test_package_gate.py -k 'mut05 or mut06 or mut07')
 clear_totals first: killed (tests/test_package_gate.py -k 'mut07 and not mut07b and not mut07c and not mut07d')
 the row count searched: killed (tests/test_package_gate.py -k 'mut07b')
@@ -27,5 +30,5 @@ bind-live: the paths: killed (tests/test_package_gate.py -k 'mut23 or other_path
 bind-live: the margin: killed (tests/test_package_gate.py -k 'mut25')
 promote: the predecessor: killed (tests/test_package_gate.py -k 'mut22_mut24')
 the record's live_version: killed (tests/test_package_gate.py -k 'without_live_version')
-27 mutants, 27 killed, 0 not
+30 mutants, 30 killed, 0 not
 exit=0
