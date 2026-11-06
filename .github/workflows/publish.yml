@@ -38,6 +38,7 @@ jobs:
   verify:
     needs: admit
     runs-on: ubuntu-24.04
+    timeout-minutes: 20 # a hostile Parquet is bounded in time too (docs/package_gate.md §4)
     permissions:
       contents: read
       actions: read
@@ -60,11 +61,12 @@ jobs:
           PR: ${{ needs.admit.outputs.pr }}
         run: |
           python3 -c 'import json,os,sys; c=json.load(open("candidate/candidate.json")); sys.exit(0 if (c["head_sha"], int(c["pr"])) == (os.environ["HEAD_SHA"], int(os.environ["PR"])) else "candidate.json is not this PR head")'
-      - name: Verify with main's checker
+      - name: Verify with main's checker, against the package live (docs/package_gate.md)
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           PR: ${{ needs.admit.outputs.pr }}
-        run: uv run --frozen python -m bi_como_codigo.release verify --deploy candidate/deploy --record release.json --pr "$PR" --head-sha "$HEAD_SHA"
+          SITE: ${{ vars.FIREBASE_SITE }}
+        run: uv run --frozen python -m bi_como_codigo.release verify --deploy candidate/deploy --record release.json --pr "$PR" --head-sha "$HEAD_SHA" --site "$SITE"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: verified
@@ -102,13 +104,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           RUN: ${{ github.run_id }}
         run: uv run --frozen python -m bi_como_codigo.release fetch-artifact --run "$RUN" --name verified --out verified
-      - name: The verified artifact is still what verify recorded
-        env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          PR: ${{ needs.admit.outputs.pr }}
+      - name: The verified artifact is still what verify listed, nothing parsed (docs/package_gate.md §5.4)
         run: |
-          uv run --frozen python -m bi_como_codigo.release verify --deploy verified/candidate/deploy --record again.json --pr "$PR" --head-sha "$HEAD_SHA"
-          python3 -c 'import json,sys; a=json.load(open("verified/release.json")); b=json.load(open("again.json")); sys.exit(0 if a == b else "the verified artifact changed")'
+          uv run --frozen python -m bi_como_codigo.release check-listing --deploy verified/candidate/deploy --record verified/release.json
           mv verified/candidate/deploy deploy
       - id: auth
         uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
@@ -117,6 +115,11 @@ jobs:
           service_account: ${{ vars.SA_PREVIEW }}
           token_format: access_token
           create_credentials_file: true
+      - id: live
+        name: Live is the version verify compared with (docs/package_gate.md §5.2)
+        env:
+          GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: uv run --frozen python -m bi_como_codigo.release bind-live --site "$SITE" --record verified/release.json
       - run: npm ci --prefix release/firebase-tools --ignore-scripts --no-audit --no-fund
       - name: firebase.json names the configured site (IMPL-1-05)
         run: uv run --frozen python -m bi_como_codigo.release firebase-config --site "$SITE"
@@ -140,9 +143,10 @@ jobs:
           VERSION: ${{ steps.channel.outputs.version }}
           EXPIRES: ${{ steps.channel.outputs.expires }}
           URL: ${{ steps.channel.outputs.url }}
+          LIVE_VERSION: ${{ steps.live.outputs.live_version }}
         run: |
           mkdir record
-          python3 -c 'import json,os; r=json.load(open("verified/release.json")); json.dump({"pr": int(os.environ["PR"]), "head_sha": os.environ["HEAD_SHA"], "candidate_run": int(os.environ["CANDIDATE_RUN"]), "version": os.environ["VERSION"], "channel": os.environ["CHANNEL"], "url": os.environ["URL"], "expires": os.environ["EXPIRES"], "digest": r["digest"]}, open("record/release-record.json", "w"), indent=2)'
+          python3 -c 'import json,os; r=json.load(open("verified/release.json")); json.dump({"pr": int(os.environ["PR"]), "head_sha": os.environ["HEAD_SHA"], "candidate_run": int(os.environ["CANDIDATE_RUN"]), "version": os.environ["VERSION"], "channel": os.environ["CHANNEL"], "url": os.environ["URL"], "expires": os.environ["EXPIRES"], "digest": r["digest"], "live_version": os.environ["LIVE_VERSION"]}, open("record/release-record.json", "w"), indent=2)'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-record
