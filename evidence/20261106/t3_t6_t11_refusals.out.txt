@@ -1,0 +1,27 @@
+2026-11-06T06:57:51Z
+T3 — same-repository PRs touching the protected set: no preview, no live update.
+PR #4 (src/bi_como_codigo/release.py), #5 (firebase.json), #6 (added .github/workflows/extra.yml):
+== publish 42177356991: admit=failure verify=skipped preview=skipped
+2026-11-06T06:54:07.8632891Z refused: PR #4 touches the protected set (src/bi_como_codigo/release.py): no preview, no live update
+== publish 42177382473: admit=failure verify=skipped preview=skipped
+2026-11-06T06:54:22.3052268Z refused: PR #5 touches the protected set (firebase.json): no preview, no live update
+== publish 42177390474: admit=failure verify=skipped preview=skipped
+2026-11-06T06:54:26.7832531Z refused: PR #6 touches the protected set (.github/workflows/extra.yml): no preview, no live update
+
+T6 — a planted clear file and a tampered manifest: refused, nothing uploaded. Both PRs also disable their own tests, so that main's verify is what refuses.
+PR #2 (PAR1…PAR1 in site/releases.md):
+== publish 42177348275: admit=success verify=failure preview=skipped
+2026-11-06T06:54:02.9966047Z PR #2 admitted for a preview
+2026-11-06T06:54:14.6121258Z refused: releases.md holds a Parquet magic outside an envelope
+PR #3 (one envelope's sha256 changed in site/package/manifest.json):
+== publish 42177674928: admit=success verify=failure preview=skipped
+2026-11-06T06:57:14.1463564Z PR #3 admitted for a preview
+2026-11-06T06:57:24.2217276Z refused: package manifest refused: manifest_invalid (manifest_file_form)
+
+T11 — a PR grants itself id-token and tries Google's exchange (N74). PR #7, candidate run 42177383455:
+2026-11-06T06:54:29.4085879Z GitHub issued a JWT of 2118 characters; its claims: {'repository': 'alencardoug/bi-como-codigo', 'ref': 'refs/pull/7/merge', 'workflow_ref': 'alencardoug/bi-como-codigo/.github/workflows/candidate.yml@refs/pull/7/merge', 'event_name': 'pull_request', 'environment': None}
+2026-11-06T06:54:29.4087284Z Google's STS refused the PR's token: 400 {"error":"unauthorized_client","error_description":"The given credential is rejected by the attribute condition."}
+(The candidate job then failed at its own make secrets: the edited workflow is not under review here. Its publish run was skipped, as for any failed candidate.)
+
+Channels of the site afterwards (the Owner's gcloud credentials):
+   ['live', 'pr-1']

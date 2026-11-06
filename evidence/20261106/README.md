@@ -26,3 +26,10 @@ resources on 2026-11-06, 05:23–05:26Z, under N70 — `r_01` the project's stat
 `r_05` the GitHub environments, their branch policies, the repository variables, the empty list of
 secrets and the default workflow permissions. How each is removed is
 [the pipeline's §8](../../docs/publishing_pipeline.md#8-removing-it).
+
+The `t*.out.txt` files are the tests of [the pipeline's §7](../../docs/publishing_pipeline.md#7-the-tests-of-the-stage),
+run on GitHub and Firebase from 06:39Z: excerpts of GitHub's logs of each run, with every step's
+environment block left out (paths and the masked token), and what was read independently
+afterwards with the Owner's credentials. `t1_first_release` is T1 — and with it T7, the federation
+accepting `publish.yml` and `promote.yml` on `main` in their environments —, approved under N75;
+`t9_no_stored_key` is T9; `t3_t6_t11_refusals` are T3, T6 and T11.
