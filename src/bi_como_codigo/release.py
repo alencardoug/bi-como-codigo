@@ -29,6 +29,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 
+from . import contract as c
 from . import envelope as e
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -222,10 +223,32 @@ def _package(deploy: pathlib.Path) -> pathlib.Path:
     return manifests[0]
 
 
-def verify(root: pathlib.Path, deploy: pathlib.Path, pr: int | None = None, head_sha: str | None = None) -> dict:
-    """The candidate re-judged as data: inclusion, media types, the package
-    through the whole matrix and the inspection by content. Returns the body
+#: §5.1: what `read_live` returns when live has no package — the first release.
+NO_LIVE = None
+
+
+def verify(
+    root: pathlib.Path,
+    deploy: pathlib.Path,
+    pr: int | None = None,
+    head_sha: str | None = None,
+    *,
+    live,
+    now: dt.datetime | None = None,
+) -> dict:
+    """The candidate re-judged as data (pipeline §4.2, package_gate §1): inclusion,
+    media types, the declarations, the inventory and the entitlements, the package
+    through the whole matrix, each report against the contract, the package
+    live, and the inspection by content. `live()` returns live's package —
+    (manifest bytes, envelopes by file name) — or `NO_LIVE`. Returns the body
     of `release.json`."""
+    declared = profiles(root)
+    declared_map = {p.id: set(p.reports) for p in declared}
+    try:  # package_gate §2.2, step 1: before any candidate byte is read (GIMPL-1-01)
+        contract, public = c.load(root)
+        c.declarations_agree(contract, declared_map)
+    except c.Refused as refusal:
+        raise Refused(str(refusal)) from None
     globs = [g[len(SITE) + 1 :] for g in inclusion(root)]
     allowed = media_types(root)
     files = listing(deploy)
@@ -254,20 +277,44 @@ def verify(root: pathlib.Path, deploy: pathlib.Path, pr: int | None = None, head
     stray = {p.name for p in package_dir.glob("*.bice")} - set(envelopes)
     if stray:
         raise Refused(f"envelopes not in the manifest: {sorted(stray)}")
-    declared = profiles(root)
-    declared_map = {p.id: set(p.reports) for p in declared}
     manifest_map = {pid: set(p.reports) for pid, p in manifest.profiles.items()}
-    if manifest_map != declared_map:
-        raise Refused(f"the package's profiles and entitlements {manifest_map} are not release/profiles.json's {declared_map}")
-    if set(manifest.reports) != set().union(*declared_map.values()):
-        raise Refused(f"the package's reports {sorted(manifest.reports)} are not the declared ones")
+    try:
+        c.inventory_exact(contract, set(manifest.reports))  # step 2
+        c.entitlements_exact(manifest_map, declared_map)  # step 3
+    except c.Refused as refusal:
+        raise Refused(str(refusal)) from None
     passwords = {p.id: p.password for p in declared}
     try:
         e.check_package(manifest_raw, envelopes, passwords)
     except (e.Refused, ValueError) as refusal:
         raise Refused(f"package refused: {refusal}") from None
+    values = []
+    try:
+        for report in sorted(manifest.reports):
+            pid = sorted(manifest.entitled(report))[0]
+            key = e.login(manifest, pid, passwords[pid])
+            totals, parquet = e.open_report(manifest, envelopes[manifest.reports[report].file], report, key)
+            values.append(c.check_payload(contract, contract.reports[report], totals, parquet))
+    except c.Refused as refusal:
+        raise Refused(str(refusal)) from None
+    except Exception:  # never a value in the log (package_gate §7)
+        raise Refused(f"{c.PARQUET_UNREADABLE}: a report could not be checked") from None
+    checked_at = (now or dt.datetime.now(dt.timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    found = live()
+    if found is NO_LIVE:
+        live_record: object = "none"
+    else:
+        live_manifest_raw, live_files = found
+        try:
+            e.check_against_live(manifest_raw, envelopes, live_manifest_raw, live_files, passwords)
+        except e.Refused as refusal:
+            raise Refused(f"against live: {refusal}") from None
+        live_manifest = e.validate_manifest(live_manifest_raw)
+        live_record = sorted(f"package/{r.file}" for r in live_manifest.reports.values())
     deks = _deks(manifest, envelopes, passwords)
     envelope_paths = {(package_dir / name).relative_to(deploy).as_posix() for name in envelopes}
+    manifest_rel = manifest_path.relative_to(deploy).as_posix()
+    haystacks = {}
     for rel, _ in files:
         data = (deploy / rel).read_bytes()
         if rel not in envelope_paths:
@@ -275,19 +322,64 @@ def verify(root: pathlib.Path, deploy: pathlib.Path, pr: int | None = None, head
                 raise Refused(f"{rel} holds a Parquet magic outside an envelope")
             if PAYLOAD_MAGIC in data:
                 raise Refused(f"{rel} holds a clear payload outside an envelope")
+            haystacks[rel] = c.manifest_labels(manifest) if rel == manifest_rel else data
         if SOURCE_MAP in data:
             raise Refused(f"{rel} references a source map")
         lowered = data.lower()
         for dek in deks:
             if dek in data or dek.hex().encode() in lowered:
                 raise Refused(f"{rel} holds a data key in the clear")
+    try:
+        c.inspect(haystacks, values, public)
+    except c.Refused as refusal:
+        raise Refused(str(refusal)) from None
     return {
         "pr": pr,
         "head_sha": head_sha,
         "package_id": manifest.package_id.hex(),
         "files": [{"path": rel, "sha256": sha} for rel, sha in files],
         "digest": canonical_digest(files),
+        "live": live_record,
+        "checked_at": checked_at,
     }
+
+
+def _public_get(url: str) -> tuple[int, bytes]:
+    """A GET with no credential and no redirect followed (package_gate §5.1)."""
+    request = urllib.request.Request(url, headers={"User-Agent": "bi-como-codigo-release", "Cache-Control": "no-cache"})
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        with opener.open(request, timeout=60) as response:
+            body = response.read()
+            if response.headers.get("Content-Encoding", "identity") not in ("identity", ""):
+                body = gzip.decompress(body) if response.headers.get("Content-Encoding") == "gzip" else b""
+            return response.status, body
+    except urllib.error.HTTPError as error:
+        return error.code, b""
+    except Exception:  # transport, TLS, a truncated body, a broken gzip (GIMPL-1-03, GIMPL-2-02)
+        return 0, b""
+
+
+def read_live(site: str, get=_public_get):
+    """§5.1: live's package from the site's public URL, or `NO_LIVE` on a 404
+    of the manifest. Anything else but 200 is `live_unreadable`."""
+    base = f"https://{site}.web.app/package/"
+    status, body = get(base + "manifest.json")
+    if status == 404:
+        return NO_LIVE
+    if status != 200:
+        raise Refused(f"{e.LIVE_UNREADABLE}: live's manifest answered {status}")
+    try:
+        manifest = e.validate_manifest(body)
+    except e.Refused:
+        raise Refused(f"{e.LIVE_UNREADABLE}: live's manifest is not valid") from None
+    files = {}
+    for entry in manifest.reports.values():
+        status, data = get(base + entry.file)
+        if status != 200 or len(data) != entry.size or hashlib.sha256(data).hexdigest() != entry.sha256:
+            raise Refused(f"{e.LIVE_UNREADABLE}: live's {entry.file} does not match its manifest")
+        files[entry.file] = data
+    return body, files
 
 
 def _deks(manifest: e.Manifest, envelopes: dict[str, bytes], passwords: dict[str, str]) -> list[bytes]:
@@ -446,6 +538,59 @@ def check_version(record: dict, site: str, version: str, base_url: str, token: s
 GITHUB = "https://api.github.com"
 
 
+# --- package_gate §5.2, §5.4: what `preview` checks, with the API only ------------------
+
+#: §5.2, step 3: live's release must be at least this much older than verify's read.
+LIVE_SETTLED = dt.timedelta(minutes=10)
+
+
+def check_listing(deploy: pathlib.Path, record: dict) -> None:
+    """§5.4: the artifact is, file for file, what `verify` listed — nothing parsed."""
+    files = listing(deploy)
+    if [{"path": rel, "sha256": sha} for rel, sha in files] != record["files"] or canonical_digest(files) != record["digest"]:
+        raise Refused("the verified artifact changed")
+
+
+def _when(text: str) -> dt.datetime:
+    """An RFC 3339 time with its offset; a time without one is refused."""
+    when = dt.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    if when.tzinfo is None:
+        raise ValueError("a time without its offset")
+    return when
+
+
+def bind_live(site: str, record: dict, token: str) -> str:
+    """§5.2: the live version `verify` compared with, read through Hosting's
+    API, or `"none"` for no live release."""
+    compared = record.get("live")
+    checked_at = record.get("checked_at")
+    if not (compared == "none" or isinstance(compared, list)) or not isinstance(checked_at, str):
+        raise Refused("the verified record names no live comparison")
+    changed = Refused("live changed during this run; re-run the candidate")
+    try:
+        data = channel(site, "live", token)
+        version = channel_version(data)
+        if version is None:
+            if compared != "none":
+                raise changed
+            return "none"
+        released = _when(data["release"]["releaseTime"])
+        settled = released <= _when(checked_at) - LIVE_SETTLED
+        held = sorted(p for p in version_files(site, version, token) if p.startswith("package/"))
+    except Refused as refusal:
+        if refusal is changed:
+            raise
+        raise Refused("live could not be read") from None
+    except Exception:  # transport, shape, time (GIMPL-1-03): never a pass, never "changed"
+        raise Refused("live could not be read") from None
+    expected = [] if compared == "none" else sorted([*compared, "package/manifest.json"])
+    if held != expected:
+        raise changed
+    if not settled:
+        raise changed
+    return version
+
+
 def path_is_publisher(path: str) -> bool:
     """A run's `path`, bare or as GitHub documents it, `path@ref` (PIPE-2-01)."""
     file, _, ref = path.partition("@")
@@ -464,6 +609,7 @@ class Record:
     digest: str
     artifact_id: int
     artifact_sha256: str
+    live_version: str
 
 
 def select_record(runs: list[dict], head_sha: str, artifacts_of, download) -> Record:
@@ -487,9 +633,13 @@ def select_record(runs: list[dict], head_sha: str, artifacts_of, download) -> Re
         body = json.loads(raw)
         if body.get("head_sha") != head_sha:
             continue
+        live_version = body.get("live_version")
+        if not isinstance(live_version, str) or not live_version or any(ch in live_version for ch in ":/@ "):
+            raise Refused(f"the record of run {run['id']} names no live version (package_gate §5.2): a new preview is needed")
         return Record(
             int(body["pr"]), body["head_sha"], int(body["candidate_run"]), body["version"], body["channel"],
             body["url"], body["expires"], body["digest"], int(records[0]["id"]), hashlib.sha256(raw).hexdigest(),
+            live_version,
         )
     raise Refused(f"no authenticated release record for {head_sha}")
 
@@ -587,14 +737,24 @@ def clone_command(site: str, version: str) -> list[str]:
     return ["firebase", "hosting:clone", f"{site}@{version}", f"{site}:live", "--project", os.environ.get("FIREBASE_PROJECT", site)]
 
 
-def promote(site: str, version: str, token: str, run=subprocess.run) -> str:
-    before = channel_version(channel(site, "live", token))
+def promote(site: str, version: str, live_version: str, token: str, run=subprocess.run) -> str:
+    """package_gate §5.3, in one command: already live → end; otherwise live
+    must still be the version the preview bound; then the clone."""
+    try:
+        before = channel_version(channel(site, "live", token))
+    except Exception:  # transport included (GIMPL-1-03); nothing cloned
+        raise Refused("live could not be read; nothing was cloned") from None
     if before == version:
         return "already live"
+    if (before or "none") != live_version:
+        raise Refused(f"live changed since this preview ({live_version} → {before or 'none'}): a new PR previews against it (§4.5)")
     result = run(clone_command(site, version), check=False)
     if result.returncode != 0:
         raise Refused(f"hosting:clone exited {result.returncode}")
-    after = channel_version(channel(site, "live", token))
+    try:
+        after = channel_version(channel(site, "live", token))
+    except Exception:
+        raise Refused(f"the clone ran, and live could not be read back: whether it serves {version} is unconfirmed") from None
     if after != version:
         raise Refused(f"live serves {after}, not {version}")
     return "promoted"
@@ -682,6 +842,13 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--record", type=pathlib.Path, required=True)
     v.add_argument("--pr", type=int)
     v.add_argument("--head-sha")
+    v.add_argument("--site", required=True, help="the site whose live package the candidate is compared with")
+    cl = sub.add_parser("check-listing")
+    cl.add_argument("--deploy", type=pathlib.Path, required=True)
+    cl.add_argument("--record", type=pathlib.Path, required=True)
+    bl = sub.add_parser("bind-live")
+    bl.add_argument("--site", required=True)
+    bl.add_argument("--record", type=pathlib.Path, required=True)
     c = sub.add_parser("check-version")
     for name in ("--record", "--site", "--version", "--base-url"):
         c.add_argument(name, required=True)
@@ -710,6 +877,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("promote")
     p.add_argument("--site", required=True)
     p.add_argument("--version", required=True)
+    p.add_argument("--live-version", required=True)
     args = parser.parse_args(argv)
     token = os.environ.get("GOOGLE_ACCESS_TOKEN", "")
     try:
@@ -717,9 +885,16 @@ def main(argv: list[str] | None = None) -> int:
             files = build(ROOT, args.out)
             _summary(f"built {len(files)} file(s) into {args.out}")
         elif args.command == "verify":
-            body = verify(ROOT, args.deploy, args.pr, args.head_sha)
+            body = verify(ROOT, args.deploy, args.pr, args.head_sha, live=lambda: read_live(args.site))
             args.record.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
             _summary(f"verified {len(body['files'])} file(s); digest {body['digest']}; package {body['package_id']}")
+        elif args.command == "check-listing":
+            check_listing(args.deploy, json.loads(args.record.read_text(encoding="utf-8")))
+            _summary("the verified artifact is still what verify listed")
+        elif args.command == "bind-live":
+            bound = bind_live(args.site, json.loads(args.record.read_text(encoding="utf-8")), token)
+            _output({"live_version": bound})
+            _summary(f"live is {bound}, as verify compared it")
         elif args.command == "check-version":
             record = json.loads(pathlib.Path(args.record).read_text(encoding="utf-8"))
             check_version(record, args.site, args.version, args.base_url, token)
@@ -771,14 +946,14 @@ def main(argv: list[str] | None = None) -> int:
             _summary(f"channel {args.channel} serves {channel_version(data)} at {data['url']}, expiring {data['expireTime']}")
         elif args.command == "decide":
             record = decide(os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_SHA"], os.environ["GITHUB_TOKEN"], dt.datetime.now(dt.timezone.utc))
-            _output({"promote": "true", **{k: getattr(record, k) for k in ("pr", "version", "channel", "url", "expires", "digest", "artifact_id", "artifact_sha256")}})
+            _output({"promote": "true", **{k: getattr(record, k) for k in ("pr", "version", "channel", "url", "expires", "digest", "artifact_id", "artifact_sha256", "live_version")}})
             _summary(
                 f"promote PR #{record.pr}: version {record.version} of channel {record.channel}, preview {record.url}, "
                 f"digest {record.digest}, record artifact {record.artifact_id} (sha256 {record.artifact_sha256}), "
-                f"preview expiring {record.expires}"
+                f"preview expiring {record.expires}, previewed against live {record.live_version}"
             )
         elif args.command == "promote":
-            _summary(promote(args.site, args.version, token))
+            _summary(promote(args.site, args.version, args.live_version, token))
     except NothingToPromote as nothing:
         _output({"promote": "false"})
         _summary(f"nothing to promote: {nothing}")

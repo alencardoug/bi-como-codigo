@@ -18,7 +18,7 @@
 |---|---|
 | Date | 2026-11-06 — revision 5: round 4 applied (PGATE-4-01). Revision 4 is `0788e8a`: round 3 applied (PGATE-3-01, 02). Revision 3 is `b1f6b93`: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 5 of Codex's review** — 14 findings in rounds 1–4, six blocking, all applied; round 5 found none. The Owner's decisions N76–N83 (2026-11-06) shape it. Nothing of it is implemented yet |
+| Status | **Plan, reviewed: closed in round 5 of Codex's review** — 14 findings in rounds 1–4, six blocking, all applied; round 5 found none. The Owner's decisions N76–N83 (2026-11-06) shape it. **Implemented on 2026-11-06, under review**: `src/bi_como_codigo/contract.py`, the live predicates in `envelope.py`, `verify`, `check-listing`, `bind-live` and `promote` in `release.py`, the two workflows, `release/contract.json`, `release/public_values.json` and the real fixtures; every mutation of §9 and its control in `tests/test_package_gate.py`; each check's counter-proof, 35 mutants all killed (M52); the code's review closed in round 5 — 9 findings in rounds 1–4, none blocking, all applied; round 5 found none. The real PRs of §9.3 wait for the code's review |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§11).
@@ -113,7 +113,8 @@ The payload's `totals` (envelope §2.4, which points here for their keys) are ex
   non-object top refused); then exactly those four keys, `rows` a JSON integer ≥ 0, `sums` an
   object whose values are JSON strings (`totals_shape`). Stage 2.4 may add keys by changing this
   rule, in a protected PR;
-- `contract_version` and `report_version` equal to the contract's (`totals_version`);
+- `contract_version` and `report_version` JSON integers — not booleans, which Python's equality would
+  take for 1 (GIMPL-1-05) — equal to the contract's (`totals_version`);
 - `rows` equal to DuckDB's `count(*)` over the Parquet (`totals_rows`);
 - `sums` with exactly the contract's `sums` columns as keys, each in canonical decimal form — an
   optional `-`, no leading zero but a lone `0`, exactly the column's scale after the point and no
@@ -242,14 +243,15 @@ its checks, and carry no free content —:
   a non-zero fraction** (PGATE-2-02), in three spellings: canonical (§3, `-1234.50`, `1140`); Brazilian,
   `.` grouping thousands and `,` before the fraction (`-1.234,50`, `1.140`); and `,` before the
   fraction with no grouping (`-1234,50`) — (`clear_value`);
-- **except** a value listed in `release/public_values.yml` — protected —, each entry with the reason
+- **except** a value listed in `release/public_values.json` — protected; JSON, so the gate needs no YAML reader —, each entry with the reason
   it is public by design, as `docs/public_by_design.yml` does for the passwords: a label that the
   governance portal shows, say, or a date that is also a release's date in `releases.md`. The
   fixtures' values are chosen not to collide with the fixture site, so the list starts empty, and
   the tests prove both ways: a deliberate collision refused while unlisted, accepted once listed.
 
 Dates and timestamps are searched in ISO form (`2026-01-01`, `2026-01-01 10:00:00`), as values of
-3 or more characters.
+3 or more characters. `BOOLEAN` cells are not searched: two values, `true` and `false`, are not a
+figure, and every script says them.
 Declared limits, not guarantees (§11): a value re-encoded — escaped, base64, rendered in another
 format — is not found; a number of one or two significant digits, or a text of one or two
 characters, is not searched, since a page legitimately says them.
@@ -263,8 +265,9 @@ A decrypted value must not reach a log either. Every refusal of the new checks i
 column name, both public in the contract; never a cell, a total, an operand or a DuckDB message.
 Every exception raised while a payload is open — DuckDB's included — is caught at the gate's
 boundary and replaced by its code with `from None`, so no traceback carries it. The tests capture
-stdout, stderr and the step summary of the CLI on the negative cases of §9 and require none of the
-case's values in them.
+stdout, stderr and the step summary of the CLI on the negative cases of §9 and require them to be
+exactly the refusal line — stderr empty —, so no value of any length can be printed (GIMPL-4-01),
+and none of the case's values in them.
 
 ---
 
@@ -346,7 +349,7 @@ The tests:
 ## 10. What changes elsewhere
 
 - `pyproject.toml` and `uv.lock`: `duckdb==1.5.6`, the second runtime dependency (N77).
-- `release/contract.json`, `release/public_values.yml`: new. `src/bi_como_codigo/contract.py`: new
+- `release/contract.json`, `release/public_values.json`: new. `src/bi_como_codigo/contract.py`: new
   — the contract, the totals, the Parquet checks and the value inspection; `release.py`'s `verify`
   calls it and gains the live read, and a `check-live` command for §5.2.
 - `publish.yml`: `verify` gets `FIREBASE_SITE` and a `timeout-minutes`; `preview` checks the listing
@@ -385,3 +388,6 @@ The tests:
   which reads live again; re-running only `preview` keeps the old `checked_at` and refuses again.
 - The envelope paths are 64-bit digest prefixes, not full digests; no collision was constructed.
 - M19 is not caught here (N76).
+- The non-disclosure tests of §7 take their markers from the candidate itself — its decrypted
+  cells, its totals whole and scalar by scalar, and its current keys —; a Parquet DuckDB cannot read contributes the honest fixture's
+  values and the `fixture_` prefix, which holds only while the fixtures are the data (GIMPL-2-01).

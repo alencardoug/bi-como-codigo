@@ -18,6 +18,7 @@ jobs:
       pr: ${{ steps.decide.outputs.pr }}
       version: ${{ steps.decide.outputs.version }}
       channel: ${{ steps.decide.outputs.channel }}
+      live_version: ${{ steps.decide.outputs.live_version }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -49,6 +50,7 @@ jobs:
       SITE: ${{ vars.FIREBASE_SITE }}
       VERSION: ${{ needs.decide.outputs.version }}
       CHANNEL: ${{ needs.decide.outputs.channel }}
+      LIVE_VERSION: ${{ needs.decide.outputs.live_version }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -76,7 +78,7 @@ jobs:
           GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: uv run --frozen python -m bi_como_codigo.release check-channel --site "$SITE" --channel "$CHANNEL" --version "$VERSION"
       - run: npm ci --prefix release/firebase-tools --ignore-scripts --no-audit --no-fund
-      - name: Clone the version to live, and read it back
+      - name: Live still the version previewed against, then the clone, read back (docs/package_gate.md §5.3)
         env:
           GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
-        run: PATH="$PWD/release/firebase-tools/node_modules/.bin:$PATH" uv run --frozen python -m bi_como_codigo.release promote --site "$SITE" --version "$VERSION"
+        run: PATH="$PWD/release/firebase-tools/node_modules/.bin:$PATH" uv run --frozen python -m bi_como_codigo.release promote --site "$SITE" --version "$VERSION" --live-version "$LIVE_VERSION"

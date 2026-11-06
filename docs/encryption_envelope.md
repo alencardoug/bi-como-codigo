@@ -140,13 +140,13 @@ What AES-GCM encrypts. The reader refuses it unless it is consumed exactly:
 | 4 | `payload_magic` | `42 49 43 50` (`BICP`) |
 | 1 | `payload_version` | `01` |
 | 4 | `totals_len` | `t`, 2 to 65,536 |
-| `t` | `totals` | The control totals: one JSON object, UTF-8. Its keys are defined by the exporter (stage 2.4) |
+| `t` | `totals` | The control totals: one JSON object, UTF-8. Its keys are [`package_gate.md`](package_gate.md) §3's, which stage 2.4 may extend |
 | 4 | `parquet_len` | `q`, 12 or more |
 | `q` | `parquet` | One Parquet file: its first and last four bytes are `PAR1` |
 
 The control totals travel encrypted with the report, never in the manifest (PLAN §3.4). They are
 **checked by the producer before it draws anything** (§5.2, step 1; ENV-4-02) **and by the package
-gate in CI** (stage 2.2b), whose JSON parser refuses duplicate keys, `NaN` and `Infinity`,
+gate in CI** ([`package_gate.md`](package_gate.md) §3), whose JSON parser refuses duplicate keys, `NaN` and `Infinity`,
 non-UTF-8 bytes and any value other than an object at the top. The browser reader slices them out
 and does not interpret them — the browser's `JSON.parse` keeps the last of two duplicate keys
 silently, so nothing the site shows comes from them.
@@ -257,8 +257,8 @@ guess at what changed, since the reader has nothing to tell a wrong password fro
 A refusal carries its code and, for every step but 7 and 8, the `predicate_id` of the condition
 that failed (§6.5): the code is what the site and the tests branch on, the `predicate_id` what the
 counter-proof needs. The package checks of §6.4 refuse with `unentitled_opens`, `dek_reused`,
-`iv_reused` and, against the live package, `package_id_reused` and `salt_reused`, under the same
-rule.
+`iv_reused` and, against the live package, `package_id_reused`, `salt_reused` and
+`live_unreadable`, under the same rule.
 
 It returns the totals bytes and the Parquet bytes. The site shows a visitor one message per kind —
 *not entitled* for `not_entitled`, *does not open* for every other code —, never a partial report.
@@ -411,7 +411,7 @@ both with the public passwords:
     of live's (`dek_reused`, `iv_reused`), and none of its salts may equal live's
     (`salt_reused`), since salts are fresh per package (§1).
 
-  The gate reads live and runs these at stage 2.2b [planned], with these controls:
+  The gate reads live and runs these from stage 2.2b ([`package_gate.md`](package_gate.md) §5), with these controls:
 
   | Case id | Candidate | Expected |
   |---|---|---|
@@ -421,6 +421,7 @@ both with the public passwords:
   | `live_dek_reused` | A new `package_id`, one envelope sealed with a DEK of live and a fresh IV | `dek_reused` |
   | `live_iv_reused` | A new `package_id`, one envelope sealed with a fresh DEK and an IV of live | `iv_reused` |
   | `live_salt_reused` | A new `package_id` with a profile's salt equal to live's | `salt_reused` |
+  | `live_unopenable` | Live holds an envelope that no declared password opens | `live_unreadable` |
 
   The within-package checks above do not change: they run on every candidate, unchanged or not.
 - **The injected-reuse tests** (ENV-1-02), each a package sealed by `seal_report` that is valid in
@@ -482,7 +483,7 @@ wrong case, not a passing one.
 | 5 | `slot_present` | `not_entitled` |
 | 9 | `payload_magic`, `payload_version`, `totals_len_range`, `parquet_len_minimum`, `payload_exact`, `parquet_magic` | One variant of `payload_shape` each |
 | package | `dek_unique`, `iv_unique`, `matrix_closed` | `reuse_dek_only`; `reuse_iv_only`; `matrix_same_key` |
-| live, 2.2b | `live_unchanged_identical`, `live_dek_fresh`, `live_iv_fresh`, `live_salt_fresh` | `live_same_id_changed`; `live_dek_reused`; `live_iv_reused`; `live_salt_reused` |
+| live, 2.2b | `live_unchanged_identical`, `live_dek_fresh`, `live_iv_fresh`, `live_salt_fresh`, `live_opens` | `live_same_id_changed`; `live_dek_reused`; `live_iv_reused`; `live_salt_reused`; `live_unopenable` |
 
 Steps 7 and 8 are refusals of the primitives, `unwrap_failed` and `decrypt_failed`, with no
 predicate to remove: their cases are proved by reaching step 7 or 8 with every earlier predicate

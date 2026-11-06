@@ -1,0 +1,36 @@
+{
+  "contract_version": 1,
+  "reports": {
+    "P01": {
+      "version": 1,
+      "columns": [
+        {"name": "rotulo", "type": "VARCHAR", "nullable": false},
+        {"name": "valor", "type": "DECIMAL(18,2)", "nullable": false},
+        {"name": "unidades", "type": "INTEGER", "nullable": true}
+      ],
+      "grain": ["rotulo"],
+      "sums": ["valor", "unidades"]
+    },
+    "P02": {
+      "version": 1,
+      "columns": [
+        {"name": "mes", "type": "DATE", "nullable": false},
+        {"name": "canal", "type": "VARCHAR", "nullable": false},
+        {"name": "quantidade", "type": "BIGINT", "nullable": false}
+      ],
+      "grain": ["mes", "canal"],
+      "sums": ["quantidade"]
+    },
+    "P13": {
+      "version": 1,
+      "columns": [
+        {"name": "regiao", "type": "VARCHAR", "nullable": false},
+        {"name": "pedidos", "type": "INTEGER", "nullable": false},
+        {"name": "taxa", "type": "DECIMAL(38,4)", "nullable": true},
+        {"name": "ativo", "type": "BOOLEAN", "nullable": false}
+      ],
+      "grain": ["regiao"],
+      "sums": ["pedidos"]
+    }
+  }
+}
