@@ -13,7 +13,7 @@
 > profile switching and logout in the browser (stage 2.6); the Owner's decisions (N23 and N64–N67 in
 > [PLAN §1.2](../PLAN.md#12-the-decisions)) and the measurements (M47 in
 > [PLAN §2](../PLAN.md#2-what-was-measured)); the decision record of the component, which is born
-> with it (the per-profile encryption ADR, pending in the [decision record](adr/README.md#3-pending)).
+> with it ([ADR-0001](adr/0001-encrypt-each-report-under-the-profile-password.md)).
 
 | Field | Information |
 |---|---|

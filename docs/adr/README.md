@@ -23,8 +23,7 @@
 
 | ADR | Title | Date | Resolves |
 |---|---|---|---|
-
-None yet.
+| [ADR-0001](0001-encrypt-each-report-under-the-profile-password.md) | Encrypt each report under the password of the profiles it belongs to | 2026-11-06 | Per-profile encryption; N23, N64–N67 |
 
 ## 3. Pending
 
@@ -35,4 +34,3 @@ written when its component is born.
 |---|---|---|
 | **Hosting and publication** | N2, N15 — Firebase Hosting in a project of its own; identity federation, no stored key | Stage 2.2 |
 | **CI pipeline** | N2, N15 — the candidate and publishing workflows of §3.4 | Stage 2.2 |
-| **Per-profile encryption** | N23 — the password becomes the key; the envelope of §3.6 | Stage 2.2a |
