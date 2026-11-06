@@ -1,0 +1,8 @@
+{
+  "name": "bi-como-codigo-firebase-tools",
+  "private": true,
+  "description": "The Firebase CLI the publishing pipeline runs, pinned by package-lock.json and installed with npm ci (docs/publishing_pipeline.md §2).",
+  "dependencies": {
+    "firebase-tools": "15.28.2"
+  }
+}

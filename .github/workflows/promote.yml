@@ -1,0 +1,82 @@
+# The promotion workflow (docs/publishing_pipeline.md §4.4). decide reads only
+# GitHub; promote, after the Owner's approval of its environment, re-checks and
+# clones the recorded version — by version ID, never by channel — to live.
+name: promote
+on:
+  push:
+    branches: [main]
+permissions: {}
+jobs:
+  decide:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      promote: ${{ steps.decide.outputs.promote }}
+      pr: ${{ steps.decide.outputs.pr }}
+      version: ${{ steps.decide.outputs.version }}
+      channel: ${{ steps.decide.outputs.channel }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          enable-cache: false
+      - run: make sync
+      - id: decide
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: uv run --frozen python -m bi_como_codigo.release decide
+
+  promote:
+    needs: decide
+    if: needs.decide.outputs.promote == 'true'
+    runs-on: ubuntu-24.04
+    environment: ${{ vars.ENV_PRODUCTION }}
+    concurrency:
+      group: promote
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT }}
+      SITE: ${{ vars.FIREBASE_SITE }}
+      VERSION: ${{ needs.decide.outputs.version }}
+      CHANNEL: ${{ needs.decide.outputs.channel }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          enable-cache: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+      - run: make sync
+      - id: auth
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.SA_LIVE }}
+          token_format: access_token
+          create_credentials_file: true
+      - name: Still the tip of main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: uv run --frozen python -m bi_como_codigo.release check-tip
+      - name: The channel still serves the approved version, with a day to spare
+        env:
+          GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: uv run --frozen python -m bi_como_codigo.release check-channel --site "$SITE" --channel "$CHANNEL" --version "$VERSION"
+      - run: npm ci --prefix release/firebase-tools --ignore-scripts --no-audit --no-fund
+      - name: Clone the version to live, and read it back
+        env:
+          GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: PATH="$PWD/release/firebase-tools/node_modules/.bin:$PATH" uv run --frozen python -m bi_como_codigo.release promote --site "$SITE" --version "$VERSION"

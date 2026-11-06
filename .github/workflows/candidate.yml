@@ -1,0 +1,41 @@
+# The candidate workflow (docs/publishing_pipeline.md §3). It runs the PR's own
+# code, so it is given nothing: no token scope, no environment, no secret. Its
+# output is data the publishing workflow re-judges with main's code (§4.2).
+# A PR can edit this file — it is then refused a preview (§4.1) —, and can get
+# a GitHub OIDC token; Google refuses that token (N74, T11).
+name: candidate
+on: pull_request
+permissions: {}
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          enable-cache: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+      - run: make sync
+      - name: The PR's own checks, as information
+        run: make secrets test test-js docs-check
+      - name: Build deploy/ from the inclusion list
+        run: uv run --frozen python -m bi_como_codigo.release build --out deploy
+      - name: Describe the candidate
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          printf '{"pr": %s, "head_sha": "%s", "base_sha": "%s"}\n' "$PR" "$HEAD" "$BASE" > candidate.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: candidate
+          path: |
+            deploy/
+            candidate.json
+          retention-days: 7
+          if-no-files-found: error

@@ -1,0 +1,142 @@
+# The publishing workflow (docs/publishing_pipeline.md §4). workflow_run runs
+# this file as it is on main, whatever the PR changed; the candidate is
+# downloaded as data and never executed. Federation trusts only this file and
+# promote.yml on refs/heads/main (§5).
+name: publish
+on:
+  workflow_run:
+    workflows: [candidate]
+    types: [completed]
+permissions: {}
+concurrency:
+  group: preview-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+jobs:
+  admit:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      pr: ${{ steps.admit.outputs.pr }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          enable-cache: false
+      - run: make sync
+      - id: admit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: uv run --frozen python -m bi_como_codigo.release admit --head-repo "$HEAD_REPO" --head-sha "$HEAD_SHA"
+
+  verify:
+    needs: admit
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          enable-cache: false
+      - run: make sync
+      - name: Download the candidate, as data
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: candidate
+          path: candidate
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: The candidate is the PR's head
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          PR: ${{ needs.admit.outputs.pr }}
+        run: |
+          python3 -c 'import json,os,sys; c=json.load(open("candidate/candidate.json")); sys.exit(0 if (c["head_sha"], int(c["pr"])) == (os.environ["HEAD_SHA"], int(os.environ["PR"])) else "candidate.json is not this PR head")'
+      - name: Verify with main's checker
+        run: uv run --frozen python -m bi_como_codigo.release verify --deploy candidate/deploy --record release.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: verified
+          path: |
+            candidate/deploy/
+            release.json
+          retention-days: 7
+          if-no-files-found: error
+
+  preview:
+    needs: [admit, verify]
+    runs-on: ubuntu-24.04
+    environment: ${{ vars.ENV_PREVIEW }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT }}
+      SITE: ${{ vars.FIREBASE_SITE }}
+      CHANNEL: pr-${{ needs.admit.outputs.pr }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          enable-cache: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+      - run: make sync
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: verified
+          path: verified
+      - name: The verified artifact is still what verify recorded
+        run: |
+          uv run --frozen python -m bi_como_codigo.release verify --deploy verified/candidate/deploy --record again.json
+          python3 -c 'import json,sys; a=json.load(open("verified/release.json")); b=json.load(open("again.json")); sys.exit(0 if a == b else "the verified artifact changed")'
+          mv verified/candidate/deploy deploy
+      - id: auth
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.SA_PREVIEW }}
+          token_format: access_token
+          create_credentials_file: true
+      - run: npm ci --prefix release/firebase-tools --ignore-scripts --no-audit --no-fund
+      - name: Deploy to the PR's channel
+        run: release/firebase-tools/node_modules/.bin/firebase hosting:channel:deploy "$CHANNEL" --expires 30d --project "$FIREBASE_PROJECT" --json
+      - id: channel
+        env:
+          GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: uv run --frozen python -m bi_como_codigo.release show-channel --site "$SITE" --channel "$CHANNEL"
+      - name: The version is the verified artifact, exactly
+        env:
+          GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          VERSION: ${{ steps.channel.outputs.version }}
+          URL: ${{ steps.channel.outputs.url }}
+        run: uv run --frozen python -m bi_como_codigo.release check-version --record verified/release.json --site "$SITE" --version "$VERSION" --base-url "$URL"
+      - name: The record of this run
+        env:
+          PR: ${{ needs.admit.outputs.pr }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CANDIDATE_RUN: ${{ github.event.workflow_run.id }}
+          VERSION: ${{ steps.channel.outputs.version }}
+          EXPIRES: ${{ steps.channel.outputs.expires }}
+        run: |
+          mkdir record
+          python3 -c 'import json,os; r=json.load(open("verified/release.json")); json.dump({"pr": int(os.environ["PR"]), "head_sha": os.environ["HEAD_SHA"], "candidate_run": int(os.environ["CANDIDATE_RUN"]), "version": os.environ["VERSION"], "channel": os.environ["CHANNEL"], "expires": os.environ["EXPIRES"], "digest": r["digest"]}, open("record/release-record.json", "w"), indent=2)'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-record
+          path: record/release-record.json
+          retention-days: 30
+          if-no-files-found: error
