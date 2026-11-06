@@ -1,0 +1,7 @@
+2026-11-06T13:44:25Z
+# Ruleset on main (docs/publishing_pipeline.md §6), created by Claude Code at the Owner's answer of 2026-11-06 — read back:
+{"bypass_actors":[{"actor_id":5,"actor_type":"RepositoryRole","bypass_mode":"always"}],"conditions":{"ref_name":{"exclude":[],"include":["~DEFAULT_BRANCH"]}},"enforcement":"active","id":26697115,"name":"main","rules":[{"type":"deletion"},{"type":"non_fast_forward"},{"parameters":{"do_not_enforce_on_create":false,"required_status_checks":[{"context":"candidate","integration_id":15368}],"strict_required_status_checks_policy":false},"type":"required_status_checks"}],"target":"branch"}
+# Rules in force on main:
+{"parameters":null,"ruleset_id":26697115,"type":"deletion"}
+{"parameters":null,"ruleset_id":26697115,"type":"non_fast_forward"}
+{"parameters":{"do_not_enforce_on_create":false,"required_status_checks":[{"context":"candidate","integration_id":15368}],"strict_required_status_checks_policy":false},"ruleset_id":26697115,"type":"required_status_checks"}

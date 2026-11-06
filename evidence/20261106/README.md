@@ -24,7 +24,8 @@ resources on 2026-11-06, 05:23–05:26Z, under N70 — `r_01` the project's stat
 `r_02` the APIs enabled, `r_03` the workload identity pool and provider with the provider read back,
 `r_04` the two service accounts, their role and their bindings read back with no user-managed key,
 `r_05` the GitHub environments, their branch policies, the repository variables, the empty list of
-secrets and the default workflow permissions. How each is removed is
+secrets and the default workflow permissions; `r_06`, written at 13:44Z at the Owner's answer of that
+afternoon, the ruleset on `main` and the rules GitHub reports in force there. How each is removed is
 [the pipeline's §8](../../docs/publishing_pipeline.md#8-removing-it).
 
 The `t*.out.txt` files are the tests of [the pipeline's §7](../../docs/publishing_pipeline.md#7-the-tests-of-the-stage),
