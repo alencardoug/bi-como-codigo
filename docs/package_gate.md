@@ -18,7 +18,7 @@
 |---|---|
 | Date | 2026-11-06 — revision 5: round 4 applied (PGATE-4-01). Revision 4 is `0788e8a`: round 3 applied (PGATE-3-01, 02). Revision 3 is `b1f6b93`: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 5 of Codex's review** — 14 findings in rounds 1–4, six blocking, all applied; round 5 found none. The Owner's decisions N76–N83 (2026-11-06) shape it. **Implemented on 2026-11-06, under review**: `src/bi_como_codigo/contract.py`, the live predicates in `envelope.py`, `verify`, `check-listing`, `bind-live` and `promote` in `release.py`, the two workflows, `release/contract.json`, `release/public_values.json` and the real fixtures; every mutation of §9 and its control in `tests/test_package_gate.py`; each check's counter-proof, 34 mutants all killed (M52); rounds 1–3 of the code's review applied (GIMPL-1-01 to 05, GIMPL-2-01, 02, GIMPL-3-01). The real PRs of §9.3 wait for the code's review |
+| Status | **Plan, reviewed: closed in round 5 of Codex's review** — 14 findings in rounds 1–4, six blocking, all applied; round 5 found none. The Owner's decisions N76–N83 (2026-11-06) shape it. **Implemented on 2026-11-06, under review**: `src/bi_como_codigo/contract.py`, the live predicates in `envelope.py`, `verify`, `check-listing`, `bind-live` and `promote` in `release.py`, the two workflows, `release/contract.json`, `release/public_values.json` and the real fixtures; every mutation of §9 and its control in `tests/test_package_gate.py`; each check's counter-proof, 35 mutants all killed (M52); rounds 1–4 of the code's review applied (GIMPL-1-01 to 05, GIMPL-2-01, 02, GIMPL-3-01, GIMPL-4-01). The real PRs of §9.3 wait for the code's review |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§11).
@@ -265,8 +265,9 @@ A decrypted value must not reach a log either. Every refusal of the new checks i
 column name, both public in the contract; never a cell, a total, an operand or a DuckDB message.
 Every exception raised while a payload is open — DuckDB's included — is caught at the gate's
 boundary and replaced by its code with `from None`, so no traceback carries it. The tests capture
-stdout, stderr and the step summary of the CLI on the negative cases of §9 and require none of the
-case's values in them.
+stdout, stderr and the step summary of the CLI on the negative cases of §9 and require them to be
+exactly the refusal line — stderr empty —, so no value of any length can be printed (GIMPL-4-01),
+and none of the case's values in them.
 
 ---
 
