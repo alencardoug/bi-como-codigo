@@ -16,9 +16,9 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-06 — revision 2: round 1 of Codex's review applied (PGATE-1-01 to 06), with the Owner's decisions N80–N82. Revision 1 is `62070ec` |
+| Date | 2026-11-06 — revision 3: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
 | Author | Claude Code |
-| Status | **Plan, under Codex's review before execution.** The Owner's decisions N76–N82 (2026-11-06) shape it; nothing of it is implemented |
+| Status | **Plan, under Codex's review before execution.** The Owner's decisions N76–N83 (2026-11-06) shape it; nothing of it is implemented |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§11).
@@ -147,8 +147,9 @@ For each report, after the matrix has opened it with an entitled profile:
 4. **grain** (`grain_unique`): `count(*) = count(DISTINCT (grain columns))`;
 5. **totals** (§3);
 6. **the bound on what is materialised** (`content_bound`): before any value leaves DuckDB for §6,
-   `sum(octet_length(c))` over every `VARCHAR` column and `count(*)` times the column count are
-   each under a fixed bound — a 34 KB Parquet can expand to 67 MB of strings [measured, PGATE-1].
+   `COALESCE(SUM(octet_length(encode(c))), 0)` — UTF-8 bytes, 0 for no row or all null; DuckDB
+   1.5.6 has no `octet_length(VARCHAR)` [measured, PGATE-2-01] — summed over every `VARCHAR` column,
+   and `count(*)` times the column count, are each under a fixed bound — a 34 KB Parquet can expand to 67 MB of strings [measured, PGATE-1].
    The job also gets a `timeout-minutes`.
 
 A Parquet DuckDB cannot read, or a query that fails, is refused as `parquet_unreadable` — with no
@@ -173,21 +174,35 @@ the site from the repository variable, never written in the code — with no cre
   `iv_reused`, `salt_reused`). Live's DEKs are unwrapped with the declared public passwords; a live
   envelope that none of them opens fails the gate (`live_unreadable`) — N22 fixes the passwords, and
   a change of them is not a case of 2.2b;
-- `release.json` records **what was compared**: `live_envelopes`, the sorted list of live's
-  envelope paths — each name carries the first 16 hex digits of the envelope's SHA-256, which the
-  manifest validator and the integrity check bind to its bytes — or `"none"` after a 404.
+- `release.json` records **what was compared**, as `live`: the sorted list of live's envelope
+  paths — each name carries the first 16 hex digits of the envelope's SHA-256, which the manifest
+  validator and the integrity check bind to its bytes — and the SHA-256 of live's manifest bytes,
+  since the paths alone do not identify it (a profile label can change with the same envelopes,
+  PGATE-2-05); or `"none"` after a 404. It is public metadata, like the rest of the record. The
+  preview job copies it into the authenticated `release-record` (pipeline §4.3), `decide` reads it
+  with the record and passes it to `promote` — the `verified` artifact, kept 7 days, is not relied
+  on.
 
 ### 5.2 In `promote` — live is still what `verify` compared (PGATE-1-01, N80)
 
 The comparison is only as good as its predecessor: with two PRs in flight, B can be previewed
 against L, then A promoted, then B approved — and B would replace A without having been compared
-with it [PGATE-1-01's schedule]. So `promote`, after the approval and right before the clone — in
-the serialised job, after the re-checks of the tip and of the channel (pipeline §4.4, steps 2–3) —
-reads live's current version through Hosting's API, lists its files (as `check-version` does), and
-requires its `package/*.bice` paths to equal the recorded `live_envelopes` — none, if `"none"`.
-Otherwise it stops: *live changed since this preview; a new PR previews against it* — the recovery
-of pipeline §4.5. The read is the API's, not the CDN's, so a stale public read in `verify` fails
-closed here instead of passing. Nothing is parsed or decrypted in this job.
+with it [PGATE-1-01's schedule]. So the promotion runs, in the serialised job and in one command — so the order
+cannot be split across workflow steps (PGATE-2-04):
+
+1. the re-checks of the tip and of the channel (pipeline §4.4, steps 2–3);
+2. **live already serves `VERSION_ID`** → end, nothing to do — a re-run of a successful promotion,
+   whose record still names the predecessor it replaced;
+3. otherwise, **live is still what `verify` compared**: live's current version is read through
+   Hosting's API and its files listed (as `check-version` does); its `package/*.bice` paths must
+   equal the recorded ones — none, for `"none"` — and live's manifest, fetched from the site's URL
+   and decoded as `check-version` decodes, must have the recorded SHA-256. Otherwise it stops: *live
+   changed since this preview; a new PR previews against it* — the recovery of pipeline §4.5;
+4. the clone, and its read-back (pipeline §4.4, steps 5–6).
+
+The paths come from the API, not the CDN, so a stale public read in `verify` fails closed here; a
+stale manifest read here fails closed too, never open. Nothing is parsed beyond the manifest's
+bytes, nothing is decrypted in this job.
 
 ### 5.3 `preview` no longer re-runs `verify` (PGATE-1-06)
 
@@ -201,18 +216,24 @@ artifact's files against `verify`'s `release.json` — each path and SHA-256, an
 
 The finished artifact is already searched for a Parquet magic, `BICP`, a DEK and source maps
 outside an envelope (pipeline §4.2). After the matrix, the gate knows every decrypted value; no
-non-envelope file of `deploy/` may contain, as bytes:
+non-envelope file of `deploy/` may contain, as bytes — in `manifest.json`, only its free text, the
+profile labels, is searched (N83): its other fields are strictly typed and bound to the package by
+its checks, and carry no free content —:
 
 - the totals object of any report, as decrypted (`clear_totals`);
 - any `VARCHAR` cell value of **3 or more characters**, in UTF-8 (`clear_value`);
-- any numeric cell value or sum with **3 or more significant digits, or with a non-zero fraction**,
-  in its canonical form (§3) and in the Brazilian one — `.` for thousands, `,` for decimals,
-  `33.076.529,47` — (`clear_value`);
+- any numeric cell value, sum, or the totals' `rows`, with **3 or more significant digits, or with
+  a non-zero fraction** (PGATE-2-02), in three spellings: canonical (§3, `-1234.50`, `1140`); Brazilian,
+  `.` grouping thousands and `,` before the fraction (`-1.234,50`, `1.140`); and `,` before the
+  fraction with no grouping (`-1234,50`) — (`clear_value`);
 - **except** a value listed in `release/public_values.yml` — protected —, each entry with the reason
   it is public by design, as `docs/public_by_design.yml` does for the passwords: a label that the
-  governance portal shows, say. The list starts empty for the fixtures.
+  governance portal shows, say, or a date that is also a release's date in `releases.md`. The
+  fixtures' values are chosen not to collide with the fixture site, so the list starts empty, and
+  the tests prove both ways: a deliberate collision refused while unlisted, accepted once listed.
 
-Dates and timestamps are searched in ISO form (`2026-01-01`), as values of 3 or more characters.
+Dates and timestamps are searched in ISO form (`2026-01-01`, `2026-01-01 10:00:00`), as values of
+3 or more characters.
 Declared limits, not guarantees (§11): a value re-encoded — escaped, base64, rendered in another
 format — is not found; a number of one or two significant digits, or a text of one or two
 characters, is not searched, since a page legitimately says them.
@@ -252,13 +273,16 @@ under test.
 
 | Id | Mutation (PLAN §3.4) | Stops at |
 |---|---|---|
-| MUT-01 | A tampered manifest — an envelope's `sha256` wrong | Envelope `integrity_mismatch` (2.2's T6) |
+| MUT-01 | A tampered manifest — an envelope's `sha256` wrong after its 16-digit name prefix, so the name still matches (PGATE-2) | Envelope `integrity_mismatch` |
 | MUT-02 | A reused key/IV pair — two envelopes with one DEK and one IV | `dek_reused` |
 | MUT-03 | The same, IV only | `iv_reused` |
 | MUT-04 | Injected clear data — `site/releases.md` holding a Parquet | Inspection, Parquet magic |
 | MUT-05 | Injected clear data — `site/index.html` holding a short row, `fixture_a 1.25 2` | `clear_value` |
 | MUT-06 | The same, a number alone, in Brazilian form | `clear_value` |
 | MUT-07 | The same, a report's totals | `clear_totals` |
+| MUT-07b | The same, only the row count, `<p>1140</p>` (PGATE-2-02) | `clear_value` |
+| MUT-07c | A value hidden in a profile label of the manifest | `clear_value` |
+| MUT-07d | A cell value colliding with a release date of `releases.md`, unlisted; then listed | `clear_value`; accepted |
 | MUT-08 | A missing view — a contract report absent from the package | `inventory_exact` |
 | MUT-09 | An extra view — a report in the package, not in the contract | `inventory_exact` |
 | MUT-10 | An entitlement changed — `logistica` entitled to P01 in the manifest | `entitlements_exact` |
@@ -273,18 +297,22 @@ under test.
 | MUT-19 | A Parquet over the content bound | `content_bound` |
 | MUT-20 | The live `package_id` with one envelope re-sealed | `package_id_reused` |
 | MUT-21 | A new `package_id` reusing a DEK, an IV, a salt of live | `dek_reused`, `iv_reused`, `salt_reused` |
-| MUT-22 | PGATE-1-01's schedule: previewed against L, live became A before the approval | `promote`, §5.2: live changed |
+| MUT-22 | PGATE-1-01's schedule: previewed against L, live became A before the approval | `promote`, §5.2 step 3: live changed |
+| MUT-23 | Live's envelopes unchanged, its manifest changed (a profile label) | `promote`, §5.2 step 3: live changed |
 | — | M19, two labels swapped | **Not at this gate** (N76): counts, sums and grain are unchanged; stage 2.4's row-level equality with the views refuses it |
 
 The tests:
 
 1. **Every mutation in `make check`**: a test per row runs `release.verify` — the function the
    workflow runs — on the mutated `deploy/` (MUT-22 runs the promotion's check against a stand-in of
-   Hosting's API) and asserts the exact code and predicate; the controls — the honest fixture; a
-   fresh package against live; the live package unchanged; a promotion whose live did not change;
-   a re-run of a successful promotion — pass. Each new check has its edge cases as tests too: sums
+   Hosting's API) and asserts the exact code and predicate; the controls — the honest fixture, with its page, `releases.md` and
+   manifest; a fresh package against live; the live package unchanged; a promotion whose live did
+   not change; the first release, against `"none"`; a re-run of a successful promotion, through the
+   whole command — pass. Each new check has its edge cases as tests too: sums
    at `DECIMAL(18,s)`'s limit and with cancellation in either row order, `BIGINT` at its limits,
-   scale 0, negative zero, no row, all null; a contract listing a `DECIMAL(19,s)` sum refused;
+   scale 0, negative zero, no row, all null; `content_bound` on accented text, no row and all null,
+   and an oversized table refused as exactly `content_bound`; the three numeric spellings of §6 on
+   negative decimals and grouped integers; a contract listing a `DECIMAL(19,s)` sum refused;
    `declarations_agree` on two disagreeing files.
 2. **A counter-proof per new check**, like M48 (envelope §6.5): a copy of the module with that one
    check made to pass, and its mutation run against the copy — it must no longer stop there. The
@@ -303,12 +331,14 @@ The tests:
   — the contract, the totals, the Parquet checks and the value inspection; `release.py`'s `verify`
   calls it and gains the live read, and a `check-live` command for §5.2.
 - `publish.yml`: `verify` gets `FIREBASE_SITE` and a `timeout-minutes`; `preview` checks the listing
-  instead of re-running `verify` (§5.3). `promote.yml`: the step of §5.2. Both protected, in one
+  instead of re-running `verify` (§5.3) and copies `live` into the `release-record`. `release.py`:
+  `Record` and `decide` carry `live`; `promote` runs §5.2's order in one command. `promote.yml`: the
+  new input. Both protected, in one
   reviewed PR, like every change of `.github/`.
 - `docs/encryption_envelope.md` §2.4: the totals' keys are this document's (§3), extended by 2.4;
   §6.4's live table: run at 2.2b, with its evidence. `docs/publishing_pipeline.md` §4.2–§4.4: the
   changes above, in its own words.
-- PLAN: N76–N82; stage 2.2b's criterion as N76 writes it; stage 2.4 gains M19.
+- PLAN: N76–N83; stage 2.2b's criterion as N76 writes it; stage 2.4 gains M19.
 
 ---
 
@@ -321,5 +351,9 @@ The tests:
 - [assumed] No Parquet, however hostile, makes DuckDB read a path the gate did not give it; the
   locks of §4 are not a sandbox, and no such path was found in PGATE-1.
 - The value inspection of §6 does not find a re-encoded value, a number of one or two significant
-  digits, nor a text of one or two characters.
+  digits, nor a text of one or two characters; in the manifest it searches only the labels, so a
+  hostile author could encode a number in a strictly typed field such as `iterations` (N83, an
+  adversarial limit).
+- The live identity of §5.2 is the envelope paths — 64-bit digest prefixes, not full digests — and
+  the manifest's SHA-256; no collision was constructed (PGATE-2-05).
 - M19 is not caught here (N76).
