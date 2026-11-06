@@ -1,0 +1,14 @@
+2026-11-06T05:26:14Z
+{"deployment_branch_policy":{"custom_branch_policies":true,"protected_branches":false},"name":"preview"}
+{"name":"main","type":"branch"}
+{"deployment_branch_policy":{"custom_branch_policies":true,"protected_branches":false},"name":"production","protection_rules":[{"prevent_self_review":false,"reviewers":["alencardoug"],"type":"required_reviewers"},{"prevent_self_review":null,"reviewers":[],"type":"branch_policy"}]}
+{"name":"main","type":"branch"}
+ENV_PREVIEW	preview	2026-11-06T05:26:27Z
+ENV_PRODUCTION	production	2026-11-06T05:26:28Z
+FIREBASE_PROJECT	bi-como-codigo	2026-11-06T05:26:20Z
+FIREBASE_SITE	bi-como-codigo	2026-11-06T05:26:24Z
+SA_LIVE	hosting-live@bi-como-codigo.iam.gserviceaccount.com	2026-11-06T05:26:26Z
+SA_PREVIEW	hosting-preview@bi-como-codigo.iam.gserviceaccount.com	2026-11-06T05:26:25Z
+WIF_PROVIDER	projects/56481664112/locations/global/workloadIdentityPools/github/providers/github-actions	2026-11-06T05:26:24Z
+secrets listed above (none expected)
+{"can_approve_pull_request_reviews":false,"default_workflow_permissions":"read"}

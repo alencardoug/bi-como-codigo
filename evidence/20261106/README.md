@@ -17,3 +17,11 @@ temporary directory, removed at the end, and exits 1 if any case survives. `m49`
 `node evidence/20261106/m49_browser_latency.mjs`; it uses a throwaway Chrome profile under the
 system's temporary directory and removes it.
 `m50` reads files only: `sh evidence/20261106/m50_hosting_clone_source.sh`.
+
+The `r_*.txt` files are not measurements: they are the literal outputs of creating stage 2.2's
+resources on 2026-11-06, 05:23–05:26Z, under N70 — `r_01` the project's state and its APIs before,
+`r_02` the APIs enabled, `r_03` the workload identity pool and provider with the provider read back,
+`r_04` the two service accounts, their role and their bindings read back with no user-managed key,
+`r_05` the GitHub environments, their branch policies, the repository variables, the empty list of
+secrets and the default workflow permissions. How each is removed is
+[the pipeline's §8](../../docs/publishing_pipeline.md#8-removing-it).

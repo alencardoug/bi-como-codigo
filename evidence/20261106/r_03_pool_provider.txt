@@ -1,0 +1,18 @@
+2026-11-06T05:24:43Z
+Created workload identity pool [github].
+exit=0
+Created workload identity pool provider [github-actions].
+exit=0
+attributeCondition: assertion.repository=='alencardoug/bi-como-codigo' && assertion.ref=='refs/heads/main'
+  && (assertion.workflow_ref=='alencardoug/bi-como-codigo/.github/workflows/publish.yml@refs/heads/main'
+  || assertion.workflow_ref=='alencardoug/bi-como-codigo/.github/workflows/promote.yml@refs/heads/main')
+attributeMapping:
+  attribute.environment: assertion.environment
+  attribute.ref: assertion.ref
+  attribute.repository: assertion.repository
+  attribute.workflow_ref: assertion.workflow_ref
+  google.subject: assertion.sub
+name: projects/56481664112/locations/global/workloadIdentityPools/github/providers/github-actions
+oidc:
+  issuerUri: https://token.actions.githubusercontent.com
+state: ACTIVE

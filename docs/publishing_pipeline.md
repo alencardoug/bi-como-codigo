@@ -17,7 +17,7 @@
 |---|---|
 | Date | 2026-11-06 — revision 4: round 3 applied — T5's oracle by schedule (PIPE-3-01), the queue's capacity stated (PIPE-3-02). Revision 3 is `ac5e64f`: round 2 applied — a queue for `promote` (PIPE-1-04), the margin re-checked at use and a recovery through a new PR (PIPE-1-08), the run's documented `path@ref` and its attempts (PIPE-2-01). Revision 2 is `4814838`: round 1 of Codex's review applied — Hosting reads moved to the authenticated job (PIPE-1-01); the record authenticated by its run, all of `.github/` protected, and the guarantee narrowed by the Owner to no credential Google accepts (PIPE-1-02, N74); T8 in two layers (PIPE-1-03); no workflow-level concurrency (PIPE-1-04); T4b (PIPE-1-05); exact served bytes, no fallback (PIPE-1-06); environment names as variables (PIPE-1-07); the approval's lifetime (PIPE-1-08). Revision 1 is `88d4c33` |
 | Author | Claude Code, under the Owner's mandate for the night (N68) |
-| Status | **Reviewed: closed in round 4 of Codex's review** — 13 findings in rounds 1–3, three blocking, all applied; round 4, on regressions only, found none (N72). Executable under N70. Created on 2026-11-06, after round 2 found no blocking item: the federation of §5 and the GitHub environments and variables of §6 — the ruleset waits for the candidate's check to exist. The files of §2 and the tests of §7 are not yet in the repository |
+| Status | **Reviewed: closed in round 4 of Codex's review** — 13 findings in rounds 1–3, three blocking, all applied; round 4, on regressions only, found none (N72). Executable under N70. Created on 2026-11-06, after round 2 found no blocking item: the federation of §5 and the GitHub environments and variables of §6 — the ruleset waits for the candidate's check to exist. The files of §2 are written and tested on fixtures with no network (`tests/test_release.py`); none has run on GitHub, and no test of §7 has run. The records of what was created are `evidence/20261106/r_*.txt` |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§9).
@@ -46,8 +46,13 @@ every command of this plan names `--project` explicitly, and none relies on the 
 | `.github/workflows/promote.yml` | The promotion workflow (§4.4) | The same |
 | `firebase.json` | Hosting configuration: the `deploy/` directory as public root, headers, no rewrites to functions | The same |
 | `release/include.txt` | The inclusion list: the only paths that may enter `deploy/`, one glob per line | The same |
+| `release/media_types.txt` | The only extensions `deploy/` may hold | The same |
+| `release/protected.txt` | The protected set, below | The same |
+| `release/profiles.json` | The one declaration of the profiles and their public passwords (N22), read by the package check | The same |
+| `release/setup.sh` | `check`: reads the federation back and runs T8's binding oracle; read-only | The same |
+| `release/firebase-tools/` | The Firebase CLI's pin: `package.json` and its `package-lock.json`, installed with `npm ci` | The same |
 | `src/bi_como_codigo/release.py` | The release checker: builds `deploy/` from the inclusion list, writes the release record, and inspects the result (§4.2) | The same |
-| `site/` | The fixture site of 2.2: one page and a package of harmless encrypted fixtures, sealed with the envelope over synthetic stand-ins | Any PR — it is the content under test |
+| `site/` | The fixture site of 2.2: one page, `releases.md` (§4.5's recovery) and a package of harmless encrypted fixtures, written by `tests/site_fixture.py` with the envelope's producer over stand-ins | Any PR — it is the content under test |
 
 The protected set — **everything under `.github/`**, so a PR that adds a workflow is as protected
 as one that edits one (PIPE-1-02), `firebase.json`, `release/`, `src/bi_como_codigo/` and the
