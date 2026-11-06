@@ -1,0 +1,14 @@
+2026-11-06T04:21:27Z
+firebase-tools 15.28.2, /home/doug/.local/lib/node_modules/firebase-tools/lib/commands/hosting-clone.js, lines 20-31:
+    .action(async (source = "", targetChannel = "") => {
+    let sourceVersionName;
+    let sourceVersion;
+    let [sourceSiteId, sourceChannelId] = source.split(":");
+    let [targetSiteId, targetChannelId] = targetChannel.split(":");
+    if (!sourceSiteId || !sourceChannelId) {
+        [sourceSiteId, sourceVersion] = source.split("@");
+        if (!sourceSiteId || !sourceVersion) {
+            throw new error_1.FirebaseError(`"${source}" is not a valid source. Must be in the form "<site>:<channel>" or "<site>@<version>"`);
+        }
+        sourceVersionName = `sites/${sourceSiteId}/versions/${sourceVersion}`;
+    }
