@@ -468,3 +468,51 @@ def test_check_channel_refuses_a_deleted_version(monkeypatch, capsys):
     monkeypatch.setattr(r, "_http", lambda url, *a, **k: (200, {}, json.dumps({"status": "DELETED"}).encode()))
     assert r.main(["check-channel", "--site", "s", "--channel", "pr-7", "--version", "v"]) == 1
     assert "DELETED" in capsys.readouterr().out
+
+
+def test_download_drops_the_token_at_the_storage_redirect(monkeypatch):
+    """IMPL-2-01: GitHub's token reaches GitHub only, never the signed storage URL."""
+    import http.server
+    import threading
+
+    seen = {}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen[self.path] = self.headers.get("Authorization")
+            if self.path == "/api":
+                self.send_response(302)
+                self.send_header("Location", f"https://127.0.0.1:{port}/blob")
+                self.end_headers()
+            else:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"zip")
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    port = server.server_port
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    fetched = {}
+    monkeypatch.setattr(r, "_http", lambda url, token=None, accept="": fetched.setdefault("call", (url, token)) and (200, {}, b"zip"))
+    try:
+        assert r._download(f"http://127.0.0.1:{port}/api", "secret-token") == b"zip"
+    finally:
+        server.shutdown()
+    assert seen["/api"] == "Bearer secret-token"
+    assert fetched["call"] == (f"https://127.0.0.1:{port}/blob", None)
+
+
+def test_paged_refuses_a_listing_shorter_than_its_total(monkeypatch):
+    """IMPL-2-02: 1,000 runs returned of 1,500."""
+    def get(url, token):
+        import re
+
+        page = int(re.search(r"[?&]page=(\d+)", url).group(1))
+        return {"total_count": 1500, "workflow_runs": [{}] * (100 if page <= 10 else 0)}
+
+    monkeypatch.setattr(r, "_json", get)
+    with pytest.raises(r.Refused, match="1000 of 1500"):
+        r._paged("u", "t", "workflow_runs")

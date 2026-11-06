@@ -156,10 +156,7 @@ def fetch_artifact(repo: str, run_id: int, name: str, out: pathlib.Path, token: 
     matching = [a for a in artifacts if a["name"] == name and not a.get("expired")]
     if len(matching) != 1:
         raise Refused(f"run {run_id} holds {len(matching)} artifacts named {name!r}; exactly one is needed")
-    status, _, body = _http(matching[0]["archive_download_url"], token, accept="application/vnd.github+json")
-    if status != 200:
-        raise Refused(f"artifact {matching[0]['id']} answered {status}")
-    return safe_extract(body, out)
+    return safe_extract(_download(matching[0]["archive_download_url"], token), out)
 
 
 # --- §3: build -------------------------------------------------------------------
@@ -318,6 +315,36 @@ def _http(url: str, token: str | None = None, accept: str = "application/json") 
         return error.code, dict(error.headers), error.read()
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+def _download(url: str, token: str) -> bytes:
+    """An artifact's zip (IMPL-2-01): GitHub answers its API URL with a
+    redirect to signed storage, which refuses a request that still carries
+    GitHub's token. So the redirect is not followed with the token: its
+    `Location` is fetched with no `Authorization` at all."""
+    request = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "bi-como-codigo-release",
+                                                   "Authorization": f"Bearer {token}"})
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        with opener.open(request, timeout=60) as response:
+            if response.status == 200:
+                return response.read()
+            raise Refused(f"{url} answered {response.status}")
+    except urllib.error.HTTPError as error:
+        if error.code not in (301, 302, 303, 307, 308) or not error.headers.get("Location"):
+            raise Refused(f"{url} answered {error.code}") from None
+        location = error.headers["Location"]
+    if urllib.parse.urlsplit(location).scheme != "https":
+        raise Refused(f"{url} redirected to a non-https location")
+    status, _, body = _http(location, accept="*/*")
+    if status != 200:
+        raise Refused(f"the artifact's storage answered {status}")
+    return body
+
+
 def _json(url: str, token: str | None) -> dict:
     status, _, body = _http(url, token)
     if status != 200:
@@ -338,6 +365,10 @@ def _paged(url: str, token: str, key: str | None = None) -> list[dict]:
         batch = data[key] if key else data
         items.extend(batch)
         if len(batch) < 100:
+            total = data.get("total_count") if key else None
+            if isinstance(total, int) and total > len(items):
+                # The filtered runs API stops at 1,000 results (IMPL-2-02).
+                raise Refused(f"{url} lists {len(items)} of {total}: not read as complete")
             return items
     raise Refused(f"{url} has more than {PAGES_MAX} pages: not read as complete")
 
@@ -529,9 +560,7 @@ def _artifact_json(artifact: dict, token: str) -> bytes:
     import io
     import zipfile
 
-    status, _, body = _http(artifact["archive_download_url"], token, accept="application/vnd.github+json")
-    if status != 200:
-        raise Refused(f"artifact {artifact['id']} answered {status}")
+    body = _download(artifact["archive_download_url"], token)
     with zipfile.ZipFile(io.BytesIO(body)) as archive:
         names = archive.namelist()
         if names != ["release-record.json"]:
