@@ -8,3 +8,4 @@ recuperação de uma aprovação vencida (docs/publishing_pipeline.md §4.5).
 - 2026-11-06 — T4: uma prévia adiantada depois da aprovação não substitui o ar.
 - 2026-11-06 — T10: uma aprovação depois de apagado o canal não promove.
 - 2026-11-06 — T10: a recuperação, por um PR novo, depois da aprovação vencida.
+- 2026-11-06 — T5: A, que espera a aprovação enquanto B entra.
