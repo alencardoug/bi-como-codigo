@@ -146,6 +146,8 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | GIMPL-1-03 | src/bi_como_codigo/release.py:365, :564, :736 | Medium: live transport/time/read-back failures escape the refusal boundary | `adjustment` | Applied: `_public_get` maps transport/TLS/gzip failures to status 0 → `live_unreadable`; `bind_live` maps any exception to "live could not be read" and requires an offset in `releaseTime`; `promote` distinguishes "nothing was cloned" from an unconfirmed read-back; CLI tests return 1 with the summary and no traceback. |
 | GIMPL-1-04 | tests/test_package_gate.py:534 | Medium validation gap: the non-disclosure test accepts a decrypted-cell-print mutant | `adjustment` | Applied: the non-disclosure oracle runs through the CLI on eight negative cases (type, grain, sum, shape, version, invalid UTF-8, a short row in the page, the totals in the page), with markers for every unambiguous decrypted value, the totals, the `fixture_` prefix and every DEK in hex, and requires no release record; M52 adds the totals-printing mutant, killed. |
 | GIMPL-1-05 | src/bi_como_codigo/contract.py:225 | Low: boolean true is accepted as either numeric totals version | `observation` | Applied: version fields must be JSON integers (`type is int`); `test_a_boolean_version_is_refused`; M52 mutant killed; package_gate §3 says so. |
+| GIMPL-2-01 | tests/test_package_gate.py:534, :573 | Medium validation gap: CLI markers miss the resealed candidate's keys, changed totals and integer cells | `adjustment` | Applied: the markers are read from the candidate after its mutation — each report decrypted, its totals, its cells (texts, dates, decimals in both spellings, integers of 3+ digits) and its current DEKs in hex —, with the honest fixture's values for an unreadable Parquet; M52 adds the fresh-DEK and integer-cell print mutants, both killed; the `fixture_` limit declared in package_gate §11. |
+| GIMPL-2-02 | src/bi_como_codigo/release.py:353, :355, :359 | Medium: truncated HTTP bodies and invalid gzip streams still escape live_unreadable | `adjustment` | Applied: `_public_get` maps any failure of reading or decoding the body to status 0, hence `live_unreadable`; `test_the_cli_a_broken_live_body_is_live_unreadable` drives a truncated body (`IncompleteRead`) and a broken gzip through the real GET and the CLI — return 1, summary, no traceback, no record; M52 mutant killed. |
 
 ### Round 1 — evidence
 
@@ -412,3 +414,204 @@ gcloud/firebase command, commit, push or delegation was performed.
   the demonstrated decrypted-cell-print mutant must be killed while honest controls pass.
 - [ ] **GIMPL-1-05:** record the boolean-version observation in the owning document or correct the
   type comparison; prove both version fields reject booleans with the specified exact check.
+
+### Round 2 — evidence
+
+#### 1. Conclusion
+
+**Changes required.** Two medium adjustments remain: an incomplete non-disclosure oracle and
+incomplete public-read error translation. No blocking finding remains within this reviewed scope;
+**the implementation can proceed to the real PRs of package_gate §9.3**. These adjustments still
+belong in the delivery. No decrypted value/key leak or invalid-package acceptance was reproduced
+in the unmodified implementation; the surviving leak mutants below demonstrate a validation gap.
+
+#### 2. Reviewed scope and version
+
+Independent review of **GIMPL, round 2**, branch `feat/package-gate`, baseline `6bcc1cc`, tip
+`b5aa6ed758a4a3c8f2c50b61bb9e54409d8e590f`: exactly `c92f79b`, `5c3ea58`, `b5aa6ed`.
+The starting worktree was clean. `839fa40`, `6bcc1cc` and N84 are outside scope. The corrections,
+their tests, declaration changes and M52 evidence were checked against package_gate revision 5,
+envelope §6.4–§6.5, publishing_pipeline §4, N76–N83 and ADR-0003. Unchanged integration code was
+read where needed to follow the live binding. Only `DOSSIER.md` was edited in the checkout;
+experiments used copies under `/tmp/gimpl-r2-probes/`. Round 1 and its author's Status entries
+are preserved above.
+
+#### 3. Findings and evidence
+
+**GIMPL-2-01 — The CLI oracle checks the wrong keys and omits case values.
+Medium / adjustment (validation gap).**
+
+Where: `tests/test_package_gate.py:534`, `:546`, `:550`, `:573`–`:587`;
+requirements: package_gate §7 and §9.1–§9.2; acceptance criterion for value/key non-disclosure.
+
+Static: `honest = markers(repo)` runs **before** `_cli_mutations()[case](repo)`. Six cases then
+call `seal`, drawing fresh DEKs, so the hex markers belong to the discarded package. Totals are
+also taken from honest fixture rows, not the changed totals actually decrypted. The cell loop
+omits integers, integral decimals and dates. Only eight selected negative cases traverse this
+CLI oracle, whose refusal assertion is generic rather than case-specific.
+
+Executed against module/test copies; the original CLI assertions were retained, with additional
+assertions proving the leaked bytes were captured:
+
+- In `verify`'s payload `except c.Refused`, print `_deks(manifest, envelopes, passwords)[0].hex()`
+  before re-raising. **All eight CLI cases pass**, including assertions that the current
+  candidate's key is present in each of the six resealed cases' captured output.
+- Immediately after `parse_totals`, print P01's actual sum when it is `14.01`. **All eight pass**,
+  including an assertion that `14.01` is captured for `mut15_sum`.
+- Before the null checks, print P02's first integer cell through DuckDB. **`mut17_version`
+  passes**, including an assertion that the actual cell `1200` is captured.
+- Disconfirming control: repeat round 1's print of P01's actual `-0.75` before the null loop.
+  The new `mut18_utf8` CLI test **fails on `['-0.75']`**. The correction catches that specific
+  leak, but does not establish the broader claim. No key bytes are reproduced in this report.
+
+Literal output from `oracle_probes.py`:
+
+```text
+round1_cell: exit=1
+1 failed, 103 deselected in 4.72s
+current_key: exit=0
+8 passed, 96 deselected in 45.90s
+current_bad_sum: exit=0
+8 passed, 96 deselected in 41.13s
+current_integer_cell: exit=0
+1 passed, 103 deselected in 5.26s
+```
+
+Consequence: an ordinary diagnostic printing the failed operand, an integer cell or the current
+DEK can pass the new acceptance oracle. This is medium rather than blocking because the leak is
+in the experimental mutant, not the reviewed runtime code.
+
+Correction/validation: collect markers from the **actual mutated case**, after sealing, using
+independently known payload inputs and its current keys. Include unambiguous numeric/date values,
+actual totals and relevant key representations; cover §9's negative CLI paths with the expected
+refusal and absent release record. Add counter-proofs for these three surviving leaks; each must
+fail the oracle while unmodified controls pass. Do not merely add the demonstrated constants.
+
+**GIMPL-2-02 — Public response-body failures still escape the refusal boundary.
+Medium / adjustment.**
+
+Where: `src/bi_como_codigo/release.py:353`, `:355`, `:359`, `:367`, `:378`;
+requirement: package_gate §5.1, continuing GIMPL-1-03.
+
+Static: `_public_get` catches `OSError`, `EOFError` and `ValueError`. A truncated HTTP body can
+raise `http.client.IncompleteRead` (an `HTTPException`), and corrupt DEFLATE inside gzip raises
+`zlib.error`; neither is covered. `read_live` and the CLI have no later translation of them.
+
+Executed with the real reader and CLI handler: a response whose `read()` raises `IncompleteRead`,
+and a gzip body with a valid gzip header followed by invalid DEFLATE, both escape. A separate
+probe used a real `http.client.HTTPResponse` over an in-memory truncated chunked HTTP response,
+confirming this is a standard reader failure, not an invented exception. Disconfirming controls:
+URLError becomes `live_unreadable`, and valid gzip serves all three envelopes with size/digest
+integrity checks passing.
+
+```text
+real HTTPResponse on a truncated chunk: uncaught http.client.IncompleteRead
+cli_public_dns: exit=1; summary=present; release_record=False
+cli_public_incomplete: uncaught IncompleteRead; summary=absent; release_record=False
+cli_public_gzip: uncaught error; summary=absent; release_record=False
+read_live valid gzip: 3 integrity-checked envelopes
+```
+
+Here `error` is the class name of `zlib.error`. Consequence: a network truncation or corrupt gzip
+response bypasses the declared refusal/summary and escapes the CLI as an exception. It fails
+closed; no clone, successful record or decrypted-value disclosure was demonstrated. This is a
+medium adjustment because ordinary transport damage can trigger it, without a hostile candidate.
+
+Correction/validation: translate these response-read/decompression failures at the public GET
+boundary, preserving 404/redirect behavior. Exercise both manifest and envelope fetches through
+the CLI: exact `live_unreadable`, return 1, summary present, no traceback or release record;
+retain honest gzip, HTTP-status and URLError controls.
+
+**Round-1 reassessment and regression probes** (the original Status column remains the author's):
+
+| Finding | Reviewer assessment | Evidence at this tip |
+|---|---|---|
+| GIMPL-1-01 | Resolved | Disagreeing declarations plus `forbidden.txt`, with a listing spy that raises if called: exactly `declarations_agree`; spy not called. `verify` now loads/compares before candidate listing. |
+| GIMPL-1-02 | Resolved | Freshly sealed schema-only, schema+version and schema+shape stop at `schema_exact`; null+shape at `not_null`; grain+version at `grain_unique`. Isolated totals cases remain green in the full suite. |
+| GIMPL-1-03 | Partially resolved | URLError at the real public opener, bind and promote becomes its own refusal; naive releaseTime at bind and its CLI is refused; failed post-clone read-back is unconfirmed. GIMPL-2-02 covers the residual body/decoding failures. |
+| GIMPL-1-04 | Partially resolved | The exact round-1 cell-print mutant is killed, but the three new leak probes survive (GIMPL-2-01). |
+| GIMPL-1-05 | Resolved | Both freshly sealed boolean version fields stop at exactly `totals_version`; the declaration now requires JSON integers. |
+
+Additional executed/static regression evidence:
+
+- A traced connection with malformed totals reaches only view/schema/null/grain SQL, then
+  `totals_shape`; no totals text enters SQL, no SUM/content-value query runs, and a `Values` spy
+  is not reached. Inspection is downstream of successful payload checks. Moving parsing did not
+  expose malformed totals to a query or inspection; the full suite retains single-fault controls.
+- Injected `RuntimeError` at authenticated reads becomes a **refusal**, not success. The CLI
+  reports refusals and returns 1; no initial-failure clone occurs. The broad catches hide exception
+  detail by design but no silent pass or demonstrated hidden runtime defect was found. Bind's
+  intended `changed` inside the try survives its identity guard; path/time refusals remain outside
+  that translation. Existing MUT-22–25 tests pass.
+- The read-back message is accurate: it follows a clone command returning 0 and explicitly says
+  live is unconfirmed. `releaseTime` is used only by bind; public `read_live` has no such field,
+  and a stand-in promotion with naive releaseTime still passes its declared version-only checks.
+- Static integration: `live_version` flows from bind to the authenticated record, `select_record`,
+  decide outputs and promote's environment/argument. Already-live precedes predecessor refusal;
+  tip/channel checks precede the command. Preview hashes candidate bytes and promote checks API
+  metadata: neither invokes the candidate manifest/Parquet parser or decryptor. The successful
+  `release.json` body contains public metadata, not totals, cells or keys. This is local/static
+  evidence, not an executed Actions/Hosting deployment.
+
+#### 4. Checks executed and results
+
+Reviewer-executed commands below exited **0**. Python commands used
+`UV_CACHE_DIR=/tmp/gimpl-r2-uv-cache`, `PYTHONDONTWRITEBYTECODE=1` and pytest's cache provider
+disabled. Initial uv commands exited 2 before running because the default cache was read-only;
+the redirected reruns are the measurements below. The eng_dados checkout was only read.
+
+| Executed check | Result |
+|---|---|
+| `make test` | 468 passed, one expected duplicate-zip-name warning; 220.96 s |
+| `make test-js` | 157 tests: 156 passed, one skipped, zero failed |
+| `make secrets` | Nothing found in tracked files |
+| `make secrets-history` | Nothing found; six non-UTF-8 envelope blobs skipped, not verified by this scanner |
+| `ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 make docs-check` | 25 documents; no broken links/anchors/ADR/pinned citations |
+| `uv run --frozen python evidence/20261106/m52_package_gate_counter_proof.py` | Unmodified-copy control passed; 30 mutants killed, zero surviving |
+| `/tmp/gimpl-r2-probes/{oracle_probes,boundary_probes,http_body_probe,promote_time_probe}.py` | Targeted results above; the original cell mutant is killed and three new leak mutants survive |
+
+Literal component-check output:
+
+```text
+468 passed, 1 warning in 220.96s (0:03:40)
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+secrets review: nothing found in the tracked files
+history review: nothing found (134 occurrence(s) of values public by design, 2 registered; 6 blob(s) skipped)
+docs-check: 25 documents, 160 file links, 54 anchors, 23 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+control (unmodified copy, every mutant's tests): passed
+30 mutants, 30 killed, 0 not
+```
+
+The author's `ENG_DADOS_DIR=… make check` green at `b5aa6ed` remains **author-reported**; the
+reviewer ran the listed components, not the aggregate target or separate ADR checker. The
+committed 30/30 M52 output was read independently of the execution above. No GitHub/Firebase
+write, deployment, gcloud/firebase command, commit, merge, push or subagent was used.
+
+#### 5. Limitations and open questions
+
+- No real §9.3 PRs, authenticated Hosting API reads, production releaseTime or deployed record
+  plumbing were exercised. Network failures and gzip were local simulations; no claim about the
+  current public service is made. The CDN-purge, clock-skew, runner and DuckDB-WASM assumptions
+  remain unmeasured here; this narrow review does not certify the whole project or stage exit.
+- `fixture_` is useful for the current corrupted fixture label but is not a safe general oracle
+  once stage 2.4 replaces fixture data: real labels need not have that prefix, and ordinary public
+  text/dates can collide with markers. Retain isolated, unambiguous fixture sentinels and derive
+  actual case markers; do not infer real-data coverage from this prefix. Current unmodified CLI
+  controls showed no accidental marker match; the confirmed false passes are GIMPL-2-01.
+- No new contradiction with N76–N83 or ADR-0003 was established. BOOLEAN's documented exclusion,
+  N83's label-only inspection, small/re-encoded-value exclusions and M19's deferral retain their
+  declared limits. Arbitrary hostile native-parser behavior was not exhaustively tested.
+
+#### 6. Handoff to Claude Code
+
+- [ ] **GIMPL-2-01:** use the actual mutated payload/key markers and cover the declared negative
+  CLI paths. Acceptance: the current-key, changed-sum and integer-cell mutants each fail the
+  non-disclosure oracle; honest controls pass; exact refusals and absent release records remain
+  asserted; M52 includes the added counter-proofs. Document fixture-only limits for stage 2.4.
+- [ ] **GIMPL-2-02:** sanitize HTTP-body and gzip-DEFLATE failures at the public-read boundary.
+  Acceptance: manifest and envelope truncation/corruption produce CLI return 1 with
+  `live_unreadable`, a summary and no traceback/record; honest gzip, 404, redirects and URLError
+  retain their expected results.
