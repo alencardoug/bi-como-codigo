@@ -170,5 +170,392 @@ Filled in by the reviewer. One finding per line, with a verdict.
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| | | | `blocking` · `adjustment` · `observation` | |
+| PIPE-1-01 | Pipeline §4.4, `decide` | **High:** conditions 5–6 require Google authentication in a job deliberately given none | `blocking` | **Fixed** in `docs/publishing_pipeline.md` rev. 2 §4.4. Confirmed by reading rev. 1 against `sites.channels.get`'s required scope. `decide` now reads only GitHub; every Hosting read (channel still at the version, version exists, live idempotence, read-back) moved into `promote`, authenticated as `SA_LIVE` after the approval; an empty live channel on the first release is stated as not an error |
+| PIPE-1-02 | Pipeline §§2–3, §4.4 condition 3, §6 | **High:** PR-controlled workflow permissions defeat the no-OIDC claim and allow a counterfeit preview record | `blocking` | **Fixed** in rev. 2, with the Owner's decision **N74** (asked this session): the guarantee is narrowed to *no credential Google accepts*, proved by new T11; everything under `.github/` enters the protected set (a PR adding a workflow gets no preview); the record is no longer a check run but the artifact `release-record` of the trusted run, which `decide` finds by `path`, `event` and `head_branch` set by GitHub and downloads by run ID (§4.3 step 6, §4.4 condition 3). T3 extended with the permissions edit, the added workflow and your H1/H2 counterfeit. PLAN §3.4's sentence changed accordingly |
+| PIPE-1-03 | Pipeline T8; §5 | **High:** every negative probe is rejected before the environment binding; T8 cannot prove the required isolation | `blocking` | **Fixed** in rev. 2 T8: two layers tested apart — the provider's condition by probes that exchange at STS with no environment, on `main` and on a branch; the bindings by a temporary probe job in the allowlisted `promote.yml` on `main`, in each environment, with both controls and both cross directions (`preview`→`SA_LIVE`, `production`→`SA_PREVIEW`), STS success and IAM refusal kept apart. New `release/setup.sh check` reads both policies back and requires exactly one member each; a pool-wide member in a local copy of the expected policy must fail it, never installed |
+| PIPE-1-04 | Pipeline §4.4 concurrency; T5 | **Medium:** an obsolete rerun can cancel the latest pending promotion before freshness is checked | `adjustment` | **Fixed** in rev. 2 §4.4: no workflow-level concurrency; `decide` rejects stale runs before they can queue, and only `promote` has the group `promote`, `cancel-in-progress: false`. T5 extended with your A/B/C schedule |
+| PIPE-1-05 | Pipeline T4 | **Medium:** the test changes the channel before approval and cannot detect promotion by mutable channel name | `adjustment` | **Fixed** in rev. 2: the clone is built in one function of `release.py`; new T4b tests it against a stand-in CLI and a channel-form copy must fail; `promote` step 6's read-back is declared as what catches the step-3-to-clone race, which CI does not reproduce |
+| PIPE-1-06 | Pipeline §9, file-hash fallback | **Medium:** accepting matching paths/counts would abandon the exact-artifact gate | `adjustment` | **Fixed** in rev. 2 §4.3 step 5: no fallback. Every page of `versions/{id}/files` must give exactly the artifact's paths, all `ACTIVE`, and every path fetched from the channel URL must equal the artifact's bytes by SHA-256 — served bytes, so the CLI's gzip need not be reproduced; anything unreadable fails the job |
+| PIPE-1-07 | Pipeline §§4.3–4.4, §5 | **Medium:** workflow environment names are literal, contrary to CLAUDE.md §5 | `adjustment` | **Fixed** in rev. 2 §2: `ENV_PREVIEW` and `ENV_PRODUCTION` as repository variables, `environment: ${{ vars.… }}` in the jobs, and the bindings written by `release/setup.sh` from the same values |
+| PIPE-1-08 | Pipeline §9, version lifetime; §4.3 | **Medium:** the seven-day channel can expire before approval; indefinite version availability is false | `adjustment` | **Fixed** in rev. 2 §4.5: the channel lives 30 days (the maximum); `decide` refuses a record whose expiry is a day or less away; `promote` step 3 refuses a deleted version; the recovery is a new preview and a new approval, never a substitution. New T10 deletes the channel before the approval. The false assumption is struck in §9, as corrected |
+
+### 1. Conclusion
+
+**Changes required.** The proposed credential-free promotion decision cannot execute its Hosting
+reads, the PR workflow/token boundary is weaker than claimed, and T8 cannot establish the
+environment isolation required by stage 2.2. **The plan cannot yet be executed under N70.** This
+is a plan review; passing the existing repository checks proves none of the proposed workflows.
+
+### 2. Reviewed scope and version
+
+Reviewed on 2026-11-06: branch `main`, HEAD
+`9fdd32e592a44f95d9afda0e1de1cc61636f49d2`; initially clean, three commits ahead of `origin/main`.
+The comparison is exactly `ae1a2fffb46a4ce88e8dc0fa58e8465de8668d1b` through
+`59a992251ede8fea0f6c7c5098d5b76fd93291df`: `88d4c33` and `59a9922`, six files. HEAD adds only
+the author's dossier, which was read as a hand-off and excluded from the reviewed delivery.
+Line references below refer to `docs/publishing_pipeline.md` at `59a9922`.
+
+Read AGENTS.md, CLAUDE.md, dossier §§1–7, the complete pipeline plan and scoped diff, PLAN §3.4,
+stage 2.2/2.2b and N2/N15/N68–N70, the specified review findings and round-5 closure, and envelope
+§6.4. Only this dossier was edited. No commit, push, deployment or external mutation was made.
+
+### 3. Findings and evidence
+
+#### PIPE-1-01 — `decide` cannot read Hosting without Google credentials
+
+**High — blocking.** `docs/publishing_pipeline.md:162`, conditions at lines 176–180.
+
+`decide` must read both preview and live channel metadata before producing the approval summary,
+but has only a GitHub token. These are authenticated control-plane reads, even for a public site:
+[`sites.channels.get`](https://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.channels/get#authorization-scopes)
+requires a Google OAuth scope. GitHub `contents/checks/pull-requests: read` supplies no Google
+credential. Authentication in the later `promote` job does not authenticate `decide`. T1 therefore
+cannot reach the intended approval/promotion path as specified. Evidence: static plan and API
+contract; no unauthorised runtime request was attempted.
+
+**Correction and validation:** put the Hosting reads in a job with an explicitly authorised
+federated identity, or move those conditions into the protected, authenticated promotion job and
+adjust what the earlier summary establishes. Preserve the immutable version/digest selected for
+approval and the checks immediately before cloning. T1 must demonstrate both reads with the
+declared job identities, including the initially empty live channel, without an ambient login or
+stored key.
+
+#### PIPE-1-02 — PR workflow permissions and a writable URL are not a trust boundary
+
+**High — blocking.** `docs/publishing_pipeline.md:52`, lines 69–85, 149–152, 169–171 and 233–235.
+
+The `pull_request` workflow is itself PR-controlled. A same-repository PR can change its
+`permissions` to grant `id-token: write` or `checks: write`; rejection by `admit` happens **after**
+that code has run. It can also add a fourth workflow, outside the three protected workflow paths.
+Repository read-only defaults are defaults, not a ceiling: GitHub documents
+[permission adjustment by the workflow](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#how-permissions-are-calculated-for-a-workflow-job)
+and the [OIDC issuance permission](https://docs.github.com/en/actions/reference/security/oidc#required-permission).
+Thus the literal requirement that PR code cannot request an OIDC token is unmet. **This does not
+show a Google exchange bypass:** the proposed `workflow_ref`/`ref` condition should reject that
+PR's JWT.
+
+It also invalidates the assertion that PR code cannot create `preview-release`. The
+[Checks API](https://docs.github.com/en/rest/checks/runs#create-a-check-run) accepts `name`,
+`head_sha`, `details_url`, conclusion and output from the caller. The Actions app identity
+identifies the app, not which workflow authored that payload; a URL naming an actual publisher
+run is caller-supplied data. Checking that the referenced run exists still does not bind the
+record's contents to it.
+
+Counterexample: a PR receives a legitimate preview at H1, then adds a checker/configuration change
+at H2 and a workflow with `checks: write`. It copies the old version/channel into a successful
+check on H2 with the old publisher's URL. Condition 4 can still pass because included content is
+unchanged, and condition 5 still sees that old version. The planned record checks then permit the
+live update that T3 says this PR must not receive. This is a static counterexample, not an
+executed attack. It addresses the explicitly required same-repository trust boundary; it does
+not depend on confidential fixture data.
+
+**Correction and validation:** specify an enforced source of candidate permissions that PR
+workflow edits cannot replace, and authenticate the release record independently of its writable
+check fields. For example, resolve a trusted publisher run through GitHub's server-side workflow
+metadata and consume its immutable result artifact, validating its exact triggering PR/head,
+attempt, version and digests; a copied `details_url` alone is insufficient. If the intended OIDC
+guarantee means only *accepted Google credentials*, that narrower requirement needs an explicit
+Owner decision rather than the current no-JWT claim. Extend T3 to change candidate permissions,
+add another workflow, and forge an H2 record after a valid H1 preview; none may authorise a deploy
+or live update. Demonstrate the claimed token restriction separately.
+
+#### PIPE-1-03 — T8 never reaches the binding it purports to test
+
+**High — blocking; validation defect.** `docs/publishing_pipeline.md:200`, bindings at 213–214,
+T8 at 258.
+
+All T8 cases use `federation-probe.yml`, while the provider accepts only `publish.yml` and
+`promote.yml`. Consequently (c), `production` with `SA_PREVIEW`, is already rejected by the
+provider; it cannot yield the promised binding rejection. More seriously, no case tries
+`SA_LIVE` from `preview`. A mistakenly pool-wide live binding can pass the entire proposed suite.
+The principalSet syntax itself is supported by Google's
+[attribute-binding documentation](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines#service_account_impersonation);
+the defect is the proposed proof, not that syntax.
+
+A read-only Python transcription of the literal predicate produced:
+
+```text
+T7 control: provider=True; SA_PREVIEW binding if reached=True; exchange with binding mistakenly allow-all=True
+T8(a): provider=False; SA_PREVIEW binding if reached=True; exchange with binding mistakenly allow-all=False
+T8(b): provider=False; SA_PREVIEW binding if reached=True; exchange with binding mistakenly allow-all=False
+T8(c): provider=False; SA_PREVIEW binding if reached=False; exchange with binding mistakenly allow-all=False
+```
+
+This is a boolean counterexample, **not** an STS/CEL execution. In addition, a branch probe using
+the actual `preview` environment can stop at GitHub's main-only deployment policy before getting
+a token; [environment branch rules use the run's `GITHUB_REF`](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#deployment-branches-and-tags).
+That is not evidence of provider rejection.
+
+**Correction and validation:** separate the rejection layers. Run exchange-only binding probes
+from an already allowlisted workflow/ref, with a successful control, and test both cross-account
+directions, especially `preview` → `SA_LIVE`. Establish that STS passed and IAM impersonation
+failed. Keep wrong-workflow/ref tests separate and identify any GitHub-policy rejection honestly.
+Do not widen the provider allowlist or bindings for the probe. Name the temporary jobs' removal
+and final policy/read-back checks. A local mutation making either binding pool-wide must make
+the binding oracle fail, without installing that unsafe mutation in Google Cloud.
+
+#### PIPE-1-04 — Workflow concurrency admits obsolete runs before checking freshness
+
+**Medium — adjustment.** `docs/publishing_pipeline.md:159`, lines 166–167 and T5 at 255.
+
+With the specified default queue, `cancel-in-progress: false` preserves the running workflow but
+still replaces its pending successor. GitHub documents the
+[single pending slot and optional queue setting](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#concurrency).
+Schedule: A is waiting for approval; current merge B is pending; the Owner reruns obsolete C.
+C replaces/cancels B **before** C can execute `decide`. A and C subsequently reject the tip B,
+leaving no run to publish B. T5's sequential successful promotions do not exercise this schedule.
+No newer bytes are overwritten, but an ordinary rerun can prevent publication of the current
+merge. Evidence: documented scheduling semantics and static schedule, not an executed Actions run.
+
+**Correction and validation:** reject stale/no-release runs before they enter the promotion
+queue, while retaining serialisation and the post-approval freshness check; or specify a queue
+policy that cannot discard B in this schedule. Extend T5 with a running approval wait, a current
+pending promotion and an obsolete rerun. B must remain eligible and publish after its own approval;
+at most one clone may execute at once.
+
+#### PIPE-1-05 — T4 cannot distinguish a version clone from a channel clone
+
+**Medium — adjustment; validation gap.** `docs/publishing_pipeline.md:254`, command at 187.
+
+T4 advances the channel **while approval is pending**. Both the correct version-ID command and
+an incorrect channel-name command satisfy its oracle: condition 5 rejects before either command
+runs. T1 would also pass the incorrect command while the channel is unchanged. Therefore these
+tests do not fail if the immutable clone is accidentally replaced by the mutable form. The actual
+planned `SITE@VERSION` command is correct; this finding concerns its regression proof.
+
+**Correction and validation:** retain the pending-approval case and add a controlled fixture-only
+interleaving after approval and the last channel recheck, before clone. Advance the channel then.
+Live must either remain unchanged on an explicit refusal or become the recorded approved version,
+never the new channel version. A local clone-by-channel mutant must fail that oracle. No race
+was executed in this review.
+
+#### PIPE-1-06 — File counts and paths cannot replace byte verification
+
+**Medium — adjustment.** `docs/publishing_pipeline.md:298`, comparison at 146–148.
+
+The fallback explicitly accepts a weaker comparison if hashes cannot be compared. Different
+content with the same filenames/count is indistinguishable under that fallback, contradicting
+the exact-artifact gate of PLAN §3.4. T1 checks version identity, not that version's equality to
+the verified artifact, so it cannot detect this downgrade.
+
+There is now evidence against needing the fallback: Hosting
+[`populateFiles`](https://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.versions/populateFiles)
+specifies SHA-256 of gzip-compressed content; installed firebase-tools **15.28.2**
+`lib/deploy/hosting/uploader.js:124–146,199–200` agrees with the tagged
+[uploader source](https://github.com/firebase/firebase-tools/blob/v15.28.2/src/deploy/hosting/uploader.ts#L165),
+which hashes its level-9 gzip stream and encodes the hash as hex. The
+[`files.list` response](https://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.versions.files/list)
+exposes path/hash/status and pagination. These are documentation/source checks, not a deployed
+hash comparison.
+
+**Correction and validation:** make exact, complete file/hash equality mandatory and fail closed
+on an unsupported representation. Specify matching the CLI's gzip bytes and consuming all pages.
+Add a named test with identical paths/counts but altered bytes, plus a successful real fixture
+comparison. Do not weaken the gate when a CLI/API assumption fails.
+
+#### PIPE-1-07 — Environment names are missing from the variable configuration
+
+**Medium — adjustment.** `docs/publishing_pipeline.md:137`, 183, configuration at 53–56.
+
+The configuration list parameterises project/site/provider/accounts but the workflow job examples
+fix `environment: preview` and `environment: production`. CLAUDE.md §5 explicitly includes
+environment names among values supplied through configuration. Changing those settings for qa or
+another installation therefore requires editing workflow code and synchronising IAM values by
+hand. The fixed `main` trust ref is separately required by PLAN §3.4 and is not this finding.
+
+**Correction and validation:** add repository variables for the two GitHub environment names,
+use them in job declarations, and derive the binding/setup values from that same configuration.
+GitHub permits `vars` in [job environment names](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idenvironment).
+Validate workflow rendering and the corresponding binding values with non-default names; literal
+resource names in the documentation's inventory are not themselves a defect.
+
+#### PIPE-1-08 — Preview expiry contradicts the version-lifetime assumption
+
+**Medium — adjustment.** `docs/publishing_pipeline.md:143`, assumption at 310–311.
+
+The preview expires after seven days, but approval has no stated deadline or retention mechanism.
+Firebase explicitly [schedules an expired channel, its releases and associated versions for
+deletion within 24 hours](https://firebase.google.com/docs/hosting/manage-hosting-resources#set_the_expiration_of_a_preview_channel),
+except versions also referenced by another release. A first promotion approved after a week can
+therefore have neither channel nor source version. The guard should refuse safely, but the
+assumption that Hosting retains it for as long as promotion takes is false. T1's prompt approval
+does not prove that assumption.
+
+**Correction and validation:** define a bounded approval lifetime and explicit expired-candidate
+recovery requiring a new preview/approval, or a retention mechanism covering the supported wait.
+Never substitute a new build or a channel's latest version under the old approval. Add a named
+expiry/missing-version test that asserts live unchanged, explains the refusal and exercises the
+documented recovery.
+
+### 4. Checks executed and not performed
+
+Executed the authorised gate, reading its own exit code, **0**:
+
+```sh
+ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 \
+UV_CACHE_DIR=/tmp/bi-como-codigo-review-uv-cache \
+make check UV_RUN='uv run --frozen --no-sync'
+```
+
+Literal excerpts:
+
+```text
+secrets review: nothing found in the tracked files
+history review: nothing found (88 occurrence(s) of values public by design, 2 registered; 0 blob(s) skipped)
+docs-check: 20 documents, 111 file links, 42 anchors, 0 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 0 accepted, 3 pending — record consistent
+279 passed in 17.09s
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+```
+
+Read-only `gh api -X GET` calls on this repository returned:
+
+```text
+actions/permissions/workflow:
+{"default_workflow_permissions":"read","can_approve_pull_request_reviews":false}
+repository metadata:
+{"allow_merge_commit":true,"allow_rebase_merge":true,"allow_squash_merge":true,"default_branch":"main","full_name":"alencardoug/bi-como-codigo","visibility":"public"}
+environments:
+{"environments":[],"total_count":0}
+rulesets:
+[]
+actions/secrets (names only):
+{"names":[],"total_count":0}
+```
+
+Read the installed CLI's clone/authentication/upload code and the official documentation/source
+linked above. A read-only boolean model established PIPE-1-03's masking counterexample.
+`git diff --check` passed before the report. After writing it, `docs-check` passed; the first
+report-only secrets check exited **2** on one false positive, interpreting a permission name
+followed by a Markdown URL as a credential assignment. The link label was rewritten; no
+credential was present. The corrected report's `make docs-check secrets`, with the same
+`ENG_DADOS_DIR`, `UV_CACHE_DIR` and `UV_RUN` overrides, exited **0**:
+
+```text
+docs-check: 20 documents, 111 file links, 42 anchors, 0 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+secrets review: nothing found in the tracked files
+```
+
+`git diff --check` also exited **0**. `git status --short` showed only ` M DOSSIER.md`;
+all eight findings' Status cells were checked and remain empty.
+
+The permitted `gcloud services list --enabled --project=bi-como-codigo` exited **1** before a
+service listing:
+
+```text
+ERROR: (gcloud.services.list) Unable to create private file [/home/doug/.config/gcloud/credentials.db]: [Errno 30] Read-only file system: '/home/doug/.config/gcloud/credentials.db'
+```
+
+No attempt was made to bypass that restriction. Cloud API enablement, billing, existing IAM
+policies and service-account keys were not independently enumerated. No workflow, environment,
+ruleset, pool, provider, account, token exchange, Hosting upload/clone or T1–T9 execution was
+created or invoked: the pipeline does not exist, and external mutations are forbidden in this
+review. The gate result belongs to the current repository, not to the proposed pipeline.
+
+### 5. Coverage, limitations and open questions
+
+The following premises survived review at the **plan/documentation** level:
+
+- M50's corrected `SITE@VERSION` parsing agrees with installed
+  `lib/commands/hosting-clone.js:23–31` and the tagged
+  [clone source](https://github.com/firebase/firebase-tools/blob/v15.28.2/src/commands/hosting-clone.ts#L32);
+  installed lines 92–104 reuse the source version for the same site and create a release without
+  cloning a new version. No Firebase operation was run.
+- [GitHub's event reference](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run)
+  supports the default-branch `workflow_run` boundary. The
+  [claim reference](https://docs.github.com/en/actions/reference/security/oidc#custom-claims-provided-by-github)
+  supports `workflow_ref`, `ref`, and environment-job `environment`; `job_workflow_ref` concerns
+  reusable workflows. The literal provider condition and environment principalSets are coherent
+  for this single-provider pool, subject to actual T7/T8 evidence. No acceptance of a PR JWT by
+  that condition was identified. Pool-wide bindings would also trust another provider added to
+  the same pool; no such addition is proposed.
+- The [Hosting role inventory](https://docs.cloud.google.com/iam/docs/roles-permissions/firebasehosting)
+  exposes site-level permissions, without a channel-specific release permission. Two accounts
+  with Hosting Admin do not create a preview/live permission boundary; the plan acknowledges this.
+  Preventing untrusted execution in `preview` remains essential because its account can update live.
+- Installed `lib/requireAuth.js:23–38,98–103` uses GoogleAuth/ADC, as does the tagged
+  [authentication source](https://github.com/firebase/firebase-tools/blob/v15.28.2/src/requireAuth.ts#L52). The
+  [auth action](https://github.com/google-github-actions/auth/tree/v3#inputs-miscellaneous)
+  exports a workspace credentials file through `GOOGLE_APPLICATION_CREDENTIALS` and cleans it at
+  job end. Its Firebase **Admin SDK** caveat does not establish a Firebase **CLI** failure.
+  Actual federated deploy/clone compatibility still needs T1/T7. Keep that file outside `deploy/`.
+- [Environment reviewers and branch policies](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)
+  support this public repository and the Owner's self-approval with prevention disabled. The
+  [ruleset API](https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset)
+  supports repository-role bypass and required status checks. Their exact check context/app and
+  bypass configuration remain implementation evidence, not a verified existing setting.
+- [IAM API use is free](https://cloud.google.com/iam/pricing), and the
+  [30-day pool deletion/name reservation](https://docs.cloud.google.com/iam/docs/manage-workload-identity-pools-providers#delete_a_pool)
+  is documented. This does not prove API activation or STS in this billing-disabled project.
+  T1/T7 must establish that premise. [Spark Hosting quotas](https://firebase.google.com/docs/hosting/usage-quotas-pricing)
+  can stop deployments or serving when exceeded; no fixture size/traffic problem was demonstrated.
+
+Stage-criterion coverage: T1/T7 are blocked by PIPE-1-01; the same-repository no-credential/record
+boundary needs PIPE-1-02; T8 needs PIPE-1-03; T5 needs the additional queue schedule in PIPE-1-04;
+T4 needs PIPE-1-05. T6 names both required rejection cases, but implementation evidence must
+show they reach trusted `verify` and that the planted clear bytes use an otherwise allowed
+path/media type, so a suffix rejection cannot stand in for content inspection. T9's key and secret
+inventories remain mandatory; today's empty repository secrets do not prove future keylessness.
+T2's local replay fallback is explicitly permitted by N70 and correctly declares its limitation:
+it is not proof of real fork execution or token behaviour.
+
+No extractor, action SHA or checker exists to inspect. Artifact selection must remain scoped to
+the admitted run/attempt; the implementation review must establish quarantine outside the trusted
+checkout, safe normalised paths, no links/traversal/overwrite, complete file inventories and no
+candidate cache restored into privileged jobs. GitHub's own
+[`workflow_run` artifact example](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#using-data-from-the-triggering-workflow)
+warns against extraction into a workspace containing executable scripts. T1–T9 currently do not
+exercise malformed archives. This is an unverified implementation boundary, not an assertion of
+a vulnerability in an unselected `download-artifact` version.
+
+Likewise, admission must verify PR origin/head through server metadata, not `candidate.json`, and
+check old and new names on renames with a complete diff. The selected
+[PR-files API](https://docs.github.com/en/rest/pulls/pulls#list-pull-requests-files)
+defaults to 30 files/page and caps responses at 3,000; incomplete inventories must refuse or use
+a complete Git diff. The separate compare endpoint's 300-file cap is not evidence of a defect in
+this plan's chosen endpoint. A fork reusing a branch name can collide with the pre-admission
+preview concurrency group; that can cancel a fixture preview but does not pass admission or
+federation. This adversarial availability case has no demonstrated credential/live impact in the
+single-owner scope and is recorded as a limitation, not an additional blocker.
+
+[`commits/{sha}/pulls`](https://docs.github.com/en/rest/commits/commits#list-pull-requests-associated-with-a-commit)
+documents the merged introducing PR. No basis was found to claim squash merges always return an
+empty list. Implementation must bind the actual merged PR/base/merge SHA, retain its original head
+for condition 4, and demonstrate the enabled merge styles in T1. No such merge was performed here.
+
+The local source-to-package warehouse oracle is outside this delivery. The full package-to-artifact
+gate, control totals, live-package comparisons and remaining mutation tests are explicitly left
+to 2.2b; the fixture scanner in §4.2 does not establish detection of arbitrary re-encoded clear
+rows/keys in future HTML/JSON/JS. That later obligation is not being declared complete or reopened
+as an implementation finding here. Promotion by the already approved immutable version avoids a
+new build, subject to the record, byte-verification and testing corrections above.
+
+### 6. Handoff to Claude Code
+
+Required corrections, with acceptance criteria:
+
+- [ ] **PIPE-1-01:** make every Hosting read reachable with a declared, permitted identity; T1
+  covers an empty live channel and completes without ambient credentials.
+- [ ] **PIPE-1-02:** resolve the PR-controlled permission boundary and authenticate record origin;
+  altered/new workflows and an H1-to-H2 counterfeit record cannot authorise publication. Document
+  and prove the precise OIDC guarantee without silently weakening the Owner's requirement.
+- [ ] **PIPE-1-03:** isolate provider and both account-binding oracles; the wrong-environment
+  `SA_LIVE` case reaches IAM and is refused; an overbroad-binding model fails the tests. Remove
+  probe code without adding permanent token paths or broadening trust.
+- [ ] **PIPE-1-04:** an obsolete rerun cannot evict the current pending promotion; preserve the
+  one-clone-at-a-time property and final freshness check.
+- [ ] **PIPE-1-05:** test a channel advance after approval/final recheck; a mutable-channel clone
+  fails while immutable version promotion satisfies the oracle.
+- [ ] **PIPE-1-06:** remove the count/path-only fallback; named positive and same-path altered-byte
+  cases prove complete gzip/hash comparison or fail closed.
+- [ ] **PIPE-1-07:** parameterise environment names consistently across workflows and federation;
+  non-default configuration resolves to the same intended identities.
+- [ ] **PIPE-1-08:** replace the lifetime assumption with a supported deadline/retention and
+  recovery contract, proved by a named expiry case with live unchanged.
+
+Return the revised **plan** for review before external resource creation. Runtime fixture evidence
+remains required during implementation; this review grants no approval beyond the scoped plan.
 
