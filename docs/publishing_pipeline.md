@@ -147,9 +147,12 @@ summary, unless every condition holds:
    public passwords (the envelope's §6.4); and the **inspection by content** of PLAN §3.4 —
    every file, whatever its extension, searched for a Parquet magic outside an envelope, for the
    payload magic `BICP` outside an envelope, for raw key material from the package's own DEKs,
-   and for source maps. In 2.2 the package is the fixture one; 2.2b completes the gate;
+   and for source maps. From stage 2.2b the package gate of [`package_gate.md`](package_gate.md)
+   runs here too — the contract, the totals, the Parquet, the package live read from the site's
+   public URL with no credential, and the clear values —, owned there;
 3. write `release.json`: PR, head SHA, the SHA-256 of every file of `deploy/` and of the whole
-   (a canonical listing: sorted paths, one `sha256  path` line each), the package's `package_id`;
+   (a canonical listing: sorted paths, one `sha256  path` line each), the package's `package_id`,
+   and the live package it was compared with and when (package_gate §5.1);
 4. upload `deploy/` and `release.json` as the artifact `verified`.
 
 A failure here uploads nothing to Hosting: the deploying job depends on this one.
@@ -158,7 +161,9 @@ A failure here uploads nothing to Hosting: the deploying job depends on this one
 
 `permissions: { id-token: write, actions: read }`, `environment: ${{ vars.ENV_PREVIEW }}`.
 
-1. download `verified` the same way; verify it again and compare with `release.json`;
+1. download `verified` the same way, and check its files against `release.json`'s listing and
+   digest — nothing parsed, nothing decrypted in this job (package_gate §5.4); then, after step 2,
+   bind the live version `verify` compared with, through the Hosting API (package_gate §5.2);
 2. authenticate through federation (`google-github-actions/auth`, with `workload_identity_provider`
    and `service_account: SA_PREVIEW`, `create_credentials_file: true`), which leaves Application
    Default Credentials for `firebase-tools` [assumed, §9];
@@ -175,8 +180,8 @@ A failure here uploads nothing to Hosting: the deploying job depends on this one
    representation the check cannot read fails the job. Comparing served bytes avoids reproducing
    the CLI's gzip, whose hash is of its own level-9 stream;
 6. upload `release-record.json` as the artifact `release-record` **of this run**: PR number, head
-   SHA, candidate run ID, `VERSION_ID`, channel, its expiry, and the canonical digest of
-   `release.json`. A PR comment, or a check run, is not the record: both are writable by any
+   SHA, candidate run ID, `VERSION_ID`, channel, its expiry, the canonical digest of
+   `release.json`, and `live_version`, the live version bound in step 1. A PR comment, or a check run, is not the record: both are writable by any
    workflow with the right scope, a PR's included (PIPE-1-02). An artifact belongs to the run that
    uploaded it, and the promotion finds that run by facts GitHub sets on the server (§4.4).
 
@@ -233,7 +238,9 @@ it runs, so the newest merge is never dropped — within the 100 pending jobs Gi
    deleted with an expired channel, and the channel's expiry is still more than one day away,
    re-checked now and not only before the approval (§4.5);
 4. read `sites/{site}/channels/live`: if it already serves `VERSION_ID`, end — nothing to do (a
-   rerun after success); an empty live channel, on the first release, is not an error;
+   rerun after success); an empty live channel, on the first release, is not an error; otherwise
+   live must still be the `live_version` of the record — any other release since the preview stops
+   here, a new PR previews against it (package_gate §5.3) —, in the same command as the clone;
 5. `python -m bi_como_codigo.release promote --version VERSION_ID`, which runs exactly
    `firebase hosting:clone {site}@{VERSION_ID} {site}:live` — the CLI reads `<site>@<version>`
    (M50); within one site, live then points at that same version, the same bytes, with no rebuild.

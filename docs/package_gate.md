@@ -18,7 +18,7 @@
 |---|---|
 | Date | 2026-11-06 — revision 5: round 4 applied (PGATE-4-01). Revision 4 is `0788e8a`: round 3 applied (PGATE-3-01, 02). Revision 3 is `b1f6b93`: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 5 of Codex's review** — 14 findings in rounds 1–4, six blocking, all applied; round 5 found none. The Owner's decisions N76–N83 (2026-11-06) shape it. Nothing of it is implemented yet |
+| Status | **Plan, reviewed: closed in round 5 of Codex's review** — 14 findings in rounds 1–4, six blocking, all applied; round 5 found none. The Owner's decisions N76–N83 (2026-11-06) shape it. **Implemented on 2026-11-06, under review**: `src/bi_como_codigo/contract.py`, the live predicates in `envelope.py`, `verify`, `check-listing`, `bind-live` and `promote` in `release.py`, the two workflows, `release/contract.json`, `release/public_values.json` and the real fixtures; every mutation of §9 and its control in `tests/test_package_gate.py`; each check's counter-proof, 27 mutants all killed (M52). The real PRs of §9.3 wait for the code's review |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§11).
@@ -242,7 +242,7 @@ its checks, and carry no free content —:
   a non-zero fraction** (PGATE-2-02), in three spellings: canonical (§3, `-1234.50`, `1140`); Brazilian,
   `.` grouping thousands and `,` before the fraction (`-1.234,50`, `1.140`); and `,` before the
   fraction with no grouping (`-1234,50`) — (`clear_value`);
-- **except** a value listed in `release/public_values.yml` — protected —, each entry with the reason
+- **except** a value listed in `release/public_values.json` — protected; JSON, so the gate needs no YAML reader —, each entry with the reason
   it is public by design, as `docs/public_by_design.yml` does for the passwords: a label that the
   governance portal shows, say, or a date that is also a release's date in `releases.md`. The
   fixtures' values are chosen not to collide with the fixture site, so the list starts empty, and
@@ -346,7 +346,7 @@ The tests:
 ## 10. What changes elsewhere
 
 - `pyproject.toml` and `uv.lock`: `duckdb==1.5.6`, the second runtime dependency (N77).
-- `release/contract.json`, `release/public_values.yml`: new. `src/bi_como_codigo/contract.py`: new
+- `release/contract.json`, `release/public_values.json`: new. `src/bi_como_codigo/contract.py`: new
   — the contract, the totals, the Parquet checks and the value inspection; `release.py`'s `verify`
   calls it and gains the live read, and a `check-live` command for §5.2.
 - `publish.yml`: `verify` gets `FIREBASE_SITE` and a `timeout-minutes`; `preview` checks the listing
