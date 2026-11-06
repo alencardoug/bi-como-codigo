@@ -141,5 +141,274 @@ Filled in by the reviewer. One finding per line, with a verdict.
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| | | | `blocking` · `adjustment` · `observation` | |
+| GIMPL-1-01 | src/bi_como_codigo/release.py:247 | Medium: candidate bytes are read before declarations_agree | `adjustment` | |
+| GIMPL-1-02 | src/bi_como_codigo/contract.py:275 | Medium: totals validation preempts schema/null/grain checks | `adjustment` | |
+| GIMPL-1-03 | src/bi_como_codigo/release.py:365, :564, :736 | Medium: live transport/time/read-back failures escape the refusal boundary | `adjustment` | |
+| GIMPL-1-04 | tests/test_package_gate.py:534 | Medium validation gap: the non-disclosure test accepts a decrypted-cell-print mutant | `adjustment` | |
+| GIMPL-1-05 | src/bi_como_codigo/contract.py:225 | Low: boolean true is accepted as either numeric totals version | `observation` | |
 
+### Round 1 — evidence
+
+#### 1. Conclusion
+
+**Changes required.** Four medium adjustments and one low observation are recorded below.
+No blocking defect or disclosure of a decrypted value/key was reproduced in the **unmodified**
+implementation. The existing suites and all 27 M52 mutants pass their stated controls, but do not
+establish the declared check order or the full non-disclosure acceptance criterion.
+
+#### 2. Reviewed scope and version
+
+Independent review of **GIMPL, round 1**, on `feat/package-gate`, baseline `7677275`, tip
+`363a9756c99afee7fe57a10131653411d1c351aa`: exactly `5c3df21`, `8a87981`, `a13a4b3`, `9c5b912`
+and `363a975`. The worktree was clean at the start. The implementation, fixtures, workflows,
+declarations and evidence were examined against package_gate revision 5, envelope §6.4–§6.5,
+publishing_pipeline §4, N76–N83 and ADR-0003. The earlier plan findings were consulted to check
+intent; this is the first implementation review of this batch.
+
+An unrelated `PLAN.md` change adding N84 appeared during the review and was subsequently committed
+by another session as `839fa40`; further uncommitted PLAN edits were also present at handoff. That
+commit changes only PLAN and is outside this review. The reviewed tip remains `363a975`; those
+concurrent changes were left untouched. Only this dossier was edited by the reviewer.
+
+#### 3. Findings and evidence
+
+**GIMPL-1-01 — Read the trusted declarations before candidate bytes. Medium / adjustment.**
+
+Where: `src/bi_como_codigo/release.py:247`, `src/bi_como_codigo/release.py:260`;
+requirement: `docs/package_gate.md:93` (§2.2).
+
+`listing(deploy)` hashes every candidate file before `declarations_agree`; inclusion/media checks
+also precede it. Thus a disagreement introduced by an ordinary protected contract/profile update
+can be obscured by a candidate refusal or read failure. The required guard is explicitly before
+**any** candidate byte is read, rather than merely before its manifest is parsed.
+
+Executed in a temporary repository copy: add P04 to the contract without changing profiles, build
+the otherwise honest deploy, then add `forbidden.txt`. Result:
+
+```text
+declaration mismatch plus excluded candidate: Refused: forbidden.txt is not under the inclusion list
+```
+
+Static evidence: `listing` calls `read_bytes()` at line 202; the declaration check is line 261.
+The existing disagreement test reaches `declarations_agree` only because its candidate has no
+earlier failure; M52 removing that check does not test its placement.
+
+Correction: load and compare the protected declarations before listing or otherwise reading the
+candidate. Validate with a read/listing spy that must not be called on disagreeing declarations,
+and a candidate with an earlier inclusion/read failure; both must stop at `declarations_agree`.
+Retain the honest and MUT-08–10 controls.
+
+**GIMPL-1-02 — Totals checks preempt the declared Parquet checks. Medium / adjustment.**
+
+Where: `src/bi_como_codigo/contract.py:275`, `src/bi_como_codigo/contract.py:290`;
+requirement: `docs/package_gate.md:142`–§4 step 5.
+
+`check_payload` calls `parse_totals` before opening DuckDB. That function already refuses shape,
+version, sum-key and canonical-form errors. Section 4 orders schema, nulls and grain before the
+totals checks. Consequently, the first refusal differs from the declared sequence when both
+parts are invalid. This is a precedence defect, not evidence that invalid data is accepted.
+
+Executed through `release.verify`, using freshly sealed real Parquet fixtures:
+
+```text
+schema_only: schema_exact (report P01)
+schema_plus_wrong_version: totals_version (report P01)
+schema_plus_bad_shape: totals_shape (report P01)
+```
+
+The schema mutation changes `valor` to DOUBLE; the other changes are respectively
+`contract_version: 2` and one extra totals key. Each single-fault test passes today, so it cannot
+detect this ordering defect.
+
+Correction: perform the refusing totals validations at their declared position after grain.
+Validate combinations of schema/null/grain faults with malformed or wrong-version totals, asserting
+the first check exactly, while retaining every isolated totals mutation and honest edge control.
+
+**GIMPL-1-03 — Live-read failures escape the refusal boundary. Medium / adjustment.**
+
+Where: `src/bi_como_codigo/release.py:352`, `src/bi_como_codigo/release.py:365`,
+`src/bi_como_codigo/release.py:564`, `src/bi_como_codigo/release.py:582`,
+`src/bi_como_codigo/release.py:736`, `src/bi_como_codigo/release.py:747`;
+requirements: package_gate §5.1–§5.3.
+
+The public GET handles HTTPError but not transport/decompression failures. `bind_live` and
+`promote` catch `release.Refused`, while `_http` lets DNS/TLS/timeouts escape. `promote` also leaves
+its read-back outside its translation to “live could not be read”. In `bind_live`, a parseable
+but timezone-less releaseTime reaches a datetime comparison outside the guarded block and raises
+TypeError. Ordinary transport outages therefore produce an uncaught exception/traceback instead
+of the declared refusal and summary. These paths fail closed; no erroneous clone or disclosure
+was demonstrated.
+
+Executed, injecting URLError at the transport/channel boundary, and independently calling the
+actual CLI handler:
+
+```text
+read_live transport failure: URLError: <urlopen error temporary DNS failure>
+bind_live transport failure: URLError: <urlopen error temporary DNS failure>
+promote transport failure: URLError: <urlopen error temporary DNS failure>
+CLI bind-live: uncaught URLError
+CLI promote: uncaught URLError
+bind_live invalid release timestamp: TypeError: can't compare offset-naive and offset-aware datetimes
+```
+
+The existing Hosting failure tests inject an already-translated `release.Refused`, so they cannot
+expose this gap. HTTP status refusals themselves behave correctly.
+
+Correction: translate transport, representation and API-shape/time failures at each live-read
+boundary, with suppressed exception chaining: `live_unreadable` for the public comparison and
+“live could not be read” for authenticated reads. Cover read-back as well as the initial read;
+validate RFC 3339/timezone requirements before comparison. CLI tests must return 1 with the exact
+refusal/summary and no traceback. Assert no clone on a pre-clone failure; distinguish a failed
+read-back after a clone from a confirmed successful promotion.
+
+**GIMPL-1-04 — The non-disclosure oracle accepts a real decrypted-cell leak. Medium / adjustment
+(validation gap).**
+
+Where: `tests/test_package_gate.py:534`, `tests/test_package_gate.py:547`,
+`evidence/20261106/m52_package_gate_counter_proof.py:51`;
+requirements: package_gate §7 and §9.1–§9.2.
+
+Only the invalid-UTF-8 case runs through the captured CLI. Its deny-list contains `fixture_`,
+`1.25`, `3.50` and `14.00`, leaving other decrypted values and all DEKs unchecked. Other negative
+cases assert function refusals without capturing the CLI's stdout, stderr and summary.
+
+Executed counter-proof in a module copy under `/tmp`: before the not-null loop in `_check`, add:
+
+```python
+if report.id == "P01":
+    print(con.execute(
+        'SELECT CAST(valor AS VARCHAR) FROM t WHERE valor < 0'
+    ).fetchone()[0])
+```
+
+This reads and prints the fixture's actual decrypted `-0.75` before the original invalid-UTF-8
+refusal. The existing test still passes. A separate test copy adding `assert "-0.75" in text`
+also passes, confirming the leak was captured rather than the injected path being unreachable:
+
+```text
+CLI non-disclosure test exit=0
+1 passed, 81 deselected in 2.04s
+Same test additionally requiring leaked marker to be present: exit=0
+1 passed, 55 deselected in 1.95s
+```
+
+This experiment is **not** a leak in the reviewed implementation. It disproves the sufficiency of
+its acceptance test and the breadth implied by M52's “no value in the log” control.
+
+Correction: exercise the §9 negative cases through the CLI with native stdout/stderr and summary
+capture; cover the cases' distinct cell values, totals and raw/hex key material, using unambiguous
+markers where public metadata would otherwise cause accidental matches. Require the expected
+refusal and no successful release record. Add a counter-proof that emits a decrypted value not
+in the current four-string list; it must fail the non-disclosure oracle.
+
+**GIMPL-1-05 — JSON booleans satisfy numeric totals versions. Low / observation.**
+
+Where: `src/bi_como_codigo/contract.py:225`; requirement: package_gate §3 (`totals_version`),
+with the positive numeric versions declared in §2.1.
+
+The comparison uses Python equality without excluding bool, so `true == 1`. A JSON boolean is
+not the contract's numeric version. Executed with fresh envelopes and the full `release.verify`:
+
+```text
+totals control: ACCEPTED
+totals bool_contract: ACCEPTED
+totals bool_report: ACCEPTED
+```
+
+Each mutation changes only one version to `true`; schema, rows and sums remain valid. Low /
+observation because this is crafted metadata, and it neither changes the actual contract used to
+validate the Parquet nor bypasses its row/sum checks. No finding is made about numeric `1.0`,
+whose numeric equivalence is allowed elsewhere in the envelope.
+
+Correction: exclude booleans before version comparison and make the version-type rule explicit
+in its owning declaration. Validate both boolean version fields through the sealed-package gate
+with the exact agreed refusal, plus honest numeric-version controls.
+
+#### 4. Checks executed and results
+
+Commands ran in this checkout, with `UV_CACHE_DIR=/tmp/gimpl-r1-uv-cache` for uv. Initial Python
+attempts exited 2 before running because the default `/home/doug/.cache/uv` was read-only;
+the reruns below all exited **0**. `ENG_DADOS_DIR` was set to
+`/home/doug/Projetos/mvp_eng_dados_1` for docs-check; that checkout was only read.
+
+| Executed check | Result |
+|---|---|
+| `make test` | 446 passed, one duplicate-zip-name warning; 159.81 s |
+| `make test-js` | 157 tests: 156 passed, one skipped, zero failed |
+| `make secrets` | Nothing found in tracked files |
+| `make secrets-history` | Nothing found; six non-UTF-8 envelope blobs skipped, explicitly not verified by this scanner |
+| `ENG_DADOS_DIR=… make docs-check` | 25 documents; no broken link/anchor/ADR/pinned citation |
+| `uv run --frozen python evidence/20261106/m52_package_gate_counter_proof.py` | Unmodified-copy control passed; 27 mutants killed, zero surviving |
+| Additional `/tmp` probes | Ordering, version types, live exceptions, CLI capture and the leak-oracle mutant, as above |
+| Public live GET and real comparison | Three envelopes fetched and size/SHA-256 checked; committed candidate accepted against that fetched package |
+| Synthetic gzip/redirect GETs | Real public-reader gzip branch accepted all three envelopes; 302 refused as `live_unreadable` |
+| DuckDB configuration | Extension install/load false, threads 1, memory 488.2 MiB (512 MB), lock true; changing threads refused |
+
+Literal output excerpts (the complete M52 output was also read; its selectors resolve to tests,
+and the unmodified-copy controls pass):
+
+```text
+446 passed, 1 warning in 159.81s (0:02:39)
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+secrets review: nothing found in the tracked files
+history review: nothing found (128 occurrence(s) of values public by design, 2 registered; 6 blob(s) skipped)
+docs-check: 25 documents, 160 file links, 54 anchors, 22 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+control (unmodified copy, every mutant's tests): passed
+27 mutants, 27 killed, 0 not
+GET live: 3 size/SHA-256-checked envelopes
+Committed candidate against fetched live: accepted; public record keys: ['checked_at', 'digest', 'files', 'head_sha', 'live', 'package_id', 'pr']
+gzip branch: accepted 3 size/SHA-256-checked envelopes
+redirect: live_unreadable: live's manifest answered 302
+```
+
+The author's per-commit `make check` results remain **author-reported**, not reviewer-executed.
+The aggregate `make check`, ADR checker, deployment tests and authenticated Hosting API calls were
+not run. The requested component checks plus docs-check were run; no GitHub/Cloud/Firebase write,
+gcloud/firebase command, commit, push or delegation was performed.
+
+#### 5. Resolved hypotheses, limitations and open questions
+
+- The reviewed single-fault mutations and honest controls pass their existing oracles. Inventory
+  precedes entitlements; matrix precedes payload validation; live precedes inspection. GIMPL-1-01
+  and 02 qualify the more detailed precedence claims.
+- Independent Python decimal totals are computed from fixture rows, not DuckDB SUM. Canonical
+  forms, numeric eligibility/spellings, needle deduplication and label-only inspection were read;
+  no further bypass was reproduced. BOOLEAN is outside §6's enumerated VARCHAR/numeric/date/time
+  searches; its exclusion alone does not violate that enumerated rule. No broader boolean
+  non-disclosure guarantee is inferred from the phrase “every decrypted value”.
+- DuckDB settings are locked before the read; the SQL path is gate-created, column identifiers
+  are contract-restricted, and the temporary Parquet remains present through all its queries.
+  Bounds precede value materialization, as declared, but follow SQL grain/sum queries. Those
+  operations can still fail with `parquet_unreadable`; the bounds are not a parser/process sandbox.
+- Same-ID live comparison checks profile/report entries and envelope bytes; different-ID
+  comparison checks DEK/IV/salt intersections. The authenticated live_version is carried through
+  record selection, decide output and workflow environment into promote. Already-live precedes
+  predecessor refusal and clone; the workflow places tip/channel checks before that command.
+  The earlier PGATE-2-04 rationale was consulted: its demonstrated rerun failure is not present.
+  This is static integration evidence plus local API stand-ins, not an executed Actions workflow.
+- Preview hashes bytes and checks the served version instead of invoking verify. No candidate
+  manifest/Parquet parser or decryptor invocation was found in the credentialed jobs. release.json
+  contains the public metadata keys shown above. No leak in unmodified code was reproduced;
+  complete CLI non-disclosure validation remains open under GIMPL-1-04.
+- The real PRs required by §9.3 remain unperformed, as the dossier already states. No authenticated
+  releaseTime format, deployed record plumbing, runner dependency installation, DuckDB-WASM
+  compatibility, hostile-parser isolation or broad native-warning behavior was measured. Gzip was
+  synthetic. CDN purge time, clock skew, digest-prefix collisions, declared re-encoding/small-value
+  exclusions, and M19's deferral to stage 2.4 remain the declaration's existing limits.
+
+#### 6. Handoff to Claude Code
+
+- [ ] **GIMPL-1-01:** fail `declarations_agree` before any candidate read, proved with a read/listing
+  spy and an otherwise earlier candidate failure; keep MUT-08–10 passing at their exact checks.
+- [ ] **GIMPL-1-02:** preserve §4's schema → nulls → grain → totals refusal order, with combined-fault
+  tests and all isolated totals/edge controls retained.
+- [ ] **GIMPL-1-03:** public/authenticated live failures become their own sanitized CLI refusals,
+  covering transport, decoding, malformed/timezone-less time and post-clone read-back; no clone on
+  an initial failure, no traceback, no false success.
+- [ ] **GIMPL-1-04:** capture the required negative CLI cases and all relevant value/key markers;
+  the demonstrated decrypted-cell-print mutant must be killed while honest controls pass.
+- [ ] **GIMPL-1-05:** record the boolean-version observation in the owning document or correct the
+  type comparison; prove both version fields reject booleans with the specified exact check.
