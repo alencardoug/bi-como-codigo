@@ -2,7 +2,7 @@
 # commit only when it exits 0, read from its own exit code — never through a pipe.
 
 .DEFAULT_GOAL := help
-.PHONY: help sync docs-check adr-check secrets secrets-history test check
+.PHONY: help sync docs-check adr-check secrets secrets-history test test-js check
 
 UV_RUN := uv run --frozen
 
@@ -24,14 +24,21 @@ secrets: ## Secrets review of the tracked files and of .gitignore
 secrets-history: ## Every blob of the history, by credential shape, with no .env
 	@$(UV_RUN) python -m bi_como_codigo.secrets_review --history
 
-test: ## The test suite of the checks themselves
+test: ## The Python test suite: the checks themselves and the envelope's producer and reader
 	@$(UV_RUN) pytest -q
+
+# The envelope's JavaScript reader runs on Node's WebCrypto, the API the
+# browser exposes (docs/encryption_envelope.md §7); Node 20 is the first with
+# `globalThis.crypto` and a stable `node --test`.
+test-js: ## The envelope's JavaScript reader against the same vectors and cases; needs Node 20 or later
+	@node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0 : 1)' || { echo "test-js: needs Node 20 or later"; exit 2; }
+	@node --test $(wildcard tests/js/*.test.mjs)
 
 # The links into mvp_eng_dados_1 carry most of the plan's facts, so the gate
 # verifies them: ENG_DADOS_DIR names a local checkout of that project, by
 # variable and never by a fixed path. Without it, `docs-check` lists them as
 # not verified; `check` refuses to run.
-check: ## The gate: secrets, history, documents, decision record and tests, stopping at the first failure; needs ENG_DADOS_DIR
+check: ## The gate: secrets, history, documents, decision record and both test suites, stopping at the first failure; needs ENG_DADOS_DIR
 	@test -n "$(ENG_DADOS_DIR)" || { echo "check: set ENG_DADOS_DIR to a checkout of mvp_eng_dados_1"; exit 2; }
 	@test -e "$(ENG_DADOS_DIR)/.git" || { echo "check: ENG_DADOS_DIR=$(ENG_DADOS_DIR) is not a git checkout"; exit 2; }
 	@$(UV_RUN) python -m bi_como_codigo.secrets_review
@@ -39,3 +46,4 @@ check: ## The gate: secrets, history, documents, decision record and tests, stop
 	@$(UV_RUN) python -m bi_como_codigo.docs_check
 	@$(UV_RUN) python .claude/skills/adr/verify.py
 	@$(UV_RUN) pytest -q
+	@$(MAKE) --no-print-directory test-js
