@@ -1228,3 +1228,184 @@ Review conclusions are limited to the four pinned commits and the requirements e
 - [ ] Preserve the resolved ENV-3-01 framing split and existing exact refusal assertions. Keep
   ENV-2-02's live controls and stage 2.2b/2.6 checks explicitly pending until executed there.
 
+## Round 5
+
+### 1. Conclusion
+
+**No blockers found within the reviewed scope.** ENV-4-01 through ENV-4-05 are independently
+resolved. No functional regression was demonstrated in the producer or either reader; both
+readers agree on the shared cases and the additional numeric probes. One **low observation**
+remains: PLAN's implementation summary understates the current case count. It has no plausible
+effect on encryption, acceptance or the release gate. **Stage 2.2a's design and implementation
+review can be closed with this observation and the limits below**, following N72. This is not
+acceptance of later stages or completion of the Owner's pending encryption ADR.
+
+### 2. Reviewed scope and version
+
+Reviewed on 2026-11-06, branch `main`, checkout
+`d87d504d93c94f760aaf0a4877fc1e9202aed074`, initially clean, with no untracked files.
+The comparison is exactly **`d994012..04464c9`**: `538fd05` and `04464c9`, nine files,
+415 additions and 52 deletions. `d994012` is the round-4 comparison tree, not an implementation
+change in scope. `d87d504` changes only the dossier and M48's recorded output; those claims were
+checked, not treated as implementation changes. All other tested files equal `04464c9`.
+
+Read round 4 and its Status first, then the pinned diff, repository conventions/review skill,
+specification revision 5, PLAN §3.6, N72 and stage 2.2a's criterion. Reused earlier review context
+for unchanged code. Examined the changed declarations in full; checked generated cases by their
+structured delta, generator equality and both readers. Only this Round 5 is appended; rounds 1–4
+and their Status entries are preserved. No code/test fix, installation, subagent, commit, push,
+deployment or eng_dados mutation was performed.
+
+### 3. Findings and evidence
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+| ENV-5-01 | `PLAN.md:22` | The current implementation summary still says **132 shared cases**; the committed corpus now contains **151**. | `observation` | **Fixed.** PLAN's Status now says 151 shared cases, checked against `len(cases)` of `cases.json` (151) |
+
+**ENV-5-01 — Refresh the implementation's case count**
+
+**Low → observation. Regression of this delta's expanded corpus.** The Status line was updated
+to include round 4's fixes but retains the previous count. Reading it as the current inventory
+understates the cases exercised by both suites. Executed comparison of the JSON arrays at
+`d994012` and `04464c9`: **132 → 151**; retained case ids have identical contents, with additions
+and removals confined to the requested numeric/header cases. The gate verifies generator equality.
+
+**Disproof considered:** 132 accurately describes the first implementation, but this unqualified
+count appears in the current Status, alongside the fixes now applied. This is a documentation
+observation only; the suites consume the actual array and M48 reports its own count. Update the
+summary to 151 on the next documentation update. Validate against `len(cases)` and run docs-check;
+no new runtime test or further review round is required for this observation.
+
+### 4. Status of previous findings
+
+| Previous ID | Independent status | Evidence |
+|---|---|---|
+| ENV-4-01 | **Resolved** | Revision 5 §4 and §6.3 define parsed numeric values, including rounding, with the safe-integer bound. Python `envelope.py:142`–`:166`, `:210` and `:286`–`:289` enforce this and normalize accepted iterations/sizes to integers; JS `web/envelope.mjs:139` provides the text parser. All 11 new numeric cases pass in both readers, with accepted controls opening to the expected bytes. Against the baseline Python module, six fail; against the baseline JS text-parsing path, `version_nan` and `not_json` end in `SyntaxError`. The new JS path returns the specified refusal. |
+| ENV-4-02 | **Resolved** | `envelope.py:539`–`:553` parses totals before any draw and converts duplicate-key refusals to declaration errors. All five new totals tests fail against the baseline and pass now. Eight invalid-total probes, including nested duplicate keys and both Infinity tokens, refuse before a sentinel random source is called. Three valid object shapes round-trip unchanged: empty, nested/repeated names in different objects, and Unicode/decimal/null/boolean/array values. No future exporter schema is imposed. |
+| ENV-4-03 | **Resolved** | `tests/envelope_fixtures.py:292`–`:310` generates 31 cuts and all four magic-byte flips. An independent offset calculation using the actual parsed field lengths matches every cut. Every cut reaches `header_malformed/bytes_available` in both readers. The round-4 partial-magic mutants, recreated from current modules under `/tmp`, are now killed by `magic_1`, `magic_2` and `magic_3` in each language. Other H cases retain their original expected outcomes. |
+| ENV-4-04 | **Resolved** | `tests/test_envelope.py:258`–`:286` unwraps each real DEK and reads each IV, then compares the sets across runs. Fixture entitlements confirm `diretoria` has every report, so the helper covers all files. Separate DEK-only, IV-only and combined cross-run reuse mutants each pass the old freshness test and fail the new one. The real module passes in the gate. No production randomness hook was added. |
+| ENV-4-05 | **Resolved** | Static comparison of the preserved findings tables gives four ENV-1 ids + two ENV-2 ids + ENV-3-01 = seven design findings; round 4 has five. `PLAN.md:22` now states these counts correctly. ENV-5-01 concerns the separate runtime-case count. |
+
+Focused regression checks found no accepted `int()` conversion that changes the parsed value.
+The additional numeric corpus covers 43 spellings/types at each of the four numeric field
+positions: decimal/exponent values, rounding near integers, booleans, fractions, negative zero,
+safe-integer boundaries, overflow/underflow and malformed tokens. **172/172** validator outcomes,
+returned numeric values and exact refusal pairs agree between Python and JS. The six saved
+round-4 numeric manifest files were also rerun: four now open in both readers; unsafe size and
+zero size both refuse `manifest_invalid/manifest_types`.
+
+`_strict_json` does not swallow the duplicate-key hook's `Refused`: top-level and nested duplicate
+probes preserve `manifest_invalid/manifest_no_duplicate_keys`. The browser's documented duplicate
+exception remains the only CI-only shared case. Python's AST contains 53 `require` calls/45 ids,
+all visible to M48. M48 kills every dedicated `manifest_types` case in both languages, including
+the newly guarded parse failures; an additional JS worker run against a separately made
+`manifest_types` mutant kills all 11 cases. Parser-error outcomes after removing the predicate
+are allowed by §6.5, not evidence that the unmodified parser leaks those errors.
+
+### 5. Checks executed; checks not performed
+
+The requested gate exited **0**, read directly from the command's exit code, before appending
+this report:
+
+```bash
+UV_CACHE_DIR=/tmp/bi-env-review-r5-uv-cache PYTHONDONTWRITEBYTECODE=1 \
+  PYTEST_ADDOPTS='-p no:cacheprovider' \
+  ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 \
+  make check UV_RUN='uv run --frozen --no-sync'
+```
+
+Relevant literal output; individual test names omitted:
+
+```text
+secrets review: nothing found in the tracked files
+history review: nothing found (84 occurrence(s) of values public by design, 2 registered; 0 blob(s) skipped)
+docs-check: 19 documents, 103 file links, 38 anchors, 0 ADR citations, 98 links into mvp_eng_dados_1 — nothing broken
+adr-check: 0 accepted, 3 pending — record consistent
+279 passed in 17.40s
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+```
+
+M48, with the same `/tmp` uv cache and bytecode writes disabled, also exited **0**:
+`uv run --frozen --no-sync python evidence/20261106/m48_counter_proof.py`.
+
+```text
+== python: 45 predicates in src/bi_como_codigo/envelope.py
+== javascript: 41 predicates in web/envelope.mjs
+== 264 dedicated case runs, 0 surviving
+```
+
+The complete M48 result body equals the committed recording byte for byte; its recorded module
+hash prefixes match the files tested. Thus the author's suite totals and M48 summary are reproduced.
+Independent probe commands also exited **0**:
+
+```bash
+UV_CACHE_DIR=/tmp/bi-env-review-r5-uv-cache PYTHONDONTWRITEBYTECODE=1 \
+  uv run --frozen --no-sync python /tmp/bi-env-review-r5/probes.py
+node /tmp/bi-env-review-r5/probes.mjs
+node evidence/20261106/m48_worker.mjs /tmp/bi-env-review-r5/types.mjs manifest_types
+```
+
+Representative probe output (trailing per-case lists omitted):
+
+```text
+baseline shared numeric cases: 5 passed, 6 failed
+baseline totals tests: 0 passed, 5 failed
+current shared numeric cases: 11 passed, 0 failed
+current totals tests: 5 passed, 0 failed
+Invalid totals: 8/8 refused before randomness
+Legitimate totals shapes: 3/3 production round trips preserve bytes
+Cross-run dek_only: round-4 test PASSED; round-5 test FAILED (killed)
+Cross-run iv_only: round-4 test PASSED; round-5 test FAILED (killed)
+Cross-run both: round-4 test PASSED; round-5 test FAILED (killed)
+Numeric differential: 172/172 acceptance, values and exact refusals agree
+JS header truncations: 31/31 reach bytes_available
+```
+
+Full logs: `/tmp/bi-env-review-r5-check.txt`, `/tmp/bi-env-review-r5-m48.txt`, and
+`/tmp/bi-env-review-r5/probes{,-js}.out.txt`; probe sources, baseline copies and mutants are in that
+temporary directory. The fixture generator was imported by the suite, never run as a rewriting
+script. Node's requested suite ran through `make check`; no redundant standalone run was needed.
+
+M49 was not remeasured: no derivation parameter or primitive changed, and round 4 already reran
+Chrome latency. No full Chrome refusal suite, phone timing, live package comparison, CI upload/
+artifact inspection, preview/logout or real exporter/Parquet/totals-schema checks were performed;
+they remain assigned to later stages. Unchanged standards and the entire binary-parser
+differential investigation were not repeated; both known-answer suites and shared cases did run.
+
+After appending the report, the secrets guard and docs-check exited **0**, and `git diff --check`
+passed. A byte-prefix and changed-path check confirmed that rounds 1–4 and all Status entries
+remain identical to the checkout's dossier, with only `DOSSIER.md` modified and no untracked files.
+
+### 6. Limitations and open questions
+
+Agreement is demonstrated for the committed corpus and the bounded additional probes, not every
+possible JSON document. The numeric contract intentionally uses parsed values: a decimal that
+rounds to an integer can be accepted, as revision 5 explicitly requires. This is not a new
+arbitrary-precision contract for control totals. The actual exporter's totals schema and future
+CI validation remain unimplemented here; valid generic JSON shapes were exercised instead.
+
+No confirmed functional defect or unresolved hypothesis with plausible impact remains in this
+delta. Further exhaustive adversarial parsing/resource-limit work is not a closure condition
+under N72's trusted-release/public-password boundary. The sole open observation is the stale
+summary count. Earlier resolved findings are not reopened; ENV-2-02's live checks remain planned
+for 2.2b. No additional Owner decision is needed to resolve this review's findings.
+
+### 7. Handoff to Claude Code
+
+- [x] **ENV-4-01:** shared numeric acceptance/refusals agree; baseline failures and current passes
+  reproduced, including full opens and value-preserving integer conversion.
+- [x] **ENV-4-02:** invalid totals fail before randomness; valid object bytes survive production
+  round trips; baseline tests fail as required.
+- [x] **ENV-4-03:** all prescribed cuts/magic bytes covered; partial-magic mutants killed in both
+  readers; suites and M48 green.
+- [x] **ENV-4-04:** actual material sets compared; DEK-only and IV-only reuse independently killed.
+- [x] **ENV-4-05:** seven prior design findings recorded accurately.
+- [ ] **ENV-5-01 — observation:** on the next documentation update, replace the stale 132-case
+  summary with the actual 151; confirm against the committed JSON array and run docs-check.
+  This does not require another implementation review round.
+- [x] **Review closure:** no blocking/adjustment remains; close stage 2.2a's review with the
+  declared limits. Keep later-stage checks and the Owner's ADR pending in their owning records.
+
