@@ -531,12 +531,47 @@ def test_check_listing_refuses_a_changed_artifact(repo):
 # --- §7: what a refusal prints -----------------------------------------------------------------------
 
 
-def markers(repo) -> set[str]:
-    """Every decrypted value of the fixture that cannot occur by chance in
-    public metadata — texts, decimals in both spellings, the totals —, and
-    every DEK of the package, raw-as-hex in both cases (GIMPL-1-04)."""
+def markers(repo, before: set[str]) -> set[str]:
+    """GIMPL-2-01: what the candidate itself holds, read after the mutation —
+    each report decrypted, its totals, its cells (texts, dates, decimals in
+    both spellings, integers of three or more digits) and its current DEKs in
+    hex. A report DuckDB cannot read contributes the honest fixture's values
+    (`before`), from which its mutation was made. The refusal texts of these
+    cases carry no hexadecimal name, so an integer cannot match by chance."""
+    import duckdb
+
+    manifest_raw, files = committed(repo)
+    m = e.validate_manifest(manifest_raw)
+    passwords = {p.id: p.password for p in r.profiles(repo)}
+    out = {"fixture_"} | before
+    for rid, entry in m.reports.items():
+        pid = sorted(m.entitled(rid))[0]
+        totals, parquet = e.open_report(m, files[entry.file], rid, e.login(m, pid, passwords[pid]))
+        out.add(totals.decode("utf-8", "replace"))
+        path = repo / f"{rid}.markers.parquet"
+        path.write_bytes(parquet)
+        try:
+            cells = duckdb.connect().execute(f"SELECT * FROM read_parquet('{path}')").fetchall()
+        except Exception:
+            continue
+        for row in cells:
+            for value in row:
+                if value is None or isinstance(value, bool):
+                    continue
+                text = f"{value:f}" if isinstance(value, Decimal) else str(value)
+                if isinstance(value, (int, Decimal)):
+                    if c.eligible_number(text) or (isinstance(value, int) and len(text.lstrip("-")) >= 3):
+                        out.update(c.spellings(text))
+                else:
+                    out.add(text)
+    for dek in r._deks(m, files, passwords):
+        out.update({dek.hex(), dek.hex().upper()})
+    return out
+
+
+def honest_markers(repo) -> set[str]:
     k = contract(repo)
-    out = {"fixture_"}  # the prefix of every decrypted label, even a corrupted one
+    out = set()
     for rid, data in sf.ROWS.items():
         out.add(sf.totals(k, k.reports[rid], data).decode())
         for row in data:
@@ -545,10 +580,6 @@ def markers(repo) -> set[str]:
                     out.add(value)
                 elif isinstance(value, Decimal) and value != value.to_integral_value():
                     out.update(c.spellings(f"{value:f}"))
-    manifest, files = committed(repo)
-    m = e.validate_manifest(manifest)
-    for dek in r._deks(m, files, {p.id: p.password for p in r.profiles(repo)}):
-        out.update({dek.hex(), dek.hex().upper()})
     return out
 
 
@@ -570,8 +601,9 @@ def test_the_cli_prints_no_value_of_a_refused_package(repo, monkeypatch, capfd, 
     """PGATE-1-02, GIMPL-1-04: through the CLI, every negative case — stdout,
     stderr, native ones included, and the step summary — holds no decrypted
     value and no key, and no release record is written."""
-    honest = markers(repo)
+    before = honest_markers(repo)
     _cli_mutations()[case](repo)
+    honest = markers(repo, before)
     deploy = repo / "deploy"
     r.build(repo, deploy)
     summary, record = tmp_path / "summary.md", tmp_path / "rel.json"
@@ -756,3 +788,43 @@ def test_the_cli_turns_a_transport_failure_into_a_refusal(monkeypatch, capfd, tm
     out, err = capfd.readouterr()
     assert "Traceback" not in out + err
     assert "live could not be read" in summary.read_text()
+
+
+class _Body:
+    """A response whose body cannot be read whole, or is not gzip."""
+
+    def __init__(self, failure, encoding="identity"):
+        self.failure, self.status, self.headers = failure, 200, {"Content-Encoding": encoding}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self):
+        if self.failure == "truncated":
+            import http.client
+            raise http.client.IncompleteRead(b"par", 100)
+        return b"not gzip at all"
+
+
+@pytest.mark.parametrize("failure, encoding", [("truncated", "identity"), ("gzip", "gzip")])
+def test_the_cli_a_broken_live_body_is_live_unreadable(repo, monkeypatch, capfd, tmp_path, failure, encoding):
+    """GIMPL-2-02: through the real public GET, a truncated body and a broken
+    gzip stream are refusals, with their summary, no traceback and no record."""
+
+    class Opener:
+        def open(self, *a, **k):
+            return _Body(failure, encoding)
+
+    monkeypatch.setattr(r.urllib.request, "build_opener", lambda *a: Opener())
+    deploy = repo / "deploy"
+    r.build(repo, deploy)
+    summary, rec = tmp_path / "summary.md", tmp_path / "rel.json"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setattr(r, "ROOT", repo)
+    assert r.main(["verify", "--deploy", str(deploy), "--record", str(rec), "--site", "s"]) == 1
+    out, err = capfd.readouterr()
+    assert "Traceback" not in out + err and not rec.exists()
+    assert "live_unreadable" in summary.read_text()

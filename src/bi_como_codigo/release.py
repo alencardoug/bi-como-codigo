@@ -356,7 +356,7 @@ def _public_get(url: str) -> tuple[int, bytes]:
             return response.status, body
     except urllib.error.HTTPError as error:
         return error.code, b""
-    except (OSError, EOFError, ValueError):  # transport, TLS, a truncated gzip (GIMPL-1-03)
+    except Exception:  # transport, TLS, a truncated body, a broken gzip (GIMPL-1-03, GIMPL-2-02)
         return 0, b""
 
 
