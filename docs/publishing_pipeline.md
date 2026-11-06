@@ -17,7 +17,7 @@
 |---|---|
 | Date | 2026-11-06 — revision 5: what round 1 of the implementation's review changed in the plan — artifacts extracted by the checker, not by the download action (IMPL-1-01); the provider read back by `setup.sh check` (IMPL-1-06). Revision 4 is `84edb66`: round 3 applied — T5's oracle by schedule (PIPE-3-01), the queue's capacity stated (PIPE-3-02). Revision 3 is `ac5e64f`: round 2 applied — a queue for `promote` (PIPE-1-04), the margin re-checked at use and a recovery through a new PR (PIPE-1-08), the run's documented `path@ref` and its attempts (PIPE-2-01). Revision 2 is `4814838`: round 1 of Codex's review applied — Hosting reads moved to the authenticated job (PIPE-1-01); the record authenticated by its run, all of `.github/` protected, and the guarantee narrowed by the Owner to no credential Google accepts (PIPE-1-02, N74); T8 in two layers (PIPE-1-03); no workflow-level concurrency (PIPE-1-04); T4b (PIPE-1-05); exact served bytes, no fallback (PIPE-1-06); environment names as variables (PIPE-1-07); the approval's lifetime (PIPE-1-08). Revision 1 is `88d4c33` |
 | Author | Claude Code, under the Owner's mandate for the night (N68) |
-| Status | **Reviewed: closed in round 4 of Codex's review** — 13 findings in rounds 1–3, three blocking, all applied; round 4, on regressions only, found none (N72). Executable under N70. Created on 2026-11-06, after round 2 found no blocking item: the federation of §5 and the GitHub environments and variables of §6; the ruleset of §6 on 2026-11-06, 13:44Z, once the candidate's check existed (`r_06`). The files of §2 are written, reviewed in three rounds of their own, and running. **Tests of §7 passed on 2026-11-06**: T1 and T7, T3, T4, T4b (in `make check`), T5 in PIPE-1-04's schedule and in round 2's — its hold installed by PR #17 and removed by PR #19 —, T6, T8 — its temporary probes installed by PR #13 and removed by PR #14 —, the temporary changes reviewed by Codex (TMP-1, no finding), T9, T10 — (a) with its channel life installed by PR #20 and reverted by PR #22, (b) — and both recoveries, T11 — `evidence/20261106/t*.out.txt`. After the three removals `.github/` is again `a18a497`'s. **Not yet run**: T2 (a fork needs a second owner: an organisation the Owner is creating). The records of what was created are `evidence/20261106/r_*.txt` |
+| Status | **Reviewed: closed in round 4 of Codex's review** — 13 findings in rounds 1–3, three blocking, all applied; round 4, on regressions only, found none (N72). Executable under N70. Created on 2026-11-06, after round 2 found no blocking item: the federation of §5 and the GitHub environments and variables of §6; the ruleset of §6 on 2026-11-06, 13:44Z, once the candidate's check existed (`r_06`). The files of §2 are written, reviewed in three rounds of their own, and running. **Every test of §7 passed on 2026-11-06**: T1 and T7, T2 — through a fork in the Owner's organisation `alencardoug-lab`, PR #24, closed unmerged —, T3, T4, T4b (in `make check`), T5 in PIPE-1-04's schedule and in round 2's — its hold installed by PR #17 and removed by PR #19 —, T6, T8 — its temporary probes installed by PR #13 and removed by PR #14 —, the temporary changes reviewed by Codex (TMP-1, no finding), T9, T10 — (a) with its channel life installed by PR #20 and reverted by PR #22, (b) — and both recoveries, T11 — `evidence/20261106/t*.out.txt`. After the three removals `.github/` is again `a18a497`'s. The records of what was created are `evidence/20261106/r_*.txt` |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§9).
@@ -356,6 +356,7 @@ gh api -X DELETE repos/alencardoug/bi-como-codigo/environments/production
 gh api -X DELETE repos/alencardoug/bi-como-codigo/environments/preview
 gh api -X DELETE repos/alencardoug/bi-como-codigo/rulesets/26697115
 firebase hosting:channel:delete pr-<n> --project bi-como-codigo   # each preview channel left
+gh repo delete alencardoug-lab/bi-como-codigo --yes                 # T2's fork; the organisation itself is deleted on the web, in its settings
 ```
 
 A deleted pool stays reserved for 30 days under its name [assumed]: re-creating it in that window
@@ -375,7 +376,7 @@ means undeleting it.
   is decoded (§4.3, step 5) — if it does not, the job fails; there is no weaker comparison;
 - that no Hosting permission separates channel deploys from releases to `live` (§5);
 - that the Spark plan allows the IAM and STS APIs with billing off;
-- what the fork test can prove without a second owner (T2).
+- ~~what the fork test can prove without a second owner (T2)~~ — moot: the Owner created an organisation, and T2 ran with a real fork.
 
 **Assumptions:**
 

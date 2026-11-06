@@ -1,0 +1,14 @@
+2026-11-06T16:14:30Z
+T2 — a fork's PR gets no credentials (docs/publishing_pipeline.md §7). The fork alencardoug-lab/bi-como-codigo, in an organisation the Owner created on the web for this test; PR #24 from its branch test/t2-fork (c88388b), touching only site/releases.md — not protected, so the fork is the only reason to refuse. Closed unmerged.
+
+== candidate 42248930778: event pull_request, head_repository alencardoug-lab/bi-como-codigo, success. Its token and secrets, as GitHub set them:
+2026-11-06T16:04:31.2502818Z ##[group]GITHUB_TOKEN Permissions
+2026-11-06T16:04:31.2504950Z Metadata: read
+2026-11-06T16:04:31.2507792Z Secret source: None
+
+== publish 42249031530 (workflow_run on main): admit failure, verify skipped, preview skipped
+2026-11-06T16:05:12.9709593Z   HEAD_REPO: alencardoug-lab/bi-como-codigo
+2026-11-06T16:05:13.0677652Z refused: the candidate comes from alencardoug-lab/bi-como-codigo, a fork: no preview
+No job of this run requested an OIDC token: the only job that can, preview, never started; the admit log has 0 mentions of ACTIONS_ID_TOKEN or id-token, and so does the candidate's.
+
+Read independently afterwards (the Owner's credentials): sites/bi-como-codigo/channels/pr-24 → HTTP 404 NOT_FOUND — nothing deployed.
