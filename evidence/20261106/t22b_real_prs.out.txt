@@ -1,0 +1,38 @@
+2026-11-07T00:30:04Z
+Stage 2.2b's real PRs (docs/package_gate.md §9.3), on GitHub and Firebase, after the code merged in PR #25 (8e0cf3d; candidate passed; admit refused its preview — protected set; decide red with its reason).
+
+The three mutation PRs, each touching only site/ and tests/conftest.py — which disables the PR's own tests, as a hostile PR could, so that main's verify is what refuses (as 2.2's T6 did). Each was closed unmerged.
+== mut05: PR #27, publish 42317298112
+  jobs: admit:success verify:failure preview:skipped
+2026-11-07T00:17:37.5761331Z refused: clear_value (in index.html)
+  channel pr-27 read afterwards with the Owner's credentials: HTTP 404
+  decrypted values in the verify log (fixture_, 1.25, 1,25, -0.75, 14.0, 1200, 1105): 0
+== mut11: PR #28, publish 42317457683
+  jobs: admit:success verify:failure preview:skipped
+2026-11-07T00:19:10.4257186Z refused: schema_exact (report P01)
+  channel pr-28 read afterwards with the Owner's credentials: HTTP 404
+  decrypted values in the verify log (fixture_, 1.25, 1,25, -0.75, 14.0, 1200, 1105): 0
+== mut15: PR #29, publish 42317570973
+  jobs: admit:success verify:failure preview:skipped
+2026-11-07T00:20:20.1068177Z refused: totals_sums (report P01, column valor)
+  channel pr-29 read afterwards with the Owner's credentials: HTTP 404
+  decrypted values in the verify log (fixture_, 1.25, 1,25, -0.75, 14.0, 1200, 1105): 0
+(A first MUT-05 PR, #26, kept its own tests: its candidate failed on them and its publish was skipped; it was closed and redone as #27.)
+
+The honest PR #30 — a new run of the fixture producer and a line in releases.md — publish run 42318282687:
+2026-11-07T00:27:21.3826980Z verified 6 file(s); digest 841bfcc797fa6351d2bebbb73035491e7e3f1e1300a47aabf02e27c2afece5e1; package 9ddd753df8af606200cce86cb6a0ea26
+2026-11-07T00:27:37.0777308Z the verified artifact is still what verify listed
+2026-11-07T00:27:38.2812770Z live is cac06ccd184d58ff, as verify compared it
+2026-11-07T00:27:52.6166911Z channel pr-30 serves 73a5c16cd829c2a4 at https://bi-como-codigo--pr-30-ewwc8o3q.web.app, expiring 2026-12-07T00:27:48.854551059Z
+2026-11-07T00:27:53.6813666Z version 73a5c16cd829c2a4 is the verified artifact, file for file
+== merged (7623458), promote 42318447838:
+2026-11-07T00:28:50.0545619Z promote PR #30: version 73a5c16cd829c2a4 of channel pr-30, preview https://bi-como-codigo--pr-30-ewwc8o3q.web.app, digest 841bfcc797fa6351d2bebbb73035491e7e3f1e1300a47aabf02e27c2afece5e1, record artifact 13550999346 (sha256 5d6049f116ea8c792daeb578f4220bfab80638040da6d98338b179648232d805), preview ex
+  approval: approved by alencardoug — Approved by Claude Code under the Owner's mandate of 2026-11-06 evening (merges and approvals of test PRs that publish only fixtures), for the honest PR of stage 2.2b (package_gate §9.3): a regenerated fixture package, previewed against live cac06ccd184d58ff.
+2026-11-07T00:29:10.6087001Z 76234580671f82a75ff670241dbc7bf2bbf830c7 is still the tip of main
+2026-11-07T00:29:11.7545227Z channel pr-30 still serves 73a5c16cd829c2a4, expiring 2026-12-07T00:27:48.854551059Z
+2026-11-07T00:29:22.7536484Z ✔  Site bi-como-codigo version 73a5c16cd829c2a4 has been cloned to site bi-como-codigo channel live.
+2026-11-07T00:29:23.2699172Z promoted
+
+Read independently afterwards (the Owner's credentials, and the public site):
+live serves 73a5c16cd829c2a4 released 2026-11-07T00:29:22.075Z
+public live package 9ddd753df8af606200cce86cb6a0ea26 with ['P01.419a6d13df2a0a2d.bice', 'P02.532f8b1119c8ed70.bice', 'P13.646219cec9b25ccc.bice']
