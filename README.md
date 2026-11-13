@@ -14,9 +14,10 @@ demonstrated by encryption in a static site — access scoped to the key supplie
 ([PLAN.md §3.2](PLAN.md#32-the-showcase)) —, with every change going through a reviewed pull request.
 The plan says what gets built, in what order and why ([PLAN.md](PLAN.md)).
 
-**Status: stage 2.2a of the plan — the encryption envelope.** Part I, the maintenance release of
-mvp_eng_dados_1, is done; here, the envelope that gives each profile its reports is implemented and
-in review; no report, portal or publication exists yet. The data is synthetic end to end, and all of it comes from mvp_eng_dados_1.
+**Status: stage 2.3 of the plan — the comparative prototype of the framework.** Part I, the
+maintenance release of mvp_eng_dados_1, is done, and so is its stage 13, the replication on Google
+Cloud; here, the encryption envelope, the publishing pipeline and its package gate are done, live
+serving harmless fixtures only; no report, portal or real publication exists yet. The data is synthetic end to end, and all of it comes from mvp_eng_dados_1.
 
 ## Map
 
