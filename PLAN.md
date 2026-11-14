@@ -499,6 +499,10 @@ reads mvp_eng_dados_1.
   | Text: the glossary with the rule of the realised order, the rules that today live only in `consumption`'s SQL, corrected descriptions and the grain of the dimensions | The portal (2.7) and the report texts (2.5, 2.11) | — |
   | One contract — its metadata package (its D91) — for any reading portal of the governance | The Governance metadata row above, which today reads manifest, YAML and documents by commit | Whether 2.7 reads it is the Owner's (§7) |
 
+- **What this repository asks of it** — the pinned commit, the dates, the warehouse window, schema
+  changes, the channel for value changes, the package's content — is in
+  [`docs/upstream_questions.md`](docs/upstream_questions.md), which also keeps the answers.
+
 ### 3.6 The encryption envelope — a proposal to review before stage 2.3
 
 > Decided in [ADR-0001](docs/adr/0001-encrypt-each-report-under-the-profile-password.md) (2026-11-06);
@@ -798,7 +802,9 @@ a read-only transaction, with no new role (the former N5).
   the pin of 2.4–2.10 and the two sources of the gate were decided the same day (N85, N86); one
   question remains:
   - whether stage 2.7 and `gdados` — another reading portal of the same governance — are two
-    portals, and whether both read the one metadata package `mvp_eng_dados_2` offers.
+    portals, and whether both read the one metadata package `mvp_eng_dados_2` offers; the facts
+    this needs from `mvp_eng_dados_2` are UQ-09 and UQ-11 of
+    [`docs/upstream_questions.md`](docs/upstream_questions.md).
 
 ---
 
