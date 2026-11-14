@@ -32,5 +32,6 @@
 Each row is an ADR the plan already calls for ([PLAN.md §7](../../PLAN.md#7-what-is-still-decided-at-the-right-moment)),
 written when its component is born.
 
-None at present: the three the plan called for so far are accepted. The next is added here when a
-component the plan calls an ADR for comes near, or when a change needs one (§1).
+| Pending | Decision in the plan | Written at |
+|---|---|---|
+| **Framework of the reports and the portal** | N3 — the Owner's choice after the comparative prototype ([`framework_prototype.md`](../framework_prototype.md)) | Stage 2.3 |

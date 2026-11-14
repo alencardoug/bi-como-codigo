@@ -27,10 +27,11 @@ serving harmless fixtures only; no report, portal or real publication exists yet
 | [`REVIEW.md`](REVIEW.md) | The record of the plan review: Codex's original proposal, Claude Code's review of it, and Codex's rounds 2 to 5 over the plan |
 | [`CLAUDE.md`](CLAUDE.md) | How this repository is worked on — language, commits, the gate, assisted development and the rules never broken |
 | [`AGENTS.md`](AGENTS.md) | The entry point for any agent, pointing at `CLAUDE.md` |
-| [`docs/adr/`](docs/adr/README.md) | The decision record: 3 accepted, 0 pending |
+| [`docs/adr/`](docs/adr/README.md) | The decision record: 3 accepted, 1 pending |
 | [`docs/encryption_envelope.md`](docs/encryption_envelope.md) | The encryption envelope of the per-profile access, format version 1: the bytes, the reader and the producer, the bounds and the oracles (stage 2.2a) |
 | [`docs/publishing_pipeline.md`](docs/publishing_pipeline.md) | The publishing pipeline of stage 2.2: the candidate, publishing and promotion workflows, the federation to Google Cloud, the environments and the tests of each criterion — a plan in review |
-| [`docs/package_gate.md`](docs/package_gate.md) | The package gate of stage 2.2b: the report contract, the control totals, the Parquet checks, the comparison with the live package, the value inspection and the mutations it refuses — a plan under review |
+| [`docs/package_gate.md`](docs/package_gate.md) | The package gate of stage 2.2b: the report contract, the control totals, the Parquet checks, the comparison with the live package, the value inspection and the mutations it refuses |
+| [`docs/framework_prototype.md`](docs/framework_prototype.md) | The framework prototype of stage 2.3: the fixture and the page both candidates build, the oracle on their finished output, the probes and the measures the Owner chooses from — a plan under review |
 | [`docs/public_by_design.yml`](docs/public_by_design.yml) | The two demo passwords, public by design (N22), registered for the secrets review |
 | [`docs/regeneration_runbook.md`](docs/regeneration_runbook.md) | The runbook of stage 1.4: how stage 1.6 regenerates eng_dados v1.1.0 — every checkpoint with a command, an oracle and a restart point, the rollback cut and the recovery package —, and the record of its review by Codex |
 | [`evidence/`](evidence/20261022/README.md) | The read-only probes behind every measurement in the plan, with their literal outputs — [M1–M18](evidence/20261022/README.md) and [M19–M26](evidence/20261023/README.md) |

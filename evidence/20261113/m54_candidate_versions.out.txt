@@ -1,0 +1,23 @@
+2026-11-13T23:54:47Z
+@evidence-dev/evidence latest=40.1.8 modified=2026-02-06T16:07:31.086Z
+@evidence-dev/core-components latest=5.4.2 modified=2026-02-06T16:07:56.141Z
+@duckdb/duckdb-wasm latest=1.33.1-dev57.0 modified=2026-11-13T17:36:03.193Z
+vega latest=6.4.0 modified=2026-08-14T17:16:30.157Z
+vega-lite latest=6.5.0 modified=2026-10-08T14:30:35.976Z
+vega-embed latest=7.3.0 modified=2026-09-23T17:37:00.817Z
+@duckdb/duckdb-wasm dist-tags:
+[
+  {
+    "latest": "1.33.1-dev57.0",
+    "next": "1.33.1-dev115.0"
+  }
+]
+@duckdb/duckdb-wasm last stable (no -dev):
+1.30.0 1.31.0 1.32.0
+@evidence-dev/evidence@40.1.8 dependencies on DuckDB, Svelte, ECharts:
+    "@sveltejs/kit": "2.8.4",
+@evidence-dev/universal-sql (Evidence's browser engine) and its DuckDB-WASM range:
+3.0.1
+    "@duckdb/duckdb-wasm": "^1.30.0",
+@duckdb/duckdb-wasm@1.32.0 published:
+    "1.32.0": "2025-12-16T11:18:50.133Z",
