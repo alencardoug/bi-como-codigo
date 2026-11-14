@@ -157,5 +157,337 @@ Filled in by the reviewer. One finding per line, with a verdict.
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| | | | `blocking` · `adjustment` · `observation` | |
+| FPROTO-1-01 | `docs/framework_prototype.md:109` | Raw-byte inspection and a Parquet counter-proof cannot establish absence of clear query results; form refusals can mask content | `blocking` | |
+| FPROTO-1-02 | `docs/framework_prototype.md:112` | The documented verifier root/layout omits a required declaration and does not match the API | `adjustment` | |
+| FPROTO-1-03 | `docs/framework_prototype.md:90` | The summary table has no valid scalar `order_count` at its declared grain | `adjustment` | |
+| FPROTO-1-04 | `docs/framework_prototype.md:53` | The missing native row need not produce a reachable empty cell on the proposed page | `adjustment` | |
+| FPROTO-1-05 | `docs/framework_prototype.md:134` | Cache and delivery conditions are unspecified for first-load and five-run comparisons | `adjustment` | |
+| FPROTO-1-06 | `docs/framework_prototype.md:195` | Environment scrubbing does not isolate dependency scripts from host credentials or publishing files | `observation` | |
+
+## Round 1 — FPROTO
+
+### 1. Conclusion
+
+**Changes required.** One blocking finding, four adjustments and one observation. The proposed
+oracle can accept artifacts containing recoverable clear report data, even when its planned
+Parquet counter-proof succeeds. The plan therefore cannot yet go to implementation under the
+stated acceptance bar. No framework choice is made by this review.
+
+### 2. Reviewed scope and version
+
+- Branch: `main`, initially clean, ahead of `origin/main` by three commits.
+- Checkout: `f537ec49cf336bb252348e11d7d694a72fdecb2a`.
+- Fixed comparison: `6cdcca4..2178322`, exactly `75209c9` and `2178322`; all nine changed files
+  examined. `f537ec4` adds only the author's dossier and is excluded from the delivery review.
+- No initial tracked changes or untracked files. This review changes only `DOSSIER.md`.
+- Full revision-1 prototype plan reviewed against the specified PLAN criteria, conventions,
+  package gate and envelope, tracing `release.verify`, `_package`, `contract.inspect`/`needles`
+  and the producer/manifest validation. The existing gate's documented limits are context,
+  not findings reopened against stage 2.2b.
+
+### 3. Findings by severity
+
+**FPROTO-1-01 — The oracle can pass clear query results. Verdict: `blocking` (high).**
+
+Location: `docs/framework_prototype.md:109`, `:117`, `:126`, `:151`, `:238`, `:255`.
+
+`verify` is a necessary publishing check, but its success is insufficient for this stage's stronger
+claim. `release.py:318` reads files without decoding; `contract.py:354` constructs specific byte
+spellings and `:368` searches substrings. The limitations are explicit in `package_gate.md` §6.
+Eligible source amounts do not guarantee detection of their serialized or aggregated results:
+`1234.50` is searched, whereas a JavaScript number can be `1234.5`; binary numeric Arrow columns
+contain neither decimal spelling. Gzip, brotli, base64 and escaped text also evade the search.
+Raw HTML, JSON/devalue and JavaScript are seen when they retain a needle; an encoded payload in a
+service worker is subject to the same blind spot. Runtime browser CacheStorage is outside this
+filesystem inspection entirely.
+
+This is a normal candidate data path, not solely an adversarial construction. The downloaded,
+pinned `@evidence-dev/universal-sql@3.0.1`
+[`src/cache-duckdb.js`](https://cdn.jsdelivr.net/npm/@evidence-dev/universal-sql@3.0.1/src/cache-duckdb.js)
+lines 63–95 serialize server query results as Arrow IPC into
+`.svelte-kit/output/prerendered/dependencies/api/prerendered_queries/<hash>.arrow`.
+Evidence 40.1.8's
+[`template/src/pages/+layout.js`](https://cdn.jsdelivr.net/npm/@evidence-dev/evidence@40.1.8/template/src/pages/+layout.js)
+lines 62–75 retrieve those caches in the browser. A1 names Parquet/HTML/JSON, omitting this carrier.
+The clear-mode Parquet alone can kill the counter-proof while leaving this second path untested.
+
+The form/content split compounds that gap: inclusion/extensions, source maps and multiple manifests
+can stop `verify` before value inspection (`release.py:255`, `:264`, `:326`). The executed probes
+below confirm that clear content in a second manifest or map receives only a form refusal. Removing
+that output in a rebuild can erase the evidence without proving that build-time report queries
+stopped. Thus the first refusal cannot determine that the original output was only a form problem.
+
+Evidence: **static source trace and executed end-to-end probes**, transcript in §4. A valid encrypted
+package and empty public-values list passed; numeric Arrow, compressed data and encoded payloads
+also passed. The same harness rejected raw Parquet and plain-text leaks. No checker was patched.
+
+Correction: retain `verify` unchanged and specify a supplementary prototype inspection/data-path
+proof that covers each candidate's actual emitted carriers and query results, including relevant
+decoding, or refuses unsupported carriers explicitly. Preserve original outputs and inspect their
+content independently of form failures before allowing a setting to clear them. A lack of coverage
+must be inconclusive/failing, never a pass. Give each carrier an independent negative control with
+no other clear Parquet/value to trip the checker; include candidate-generated Arrow and numeric
+serialization, not just the hand-made folder. Demonstrate that a build-time report query cannot
+be accepted merely because its output was removed or re-encoded. Keep the fixture-needle coverage
+assertion explicit, using `needles`, rather than inferring it from decimal wording.
+
+Validation: the clean encrypted controls pass; every supported clear carrier is independently
+rejected; unsupported ones prevent acceptance. A content-plus-form mutant cannot become a claimed
+criterion pass through the form workaround. None of this changes the publishing gate's guarantees.
+
+**FPROTO-1-02 — The documented harness layout cannot call `verify` successfully. Verdict:
+`adjustment` (medium).**
+
+Location: `docs/framework_prototype.md:62`, `:71`, `:112`.
+
+The plan calls `<candidate>/release/` the verifier root and lists contract, profiles, inclusion list
+and media types there. The API appends `release/` itself (`release.py:98`, `contract.py:384`), and
+also unconditionally reads `public_values.json`, which the plan never provisions. The common
+contract/profiles are described at yet another, shared path. Executing the stated layout fails
+before any candidate inspection; that harness failure must not be recorded as a candidate cost.
+
+Evidence: **static and executed**. Passing the documented release directory produced
+`FileNotFoundError` for `release/release/profiles.json`; using its parent without the unlisted
+public-values file failed on `release/public_values.json` (§4). Supplying the complete parent-root
+layout made the diagnostic control pass.
+
+Correction: specify one complete, consistent harness layout and actual `verify(root, output,
+live=...)` call. Explain how the shared declarations reach each candidate root, include an empty
+fixture public-values declaration, and use the API's `site/`-prefixed inclusion syntax. Reference
+the owning gate document for formats. Validate the harness on a clean package and a clear-value
+mutation before building either candidate, with infrastructure errors distinguished from refusals.
+
+**FPROTO-1-03 — `order_count` cannot be shown as specified at the summary grain. Verdict:
+`adjustment` (medium).**
+
+Location: `docs/framework_prototype.md:63`, `:90`, `:137`.
+
+The fixture's grain is month/channel/category, with two categories per root. The table instead
+groups by month/root category, including multiple channels for "todos", but asks for an
+`order_count` per displayed row. Several native counts contribute to that row; the view does not
+carry order identities from which their union could be computed. Neither summing them nor choosing
+one produces the defined metric. Omitting the total row's count does not resolve the detail rows.
+Comparing the same erroneous query in Python and the browser would still pass §2.6.
+
+Evidence: **static**, against M4 and the pinned upstream P01 SQL, whose columns and grouping were
+independently fetched through GitHub. The shape probe in §4 has up to six native rows per displayed
+cell, or two after filtering one channel.
+
+Correction: define where the native counts are displayed — for example, a detail table at the
+contract grain — and leave counts unavailable in summaries that cannot preserve that grain.
+Validate a fixture with overlapping category populations and unequal native counts; assert the
+native values and absence of a fabricated summary count independently of the rendering query.
+
+**FPROTO-1-04 — The fixture does not guarantee the promised empty-slice exercise. Verdict:
+`adjustment` (medium).**
+
+Location: `docs/framework_prototype.md:51`, `:53`, `:88`, `:93`, `:139`.
+
+Removing one channel/category/month row leaves its sibling category in the same displayed
+month/root-category group. The only filter is a channel selected from existing data: it cannot
+select that absent native combination, and every channel still has other rows. Fewer rows in the
+last month also need not empty any displayed group. Consequently a fixture conforming to those
+shape rules can exercise no empty cell at all; the browser script has no specified action or
+expected location for "the empty slice".
+
+Evidence: **static plus executed fixture-shape counterexample** (§4): 224 rows, the requested native
+gap and nine last-month rows, yet all 39 month/root-category cells exist under every channel filter.
+This checks the dimensional shape, not an implementation of the unbuilt full fixture.
+
+Correction: make a named gap at the page's displayed grain, or specify controls/detail rows that
+reach the native gap. Pin the exact selection, missing cell and expected Portuguese notice for
+both candidates. Validate that the browser reaches that case and distinguishes absence from zero;
+a mutation that fills the gap or suppresses the notice must fail that check.
+
+**FPROTO-1-05 — Performance results have no fixed cache/delivery protocol. Verdict:
+`adjustment` (medium).**
+
+Location: `docs/framework_prototype.md:134`, `:143`, `:214`, `:215`, `:229`.
+
+The reference to M49 supplies a headless-browser mechanism, but does not specify cache reset and
+reuse between candidates, clear/encrypted builds or the five logins. A first cold engine fetch and
+four warm logins can be combined into a median without identifying those conditions. Moreover,
+Evidence's pinned browser module bundles local WASM/worker URLs, while B uses jsDelivr; a local
+static server and the CDN need not use the same HTTP compression or cache behavior. The resulting
+bytes/times could reflect prior cache state and serving choices rather than a reproducible
+comparison. No biased result is claimed to have been measured yet.
+
+Evidence: **static protocol gap**. `universal-sql@3.0.1/src/client-duckdb/browser.js:40` imports WASM
+and workers through Vite; the plan explicitly chooses CDN loading for B. The existing network
+allowlist does include the CDN, so exclusion of CDN requests is not alleged.
+
+Correction and validation: specify fresh profiles/storage for cold runs, separately labelled warm
+runs, identical timer boundaries, and recorded HTTP compression/cache conditions. Define wire-byte
+accounting across all requests, including workers/WASM/CDN, with an origin breakdown so Firebase
+transfer and total transfer remain distinguishable. Preserve request/cache flags and conditions
+with the results; do not combine cold and warm samples into an unexplained five-run statistic.
+
+**FPROTO-1-06 — `env -i` is not a dependency-execution sandbox. Verdict: `observation` (low).**
+
+Location: `docs/framework_prototype.md:168`, `:195`, `:197`, `:227`.
+
+Ordinary `npm ci` may run dependency lifecycle scripts before A6, which is last. Retaining the
+Owner's `HOME` leaves credential files/configuration discoverable; environment scrubbing also
+does not remove filesystem access to the checkout or host publishing tools. An exact lockfile
+does not restrict that execution. The fake-HOME demonstration in §4 confirms the filesystem point
+without reading an actual credential. No malicious dependency or attempted publication was found:
+the exploitation scenario is adversarial, hence an observation under this review's severity rule.
+
+Recommendation: move script assessment before the first install, start with `--ignore-scripts`,
+and record any required hooks. If host credentials/publishing paths must be inaccessible, run
+hooks and builds in a disposable environment without those files or writable publishing checkout;
+a throwaway `HOME` alone is not a filesystem sandbox. Otherwise record the residual supply-chain
+risk explicitly in §5. Validate any claimed isolation with fake credential and publishing-path
+sentinels, not real credentials.
+
+### 4. Checks executed and results
+
+All diagnostic files, npm cache and extracted packages are under `/tmp/fproto-r1.P3Q9Q8`.
+Python ran with `-B`; npm tarballs were read with `npm pack --ignore-scripts`, using `env -i` and a
+throwaway HOME/cache. **No `npm install` or candidate build ran.**
+
+**Oracle/producer probe.** Executed the repository's unmodified Python through:
+
+```text
+env -i HOME=/tmp/fproto-r1.P3Q9Q8/home PATH=/usr/local/bin:/usr/bin:/bin PYTHONDONTWRITEBYTECODE=1 /home/doug/Projetos/bi-como-codigo/.venv/bin/python -B -u /tmp/fproto-r1.P3Q9Q8/oracle_probe.py
+producer_one_profile: 1 profile(s), 1 report(s)
+producer_empty_profile: ()
+Arrow roundtrip: [ { gross_revenue_amount: 1234.5 }, { gross_revenue_amount: 6789.2 } ]
+fixture rows=2 parquet_bytes=2049 eligible_needles=33
+clean: PASS
+raw_parquet: REFUSE clear.parquet holds a Parquet magic outside an envelope
+raw_html: REFUSE clear_value (in leak.html)
+raw_json: REFUSE clear_value (in __data.json)
+raw_devalue: REFUSE clear_value (in data.json)
+pt_BR_html: REFUSE clear_value (in leak.html)
+numeric_JS_trimmed_scale: PASS
+numeric_Arrow_IPC: PASS
+gzip_JSON: PASS
+brotli_JSON: PASS
+gzip_Parquet: PASS
+base64_JS: PASS
+escaped_JSON: PASS
+raw_service_worker: REFUSE clear_value (in sw.js)
+base64_service_worker: PASS
+form_masks_clear_manifest: REFUSE 2 package manifests in the artifact; exactly one is expected
+form_masks_clear_map: REFUSE leak.map is a source map
+form_masks_clear_in_script: REFUSE data.js references a source map
+duckdb-eh.wasm: 34242586 bytes; PAR1=0 BICP=0 sourceMappingURL=0
+```
+
+The diagnostic fixture uses P01's twelve column names, its proposed grain/sums, two rows and eligible
+amounts including `1234.50`/`6789.20`. It is not the proposed 13-month fixture. Each case uses a fresh
+output directory, the same valid encrypted package, narrow inclusion/media declarations covering
+its files, an empty public-values list and `live=lambda: NO_LIVE`. Arrow IPC was generated and
+round-tripped with Evidence's pinned `apache-arrow@17.0.0`; brotli used Node's built-in encoder.
+The one-profile and empty-entitlement declarations both pass producer and manifest validation:
+§2.2's fallback granting P01 to Logística is unnecessary for this implementation.
+
+The tested pinned DuckDB EH WASM was downloaded successfully (HTTP 200); SHA-256
+`4c221bfa59c11f24dbd750e70c90b9252eca6eec5633936e6a2ec766e55fd879`.
+The hypothesis that its own bytes would trip the raw Parquet/payload/source-map magic was
+**disproved for this file**, not reported as a defect. Browser execution of it was not tested.
+
+**Harness layout probe**, against the same valid control:
+
+```text
+documented_release_as_root: FileNotFoundError [Errno 2] No such file or directory: '/tmp/fproto-r1.P3Q9Q8/oracle/release/release/profiles.json'
+parent_root_without_public_values: FileNotFoundError [Errno 2] No such file or directory: '/tmp/fproto-r1.P3Q9Q8/oracle/without_public/release/public_values.json'
+```
+
+**Fixture-shape probe**, `.venv/bin/python -B /tmp/fproto-r1.P3Q9Q8/page_shape_probe.py`:
+
+```text
+legal_fixture_rows=224; omitted_native_cell=1; last_month_rows=9
+todos: visible_month_root_cells=39 missing=0 native_rows_per_cell_max=6
+fixture_canal_a: visible_month_root_cells=39 missing=0 native_rows_per_cell_max=2
+fixture_canal_b: visible_month_root_cells=39 missing=0 native_rows_per_cell_max=2
+fixture_canal_c: visible_month_root_cells=39 missing=0 native_rows_per_cell_max=2
+```
+
+**Credential-isolation demonstration**, an `env -i` Node process with a fake ADC-shaped file solely
+under `/tmp`; no real credential was inspected:
+
+```text
+token_env=undefined; fake_home_credential_readable=true
+```
+
+**Pinned-source checks.** Read npm tarballs for Evidence 40.1.8, core-components 5.4.2,
+universal-sql 3.0.1, preprocess 6.0.7, SDK 4.0.2 and Apache Arrow 17.0.0. Extracted package metadata
+printed:
+
+```text
+@evidence-dev/evidence@40.1.8: @sveltejs/kit=2.8.4
+@evidence-dev/core-components@5.4.2: echarts=5.6.0
+@evidence-dev/universal-sql@3.0.1: @duckdb/duckdb-wasm=^1.30.0
+```
+
+Source confirms sources-to-Parquet, server-side query execution/cache generation and browser
+DuckDB-WASM. It does not prove the planned encrypted integration. `npm view` also confirmed
+Vega-Lite 6.5.0's `vega: ^6.4.0` peer and Node `>=22`, and vega-embed 7.3.0's unrestricted Vega/
+Vega-Lite peers. This supports the proposed version combination at the metadata level, not a
+rendering/runtime measurement. M54's pasted output does not itself print ECharts; the tarball
+metadata above independently confirms that pin.
+
+**Upstream pin and document evidence.** Read-only GitHub calls resolved the annotated `v2.0.0` tag
+(`2cff68c18ca7296954412cbec8b3b9d4bdd0fdff`) to
+`f86b9fb48a2b985b1a59023c753b517143a2f836`; the acceptance commit/tag explicitly record the Owner's
+acceptance with reservations. The pinned P01 SQL matches the twelve column names. No eng_dados
+checkout or database was accessed. The framework ADR remains pending; prototype results remain
+pending; the owning gate/envelope documents are referenced rather than redefined.
+
+Shell syntax checks returned:
+
+```text
+evidence/20261113/m53_billing_off.sh: syntax exit=0
+evidence/20261113/m54_candidate_versions.sh: syntax exit=0
+```
+
+`git diff --check 6cdcca4 2178322` exited 2 solely for the trailing tab after `False` in
+`m53_billing_off.out.txt:3`; that is the literal TSV output with an empty billing-account column,
+so no formatting finding is raised against the preserved measurement.
+
+Report verification: `git diff --check -- DOSSIER.md` exited 0. A structural check confirmed that
+the author's sections before the findings are unchanged, all six finding Status cells are empty,
+and the requested round section occurs once. Repository status shows only `DOSSIER.md` modified.
+
+**Not executed:** `make check` (no production-code change; existing tests cannot establish the new
+oracle coverage), complete npm-version probe, authenticated M53, candidate installs/builds, browser
+checks or publishing commands. The author's reported 470 Python tests and JS 156 pass / 1 skipped,
+docs/ADR checks are **reported, not independently rerun**. No live service state was changed.
+
+### 5. Limitations and open questions
+
+- There is no prototype implementation to approve. A2–A5, runtime compatibility, CDN worker
+  startup, actual output shapes, build settings, accessibility feasibility and all cost figures
+  remain planned execution probes. Reading package source is not a successful build measurement.
+- The executed oracle cases establish counterexamples, not exhaustive coverage of every encoding.
+  FPROTO-1-01 requires a bounded, explicit coverage argument and controls before an acceptance pass.
+- M53's recorded `False`/HTTP 200 establish the captured billing link and availability, not an
+  experiment on future account closure. The row's unmeasured policy behavior remains unmeasured;
+  no additional account action is needed for this review.
+- No clarification of the baseline or framework decision is needed. The open items are corrections
+  to the plan and the execution probes it already owns. Their results must stay pending until run.
+
+### 6. Handoff to Claude Code
+
+- [ ] **FPROTO-1-01:** specify supplementary content coverage and independent candidate-native
+  negative controls; reject unsupported carriers; preserve/inspect outputs before form workarounds.
+  Acceptance: no clear result in the demonstrated carriers can silently pass the combined oracle,
+  and build-time report queries cannot be excused by deleting their emitted evidence.
+- [ ] **FPROTO-1-02:** correct the verifier argument/layout and include every required declaration.
+  Acceptance: a minimal honest control passes and a clear-value mutation reaches its intended
+  refusal, with harness errors kept separate from candidate results.
+- [ ] **FPROTO-1-03:** define the display grain of `order_count` and its independent expected values.
+  Acceptance: native counts survive; summaries do not invent or sum cross-category order counts.
+- [ ] **FPROTO-1-04:** name a reachable empty case at the chosen display grain and its browser action.
+  Acceptance: both pages distinguish that absence from zero and a missing notice fails the check.
+- [ ] **FPROTO-1-05:** define cold/warm runs, storage resets, timing boundaries and network-byte/
+  serving conditions. Acceptance: costs are reproducible and CDN/local/cache effects are visible
+  in the measurements supplied to the Owner.
+- [ ] **FPROTO-1-06 (observation):** record the residual host-execution risk in §5, or specify and
+  prove isolation before dependency scripts run. Do not describe environment scrubbing as a sandbox.
+
+Apply corrections in their owning documents; keep this review's Status cells for the author to
+fill in. Return the revised plan for review before implementing the prototype.
 
