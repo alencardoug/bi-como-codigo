@@ -16,7 +16,7 @@
 |---|---|
 | Date | 2026-11-13 — revision 1, for Codex's review |
 | Author | Claude Code |
-| Status | **Planned.** Nothing of it is built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; the stage reads no warehouse data, so the open pin of 2.4–2.10 ([PLAN §7](../PLAN.md#7-what-is-still-decided-at-the-right-moment)) does not reach it |
+| Status | **Planned.** Nothing of it is built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; the stage reads no warehouse data, so the pin of 2.4–2.10 on `mvp_eng_dados_2` (N85) does not reach it |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool that the stage proves or refutes (§9).
