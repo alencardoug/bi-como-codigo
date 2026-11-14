@@ -71,8 +71,11 @@ naming a checkout of mvp_eng_dados_1 (see the [README](README.md#checking-the-re
   Probes run in a read-only session (`evidence/20261022/ro.sh`); no target of either project that
   rewrites data — reset, seed, a load or fact test, anything with `FORCE=1` — is run from this
   repository. Since 2026-11-13 the shared containers are run only by `mvp_eng_dados_2` (its D92):
-  from here no `make` target of either is run, and bringing the databases up is asked of the session
-  there. Their own changes are made in sessions opened there.
+  from here no `make` target of either is run, nor any command of the project in its checkout —
+  reading files and `git show`/`git log` are free —, and bringing the databases up, or a read window
+  when a read needs a stable state, is asked of the Owner
+  ([UQ-05](docs/upstream_questions.md#answers)). Their own changes are made in sessions opened
+  there.
 - Nothing fixes a path, a credential or an environment name in the code: configuration comes from
   environment variables, so that sandbox, qa and prod on Google Cloud stay possible.
 
