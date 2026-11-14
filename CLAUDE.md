@@ -66,10 +66,13 @@ naming a checkout of mvp_eng_dados_1 (see the [README](README.md#checking-the-re
   does not; the others point at it by link and identifier (Nn, On, Mn, RP-nn, RVn-nn, ADR-nnnn,
   stages) instead of repeating it. A fact of mvp_eng_dados_1 is cited by a link pinned to a commit,
   never copied — `make check` refuses an unpinned one.
-- **mvp_eng_dados_1 is read, never written, from here.** Probes run in a read-only session
-  (`evidence/20261022/ro.sh`); no target of that project that rewrites data — reset, seed, a load or
-  fact test, anything with `FORCE=1` — is run from this repository. Its own changes are made in
-  sessions opened there.
+- **mvp_eng_dados_1 is read, never written, from here — and so is its continuation,
+  `mvp_eng_dados_2`** ([PLAN §3.5.1](PLAN.md#351-the-source-moved-to-mvp_eng_dados_2-2026-11-13)).
+  Probes run in a read-only session (`evidence/20261022/ro.sh`); no target of either project that
+  rewrites data — reset, seed, a load or fact test, anything with `FORCE=1` — is run from this
+  repository. Since 2026-11-13 the shared containers are run only by `mvp_eng_dados_2` (its D92):
+  from here no `make` target of either is run, and bringing the databases up is asked of the session
+  there. Their own changes are made in sessions opened there.
 - Nothing fixes a path, a credential or an environment name in the code: configuration comes from
   environment variables, so that sandbox, qa and prod on Google Cloud stay possible.
 
