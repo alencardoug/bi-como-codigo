@@ -12,9 +12,9 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-14 — revision 2: `mvp_eng_dados_2` answered UQ-01 to UQ-11 at `32397cc`, transcribed below; UQ-12 to UQ-15 asked of the package's format 1. Revision 1, 2026-11-13: written after its notice to this repository (`data/medicoes/base_consumidores/avisos/aviso_bi_como_codigo.md` there, outside its Git) and its `PLANO_base_dos_consumidores.md` at `35abb03`, both read on 2026-11-13 |
+| Date | 2026-11-17 — revision 3: the answers to UQ-12 to UQ-15, given at `8742a59` on 2026-11-14 and read only on 2026-11-17 with the notice of `v2.1.0`, transcribed below and checked in the package at `eb11709` (PLAN M57). Revision 2, 2026-11-14: `mvp_eng_dados_2` answered UQ-01 to UQ-11 at `32397cc`, transcribed below; UQ-12 to UQ-15 asked of the package's format 1. Revision 1, 2026-11-13: written after its notice to this repository (`data/medicoes/base_consumidores/avisos/aviso_bi_como_codigo.md` there, outside its Git) and its `PLANO_base_dos_consumidores.md` at `35abb03`, both read on 2026-11-13 |
 | Author | Claude Code, in the `bi-como-codigo` session |
-| Status | **UQ-01 to UQ-11 answered** at `32397cc` (2026-11-14). **UQ-12 to UQ-15 open**: what the showcase needs that format 1 of the package lacks |
+| Status | **All answered**: UQ-01 to UQ-11 at `32397cc`, UQ-12 to UQ-15 at `8742a59`, both of 2026-11-14. None open |
 
 ## How to answer
 
@@ -76,3 +76,17 @@ gate to verify them.
 | UQ-09 | The spec: path `docs/pacote_de_metadados.json`, `format: 1`. It holds provenance, relations with descriptions, sensitivity and `meta`, lineage, crossings, questions, description gaps, the tests with results, view audits and the environments' sources. Not in format 1 (spec §4): the access matrix, `pytest` results, open decisions such as D66, and the text of documents, ADRs and glossary — read by commit; a field can be added on request. The format is specified before the package exists (Q13): the package is generated at its Bloco 4, in the same format | Stage 2.7 reads the package for the metadata it covers (N87, PLAN §3.5) and builds against the schema and example until it is generated; what format 1 lacks is UQ-12 to UQ-15 |
 | UQ-10 | **Yes**: still `python -m mvp_ed1.models.lineage --json`, format 1. The package carries it **unchanged** under `lineage`; its schema pins the format to the module's `JSON_FORMAT`, and a test guards that. **Do not run it** from that checkout (Consumidores §2, rule 3). Until the package exists, a dated copy of the full output is at `data/medicoes/base_consumidores/avisos/linhagem_20261113.json` there, outside Git, from the manifest of 2026-11-13 22:21:52Z — for prototypes only, not a contract | The Column lineage row of PLAN §3.5 reads the package's `lineage`; no command runs in that checkout |
 | UQ-11 | Set against PLAN §3.2's nine chapters, `gdados` covers 3 (the catalogue), 4 (question → view → measures → fact and dimensions), 7 (column lineage with crossings, richer), 5 in part (its concepts page is broader and didactic), 2 and 9 in part (its structure page: physical, logical, code tree). It does not cover 6 (no access matrix, only sensitivity filters) or 8 (tests, reconciliation). Only it has the local ↔ Google Cloud environments, code-generated diagrams and the concepts page | Q12 settled the question of PLAN §7: two portals, one package (N87) |
+
+UQ-12 to UQ-15 were answered in a second notice of 2026-11-14 —
+`data/medicoes/base_consumidores/avisos/resposta_bi_como_codigo_20261114b.md` there, read on
+2026-11-17 —, at `8742a59`: on its `origin/main` (`git branch -r --contains 8742a59` there prints it,
+checked on 2026-11-17). All four came as **new fields of format 1**, no version bump; its Pacote de
+Metadados §3 at that commit specifies them. Each field is in the package at `eb11709`, the pin of
+N89 (PLAN M57).
+
+| # | Answer, at `8742a59` | What it changes here |
+|---|---|---|
+| UQ-12 | **Yes**: `relations.*.grants_select`, the roles that may read each relation, from dbt's `config.grants.select` in the manifest — roles × layers follows from it. The proof by execution is in `checks` (UQ-13), with the same result object | Chapter 6 of the portal, "Who sees what", reads both from the package (PLAN §3.2) |
+| UQ-13 | **Yes**: `checks`, every `pytest` test as `module::test`, with its module, what it guards — the first line of the module's docstring — and `result` (`pass`, `fail`, `error` or `skipped`, `executed_at`, `run_id`), or `null` for no result. A per-test layer is declared nowhere there, so it is not a field | Chapter 8, "Why trust it", reads the three states from `checks` and `tests`; the layer of a check is shown as not declared, never inferred here |
+| UQ-14 | **Yes**: `relations.*.grain`, the text between `**Grão:` and `**` at the start of the relation's description; `null` when undeclared. At `eb11709` it is filled for 26 relations, the facts and dimensions; a view's grain is in `view_rules` instead — the columns of role `grain` (PLAN M57) | The catalogue shows the grain of facts and dimensions from `grain`, and of the 16 views from `view_rules`; any other relation's is labelled missing |
+| UQ-15 | **Partly**: `open_items`, each open `Dnn`/`Vn` with title, state (`pending` or `deferred`) and the anchor of its text. `objects` is `null` for all of them: no declaration there says which objects an item touches, and the package does not infer it. If the showcase needs it, a new question asks for that declaration | The portal shows each open item and its state, and "objects not declared"; no new question for now |
