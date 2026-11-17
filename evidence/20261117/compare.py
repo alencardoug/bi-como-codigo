@@ -112,3 +112,18 @@ for path in sorted(capture.glob("*.csv")):
     # The package keys its columns alphabetically, so only the set compares.
     state = "same set of columns" if sorted(header) == sorted(declared) else "DIFFERENT"
     print(f"{path.stem}: {len(header)} columns — {state}")
+
+# The key of each view: the columns of role `grain` in view_rules, alone and with those of role `identity`.
+print("\n## key: repeated keys by the declared grain, and by grain plus identity")
+for name, rule in sorted(rules.items()):
+    view = name.split(".", 1)[1]
+    rows = read(capture / f"{view}.csv")
+    grain = [c for c, d in rule["columns"].items() if d["role"] == "grain"]
+    identity = [c for c, d in rule["columns"].items() if d["role"] == "identity"]
+    def repeated(cols):
+        seen = {}
+        for r in rows:
+            k = tuple(r[c] for c in cols)
+            seen[k] = seen.get(k, 0) + 1
+        return sum(1 for n in seen.values() if n > 1)
+    print(f"{rule['question']} {view}: grain {repeated(grain)}; grain + identity {identity} {repeated(grain + identity)}")

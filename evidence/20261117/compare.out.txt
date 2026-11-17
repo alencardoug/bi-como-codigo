@@ -1,4 +1,4 @@
-# compare.py — 2026-11-17T14:53:44Z — files only, no database
+# compare.py — 2026-11-17T15:48:06Z — files only, no database
 
 ## support_tickets_per_hundred_orders
 before: bloco1/f1_depois.csv — after F1 (9aeea8d), before F21 (0471f6a) — not exactly the state at 4da9e60
@@ -71,3 +71,21 @@ revenue_by_delivery_region: 11 columns — same set of columns
 skus_below_reorder_point: 17 columns — same set of columns
 support_tickets_per_hundred_orders: 14 columns — same set of columns
 top_skus_by_revenue: 12 columns — same set of columns
+
+## key: repeated keys by the declared grain, and by grain plus identity
+P02 average_order_value_by_channel_and_segment: grain 0; grain + identity [] 0
+P07 cart_conversion_rate_by_channel: grain 0; grain + identity [] 0
+P06 discount_share_by_channel: grain 0; grain + identity [] 0
+P08 gross_margin_by_category: grain 0; grain + identity [] 0
+P11 inventory_turnover_by_sku_and_warehouse: grain 874; grain + identity ['sku'] 0
+P01 monthly_revenue_by_channel_and_category: grain 0; grain + identity [] 0
+P04 new_and_repeat_customers_by_month: grain 0; grain + identity [] 0
+P13 on_time_delivery_rate_by_carrier: grain 0; grain + identity [] 0
+P14 order_to_delivery_time_by_region: grain 0; grain + identity [] 0
+P09 payment_approval_rate_by_method: grain 92; grain + identity ['installments'] 0
+P10 refund_rate_by_reason: grain 0; grain + identity [] 0
+P16 repeat_purchase_rate_after_support: grain 0; grain + identity [] 0
+P05 revenue_by_delivery_region: grain 0; grain + identity [] 0
+P12 skus_below_reorder_point: grain 66; grain + identity ['sku'] 0
+P15 support_tickets_per_hundred_orders: grain 0; grain + identity [] 0
+P03 top_skus_by_revenue: grain 5; grain + identity ['product_natural_key', 'sku'] 0

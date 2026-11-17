@@ -1,13 +1,14 @@
 # Evidence — 17/11/2026
 
 Claude Code's measurements after eng_dados closed its consumer-base phase with the tag `v2.1.0`
-(`eb11709` of `mvp_eng_dados_2`): M55 to M57 of the plan. Each `*.out.txt` is the literal output of
+(`eb11709` of `mvp_eng_dados_2`): M55 to M58 of the plan. Each `*.out.txt` is the literal output of
 the file with the same stem, with its UTC timestamp in the first line.
 
 | File | Measures | Used by |
 |---|---|---|
 | `capture.sh`, with `capture_split.py` | The 16 views of `consumption` in one `REPEATABLE READ READ ONLY` transaction, through the exporter's own login (`consumption_reader`): the warehouse provenance, each view's columns and types, its row count and a fingerprint — the md5 of its rows as text, in text order. The rows themselves go to `CAPTURE_DIR`, outside Git | M55 |
-| `compare.py` | The capture of M55 against every "before" that survives from the old pin `4da9e60` — the rows of four views that `mvp_eng_dados_2` measured on 2026-11-14, outside its Git, and the counts its Consumidores §5 publishes —, by the grain the package declares; and each captured header against the package's relations at `eb11709` | M56 |
+| `compare.py` | The capture of M55 against every "before" that survives from the old pin `4da9e60` — the rows of four views that `mvp_eng_dados_2` measured on 2026-11-14, outside its Git, and the counts its Consumidores §5 publishes —, by the grain the package declares; each captured header against the package's relations at `eb11709`; and each view's repeated keys by its columns of role `grain`, alone and with those of role `identity` | M56; [UQ-18](../../docs/upstream_questions.md#the-questions) |
+| `q_p08_november.sql` | What P08's cost of November 2026 is made of: the sale outflows of `analytics.fact_inventory_movement` by month, those of 2026-11 by origin, type and day, the last realised order day, and the orders behind them. Read-only session, superuser, through `evidence/20261022/ro.sh` | M58; [UQ-16](../../docs/upstream_questions.md#the-questions) |
 | `views_sql_diff.sh` | What changed in the declaration of the views between `4da9e60` and `eb11709`, from Git alone: under `consumption`, only its YAML — no view's SQL | M56 |
 | `package_check.py` | The metadata package at `eb11709` against `19c0e80`, the pin of the notice of 2026-11-15: format, keys added, `on_zero_denominator`, `open_items`, the warehouse provenance, the gateway code's meanings, the view audits and the run of their reference tests | M57 |
 
