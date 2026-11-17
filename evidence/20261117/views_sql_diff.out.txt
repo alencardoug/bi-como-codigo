@@ -1,0 +1,24 @@
+# views_sql_diff.sh — 2026-11-17T14:53:48Z — git only
+## files changed under dbt/models/consumption
+ dbt/models/consumption/_consumption__models.yml | 323 +++++++++++++++++++++---
+ 1 file changed, 289 insertions(+), 34 deletions(-)
+## .sql files changed under dbt/models/consumption: 0
+## models changed under dbt/models (any layer)
+ dbt/models/analytics/_analytics__models.yml        | 1597 +++++++++++++++++++-
+ dbt/models/consumption/_consumption__models.yml    |  323 +++-
+ dbt/models/quarantine/_derived.yml                 |   71 -
+ dbt/models/quarantine/_entregas__models.yml        |   76 +
+ dbt/models/staging/_derived.yml                    |  106 --
+ dbt/models/staging/_retail__models.yml             |  110 ++
+ dbt/models/staging/legacy/_captura__models.yml     |   13 +
+ dbt/models/staging/legacy/_derived.yml             |   14 -
+ dbt/models/staging/legacy/_legacy__sources.yml     |  128 ++
+ .../legacy/stg_legacy__stock_reservations.sql      |   93 --
+ dbt/models/trusted/_derived.yml                    |  147 --
+ dbt/models/trusted/_trusted__models.yml            |  234 ++-
+ dbt/models/trusted/legacy/_medidas__models.yml     |   14 +-
+ dbt/models/trusted/legacy/_pontes__models.yml      |   79 +
+ .../trusted/legacy/legacy_classifications.sql      |    8 +-
+ .../legacy/legacy_order_totals_divergence.sql      |   10 +-
+ dbt/models/trusted/payments.sql                    |    4 +-
+ 17 files changed, 2523 insertions(+), 504 deletions(-)

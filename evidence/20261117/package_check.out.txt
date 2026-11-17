@@ -1,0 +1,10 @@
+# package_check.py — 2026-11-17T14:53:54Z — files only, no database
+format: 1 -> 1
+top-level keys added: ['filters', 'metrics', 'view_rules']; removed: []
+metrics: 44; on_zero_denominator: {'None': 37, 'returns_null': 7}; zero_denominator kept: {'None': 37, 'null': 7}
+open_items: ['D43', 'D63', 'D64', 'V1', 'V2', 'V3', 'V4'] -> ['D43', 'D63', 'D64', 'V1', 'V2', 'V3', 'V5', 'V6', 'V7']
+provenance.warehouse: {"built_at": "2026-11-17T04:50:29.631409Z", "built_by_invocation_id": "04d4af3f-8e6b-4d3e-abee-a37c0e4f841d", "built_from_commit": "4137dc7273099d644884e4d27c2fc59c2a808c51", "reason": null, "status": "verified"}
+provenance.dbt.manifest_invocation_id: 04d4af3f-8e6b-4d3e-abee-a37c0e4f841d
+gateway_response_code values: {"00": "Aprovada. É o código de toda transação `succeeded` — autorização, captura, estorno e reembolso.", "05": "Recusada sem motivo detalhado (não autorizada, genérica).", "51": "Recusada por saldo insuficiente.", "57": "Recusada por transação não permitida ao portador.", "91": "Recusada por emissor indisponível.", "GW-OK": "Pendente. O gateway aceitou a requisição, e a resposta do adquirente ainda não chegou; é o código de toda transação `pending`.", "GW-TIMEOUT": "Recusada por falta de resposta do adquirente no prazo."}
+view_audits: 16; status {'audited': 16}; commit {'0471f6a': 16}
+checks of tests/test_auditoria_das_views.py: 32; status {'pass': 32}; executed ['2026-11-17T04:51:11.044642Z']

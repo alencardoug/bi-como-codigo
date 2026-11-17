@@ -21,3 +21,6 @@ build/
 # The publishing pipeline builds deploy/ fresh (docs/publishing_pipeline.md §3); the CLI lock installs under node_modules.
 /deploy/
 release/firebase-tools/node_modules/
+
+# Clear captures of the warehouse stay on this machine, never in Git (PLAN §6.2, stage 2.4; evidence/20261117/)
+/data/

@@ -1,0 +1,222 @@
+# capture.sh — 2026-11-17T14:52:08Z — one REPEATABLE READ READ ONLY transaction, login consumption_reader
+
+## transaction
+read_at,login,isolation,read_only,consumption_views
+2026-11-17 14:52:08.14536+00,consumption_reader,repeatable read,on,16
+
+## provenance
+status,reason,invocation_id,built_from_commit,built_at,sequence
+verified,,04d4af3f-8e6b-4d3e-abee-a37c0e4f841d,4137dc7273099d644884e4d27c2fc59c2a808c51,2026-11-17 04:50:29.631409+00,71
+
+## columns
+table_name,ordinal_position,column_name,data_type,numeric_precision,numeric_scale
+average_order_value_by_channel_and_segment,1,year_month,text,,
+average_order_value_by_channel_and_segment,2,year_number,integer,32,0
+average_order_value_by_channel_and_segment,3,month_number,integer,32,0
+average_order_value_by_channel_and_segment,4,sales_channel_name,character varying,,
+average_order_value_by_channel_and_segment,5,customer_segment_name,character varying,,
+average_order_value_by_channel_and_segment,6,order_count,bigint,64,0
+average_order_value_by_channel_and_segment,7,net_revenue_amount,numeric,,
+average_order_value_by_channel_and_segment,8,average_order_value,numeric,,
+cart_conversion_rate_by_channel,1,year_month,text,,
+cart_conversion_rate_by_channel,2,year_number,integer,32,0
+cart_conversion_rate_by_channel,3,month_number,integer,32,0
+cart_conversion_rate_by_channel,4,sales_channel_name,character varying,,
+cart_conversion_rate_by_channel,5,channel_type,character varying,,
+cart_conversion_rate_by_channel,6,cart_count,bigint,64,0
+cart_conversion_rate_by_channel,7,closed_cart_count,bigint,64,0
+cart_conversion_rate_by_channel,8,converted_cart_count,bigint,64,0
+cart_conversion_rate_by_channel,9,abandoned_cart_count,bigint,64,0
+cart_conversion_rate_by_channel,10,cart_conversion_rate_pct,numeric,,
+cart_conversion_rate_by_channel,11,cart_value_amount,numeric,,
+cart_conversion_rate_by_channel,12,abandoned_value_amount,numeric,,
+discount_share_by_channel,1,year_month,text,,
+discount_share_by_channel,2,year_number,integer,32,0
+discount_share_by_channel,3,month_number,integer,32,0
+discount_share_by_channel,4,sales_channel_name,character varying,,
+discount_share_by_channel,5,channel_type,character varying,,
+discount_share_by_channel,6,root_category_name,character varying,,
+discount_share_by_channel,7,order_count,bigint,64,0
+discount_share_by_channel,8,gross_revenue_amount,numeric,,
+discount_share_by_channel,9,discount_amount,numeric,,
+discount_share_by_channel,10,net_revenue_amount,numeric,,
+discount_share_by_channel,11,discount_share_pct,numeric,,
+gross_margin_by_category,1,year_month,text,,
+gross_margin_by_category,2,year_number,integer,32,0
+gross_margin_by_category,3,month_number,integer,32,0
+gross_margin_by_category,4,root_category_name,character varying,,
+gross_margin_by_category,5,category_name,character varying,,
+gross_margin_by_category,6,net_revenue_amount,numeric,,
+gross_margin_by_category,7,cost_of_goods_sold,numeric,,
+gross_margin_by_category,8,gross_profit_amount,numeric,,
+gross_margin_by_category,9,gross_margin_pct,numeric,,
+gross_margin_by_category,10,unit_count,bigint,64,0
+gross_margin_by_category,11,dispatched_unit_count,bigint,64,0
+inventory_turnover_by_sku_and_warehouse,1,year_number,integer,32,0
+inventory_turnover_by_sku_and_warehouse,2,quarter_number,integer,32,0
+inventory_turnover_by_sku_and_warehouse,3,year_quarter,text,,
+inventory_turnover_by_sku_and_warehouse,4,sku,character varying,,
+inventory_turnover_by_sku_and_warehouse,5,product_name,character varying,,
+inventory_turnover_by_sku_and_warehouse,6,category_name,character varying,,
+inventory_turnover_by_sku_and_warehouse,7,warehouse_name,character varying,,
+inventory_turnover_by_sku_and_warehouse,8,warehouse_region,text,,
+inventory_turnover_by_sku_and_warehouse,9,quantity_out,bigint,64,0
+inventory_turnover_by_sku_and_warehouse,10,cost_of_goods_sold,numeric,,
+inventory_turnover_by_sku_and_warehouse,11,avg_quantity_on_hand,numeric,,
+inventory_turnover_by_sku_and_warehouse,12,avg_inventory_value_amount,numeric,,
+inventory_turnover_by_sku_and_warehouse,13,inventory_turnover,numeric,,
+monthly_revenue_by_channel_and_category,1,year_month,text,,
+monthly_revenue_by_channel_and_category,2,year_number,integer,32,0
+monthly_revenue_by_channel_and_category,3,month_number,integer,32,0
+monthly_revenue_by_channel_and_category,4,sales_channel_name,character varying,,
+monthly_revenue_by_channel_and_category,5,channel_type,character varying,,
+monthly_revenue_by_channel_and_category,6,root_category_name,character varying,,
+monthly_revenue_by_channel_and_category,7,category_name,character varying,,
+monthly_revenue_by_channel_and_category,8,order_count,bigint,64,0
+monthly_revenue_by_channel_and_category,9,unit_count,bigint,64,0
+monthly_revenue_by_channel_and_category,10,gross_revenue_amount,numeric,,
+monthly_revenue_by_channel_and_category,11,discount_amount,numeric,,
+monthly_revenue_by_channel_and_category,12,net_revenue_amount,numeric,,
+new_and_repeat_customers_by_month,1,year_month,text,,
+new_and_repeat_customers_by_month,2,year_number,integer,32,0
+new_and_repeat_customers_by_month,3,month_number,integer,32,0
+new_and_repeat_customers_by_month,4,sales_channel_name,character varying,,
+new_and_repeat_customers_by_month,5,customer_segment_name,character varying,,
+new_and_repeat_customers_by_month,6,new_customer_count,bigint,64,0
+new_and_repeat_customers_by_month,7,returning_customer_count,bigint,64,0
+new_and_repeat_customers_by_month,8,repeat_purchase_rate_pct,numeric,,
+on_time_delivery_rate_by_carrier,1,year_number,integer,32,0
+on_time_delivery_rate_by_carrier,2,month_number,integer,32,0
+on_time_delivery_rate_by_carrier,3,year_month,text,,
+on_time_delivery_rate_by_carrier,4,carrier_name,character varying,,
+on_time_delivery_rate_by_carrier,5,service_level,character varying,,
+on_time_delivery_rate_by_carrier,6,warehouse_name,character varying,,
+on_time_delivery_rate_by_carrier,7,warehouse_region,text,,
+on_time_delivery_rate_by_carrier,8,delivered_count,bigint,64,0
+on_time_delivery_rate_by_carrier,9,on_time_count,bigint,64,0
+on_time_delivery_rate_by_carrier,10,late_count,bigint,64,0
+on_time_delivery_rate_by_carrier,11,split_order_shipment_count,bigint,64,0
+on_time_delivery_rate_by_carrier,12,on_time_rate,numeric,,
+on_time_delivery_rate_by_carrier,13,avg_delay_days_when_late,numeric,,
+on_time_delivery_rate_by_carrier,14,avg_transit_days,numeric,,
+on_time_delivery_rate_by_carrier,15,failed_attempt_count,numeric,,
+order_to_delivery_time_by_region,1,year_number,integer,32,0
+order_to_delivery_time_by_region,2,month_number,integer,32,0
+order_to_delivery_time_by_region,3,year_month,text,,
+order_to_delivery_time_by_region,4,region,text,,
+order_to_delivery_time_by_region,5,state_code,character varying,,
+order_to_delivery_time_by_region,6,service_level,character varying,,
+order_to_delivery_time_by_region,7,carrier_name,character varying,,
+order_to_delivery_time_by_region,8,order_count,bigint,64,0
+order_to_delivery_time_by_region,9,split_order_count,bigint,64,0
+order_to_delivery_time_by_region,10,shipment_count,numeric,,
+order_to_delivery_time_by_region,11,avg_order_to_delivery_days,numeric,,
+order_to_delivery_time_by_region,12,median_order_to_delivery_days,numeric,,
+order_to_delivery_time_by_region,13,max_order_to_delivery_days,numeric,,
+payment_approval_rate_by_method,1,year_month,text,,
+payment_approval_rate_by_method,2,year_number,integer,32,0
+payment_approval_rate_by_method,3,month_number,integer,32,0
+payment_approval_rate_by_method,4,payment_method_name,character varying,,
+payment_approval_rate_by_method,5,method_type,character varying,,
+payment_approval_rate_by_method,6,installments,integer,32,0
+payment_approval_rate_by_method,7,is_instalment_plan,boolean,,
+payment_approval_rate_by_method,8,authorization_attempt_count,bigint,64,0
+payment_approval_rate_by_method,9,approved_authorization_count,bigint,64,0
+payment_approval_rate_by_method,10,approval_rate_pct,numeric,,
+payment_approval_rate_by_method,11,authorized_amount,numeric,,
+payment_approval_rate_by_method,12,captured_amount,numeric,,
+refund_rate_by_reason,1,year_month,text,,
+refund_rate_by_reason,2,year_number,integer,32,0
+refund_rate_by_reason,3,month_number,integer,32,0
+refund_rate_by_reason,4,payment_method_name,character varying,,
+refund_rate_by_reason,5,refund_reason,character varying,,
+refund_rate_by_reason,6,refund_count,bigint,64,0
+refund_rate_by_reason,7,refunded_amount,numeric,,
+refund_rate_by_reason,8,captured_amount,numeric,,
+refund_rate_by_reason,9,refund_rate_pct,numeric,,
+repeat_purchase_rate_after_support,1,year_number,integer,32,0
+repeat_purchase_rate_after_support,2,month_number,integer,32,0
+repeat_purchase_rate_after_support,3,year_month,text,,
+repeat_purchase_rate_after_support,4,sales_channel_name,character varying,,
+repeat_purchase_rate_after_support,5,has_support_ticket,boolean,,
+repeat_purchase_rate_after_support,6,support_category_name,text,,
+repeat_purchase_rate_after_support,7,order_count,bigint,64,0
+repeat_purchase_rate_after_support,8,repeat_order_count,bigint,64,0
+repeat_purchase_rate_after_support,9,repeat_purchase_rate,numeric,,
+repeat_purchase_rate_after_support,10,avg_days_to_next_order,numeric,,
+revenue_by_delivery_region,1,year_number,integer,32,0
+revenue_by_delivery_region,2,quarter_number,integer,32,0
+revenue_by_delivery_region,3,year_quarter,text,,
+revenue_by_delivery_region,4,region,text,,
+revenue_by_delivery_region,5,state_code,character varying,,
+revenue_by_delivery_region,6,state_name,text,,
+revenue_by_delivery_region,7,sales_channel_name,character varying,,
+revenue_by_delivery_region,8,order_count,bigint,64,0
+revenue_by_delivery_region,9,customer_version_count,bigint,64,0
+revenue_by_delivery_region,10,unit_count,bigint,64,0
+revenue_by_delivery_region,11,net_revenue_amount,numeric,,
+skus_below_reorder_point,1,warehouse_name,character varying,,
+skus_below_reorder_point,2,warehouse_region,text,,
+skus_below_reorder_point,3,sku,character varying,,
+skus_below_reorder_point,4,product_name,character varying,,
+skus_below_reorder_point,5,category_name,character varying,,
+skus_below_reorder_point,6,brand_name,character varying,,
+skus_below_reorder_point,7,quantity_on_hand,integer,32,0
+skus_below_reorder_point,8,quantity_reserved,integer,32,0
+skus_below_reorder_point,9,quantity_available,integer,32,0
+skus_below_reorder_point,10,quantity_from_batch,integer,32,0
+skus_below_reorder_point,11,quantity_from_stream,integer,32,0
+skus_below_reorder_point,12,stream_movement_count,bigint,64,0
+skus_below_reorder_point,13,reorder_point,integer,32,0
+skus_below_reorder_point,14,is_stockout,boolean,,
+skus_below_reorder_point,15,daily_demand_units,numeric,,
+skus_below_reorder_point,16,days_of_cover,numeric,,
+skus_below_reorder_point,17,last_movement_at,timestamp with time zone,,
+support_tickets_per_hundred_orders,1,year_number,integer,32,0
+support_tickets_per_hundred_orders,2,month_number,integer,32,0
+support_tickets_per_hundred_orders,3,year_month,text,,
+support_tickets_per_hundred_orders,4,sales_channel_name,character varying,,
+support_tickets_per_hundred_orders,5,channel_type,character varying,,
+support_tickets_per_hundred_orders,6,support_category_name,text,,
+support_tickets_per_hundred_orders,7,support_category_group,text,,
+support_tickets_per_hundred_orders,8,ticket_count,bigint,64,0
+support_tickets_per_hundred_orders,9,high_priority_ticket_count,bigint,64,0
+support_tickets_per_hundred_orders,10,reopened_ticket_count,bigint,64,0
+support_tickets_per_hundred_orders,11,solved_first_time_count,bigint,64,0
+support_tickets_per_hundred_orders,12,channel_order_count,numeric,,
+support_tickets_per_hundred_orders,13,tickets_per_hundred_orders,numeric,,
+support_tickets_per_hundred_orders,14,avg_hours_to_resolution,numeric,,
+top_skus_by_revenue,1,revenue_rank,bigint,64,0
+top_skus_by_revenue,2,product_natural_key,bigint,64,0
+top_skus_by_revenue,3,sku,character varying,,
+top_skus_by_revenue,4,product_name,character varying,,
+top_skus_by_revenue,5,category_name,character varying,,
+top_skus_by_revenue,6,root_category_name,character varying,,
+top_skus_by_revenue,7,brand_name,character varying,,
+top_skus_by_revenue,8,is_deleted,boolean,,
+top_skus_by_revenue,9,unit_count,bigint,64,0
+top_skus_by_revenue,10,net_revenue_amount,numeric,,
+top_skus_by_revenue,11,category_net_revenue_amount,numeric,,
+top_skus_by_revenue,12,category_revenue_share_pct,numeric,,
+
+## fingerprints
+view_name,row_count,rows_md5
+average_order_value_by_channel_and_segment,756,1f36e9f5f9e499e0b1c8394097c56989
+cart_conversion_rate_by_channel,96,17dcab2d6a9e23618b5179ba2c4013ea
+discount_share_by_channel,393,b2f06497f8c5d4dcf2b54f46ace21729
+gross_margin_by_category,542,adc24942f339ed6eb353340a140d80c0
+inventory_turnover_by_sku_and_warehouse,6626,0d312f5f23abc56bf6f2772ed7f71fde
+monthly_revenue_by_channel_and_category,1496,30d37a5b184c3e32f5813cfde7b45dc6
+new_and_repeat_customers_by_month,534,6f12352876798c2f56b9c345ec8c1e5f
+on_time_delivery_rate_by_carrier,1177,027a7b511be754b5c4b5b5736b5d3430
+order_to_delivery_time_by_region,1858,dfe3bef80170b9226dbe1be99e1fb750
+payment_approval_rate_by_method,541,b12c42b918d91341205b540722af7643
+refund_rate_by_reason,111,c9d8927a75fd779c8f305ac51f4a9d03
+repeat_purchase_rate_after_support,168,9bc752ee094fabfb3af63b78d1445660
+revenue_by_delivery_region,467,8b8a641c8360cbfcd9d6379928a654d0
+skus_below_reorder_point,571,80ab693a8258161ceaabee2f1d75cbb9
+support_tickets_per_hundred_orders,108,51b752e9c51a5517d7380fbeac9dc5cf
+top_skus_by_revenue,25,ad5a925872811ee64b63c2f6076111b6
+
+## rows
+16 files written outside Git, one per view

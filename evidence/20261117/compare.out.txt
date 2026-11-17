@@ -1,0 +1,73 @@
+# compare.py — 2026-11-17T14:53:44Z — files only, no database
+
+## support_tickets_per_hundred_orders
+before: bloco1/f1_depois.csv — after F1 (9aeea8d), before F21 (0471f6a) — not exactly the state at 4da9e60
+rows: 117 -> 108; keys only before: 25; only after: 16; common: 92, of which with a changed value: 91
+  ticket_count: 72 of 92 common rows changed
+  high_priority_ticket_count: 59 of 92 common rows changed
+  reopened_ticket_count: 20 of 92 common rows changed
+  solved_first_time_count: 62 of 92 common rows changed
+  channel_order_count: 55 of 92 common rows changed
+  tickets_per_hundred_orders: 66 of 92 common rows changed
+  avg_hours_to_resolution: 90 of 92 common rows changed
+  total ticket_count: 402 -> 405
+
+## on_time_delivery_rate_by_carrier
+before: bloco1/p13_depois.csv — after D66 (745fe6a), the last change before 4da9e60
+rows: 1180 -> 1177; keys only before: 210; only after: 207; common: 970, of which with a changed value: 969
+  delivered_count: 785 of 970 common rows changed
+  on_time_count: 730 of 970 common rows changed
+  late_count: 542 of 970 common rows changed
+  split_order_shipment_count: 539 of 970 common rows changed
+  on_time_rate: 573 of 970 common rows changed
+  avg_delay_days_when_late: 652 of 970 common rows changed
+  avg_transit_days: 966 of 970 common rows changed
+  failed_attempt_count: 447 of 970 common rows changed
+  total delivered_count: 3313 -> 3374
+  total on_time_count: 2422 -> 2461
+  total late_count: 891 -> 913
+
+## new_and_repeat_customers_by_month
+before: bloco1b/new_and_repeat_customers_by_month_depois.csv — after F18 (12677a3), the last change before 4da9e60
+rows: 560 -> 534; keys only before: 139; only after: 113; common: 421, of which with a changed value: 352
+  new_customer_count: 297 of 421 common rows changed
+  returning_customer_count: 214 of 421 common rows changed
+  repeat_purchase_rate_pct: 252 of 421 common rows changed
+  total new_customer_count: 1389 -> 1283
+
+## order_to_delivery_time_by_region
+before: bloco1b/order_to_delivery_time_by_region_depois.csv — after F17 (12677a3), the last change before 4da9e60
+rows: 1867 -> 1858; keys only before: 905; only after: 896; common: 962, of which with a changed value: 962
+  order_count: 540 of 962 common rows changed
+  split_order_count: 399 of 962 common rows changed
+  shipment_count: 639 of 962 common rows changed
+  avg_order_to_delivery_days: 962 of 962 common rows changed
+  median_order_to_delivery_days: 962 of 962 common rows changed
+  max_order_to_delivery_days: 962 of 962 common rows changed
+  total order_count: 2774 -> 2791
+  total shipment_count: 3309 -> 3373
+
+## inventory_turnover_by_sku_and_warehouse (P11)
+rows: 6990 (Consumidores §5, 14/11) -> 6626; undefined turnover: 1216 -> 3
+median turnover per quarter, defined rows: 0.02
+
+## support_tickets_per_hundred_orders (P15), the F1 case
+Jan/2024, Aplicativo, Conta: 4.3478 (23 orders, after F1) -> no row
+
+## schema: captured header against the package's relations at eb11709
+average_order_value_by_channel_and_segment: 8 columns — same set of columns
+cart_conversion_rate_by_channel: 12 columns — same set of columns
+discount_share_by_channel: 11 columns — same set of columns
+gross_margin_by_category: 11 columns — same set of columns
+inventory_turnover_by_sku_and_warehouse: 13 columns — same set of columns
+monthly_revenue_by_channel_and_category: 12 columns — same set of columns
+new_and_repeat_customers_by_month: 8 columns — same set of columns
+on_time_delivery_rate_by_carrier: 15 columns — same set of columns
+order_to_delivery_time_by_region: 13 columns — same set of columns
+payment_approval_rate_by_method: 12 columns — same set of columns
+refund_rate_by_reason: 9 columns — same set of columns
+repeat_purchase_rate_after_support: 10 columns — same set of columns
+revenue_by_delivery_region: 11 columns — same set of columns
+skus_below_reorder_point: 17 columns — same set of columns
+support_tickets_per_hundred_orders: 14 columns — same set of columns
+top_skus_by_revenue: 12 columns — same set of columns
