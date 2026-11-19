@@ -1,0 +1,16 @@
+# package_check.py — 2026-11-19T22:46:15Z — files only, no database
+format: 1 -> 1
+top-level keys added: []; removed: []
+relations: 281 -> 283; added ['analytics.dim_sku_location', 'trusted.f31_legacy_sale_exceptions']; removed []
+analytics: 26 -> 27; consumption: 16 -> 16
+relation keys added: ['foreign_keys', 'primary_key']
+analytics primary keys: 27; foreign keys: 60
+consumption relations whose columns changed: []
+dim_sku_location: primary_key ['sku_location_key']; foreign_keys [{"column": "product_key", "references_column": "product_key", "references_relation": "analytics.dim_product"}, {"column": "warehouse_key", "references_column": "warehouse_key", "references_relation": "analytics.dim_warehouse"}]
+view_audits: 16; status x commit: {('audited', '0471f6a'): 16}
+view_audits checks: 26, results {'pass': 26}, executed_at ['2026-11-19T17:52:15.035982Z']
+view_audits data_tests: 1: ['test.mvp_ed1.p13_conta_toda_remessa_entregue']
+P12 audit: status audited, commit 0471f6a, reference tests/auditoria/skus_below_reorder_point.sql
+open_items: ['D43', 'D63', 'D64', 'V1', 'V2', 'V3', 'V5', 'V6', 'V7'] -> [('D43', 'deferred'), ('V1', 'deferred'), ('V2', 'deferred'), ('V3', 'deferred'), ('V5', 'deferred'), ('V6', 'deferred'), ('V7', 'deferred')]
+provenance.dbt.manifest_invocation_id: 1cb3cd4e-0637-4229-875c-82d073080540
+provenance.warehouse: {"built_at": "2026-11-19T17:07:26.163730Z", "built_by_invocation_id": "1cb3cd4e-0637-4229-875c-82d073080540", "built_from_commit": "bcc2d5ce23363ca121429e582d17b0018a0a0966", "reason": null, "status": "verified"}

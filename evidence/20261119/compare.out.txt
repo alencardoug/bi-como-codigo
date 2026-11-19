@@ -1,0 +1,43 @@
+# compare.py — 2026-11-19T22:45:59Z — files only, no database
+
+## provenance
+v2.1.0: verified, invocation 04d4af3f-8e6b-4d3e-abee-a37c0e4f841d, from 4137dc7, at 2026-11-17 04:50:29.631409+00
+v2.3.0: verified, invocation 1cb3cd4e-0637-4229-875c-82d073080540, from bcc2d5c, at 2026-11-19 17:07:26.16373+00
+
+## fingerprints: v2.1.0 -> v2.3.0
+same     average_order_value_by_channel_and_segment: 756 rows
+same     cart_conversion_rate_by_channel: 96 rows
+same     discount_share_by_channel: 393 rows
+CHANGED  gross_margin_by_category: 542 -> 526 rows
+CHANGED  inventory_turnover_by_sku_and_warehouse: 6626 -> 5775 rows
+same     monthly_revenue_by_channel_and_category: 1496 rows
+same     new_and_repeat_customers_by_month: 534 rows
+same     on_time_delivery_rate_by_carrier: 1177 rows
+same     order_to_delivery_time_by_region: 1858 rows
+same     payment_approval_rate_by_method: 541 rows
+same     refund_rate_by_reason: 111 rows
+same     repeat_purchase_rate_after_support: 168 rows
+same     revenue_by_delivery_region: 467 rows
+CHANGED  skus_below_reorder_point: 571 -> 213 rows
+same     support_tickets_per_hundred_orders: 108 rows
+same     top_skus_by_revenue: 25 rows
+13 of 16 identical, 3 changed
+
+## columns: v2.1.0 -> v2.3.0
+identical: every view's columns, order and types
+
+## P12 at v2.3.0: reorder_point x quantity_available
+reorder_point 1, quantity_available 0: 213 rows
+is_stockout: {'t': 213}
+
+## P08 at v2.3.0: sums, and months after the last realised order
+net_revenue_amount: 10,634,340.76
+cost_of_goods_sold: 5,030,135.71
+gross_profit_amount: 5,604,205.05
+dispatched_unit_count: 12,689.00
+last year_month: 2026-09
+
+## P11 at v2.3.0: quarterly turnover
+rows 5775, defined 5774, undefined 1
+median 0.46, p90 1.28
+last year_quarter: 2026-T3
