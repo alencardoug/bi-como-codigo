@@ -11,12 +11,16 @@ What is checked:
 * relative link → the file exists;
 * anchor → a heading in the target file generates that slug;
 * `ADR-nnnn` cited in the text → `docs/adr/nnnn-*.md` exists;
-* link into mvp_eng_dados_1 → pinned to a commit, and the file and the anchor
-  exist **at that commit**, read from a local checkout named by
-  `ENG_DADOS_DIR`. Facts of that project are cited by pinned link, never copied,
-  so these links carry most of the plan's weight. Without the variable they are
-  listed as not verified — skipped is not verified —, and the check still fails
-  on a link that is not pinned, since that one needs no checkout to be wrong.
+* link into mvp_eng_dados_1 or mvp_eng_dados_2 → pinned to a commit, and the
+  file and the anchor exist **at that commit**, read from a local checkout of
+  **the repository the URL names**: `ENG_DADOS_DIR` for mvp_eng_dados_1,
+  `ENG_DADOS_2_DIR` for mvp_eng_dados_2 (N86). Each link is read only in its own
+  checkout, so a commit of one repository never passes for the other. Facts of
+  those projects are cited by pinned link, never copied, so these links carry
+  most of the plan's weight. Without a variable, the links into its repository
+  are listed as not verified — skipped is not verified —, and the check still
+  fails on a link that is not pinned, since that one needs no checkout to be
+  wrong.
 
 **Ported from mvp_eng_dados_1** (`src/mvp_ed1/docs_check.py` at `26b58b3`);
 the pinned-link check is new here. The RVF12 codes are findings of that
@@ -69,10 +73,16 @@ ADR_CITATION = re.compile(r"\bADR-(?P<number>\d{4})\b")
 #: Schemes that do not resolve on disk.
 EXTERNAL = ("http://", "https://", "mailto:", "ftp://")
 
-#: A link into mvp_eng_dados_1. `ref` must be a commit, so that the fact it cites
-#: cannot move under the link; `path` may be empty for the root of the tree.
+#: The sources whose links are verified, and the variable that names the
+#: checkout of each (N86). eng_dados was archived as mvp_eng_dados_1 at `v2.0.0`
+#: and continues in mvp_eng_dados_2, with a history of its own: the historical
+#: links keep pointing at the first, the new ones at the second.
+SOURCES = {"mvp_eng_dados_1": "ENG_DADOS_DIR", "mvp_eng_dados_2": "ENG_DADOS_2_DIR"}
+
+#: A link into one of the sources. `ref` must be a commit, so that the fact it
+#: cites cannot move under the link; `path` may be empty for the root of the tree.
 ENG_DADOS_LINK = re.compile(
-    r"^https://github\.com/alencardoug/mvp_eng_dados_1/(?P<kind>blob|tree)/(?P<ref>[^/#]+)/?(?P<path>[^#]*)(?:#(?P<fragment>.*))?$"
+    r"^https://github\.com/alencardoug/(?P<repository>mvp_eng_dados_[12])/(?P<kind>blob|tree)/(?P<ref>[^/#]+)/?(?P<path>[^#]*)(?:#(?P<fragment>.*))?$"
 )
 
 #: Documents whose bare `ADR-nnnn` are upstream's. `REVIEW.md` records the
@@ -286,7 +296,8 @@ def _documents(root: pathlib.Path) -> dict[str, Document]:
 
 
 class EngDados:
-    """Files of mvp_eng_dados_1 at a commit, read from a local checkout.
+    """Files of one source — mvp_eng_dados_1 or mvp_eng_dados_2 — at a commit,
+    read from a local checkout.
 
     `git cat-file` reads the object database, so the checkout's working tree and
     current branch do not matter — only that it has fetched the commit.
@@ -318,7 +329,10 @@ class EngDados:
 def _check_eng_dados(
     match: re.Match[str], eng_dados: EngDados | None
 ) -> str | None:
-    """Why a link into mvp_eng_dados_1 is broken, `""` when not verified, `None` when good."""
+    """Why a link into a source is broken, `""` when not verified, `None` when good.
+
+    `eng_dados` is the checkout of the repository the link names, or `None`."""
+    repository = match["repository"]
     ref, path = match["ref"], unquote(match["path"]).rstrip("/")
     fragment = unquote(match["fragment"] or "")
     if not COMMIT.match(ref):
@@ -327,7 +341,7 @@ def _check_eng_dados(
         return ""
     kind = eng_dados.kind(ref, path) if path else eng_dados.kind(ref, "")
     if kind is None:
-        return f"does not exist in mvp_eng_dados_1 at {ref}"
+        return f"does not exist in {repository} at {ref}"
     if fragment and path.lower().endswith(".md"):
         document = eng_dados.document(ref, path)
         if document is None or fragment not in document.anchors:
@@ -336,13 +350,20 @@ def _check_eng_dados(
 
 
 def check(
-    root: pathlib.Path, eng_dados: EngDados | None = None
+    root: pathlib.Path, sources: dict[str, EngDados] | None = None
 ) -> tuple[list[Broken], dict[str, int], list[Broken]]:
-    """Checks every tracked `.md`. Returns broken, the counts and the links not verified."""
+    """Checks every tracked `.md`. Returns broken, the counts and the links not verified.
+
+    `sources` maps a repository of `SOURCES` to its checkout; a repository
+    missing from it has its links listed as not verified."""
+    sources = sources or {}
+    unknown = set(sources) - set(SOURCES)
+    if unknown:
+        raise ValueError(f"not a source: {sorted(unknown)}")
     documents = _documents(root)
     broken: list[Broken] = []
     unverified: list[Broken] = []
-    counts = {"documents": len(documents), "links": 0, "anchors": 0, "adrs": 0, "eng_dados": 0}
+    counts = {"documents": len(documents), "links": 0, "anchors": 0, "adrs": 0, **{name: 0 for name in SOURCES}}
 
     existing_adrs = {
         file.name[:4] for file in (root / "docs" / "adr").glob("[0-9][0-9][0-9][0-9]-*.md")
@@ -360,10 +381,11 @@ def check(
 
             upstream = ENG_DADOS_LINK.match(target)
             if upstream:
-                counts["eng_dados"] += 1
-                reason = _check_eng_dados(upstream, eng_dados)
+                repository = upstream["repository"]
+                counts[repository] += 1
+                reason = _check_eng_dados(upstream, sources.get(repository))
                 if reason == "":
-                    unverified.append(Broken(relative, number, target, "ENG_DADOS_DIR not set"))
+                    unverified.append(Broken(relative, number, target, f"{SOURCES[repository]} not set"))
                 elif reason is not None:
                     broken.append(Broken(relative, number, target, reason))
                 continue
@@ -411,22 +433,22 @@ def check(
 
 def main(argv: list[str] | None = None) -> int:
     root = pathlib.Path(argv[0]) if argv else pathlib.Path.cwd()
-    checkout = os.environ.get("ENG_DADOS_DIR")
-    eng_dados = EngDados(pathlib.Path(checkout)) if checkout else None
-    broken, counts, unverified = check(root, eng_dados)
+    sources = {
+        name: EngDados(pathlib.Path(os.environ[variable]))
+        for name, variable in SOURCES.items()
+        if os.environ.get(variable)
+    }
+    broken, counts, unverified = check(root, sources)
 
     summary = (
         f"{counts['documents']} documents, {counts['links']} file links, "
         f"{counts['anchors']} anchors, {counts['adrs']} ADR citations, "
-        f"{counts['eng_dados']} links into mvp_eng_dados_1"
+        + ", ".join(f"{counts[name]} links into {name}" for name in SOURCES)
     )
     if unverified:
-        print(
-            f"not verified ({len(unverified)}) — set ENG_DADOS_DIR to a checkout of mvp_eng_dados_1:",
-            file=sys.stderr,
-        )
+        print(f"not verified ({len(unverified)}) — set the variable that names a checkout of each:", file=sys.stderr)
         for link in unverified:
-            print(f"  {link.file}:{link.line}: {link.target}", file=sys.stderr)
+            print(f"  {link.file}:{link.line}: {link.target} — {link.reason}", file=sys.stderr)
     if broken:
         for link in broken:
             print(link, file=sys.stderr)
