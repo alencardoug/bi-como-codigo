@@ -185,14 +185,14 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | FPROTO-4-05 | `docs/framework_prototype.md:178–190,276–301,366–412,520` | Assembly and signature-only refusals have incomplete verdicts | `adjustment` | Applied (§2.5.1, §2.5.4, §2.5.5): classification by stage, assembly `FORM` in the cost branch; `SCHEMA_ONLY` for a zero-row schema Parquet, a cost, not a failure; a collision established by reproducing the gate's search with the same values, public set and haystack role, a mismatch `HARNESS_ERROR`; a missing mandatory stage stops; resolving a missed capture needs the same artifact from an equivalent starting state; controls for each. |
 | FPROTO-4-06 | `docs/framework_prototype.md:78–106,439–443` | Normal shape validation rejects the G mutant before the browser check | `adjustment` | Applied (§2.1, §2.6): the G mutant derived from the measured fixture after the draw, with its own expected shape and check, then sealed, validated and assembled; the comparator keeps the canonical G expectation and must refuse it on G and nothing else. |
 | FPROTO-4-07 | `docs/framework_prototype.md:450–481,518,603–605` | Cutoff byte counts need a shared clock and revalidation rules | `adjustment` | Applied (§2.7): one wall-time axis, network monotonic times mapped per session through `requestWillBeSent` pairs, the clock's error recorded; cutoff counts labelled as encoded bytes observed by CDP, reconciled with completion totals; wire status beside effective status, `304` wire bytes counted and reused bodies reported as served from cache; A7's local fallback a delivery condition of its own with a quota estimate; the accounting checked on a worker transfer spanning a cutoff and a warm revalidation. |
-| FPROTO-5-01 | `docs/framework_prototype.md:406–412,514–520` | The required wrong-password attempt triggers `PREMATURE_DECRYPT` on the unchanged reader | `blocking` | |
-| FPROTO-5-02 | `docs/framework_prototype.md:413–438,504` | Ordinary transient storage writes and serialized history state escape collection | `blocking` | |
-| FPROTO-5-03 | `docs/framework_prototype.md:139–150,361–382,490` | The numeric role rules and draw contradict the clean metadata and code control | `blocking` | |
-| FPROTO-5-04 | `docs/framework_prototype.md:448–477,494–505` | A later pass can erase a missing mandatory observation from an earlier artifact | `blocking` | |
-| FPROTO-5-05 | `docs/framework_prototype.md:401–404,427–431,501–505,574–583` | The package-body check lacks a control for changed bytes and cached effective responses | `adjustment` | |
-| FPROTO-5-06 | `docs/framework_prototype.md:123–127,213–221,519–537` | The G control needs its own assembly input and detail expectations | `adjustment` | |
-| FPROTO-5-07 | `docs/framework_prototype.md:566–589,716–717` | Successive warm samples can start with different browser cache state | `adjustment` | |
-| FPROTO-5-08 | `docs/framework_prototype.md:152–156,698–701,731–741` | The per-candidate targets have no shared draw and invalidation contract | `adjustment` | |
+| FPROTO-5-01 | `docs/framework_prototype.md:406–412,514–520` | The required wrong-password attempt triggers `PREMATURE_DECRYPT` on the unchanged reader | `blocking` | Applied in rev. 6 (§2.5.3): the allowed operations per moment follow the unchanged reader — none before any submission; after a wrong password a derivation and a failed unwrap only; after the right one derivation, unwrap and decrypt; `PREMATURE_DECRYPT` and `UNEXPECTED_DECRYPT`; the normal wrong-then-right journey is a clean control. |
+| FPROTO-5-02 | `docs/framework_prototype.md:413–438,504` | Ordinary transient storage writes and serialized history state escape collection | `blocking` | Applied (§2.5.3, §2.5.5): Web Storage writes through the protocol's `DOMStorage` events, whatever path; IndexedDB and CacheStorage through `Storage.track…ForStorageKey` content events plus hooks including `IDBCursor.update`; history state and URLs recorded at `pushState`/`replaceState` and `navigatedWithinDocument`, inspected as data-bearing; controls for a named-property write, a cursor update and a same-entry `replaceState`, each diagnosed at the write; retained-value collectors proved apart. |
+| FPROTO-5-03 | `docs/framework_prototype.md:139–150,361–382,490` | The numeric role rules and draw contradict the clean metadata and code control | `blocking` | Applied (§2.5.2, §2.5.5): the integer needles are the counts of five digits or more; month and year numbers are reached as text and by the gate; the draw calls the inspection's own dispatch; the clean-metadata control, a count-in-JSON control that fails, and an incidental-literal control the draw rejects before the accepted fixture clears it. |
+| FPROTO-5-04 | `docs/framework_prototype.md:448–477,494–505` | A later pass can erase a missing mandatory observation from an earlier artifact | `blocking` | Applied (§2.5.4, §2.5.5): runs labelled `judged`, `probe` or `control`, only judged ones in the verdict; mandatory stages by how the run ended — assembly `FORM` requires the builder-output inspection only; a judged artifact with a missing stage stays not established until the same digest is rerun from an equivalent state; verdict cases for capture absent on A then pass on B, its resolution on A, assembly `FORM`, and a failing control run. |
+| FPROTO-5-05 | `docs/framework_prototype.md:401–404,427–431,501–505,574–583` | The package-body check lacks a control for changed bytes and cached effective responses | `adjustment` | Applied (§2.5.3, §2.7, §2.5.5): the effective body is what is inspected; a reused body is captured or bound through a strong `ETag` equal to the SHA-256, confirmed by `304`, else inconclusive; controls for the clean envelope, a clear body at its URL, and a revalidation with no `ETag`. |
+| FPROTO-5-06 | `docs/framework_prototype.md:123–127,213–221,519–537` | The G control needs its own assembly input and detail expectations | `adjustment` | Applied (§2.1, §2.2, §2.6): assembly takes the mutant's rows as that control's expected rows; the mutant's detail is compared with them; the canonical expectation is kept for G's summary cell alone. |
+| FPROTO-5-07 | `docs/framework_prototype.md:566–589,716–717` | Successive warm samples can start with different browser cache state | `adjustment` | Applied (§2.7): five warm samples, each in its own fresh profile after the same two-journey priming with quiescence, the measured journey the third use of every script; priming and sample traces checked against the same artifact and delivery condition. |
+| FPROTO-5-08 | `docs/framework_prototype.md:152–156,698–701,731–741` | The per-candidate targets have no shared draw and invalidation contract | `adjustment` | Applied (§5): one entry point, `make prototype`, with build-only targets per candidate and one state file holding both builder digests, the draw, the package digest and the measures; a rebuild invalidates the draw, both artifacts and both measure sets; the comparison requires one package digest, and an impossible encrypted route leaves it explicitly incomplete. |
 
 ## Round 1 — FPROTO
 
@@ -1756,3 +1756,21 @@ infeasible candidate leaves the comparison explicitly incomplete.
 - [ ] **FPROTO-5-08** — Trace both entry points to one shared draw from both archives. On a rebuild,
   invalidate the pair of measurements and confirm the replacement pair shares a package digest.
 
+## Round 5 — the author's answer
+
+Revision 6 of `docs/framework_prototype.md` answers all eight findings; each Status above says where.
+They were inconsistencies of revision 5's own rules — the wrong-password journey against the
+decryption rule, the integer role against the clean-metadata control, the latest-run scope of the
+mandatory stages — and gaps in what ordinary browser and SvelteKit behaviour writes; none changed
+the design. It is still a plan: nothing of the prototype is built, and every **[planned]** and
+**[assumed]** is unmeasured.
+
+Run for it: `make check` at each commit, exit 0. Nothing of the candidates was run.
+
+**Not verified, and where I hesitated:**
+
+- That `DOMStorage` events carry every value written whatever the path, and that the `Storage`
+  domain's tracking events fire for every IndexedDB and CacheStorage change in workers as well as
+  pages — protocol documentation, not a run.
+- Five warm samples now cost five fresh profiles and fifteen journeys per candidate; slower, and the
+  only way I found to give each the same start.
