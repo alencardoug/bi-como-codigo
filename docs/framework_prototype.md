@@ -17,7 +17,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-20 — revision 5, answering round 4 of Codex's review (FPROTO-4-01 to -07), with the Owner's N95. Revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
+| Date | 2026-11-20 — revision 6, answering round 5 of Codex's review (FPROTO-5-01 to -08). Revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
 | Author | Claude Code |
 | Status | **Planned.** Nothing of it is built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
 
@@ -123,8 +123,10 @@ fails before sealing if any does not hold.
 **The G mutant** (FPROTO-4-06), for the proof of §2.6, is derived from the measured fixture after it
 is drawn: G's group filled with 12 rows whose amounts and counts are zero. It has its own expected
 shape — the canonical one with those 12 rows added and the zero exception extended to them — and
-its own check; it is then sealed, validated and assembled like any package (§2.2), so that the page
-opens it, while the browser check keeps the canonical expectation for G.
+its own check. It is sealed and validated like any package, and assembly takes **the mutant's rows**
+as the expected rows for that control (§2.2), so that it opens. The browser check of §2.6 then
+compares the mutant's detail with the mutant's rows, and keeps the canonical expectation for one
+cell only, G's summary cell (FPROTO-5-06).
 
 **The draw against the baseline.** `verify`'s inspection searches each eligible value, the totals
 object and the derived totals as byte substrings in every non-envelope file of the artifact
@@ -214,7 +216,8 @@ mode never shares a work folder or a cache with it.
    `envelope.check_package` with the declared passwords, `contract.inventory_exact` and
    `contract.entitlements_exact` against the prototype's declarations, and `contract.check_payload`
    on the opened report, the same functions the gate uses; and checks that the opened rows **are the
-   drawn fixture's**, row for row (FPROTO-4-04). A refusal is `HARNESS_ERROR`. The digest of the
+   expected rows** — the drawn fixture's, or, for the G mutant's control, the mutant's —, row for
+   row. A refusal is `HARNESS_ERROR`. The digest of the
    manifest and of each envelope is recorded as **the validated package**;
 3. copies the builder output and then the package into the artifact folder;
 4. checks that the artifact, less `package/`, is byte for byte the archived builder output, and that
@@ -361,15 +364,25 @@ a cache of a query holds results, not rows.
 **Numbers are compared by role** (FPROTO-4-03). Small integers — a protocol version of `1`, a month
 number — are everywhere in code and metadata, so what is compared depends on what the file is:
 
+- **the integer needles are the counts**: the row count, every `order_count` and `unit_count`, and
+  every integer of the page's query results, all of five digits or more by §2.1. The fixture's
+  small integers — `month_number`, and `year_number` as a number — are never integer needles of
+  this inspection: they are reached as text, through `year_month` and the labels, and the gate's own
+  search covers `year_number` (FPROTO-5-03). A protocol version of `1` or a month number in a
+  metadata document is therefore nothing to report;
 - **code-bearing files** — HTML, JavaScript, CSS, WASM, fonts, images, anything served as the page
   itself —: every text needle; every amount with a fraction, in each spelling of
-  `contract.spellings` and in its shortest JavaScript spelling; and the counts of five digits or
-  more only inside a structured carrier found in them. The draw of §2.1 calibrates exactly these
-  predicates against both builder outputs, so a clean bundle cannot trip them;
+  `contract.spellings` and in its shortest JavaScript spelling; and the integer needles only inside
+  a structured carrier found in them;
 - **data-bearing carriers** — a JSON, devalue, Arrow IPC or Parquet document found anywhere, a
-  SvelteKit fetched-data script, and every store and write of §2.5.3 —: every needle, integers of
-  any size among them, compared as values, so that `20000` in `orders=20000` written to a store is
-  found.
+  SvelteKit fetched-data script, and every store, write and history state of §2.5.3 —: every text
+  needle and amount, and the integer needles in any spelling, so that `20000` in `orders=20000`
+  written to a store is found.
+
+**The draw and the inspection use one function.** The draw of §2.1 calls the inspection's own
+recursive dispatch — the same roles, layers and needles — on both builder outputs, so that what it
+calibrates is exactly what is later inspected; a candidate value found there by any predicate is
+redrawn.
 
 For each file, recursively to a depth of three:
 
@@ -407,15 +420,32 @@ The **journey** observed is fixed: navigation; a **wrong password**, submitted; 
 filters and months of §2.6; logout; the new login page. In each instrumented realm:
 
 - **Decryption is observed where it can happen.** `crypto.subtle.deriveKey`, `deriveBits`,
-  `unwrapKey` and `decrypt` are wrapped, and each call is recorded with its timestamp, realm and
-  outcome. A successful call before the right password's `submit` is a finding,
-  `PREMATURE_DECRYPT`.
-- **Writes are observed as they happen** (FPROTO-4-02). The write paths of the stores of §2.3 item 8
-  are wrapped — IndexedDB's `put` and `add`, `Cache.put` and `add`, `Storage.setItem`, the origin
-  private file system's writable streams and sync access handles, the `document.cookie` setter,
-  `cookieStore.set`, `navigator.serviceWorker.register` — and every value written, at any moment of
-  the journey, is recorded and sent to the carrier inspection as a data-bearing carrier (§2.5.2). A
-  value written and deleted before logout is still a write.
+  `unwrapKey` and `decrypt` are wrapped, and each call is recorded with its timestamp, realm,
+  submission and outcome. What each moment allows is fixed by the unchanged reader
+  (`web/envelope.mjs`) (FPROTO-5-01): **before any submission**, no call at all; **after a wrong
+  password's submission**, a derivation, and an `unwrapKey` that fails — no successful unwrap, no
+  `decrypt`, no report opened; **after the right password's submission**, a derivation, a successful
+  unwrap and the report's `decrypt`. A call before any submission is `PREMATURE_DECRYPT`; a
+  successful unwrap or a `decrypt` after a wrong password is `UNEXPECTED_DECRYPT`; both are
+  findings.
+- **Writes are observed as they happen**, by the browser where it can report them and by hooks
+  where it cannot (FPROTO-5-02). `localStorage` and `sessionStorage` through the protocol's
+  `DOMStorage` events — `domStorageItemAdded` and `domStorageItemUpdated` carry the value, whatever
+  path the page used, `setItem` or a named property, as SvelteKit's own snapshots do —; IndexedDB
+  and CacheStorage through `Storage.trackIndexedDBForStorageKey` and
+  `trackCacheStorageForStorageKey`, whose content-updated events trigger an enumeration of that
+  database or cache on the spot, and through hooks on `IDBObjectStore.put` and `add`,
+  `IDBCursor.update`, `Cache.put` and `add`, which carry the value; the origin private file system
+  through hooks on its writable streams and sync access handles; cookies through the
+  `document.cookie` setter, `cookieStore.set` and the protocol's cookies at each enumeration; service
+  workers through `navigator.serviceWorker.register`. Every value written, at any moment of the
+  journey, is recorded and sent to the carrier inspection as a data-bearing carrier (§2.5.2). A value
+  written and deleted before logout is still a write.
+- **History is observed as it is written.** `history.pushState` and `replaceState` are wrapped in
+  every page realm, and each call's serialised state and URL are recorded, with
+  `Page.navigatedWithinDocument` for the URLs; both go to the carrier inspection as data-bearing. A
+  report selection written into the state of the one entry is a finding even after logout replaced
+  that entry.
 - **The stores are enumerated by storage key**, through the DevTools protocol rather than the page:
   for each origin and storage key the run touched — `Storage.getStorageKey` per frame —, the
   IndexedDB databases and their records, the CacheStorage caches and their entries, `localStorage`
@@ -424,11 +454,16 @@ filters and months of §2.6; logout; the new login page. In each instrumented re
   `navigator.storage.getDirectory()`. `Storage.getUsageAndQuota` is a cross-check, not a substitute:
   usage above zero with nothing enumerated is inconclusive. They are enumerated before the first
   submit, after the wrong password, after logout and on the new login page.
-- **Every response body** of every target is captured and inspected — before login as a carrier that
-  must hold nothing; after login, the package's envelope bodies are recognised by binding, not
-  exempted by URL: a body from the local origin at the canonical `package/` path whose decoded
-  bytes have the validated digest (§2.2) is an envelope, and any other body there is inspected
-  (FPROTO-4-04). The pinned third-party bodies are recognised by `cdn.json` (§2.5.2).
+- **Every effective response body** of every target is captured and inspected — before login as a
+  carrier that must hold nothing; after login, the package's envelope bodies are recognised by
+  binding, not exempted by URL: a body from the local origin at the canonical `package/` path whose
+  decoded bytes have the validated digest (§2.2) is an envelope, and any other body there is
+  inspected. The pinned third-party bodies are recognised by `cdn.json` (§2.5.2). **A reused body**
+  — a `304` revalidation, a memory or disk cache hit — is the effective response even when the wire
+  carried none: its bytes are captured from the protocol, or bound to a representation already
+  inspected through the validator the local server sends, a strong `ETag` equal to the file's
+  SHA-256, which a `304` confirms (FPROTO-5-05). A reused body neither captured nor bound is
+  inconclusive.
 - **After logout**: the targets must hold no worker or frame of the session — a DuckDB worker still
   alive after logout is a finding by itself, whatever it holds —; the page's execution context must
   be the login page's new one; and the history is checked against what §2.3 item 7 makes it:
@@ -445,10 +480,18 @@ ciphertext, and memory the operating system has not yet reclaimed.
 
 #### 2.5.4 The verdict
 
-One function, `verdict(runs)`, over every archived run of the encrypted route of a candidate, tested
-in step 1 of §7 with a table of cases. A run is a sequence of stages — build, assembly, `verify`,
-inspection, browser capture —, each with its class or its absence. The precedence, first match
-wins:
+One function, `verdict(runs)`, over every **judged** run of the encrypted route of a candidate,
+tested in step 1 of §7 with a table of cases. Every run is labelled when it starts — `judged`,
+`probe` or `control` —, and only judged runs enter the verdict; a probe's or a control's run is the
+evidence of that probe or control (FPROTO-5-04). A run is a sequence of stages — build, archive,
+inspection of the builder output, assembly, `verify`, inspection of the artifact, browser capture —,
+each with its class or its absence. **The mandatory stages depend on how the run ended**: every
+judged run requires its build, archive and the inspection of its builder output; one whose assembly
+ended in `FORM` requires nothing more — `verify` and the browser do not apply to an artifact that
+was not assembled —; every other requires all seven. **A judged artifact with a mandatory stage
+missing stays open**: the verdict cannot pass while any judged run, earlier or latest, lacks one,
+until the same artifact digest is run again from an equivalent starting state with the stage
+complete. The precedence, first match wins:
 
 1. **fails the criterion** — in any run: `verify`'s `CONTENT`; a finding of the carrier inspection
    in the builder output, the artifact or the browser; `PREMATURE_DECRYPT`; a session's worker,
@@ -457,10 +500,10 @@ wins:
    showed it;
 2. **not run** — no run of the encrypted route exists, or **the encrypted route is not possible**
    (A3), with its probe: no verdict on the criterion, and the result says why;
-3. **stopped** — the latest run ended in `HARNESS_ERROR`, `COLLISION`, the draw exhausted, a build or
-   a browser capture interrupted, or **a mandatory stage absent**: no verdict until it is repeated;
-4. **not established** — any run, earlier or latest, has an inconclusive file, target, context, body
-   or store that no later evidence resolved. Resolving means re-inspecting **that archived output or
+3. **stopped** — the latest run ended in `HARNESS_ERROR`, `COLLISION`, the draw exhausted, or a build
+   or a browser capture interrupted: no verdict until it is repeated;
+4. **not established** — any judged run, earlier or latest, has a mandatory stage missing, or an
+   inconclusive file, target, context, body or store, that no later evidence resolved. Resolving means re-inspecting **that archived output or
    capture** with the decoder that reads it, or re-running **the same artifact digest from an
    equivalent starting state** — a fresh profile for a cold capture, the primed state of §2.7 for a
    warm one — with the capture complete; a later run of another artifact, or from another state,
@@ -473,8 +516,8 @@ wins:
    the gate will not publish it, so it is a cost of the arrangement that emits it. A refusal no
    setting clears means the candidate cannot go through the publishing workflow, and it fails on
    that, said apart from the criterion;
-6. **passes** — in the latest run every mandatory stage completed, `verify` passed, nothing was found
-   and nothing is inconclusive, and no earlier run is in 1 or 4.
+6. **passes** — in the latest judged run every mandatory stage completed, `verify` passed, nothing was
+   found and nothing is inconclusive, and no earlier judged run is in 1 or 4.
 
 #### 2.5.5 The controls
 
@@ -487,11 +530,13 @@ with its needles:
 | Control | Built from | Expected |
 |---|---|---|
 | Clean | the candidate's builder output and the validated package | `verify` `PASS`; no finding; verdict passes |
-| Clean metadata and code | the clean artifact plus a JSON with a protocol version of `1` and a month number; a bundle with an unrelated literal in a fixture amount's shortest JavaScript spelling, present in the builder output when the draw ran | no finding: the role of §2.5.2 and the draw keep both out |
+| Clean metadata | the clean artifact plus a JSON with a protocol version of `1` and a month number | no finding: small integers are not integer needles (§2.5.2) |
+| A count in a JSON | the clean artifact plus a JSON holding one fixture `order_count` | `INSPECT_NUMBER` |
+| An incidental literal | a builder output with a literal equal to a candidate fixture amount in its shortest JavaScript spelling | the draw rejects that amount and records the rejection; the accepted fixture's artifact, with the same literal, has no finding |
 | Package only, with a form refusal | the clean artifact plus an empty `manifest.json` of the builder's | `verify` `FORM`; no inspection finding, nothing inconclusive — the package's files are recognised by digest |
 | A numeric label behind form | a validated package whose manifest label holds a fixture amount, plus a second `manifest.json` | `verify` `FORM`; inspection `INSPECT_NUMBER` in the label; verdict fails |
 | Harness classes | a missing declaration; a malformed `public_values.json`; a malformed `include.txt`; the package not placed; a corrupted envelope; a package of another fixture | `HARNESS_ERROR` for each — the last two already at assembly —; verdict stopped |
-| Assembly form | a builder output with its own `package/` | assembly `FORM`; verdict a cost |
+| Assembly form | a builder output with its own `package/` | assembly `FORM`; the inspection of its builder output still runs; verdict a cost |
 | Schema only | a builder output with the zero-row schema Parquet of §2.2; and the same file with one row of the fixture | `SCHEMA_ONLY` and a cost for the first; `CONTENT` and `INSPECT_PARQUET`, verdict fails, for the second |
 | Collision | an artifact holding DuckDB-WASM 1.32.0's EH WASM in a file identical to the builder output's, with a forced fixture whose row count is one round 3 measured in it; the same with the reproduction search given another haystack role | `COLLISION`, with the row count's class named; `HARNESS_ERROR` for the second; and a fixture with no clean draw against that output ends as draw exhausted, not as a failure |
 | A fixed label | the clean artifact plus a file holding one fixture label | `verify` `CONTENT`; inspection `INSPECT_TEXT` |
@@ -499,10 +544,11 @@ with its needles:
 | Content behind form | a label in a `.map`; a label in a second `manifest.json` | `verify` `FORM`; inspection `INSPECT_TEXT`; verdict fails |
 | Carrier nobody listed | rows encrypted under a key the oracle does not hold | inspection inconclusive; verdict not established — and still so after a later clean run of another artifact |
 | A pinned body changed | a CDN response at a declared URL with other bytes, served by the check | inconclusive; the declared body, clean |
+| The package's body | the clean envelope at its canonical URL; a clear body served at that URL instead; a warm revalidation with no `ETag`, so no proof of identity | clean; the inspection's own diagnosis for the clear body; inconclusive for the revalidation |
 | Data in the inputs | a fixture file, a package, a clear-mode cache, each planted in an encrypted work folder | the allowlist check refuses the phase, naming the file |
 | No network for package code | an install and a build, each with a local listener serving a package on the loopback | the phase cannot reach it: the probe of §5 in that mode, through the real wrapper |
-| Browser, one each | a page that decrypts at startup with the public password; one that writes a result into IndexedDB after login and deletes it before logout; one that writes `orders=` and a fixture count into `localStorage`; one that writes a result into CacheStorage; into a file of the origin private file system that it keeps after logout; a logout that drops the table and keeps the worker with its registered file; a logout by `location.assign`, with the back-forward cache available, whose report page `history.back()` restores; a nested worker the check is denied; a context left uninstrumented; a response body withheld | `PREMATURE_DECRYPT`; a write finding for the transient record and for the count; a finding for each store; a finding for the kept worker; a finding for the restored page; inconclusive for the last three |
-| Verdict cases | the table of §2.5.4: no run; a build interrupted; a capture interrupted; a mandatory stage absent; the draw exhausted; an earlier inconclusive run followed by a pass; an incomplete cold capture followed by a clean warm one of the same artifact; a content failure followed by a `HARNESS_ERROR` | not run; stopped; stopped; stopped; stopped; not established; not established; fails |
+| Browser, one each | the normal journey, a wrong password then the right one; a page that decrypts at startup with the public password; one that writes a result into IndexedDB after login and deletes it before logout; one that updates a record through `IDBCursor.update`; one that writes a fixture label into `sessionStorage` by a named property and removes it before logout; one that writes `orders=` and a fixture count into `localStorage`; one that writes a result into CacheStorage; into a file of the origin private file system that it keeps after logout; one that puts a report selection into the history state by `replaceState`; a logout that drops the table and keeps the worker with its registered file; a logout by `location.assign`, with the back-forward cache available, whose report page `history.back()` restores; a nested worker the check is denied; a context left uninstrumented; a response body withheld | clean for the first; `PREMATURE_DECRYPT`; a write finding, at the moment of the write, for each of the five writes; a finding for the retained store; a history finding; a finding for the kept worker; a finding for the restored page; inconclusive for the last three. The collectors for retained values are proved apart, each on a value left in its store |
+| Verdict cases | the table of §2.5.4: no run; a build interrupted; a capture interrupted; the draw exhausted; an earlier inconclusive run followed by a pass; an incomplete cold capture followed by a clean warm one of the same artifact; a browser capture absent on artifact A followed by a clean run of artifact B; the same, then A run again from a fresh profile with the capture complete and clean; an assembly `FORM` with its builder output inspected; a content failure followed by a `HARNESS_ERROR`; a control run that fails, beside a clean judged run | not run; stopped; stopped; stopped; not established; not established; not established; passes; a cost; fails; passes — the control's run is not judged |
 | Clear mode | the candidate's natural clear build, in its own work tree, with the clear-mode fixture — Evidence with it as a clear Parquet source; the own build with a page that fetches the clear Parquet | the inspection names every carrier A1 found, each also copied **alone** into a clean artifact and diagnosed there |
 
 The controls run first on hand-made outputs (step 1 of §7), then on each candidate's own builder
@@ -533,8 +579,9 @@ DuckDB over the clear fixture:
 **The check is proved to fail**: its comparator runs again on altered copies of the DOM it read —
 G's cell turned to `R$ 0,00`, G's notice blanked, Z's cell turned to the notice, a summed count
 written into a summary cell — and must refuse each, for that reason; and the own build is served
-once with the G mutant of §2.1, and the check, keeping the canonical expectation, must refuse that
-page on G and on nothing else.
+once with the G mutant of §2.1: the page must open it, its detail must equal the mutant's rows, and
+the check, keeping the canonical expectation for G's summary cell alone, must refuse that page on G
+and on nothing else.
 
 ### 2.7 How the costs are measured
 
@@ -542,8 +589,9 @@ So that bytes and times describe the candidates and not the state of a cache or 
 running them **[planned]**:
 
 - **Serving.** One local static server for both, written for the prototype: it sends
-  `firebase.json`'s headers — `Cache-Control: no-cache` on every file —, and compresses text files
-  with brotli or gzip as the request accepts, as Hosting does **[assumed]**. jsDelivr serves itself;
+  `firebase.json`'s headers — `Cache-Control: no-cache` on every file —, a strong `ETag` equal to
+  each file's SHA-256, which §2.5.3 binds reused bodies with, and compresses text files with brotli
+  or gzip as the request accepts, as Hosting does **[assumed]**. jsDelivr serves itself;
   its encoding is recorded as received. If A7 fails, Evidence's engine is served by the local server:
   that is recorded as a delivery condition of its own, with the engine's bytes counted on the local
   origin and Hosting's quota cost estimated from them.
@@ -564,13 +612,15 @@ running them **[planned]**:
   present with its expected text. Two observations are reported, apart: **navigation to summary**,
   what a visitor waits for, and **submit to summary**, with the PBKDF2 derivation of M49 inside.
 - **Cold runs.** Five, each in a new Chrome process with a fresh, empty `--user-data-dir`.
-- **Warm runs.** In one profile, a priming journey that goes all the way — login, the summary with
-  every request of the engine and the package finished, logout —, then **quiescence**: the tab
-  closed, no request in flight and no target of it left for two seconds. That is the primed state.
-  Then five journeys, each in a new tab, each followed by the same close and quiescence before the
-  next, so that no sample carries work into the next one. What carries over is the HTTP cache and
-  whatever origin storage the candidate kept, which the §2.5.3 dump lists beside each sample. Cold
-  and warm are reported apart, never in one statistic.
+- **Warm runs.** Five, **each in its own fresh profile and Chrome process**, each after the same
+  predeclared priming: two full journeys — login, the summary with every request of the engine and
+  the package finished, logout —, each followed by **quiescence**: the tab closed, no request in
+  flight and no target of it left for two seconds. The measured journey is then the third use of
+  every script, so that each sample starts from the same HTTP cache and the same compiled-code cache
+  state, and none inherits another's (FPROTO-5-07). The priming and sample traces are checked to be
+  of the same artifact and delivery condition. What carries over from the priming is the HTTP cache,
+  the code cache and whatever origin storage the candidate kept, which the §2.5.3 dump lists beside
+  each sample. Cold and warm are reported apart, never in one statistic.
 - **Bytes.** For every request of every target — page, worker, frame —, from the DevTools protocol:
   origin, `Content-Encoding`, the wire status from `Network.responseReceivedExtraInfo` beside the
   effective one, whether it came from the memory cache, the disk cache or a service worker, and the
@@ -695,9 +745,16 @@ the checkout, the publishing tools — within reach. So **[planned]**:
 - What is left is written as it is (N95): a compromised dependency could still write something
   misleading into its own output, which the oracle would inspect but not explain, and a kernel or
   `bubblewrap` flaw is not defended against.
-- No prototype runs in CI and none enters `make check`: each has its own target,
-  `make prototype-own` and `make prototype-evidence`, which fetch, build in the sandbox, draw,
-  assemble, run the oracle and the browser check. The inspection's Python libraries — `pyarrow`,
+- No prototype runs in CI and none enters `make check`. **One entry point runs the comparison**,
+  `make prototype` (FPROTO-5-08): it fetches and builds what is missing — through
+  `make prototype-build-own` and `make prototype-build-evidence`, which only fetch, build in the
+  sandbox and archive a builder output —, and then draws, assembles, runs the oracle, the browser
+  check and the measures. Its state is one file, `prototypes/framework/runs/state.json`, ignored by
+  Git: the digests of the two final builder outputs, the draw against that pair, the package's
+  digest and the measures taken with it. A rebuild of either candidate changes its digest, which
+  invalidates the draw, both artifacts and both sets of measures; the comparison is reported only
+  when both artifacts carry the same package digest, and a candidate whose encrypted route is not
+  possible leaves it explicitly incomplete. The inspection's Python libraries — `pyarrow`,
   `brotli`, `zstandard` — go in a dependency group of their own, which `make check` does not install.
   `make check` keeps its time and its dependencies.
 - The prototypes import `bi_como_codigo` and `web/envelope.mjs` as they are; they change neither.
