@@ -1,0 +1,311 @@
+"""Assembly, `verify` under the harness's root, and the class of each outcome
+(docs/framework_prototype.md §2.2, §2.5.1): every row of §2.5.1's table proved
+by its own control, on hand-made builder outputs (§7 step 1)."""
+
+from __future__ import annotations
+
+import json
+import os
+import pathlib
+import shutil
+
+import pytest
+
+import fixture as f
+import harness as h
+from bi_como_codigo import contract as c, envelope as e, release
+
+SEED = 20261120
+INCLUDE_ALL = "site/*\n"
+MEDIA_ALL = "".join(f"{ext} application/octet-stream\n" for ext in (".html", ".js", ".json", ".bice", ".parquet", ".map", ".txt", ".bin"))
+
+
+@pytest.fixture(scope="module")
+def sealed(tmp_path_factory):
+    fx, _ = f.generate(SEED)
+    totals, parquet = f.payload(fx)
+    manifest, files = f.seal(totals, parquet)
+    pkg = tmp_path_factory.mktemp("pkg") / "package"
+    pkg.mkdir()
+    (pkg / "manifest.json").write_bytes(manifest)
+    for name, data in files.items():
+        (pkg / name).write_bytes(data)
+    return fx, pkg, totals, parquet
+
+
+def _builder(base: pathlib.Path, extra: dict[str, bytes] | None = None) -> pathlib.Path:
+    out = base / "builder"
+    (out / "assets").mkdir(parents=True)
+    (out / "index.html").write_bytes(b"<!doctype html><title>P01</title><script type=module src=assets/app.js></script>")
+    (out / "assets" / "app.js").write_bytes(b"export const version = 1;\n")
+    for rel, data in (extra or {}).items():
+        (out / rel).parent.mkdir(parents=True, exist_ok=True)
+        (out / rel).write_bytes(data)
+    return out
+
+
+def _lists(base: pathlib.Path, include: str = INCLUDE_ALL, media: str = MEDIA_ALL) -> pathlib.Path:
+    lists = base / "lists"
+    lists.mkdir()
+    (lists / "include.txt").write_text(include)
+    (lists / "media_types.txt").write_text(media)
+    return lists
+
+
+def _run(tmp_path, sealed, *, builder_extra=None, artifact_extra=None, include=INCLUDE_ALL, media=MEDIA_ALL,
+         expected=None, role_override=None, declarations=h.DECLARATIONS, after_assembly=None):
+    fx, pkg, _, _ = sealed
+    builder = _builder(tmp_path, builder_extra)
+    artifact = tmp_path / "artifact"
+    outcome, validated = h.assemble(builder, pkg, expected if expected is not None else fx.rows(), artifact)
+    if outcome.cls != h.PASS:
+        return outcome
+    for rel, data in (artifact_extra or {}).items():
+        (artifact / rel).parent.mkdir(parents=True, exist_ok=True)
+        (artifact / rel).write_bytes(data)
+    if after_assembly:
+        after_assembly(artifact)
+    root = h.write_root(tmp_path / "run", _lists(tmp_path, include, media), declarations)
+    return h.verify(artifact, builder, root, validated, role_override=role_override)
+
+
+# --- the clean control and assembly --------------------------------------------------
+
+
+def test_the_clean_artifact_passes(tmp_path, sealed):
+    outcome = _run(tmp_path, sealed)
+    assert (outcome.stage, outcome.cls) == ("verify", h.PASS)
+
+
+def test_the_artifact_is_the_builder_output_plus_the_validated_package(tmp_path, sealed):
+    fx, pkg, _, _ = sealed
+    builder = _builder(tmp_path)
+    outcome, validated = h.assemble(builder, pkg, fx.rows(), tmp_path / "artifact")
+    assert outcome.cls == h.PASS
+    assert set(validated.files) == {p.name for p in pkg.iterdir()}
+    assert sorted(p.name for p in (tmp_path / "artifact" / "package").iterdir()) == sorted(validated.files)
+
+
+def test_a_builder_output_with_its_own_package_is_form_at_assembly(tmp_path, sealed):
+    outcome = _run(tmp_path, sealed, builder_extra={"package/manifest.json": b"{}"})
+    assert (outcome.stage, outcome.cls) == ("assembly", h.FORM)
+
+
+def test_a_corrupted_envelope_is_the_harnesss_at_assembly(tmp_path, sealed):
+    fx, pkg, _, _ = sealed
+    broken = tmp_path / "broken"
+    shutil.copytree(pkg, broken)
+    env = next(p for p in broken.iterdir() if p.suffix == ".bice")
+    data = bytearray(env.read_bytes())
+    data[-1] ^= 1
+    env.write_bytes(bytes(data))
+    outcome, _ = h.assemble(_builder(tmp_path), broken, fx.rows(), tmp_path / "artifact")
+    assert (outcome.stage, outcome.cls) == ("assembly", h.HARNESS_ERROR)
+
+
+def test_a_package_of_another_fixture_is_the_harnesss_at_assembly(tmp_path, sealed):
+    other, _ = f.generate(SEED + 1)
+    outcome = _run(tmp_path, sealed, expected=other.rows())
+    assert (outcome.stage, outcome.cls) == ("assembly", h.HARNESS_ERROR)
+    assert "expected rows" in outcome.message
+
+
+# --- verify: the declarations and the package are the harness's ----------------------
+
+
+def _declarations(tmp_path, **changes):
+    out = tmp_path / "decl"
+    shutil.copytree(h.DECLARATIONS, out)
+    for name, data in changes.items():
+        if data is None:
+            (out / name).unlink()
+        else:
+            (out / name).write_text(data)
+    return out
+
+
+@pytest.mark.parametrize("changes", [
+    {"contract.json": None},
+    {"public_values.json": '{"about": "x"}'},
+    {"profiles.json": None},
+])
+def test_a_broken_declaration_is_the_harnesss(tmp_path, sealed, changes):
+    outcome = _run(tmp_path, sealed, declarations=_declarations(tmp_path, **{k.replace("_json", ".json"): v for k, v in changes.items()}))
+    assert (outcome.stage, outcome.cls) == ("verify", h.HARNESS_ERROR)
+
+
+def test_a_malformed_inclusion_list_is_the_harnesss(tmp_path, sealed):
+    outcome = _run(tmp_path, sealed, include="assets/*\n")
+    assert outcome.cls == h.HARNESS_ERROR and "is not a path under site/" in outcome.message
+
+
+def test_a_malformed_media_types_list_is_the_harnesss(tmp_path, sealed):
+    outcome = _run(tmp_path, sealed, media=".html\n")
+    assert outcome.cls == h.HARNESS_ERROR
+
+
+def test_the_package_not_placed_is_the_harnesss(tmp_path, sealed):
+    outcome = _run(tmp_path, sealed, after_assembly=lambda a: shutil.rmtree(a / "package"))
+    assert outcome.cls == h.HARNESS_ERROR and outcome.message.startswith("0 package manifests")
+
+
+@pytest.mark.parametrize("damage, message", [
+    ("manifest", "package manifest refused"),
+    ("missing_envelope", "is in the manifest and not in the artifact"),
+    ("stray_envelope", "envelopes not in the manifest"),
+])
+def test_a_package_changed_after_assembly_is_the_harnesss(tmp_path, sealed, damage, message):
+    def change(artifact):
+        pkg = artifact / "package"
+        env = next(p for p in pkg.iterdir() if p.suffix == ".bice")
+        if damage == "manifest":
+            (pkg / "manifest.json").write_bytes(b"{}")
+        elif damage == "missing_envelope":
+            env.unlink()
+        else:
+            shutil.copyfile(env, pkg / "P01.0000000000000000.bice")
+
+    outcome = _run(tmp_path, sealed, after_assembly=change)
+    assert outcome.cls == h.HARNESS_ERROR and message in outcome.message
+
+
+def _replace_package(artifact, profiles, totals, parquet):
+    manifest, files = e.encrypt_package(profiles, {"P01": (totals, parquet)})
+    shutil.rmtree(artifact / "package")
+    (artifact / "package").mkdir()
+    (artifact / "package" / "manifest.json").write_bytes(manifest)
+    for name, data in files.items():
+        (artifact / "package" / name).write_bytes(data)
+
+
+def test_a_package_under_other_entitlements_is_the_harnesss(tmp_path, sealed):
+    _, _, totals, parquet = sealed
+    profiles = release.profiles(f.HERE) + [e.DeclaredProfile("outro", "Outro", "senha_complexa_123", ("P01",))]
+    outcome = _run(tmp_path, sealed, after_assembly=lambda a: _replace_package(a, profiles, totals, parquet))
+    assert outcome.cls == h.HARNESS_ERROR and outcome.message.startswith("entitlements_exact")
+
+
+def test_a_package_with_wrong_totals_is_the_harnesss(tmp_path, sealed):
+    fx, _, totals, parquet = sealed
+    wrong = json.loads(totals)
+    wrong["rows"] += 1
+    raw = json.dumps(wrong, separators=(",", ":")).encode()
+    outcome = _run(tmp_path, sealed, after_assembly=lambda a: _replace_package(a, release.profiles(f.HERE), raw, parquet))
+    assert outcome.cls == h.HARNESS_ERROR and outcome.message.startswith("totals_rows")
+
+
+def test_an_unlisted_refusal_or_an_exception_is_the_harnesss(tmp_path, sealed, monkeypatch):
+    def refuse(*args, **kwargs):
+        raise release.Refused("a message no row of the table lists")
+
+    monkeypatch.setattr(release, "verify", refuse)
+    assert _run(tmp_path, sealed).cls == h.HARNESS_ERROR
+
+    def explode(*args, **kwargs):
+        raise KeyError("x")
+
+    monkeypatch.setattr(release, "verify", explode)
+    assert _run(tmp_path / "b", sealed).cls == h.HARNESS_ERROR
+
+
+# --- verify: the candidate's form --------------------------------------------------
+
+
+def _symlink(artifact):
+    os.symlink("index.html", artifact / "link.html")
+
+
+def _fifo(artifact):
+    os.mkfifo(artifact / "pipe.txt")
+
+
+@pytest.mark.parametrize("kwargs, message", [
+    ({"builder_extra": {"assets/manifest.json": b"{}"}}, "2 package manifests"),
+    ({"builder_extra": {"assets/extra.js": b"1"}, "include": "site/index.html\nsite/assets/app.js\nsite/package/*\n"}, "is not under the inclusion list"),
+    ({"builder_extra": {"assets/font.woff2": b"1"}}, "extension not in media_types.txt"),
+    ({"builder_extra": {"assets/app.js.map": b"{}"}}, "is a source map"),
+    ({"builder_extra": {"assets/b.js": b"//# sourceMappingURL=b.js.map"}}, "references a source map"),
+    ({"builder_extra": {"__/firebase/init.json": b"{}"}}, "reserved __/ URLs"),
+    ({"after_assembly": _symlink}, "is a symbolic link"),
+    ({"after_assembly": _fifo}, "is not a plain file"),
+])
+def test_each_form_refusal_is_form(tmp_path, sealed, kwargs, message):
+    outcome = _run(tmp_path, sealed, **kwargs)
+    assert outcome.cls == h.FORM and message in outcome.message
+
+
+# --- verify: content, schema only, and collisions --------------------------------------
+
+
+def _parquet_with(rows):
+    return f.parquet(rows)
+
+
+def test_a_zero_row_parquet_of_p01s_schema_is_schema_only(tmp_path, sealed):
+    outcome = _run(tmp_path, sealed, builder_extra={"assets/empty.parquet": _parquet_with([])})
+    assert outcome.cls == h.SCHEMA_ONLY
+
+
+def test_a_parquet_with_one_fixture_row_is_content(tmp_path, sealed):
+    fx = sealed[0]
+    outcome = _run(tmp_path, sealed, builder_extra={"assets/one.parquet": _parquet_with(fx.rows()[:1])})
+    assert outcome.cls == h.CONTENT
+
+
+def test_a_clear_payload_and_a_data_key_are_content(tmp_path, sealed):
+    _, pkg, totals, parquet = sealed
+    assert _run(tmp_path, sealed, artifact_extra={"assets/p.bin": e.build_payload(b"{}", b"PAR1xxxxPAR1")[:8]}).cls == h.CONTENT
+    manifest_raw = (pkg / "manifest.json").read_bytes()
+    envelopes = {p.name: p.read_bytes() for p in pkg.iterdir() if p.suffix == ".bice"}
+    dek = release._deks(e.validate_manifest(manifest_raw), envelopes, {"diretoria": "senha_complexa_123"})[0]
+    outcome = _run(tmp_path / "k", sealed, artifact_extra={"assets/k.txt": dek.hex().encode()})
+    assert outcome.cls == h.CONTENT and "data key" in outcome.message
+
+
+def test_a_fixture_label_added_to_the_artifact_is_content(tmp_path, sealed):
+    outcome = _run(tmp_path, sealed, artifact_extra={"assets/label.txt": b"fixture_canal_a"})
+    assert outcome.cls == h.CONTENT and outcome.detail["file"] == "assets/label.txt"
+
+
+def test_an_amount_in_pt_br_added_to_the_artifact_is_content(tmp_path, sealed):
+    fx = sealed[0]
+    amount = str(next(iter(fx.cells.values())).net)
+    outcome = _run(tmp_path, sealed, artifact_extra={"assets/amount.txt": c.spellings(amount)[1].encode()})
+    assert outcome.cls == h.CONTENT
+
+
+def test_a_needle_already_in_the_builder_output_is_a_collision(tmp_path, sealed):
+    """FPROTO-4-05: established by reproduction, with the needle's class named."""
+    fx = sealed[0]
+    literal = f"export const n = {len(fx.cells)};\n".encode()
+    outcome = _run(tmp_path, sealed, builder_extra={"assets/count.js": literal})
+    assert outcome.cls == h.COLLISION
+    assert outcome.detail == {"file": "assets/count.js", "classes": ["row_count"]}
+
+
+def test_a_collision_whose_reproduction_differs_is_the_harnesss(tmp_path, sealed):
+    fx = sealed[0]
+    literal = f"export const n = {len(fx.cells)};\n".encode()
+    outcome = _run(tmp_path, sealed, builder_extra={"assets/count.js": literal}, role_override="labels")
+    assert outcome.cls == h.HARNESS_ERROR
+
+
+def test_the_manifest_is_searched_by_its_labels_only(tmp_path, sealed):
+    """N83: the manifest's typed fields are not haystack; a label in it would be."""
+    assert _run(tmp_path, sealed).cls == h.PASS
+
+
+# --- archives ------------------------------------------------------------------------
+
+
+def test_an_archive_is_reproducible_checked_and_never_overwritten(tmp_path):
+    src = _builder(tmp_path)
+    a = h.archive(src, tmp_path / "a.tar.gz")
+    b = h.archive(src, tmp_path / "b.tar.gz")
+    assert a == b
+    with pytest.raises(FileExistsError):
+        h.archive(src, tmp_path / "a.tar.gz")
+    h.extract(tmp_path / "a.tar.gz", tmp_path / "out", a)
+    assert h.tree(tmp_path / "out") == h.tree(src)
+    with pytest.raises(ValueError):
+        h.extract(tmp_path / "a.tar.gz", tmp_path / "out2", "0" * 64)
