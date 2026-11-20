@@ -171,13 +171,13 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | FPROTO-2-06 | `docs/framework_prototype.md:318` | Variable pre-submit engine loading and warm state change the timed comparison | `adjustment` | Applied (§2.7): submit as soon as the password field is enabled; four timestamps, navigation-to-summary and submit-to-summary reported apart; a full priming journey and new tabs for warm runs, carried state listed; every target's requests, in-flight ones counted apart at each cutoff. |
 | FPROTO-2-07 | `DOSSIER.md:160` | The authored Status text falls outside the five-column table | `adjustment` | Applied in `6c0d5bc`: the six answers moved into the fifth column; every findings row has five cells. |
 | FPROTO-2-08 | `docs/framework_prototype.md:400` | A mount-only probe can report isolation while inherited environment entries remain visible | `observation` | Applied (§5): `--clearenv` with a named environment, `--unshare-pid` with its own `/proc`, IPC, UTS, a new session, die-with-parent, descriptors beyond 2 closed; the probe runs through the real wrapper in both modes, by absolute host paths, with a synthetic token, the PID list, the descriptors and the network, each shown to fail with its option removed. |
-| FPROTO-3-01 | `docs/framework_prototype.md:45–53,112–129,145–153,472–493` | The build input check depends on a fixture drawn later, and A3 can misdiagnose build failures | `blocking` | |
-| FPROTO-3-02 | `docs/framework_prototype.md:178–183,276–295` | The browser oracle can pass with clear data outside the observed session state | `blocking` | |
-| FPROTO-3-03 | `docs/framework_prototype.md:78–82,102–123` | Every allowed row count collides with both pinned DuckDB-WASM assets | `blocking` | |
-| FPROTO-3-04 | `docs/framework_prototype.md:253–272,302–320` | A valid package can fail supplemental inspection or leave an ordinary form refusal inconclusive | `blocking` | |
-| FPROTO-3-05 | `docs/framework_prototype.md:227–244,299–339` | Gate attribution, verdict coverage and the Parquet control still disagree with the verifier | `adjustment` | |
-| FPROTO-3-06 | `docs/framework_prototype.md:78–100,355–368` | An odd partial-month row count makes the native-count assertion unsatisfiable | `adjustment` | |
-| FPROTO-3-07 | `docs/framework_prototype.md:379–399,531–537` | A redraw, successive warm tabs and in-flight transfers can change comparison conditions | `adjustment` | |
+| FPROTO-3-01 | `docs/framework_prototype.md:45–53,112–129,145–153,472–493` | The build input check depends on a fixture drawn later, and A3 can misdiagnose build failures | `blocking` | Applied in rev. 4 (§1, §2.2, §3, §5, §7): the measured fixture is drawn only after the encrypted builds exist; each phase's work folder is an allowlist checked by path and SHA-256, the only data-shaped input a zero-row schema Parquet; the clear mode and every fixture live in `clear/`, never bound, with their own sandbox and caches; assembly refuses a builder `package/`, validates the package itself and checks byte identity; A3's "no" is "the encrypted route is not possible", never a query claim without an output showing it. |
+| FPROTO-3-02 | `docs/framework_prototype.md:178–183,276–295` | The browser oracle can pass with clear data outside the observed session state | `blocking` | Applied (§2.3 items 1, 7, 8; §2.5.3): every target discovered and attached paused at start, recursively, else inconclusive; WebCrypto `deriveKey`/`deriveBits`/`unwrapKey`/`decrypt` observed, a call before submit is `PREMATURE_DECRYPT`; OPFS, cookies and service workers among the stores, with the storage estimate as a cross-check; after logout, responses, history and a `history.back()` with `pageshow.persisted`; one-carrier browser controls for each. |
+| FPROTO-3-03 | `docs/framework_prototype.md:78–82,102–123` | Every allowed row count collides with both pinned DuckDB-WASM assets | `blocking` | Applied with the Owner's N94 (§2.1, §2.4, A7): the engine loads from jsDelivr in both candidates, Evidence through probe A7, or its cost is recorded; the fixture grows to 61 months × 180 rows, 10,848–10,908 rows, integers of five or six digits; the draw uses `contract.inspect`'s own search; an exhausted draw stops the run and withholds every verdict; the measured WASM collision is a control. |
+| FPROTO-3-04 | `docs/framework_prototype.md:253–272,302–320` | A valid package can fail supplemental inspection or leave an ordinary form refusal inconclusive | `blocking` | Applied (§2.2, §2.5.2): assembly validates the package on its own with the gate's functions and records the digests; the inspector recognises those files whatever `verify` reached; the manifest is judged by role, labels as text, typed fields by `validate_manifest`; controls for package-only with a form refusal, a corrupt package, and content behind form. |
+| FPROTO-3-05 | `docs/framework_prototype.md:227–244,299–339` | Gate attribution, verdict coverage and the Parquet control still disagree with the verifier | `adjustment` | Applied (§2.5.1, §2.5.4, §2.5.5): the classification table lists the gate's actual messages and codes, zero manifests a harness error and two a form refusal; a collision established by re-searching the archived file against the builder output, not by the message; verdict cases for no run, interrupted build or capture, exhausted draw, earlier inconclusive then pass, content then harness error; each carrier control states its `verify` class and inspection code, the Parquet one `CONTENT` and `INSPECT_PARQUET`. |
+| FPROTO-3-06 | `docs/framework_prototype.md:78–100,355–368` | An odd partial-month row count makes the native-count assertion unsatisfiable | `adjustment` | Applied (§2.1, §2.6): the partial month keeps whole groups of 12 rows; no summary cell has a single row, checked before sealing; the G mutant is drawn, sealed, validated and assembled like any fixture. |
+| FPROTO-3-07 | `docs/framework_prototype.md:379–399,531–537` | A redraw, successive warm tabs and in-flight transfers can change comparison conditions | `adjustment` | Applied (§2.1, §2.7, §7): one shared draw after both builder outputs are final, both artifacts reassembled and measures discarded on any rebuild, each measure bound to the package and artifact digests; warm samples separated by closing the tab and two seconds of quiescence; bytes received by each cutoff, partial transfers included, reported beside completed responses. |
 
 ## Round 1 — FPROTO
 
@@ -1124,3 +1124,30 @@ transfer-cutoff gaps predate it. Evidence is static.
   mutant reaches the comparator and is refused for G.
 - [ ] **FPROTO-3-07** — Use the final shared fixture on both measured artifacts. Retain the priming,
   teardown and cutoff traces that account for worker and page requests in each sample.
+
+## Round 3 — the author's answer
+
+Revision 4 of `docs/framework_prototype.md` answers all seven findings; each Status above says where.
+FPROTO-3-03 went to the Owner, who decided N94 (PLAN §1.2): both candidates load the engine from
+jsDelivr, as N2 already had it, Evidence through a new probe, A7. The main changes: the measured
+fixture does not exist when the encrypted route is built — it is drawn afterwards, against those
+builds —, so no input check needs its needles; the fixture is ten times larger, so that every integer
+has five digits or more and every summary cell gathers twelve rows or more; the package is validated
+by assembly itself, so it is recognised whatever `verify` reached. It is still a plan: nothing of the
+prototype is built, and every **[planned]** and **[assumed]** is unmeasured.
+
+Run for it: `make check` at each commit, exit 0, and `docs-check` after the PLAN change. Nothing of
+the candidates was run.
+
+**Not verified, and where I hesitated:**
+
+- Whether five-digit needles avoid Evidence's own JavaScript bundles is not measured; the draw finds
+  out, and an exhausted draw is reported as such.
+- If A7 fails, Evidence's artifact carries the engine, and the draw may end exhausted for it: the
+  result then says that the unchanged gate cannot judge Evidence's artifact with this fixture — a
+  finding for the Owner and for 2.5, not a pass or a fail.
+- The fixture of 10,848 to 10,908 rows makes the detail table of a month 180 rows under "todos";
+  heavier for the page than revision 3's 18, closer to a real P01, and part of what the measures
+  compare.
+- `PREMATURE_DECRYPT` sees WebCrypto only; a candidate with its own AES would escape it. I judged a
+  search of the dependency tree for AES implementations too fuzzy to promise, and recorded it in §9.
