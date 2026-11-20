@@ -1,0 +1,618 @@
+"""The carrier inspection of stage 2.3 (docs/framework_prototype.md §2.5.2).
+
+Reads a set of files — a builder output, an artifact, or what the browser
+diagnostic collects — and names the carrier of any fixture value it finds,
+with the decoding path and never the value. Numbers are compared by role:
+code-bearing files are searched for texts and amounts, and for the counts
+only inside a structured carrier found in them; data-bearing carriers for
+everything, the counts in any spelling.
+
+What no layer reads is inconclusive, never clean. The draw of §2.1 calls the
+same dispatch (`inspect_items`), so that what it calibrates is exactly what is
+later inspected; `gate_hits` is the gate's own substring search, every hit
+listed instead of the first.
+"""
+
+from __future__ import annotations
+
+import base64
+import binascii
+import dataclasses
+import gzip
+import hashlib
+import html
+import io
+import json
+import pathlib
+import re
+import struct
+import sys
+import urllib.parse
+import zlib
+from decimal import Decimal, InvalidOperation
+
+import fixture as fx_mod
+from bi_como_codigo import contract as c, envelope as e
+
+INSPECT_TEXT = "INSPECT_TEXT"
+INSPECT_NUMBER = "INSPECT_NUMBER"
+INSPECT_CALENDAR = "INSPECT_CALENDAR"
+INSPECT_ARROW = "INSPECT_ARROW"
+INSPECT_PARQUET = "INSPECT_PARQUET"
+INSPECT_BINARY = "INSPECT_BINARY"
+
+DEPTH = 3
+CODE = "code"
+DATA = "data"
+COLLECTED = "collected"  # a data-bearing carrier of the browser diagnostic: the calendar too
+
+#: What is served as the page itself (§2.5.2); anything else is data-bearing.
+CODE_SUFFIXES = frozenset({
+    ".html", ".htm", ".js", ".mjs", ".cjs", ".css", ".wasm", ".woff", ".woff2", ".ttf", ".otf",
+    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp", ".avif",
+})
+
+
+# --- the needles ------------------------------------------------------------------------
+
+
+@dataclasses.dataclass(frozen=True)
+class Needles:
+    texts: frozenset[str]
+    amounts: frozenset[Decimal]
+    counts: frozenset[int]
+    window: frozenset[tuple[int, int]]
+
+    @classmethod
+    def from_fixture(cls, fx: fx_mod.Fixture) -> "Needles":
+        """The fixture's values and the results of the page's queries — every
+        summary cell under every filter — since a cache of a query holds results,
+        not rows. Small integers are never integer needles (FPROTO-4-03)."""
+        texts: set[str] = set()
+        for row in fx.rows():
+            texts |= {v for v in row if isinstance(v, str) and len(v) >= 3}
+        amounts: set[Decimal] = set()
+        counts: set[int] = {len(fx.cells)}
+        for m in fx.cells.values():
+            amounts |= {m.gross, m.discount, m.net}
+            counts |= {m.order_count, m.unit_count}
+        for net, units in fx_mod.summary(fx).values():
+            amounts.add(net)
+            counts.add(units)
+        amounts |= {sum((m.gross for m in fx.cells.values()), fx_mod.ZERO),
+                    sum((m.discount for m in fx.cells.values()), fx_mod.ZERO),
+                    sum((m.net for m in fx.cells.values()), fx_mod.ZERO)}
+        counts.add(sum(m.unit_count for m in fx.cells.values()))
+        amounts.discard(fx_mod.ZERO)
+        counts = {n for n in counts if n >= 10_000}
+        window = {fx.month(i) for i in range(fx_mod.MONTHS)}
+        return cls(frozenset(texts), frozenset(amounts), frozenset(counts), frozenset(window))
+
+    def canonical(self, value) -> str:
+        return str(value)
+
+
+# --- the report --------------------------------------------------------------------------
+
+
+@dataclasses.dataclass(frozen=True)
+class Finding:
+    code: str
+    file: str
+    path: str
+    value: str | None = dataclasses.field(default=None, repr=False, compare=False)  # for the draw only, never recorded
+
+    def record(self) -> dict:
+        return {"code": self.code, "file": self.file, "path": self.path}
+
+
+@dataclasses.dataclass(frozen=True)
+class Note:
+    file: str
+    path: str
+    reason: str
+
+    def record(self) -> dict:
+        return dataclasses.asdict(self)
+
+
+@dataclasses.dataclass
+class Report:
+    findings: list[Finding] = dataclasses.field(default_factory=list)
+    inconclusive: list[Note] = dataclasses.field(default_factory=list)
+    recorded: list[Note] = dataclasses.field(default_factory=list)
+
+    @property
+    def clean(self) -> bool:
+        return not self.findings and not self.inconclusive
+
+    def codes(self) -> set[str]:
+        return {f.code for f in self.findings}
+
+    def record(self) -> dict:
+        unique = list({(f.code, f.file, f.path): f for f in self.findings}.values())
+        return {"findings": [f.record() for f in unique], "inconclusive": [n.record() for n in self.inconclusive],
+                "recorded": [n.record() for n in self.recorded]}
+
+
+@dataclasses.dataclass(frozen=True)
+class Item:
+    """One carrier: a file of an output, or a value the browser collected."""
+
+    name: str
+    data: bytes
+    role: str | None = None  # None: by the name's suffix
+    url: str | None = None  # a body fetched from this URL
+
+
+# --- the inspection ---------------------------------------------------------------------
+
+
+@dataclasses.dataclass
+class Context:
+    needles: Needles
+    validated: dict[str, str]  # path → SHA-256 of the validated package's files
+    cdn: dict[str, str]  # URL → SHA-256 of the pinned third-party bodies
+    dependencies: frozenset[str]  # SHA-256 of every file of the locked dependency tree
+    report: Report
+    _binary: dict | None = None
+
+    def find(self, code, file, path, value=None):
+        self.report.findings.append(Finding(code, file, path, None if value is None else str(value)))
+
+
+def inspect_dir(root: pathlib.Path, needles: Needles, *, validated: dict[str, str] | None = None,
+                cdn: dict[str, str] | None = None, dependencies: frozenset[str] = frozenset()) -> Report:
+    items = [Item(p.relative_to(root).as_posix(), p.read_bytes()) for p in sorted(root.rglob("*")) if p.is_file() and not p.is_symlink()]
+    return inspect_items(items, needles, validated=validated, cdn=cdn, dependencies=dependencies)
+
+
+def inspect_items(items: list[Item], needles: Needles, *, validated: dict[str, str] | None = None,
+                  cdn: dict[str, str] | None = None, dependencies: frozenset[str] = frozenset()) -> Report:
+    ctx = Context(needles, validated or {}, cdn or {}, dependencies, Report())
+    for item in items:
+        _item(ctx, item)
+    return ctx.report
+
+
+def _role_of(name: str) -> str:
+    return CODE if pathlib.PurePosixPath(name).suffix.lower() in CODE_SUFFIXES else DATA
+
+
+def _item(ctx: Context, item: Item) -> None:
+    digest = hashlib.sha256(item.data).hexdigest()
+    if item.url is not None and item.url in ctx.cdn:
+        if ctx.cdn[item.url] == digest:
+            ctx.report.recorded.append(Note(item.name, item.url, "pinned third-party body"))
+        else:
+            ctx.report.inconclusive.append(Note(item.name, item.url, "a body at a declared URL with another digest"))
+        return
+    if item.name.startswith("package/") and ctx.validated.get(item.name[len("package/"):]) == digest:
+        if item.name == "package/manifest.json":
+            labels = c.manifest_labels(e.validate_manifest(item.data))
+            _blob(ctx, labels, item.name, "manifest labels", DATA, 0, speculative=False)
+            ctx.report.recorded.append(Note(item.name, "", "validated manifest: labels searched, typed fields validated"))
+        else:
+            ctx.report.recorded.append(Note(item.name, "", "validated envelope"))
+        return
+    _blob(ctx, item.data, item.name, item.name, item.role or _role_of(item.name), 0, speculative=False, digest=digest)
+
+
+def _is_text(data: bytes) -> str | None:
+    if b"\x00" in data:
+        return None
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return None
+
+
+def _blob(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int, *, speculative: bool,
+          digest: str | None = None) -> None:
+    if data[:4] == b"PAR1" and data[-4:] == b"PAR1" and len(data) >= 12:
+        if _parquet(ctx, data, file, path):
+            return
+    if data[:6] == b"ARROW1" or data[:4] == b"\xff\xff\xff\xff":
+        if _arrow(ctx, data, file, path):
+            return
+    decompressed = _decompress_by_magic(data)
+    if decompressed is not None:
+        name, out = decompressed
+        _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=False)
+        return
+    _binary_numbers(ctx, data, file, path)
+    text = _is_text(data)
+    if text is not None:
+        _text(ctx, data, text, file, path, role, depth)
+        return
+    if not speculative:
+        for name, attempt in (("brotli", _brotli), ("deflate", _raw_deflate)):
+            out = attempt(data)
+            if out is not None:
+                _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=False)
+                return
+        if (digest or hashlib.sha256(data).hexdigest()) in ctx.dependencies:
+            ctx.report.recorded.append(Note(file, path, "binary identical to a file of the locked dependency tree"))
+        else:
+            ctx.report.inconclusive.append(Note(file, path, "a binary no layer decodes"))
+
+
+def _descend(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int, *, speculative: bool) -> None:
+    if depth + 1 > DEPTH:
+        if not speculative:
+            ctx.report.inconclusive.append(Note(file, path, f"deeper than {DEPTH} layers"))
+        return
+    _blob(ctx, data, file, path, role, depth + 1, speculative=speculative)
+
+
+# --- decoders ---------------------------------------------------------------------------
+
+
+def _decompress_by_magic(data: bytes) -> tuple[str, bytes] | None:
+    try:
+        if data[:2] == b"\x1f\x8b":
+            return "gzip", gzip.decompress(data)
+        if len(data) >= 2 and data[0] == 0x78 and (data[0] * 256 + data[1]) % 31 == 0:
+            return "zlib", zlib.decompress(data)
+        if data[:4] == b"\x28\xb5\x2f\xfd":
+            import zstandard
+
+            return "zstd", zstandard.ZstdDecompressor().decompressobj().decompress(data)
+    except Exception:  # noqa: BLE001 — a magic that does not decode is no carrier
+        return None
+    return None
+
+
+def _brotli(data: bytes) -> bytes | None:
+    import brotli
+
+    try:
+        out = brotli.decompress(data)
+    except Exception:  # noqa: BLE001
+        return None
+    return out or None
+
+
+def _raw_deflate(data: bytes) -> bytes | None:
+    try:
+        d = zlib.decompressobj(-15)
+        out = d.decompress(data) + d.flush()
+    except zlib.error:
+        return None
+    return out if d.eof and not d.unused_data and out else None
+
+
+_B64 = re.compile(r"[A-Za-z0-9+/]{16,}={0,2}")
+_B64URL = re.compile(r"[A-Za-z0-9_-]{16,}={0,2}")
+_HEX = re.compile(r"(?:[0-9a-fA-F]{2}){16,}")
+_PERCENT = re.compile(r"%[0-9A-Fa-f]{2}")
+_ESCAPE = re.compile(r"\\(u[0-9a-fA-F]{4}|u\{[0-9a-fA-F]+\}|x[0-9a-fA-F]{2}|[nrt\"'\\/])")
+_ENTITY = re.compile(r"&(#[0-9]+|#[xX][0-9a-fA-F]+|[A-Za-z]+);")
+
+
+def _b64(run: str, alphabet: str) -> bytes | None:
+    body = run.rstrip("=")
+    if len(body) % 4 == 1:
+        return None
+    padded = body + "=" * (-len(body) % 4)
+    try:
+        return base64.b64decode(padded, altchars=b"-_" if alphabet == "url" else None, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+
+
+def _unescape(text: str) -> str:
+    simple = {"n": "\n", "r": "\r", "t": "\t", '"': '"', "'": "'", "\\": "\\", "/": "/"}
+
+    def one(m: re.Match) -> str:
+        s = m[1]
+        if s.startswith("u{"):
+            return chr(int(s[2:-1], 16))
+        if s[0] in "ux":
+            return chr(int(s[1:], 16))
+        return simple[s]
+
+    return _ESCAPE.sub(one, text)
+
+
+def _text_decoders(text: str):
+    seen: set[str] = set()
+    for alphabet, pattern in (("std", _B64), ("url", _B64URL)):
+        for m in pattern.finditer(text):
+            if m[0] in seen:
+                continue
+            seen.add(m[0])
+            out = _b64(m[0], alphabet)
+            if out:
+                yield f"base64{'url' if alphabet == 'url' else ''}@{m.start()}", out
+    for m in _HEX.finditer(text):
+        yield f"hex@{m.start()}", bytes.fromhex(m[0])
+    if _PERCENT.search(text):
+        yield "percent", urllib.parse.unquote_to_bytes(text)
+    if _ESCAPE.search(text):
+        try:
+            yield "escapes", _unescape(text).encode("utf-8", "surrogatepass")
+        except (ValueError, OverflowError):
+            pass
+    if _ENTITY.search(text):
+        yield "entities", html.unescape(text).encode("utf-8", "surrogatepass")
+
+
+# --- text and numbers -----------------------------------------------------------------
+
+
+_NUMBER = re.compile(r"(?<![0-9])[0-9](?:[0-9.,]*[0-9])?(?![0-9])")
+_PLAIN = re.compile(r"[0-9]+")
+_DOTTED = re.compile(r"[0-9]+\.[0-9]+")
+_PT_GROUPED = re.compile(r"[0-9]{1,3}(?:\.[0-9]{3})+")
+_PT_DECIMAL = re.compile(r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]+")
+_COMMA_DECIMAL = re.compile(r"[0-9]+,[0-9]+")
+_EN_GROUPED = re.compile(r"[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?")
+
+
+def _readings(token: str):
+    """(value, how): `gate` when the token is a spelling of `contract.spellings`
+    for an amount, `js` when it is only a shorter JavaScript spelling, `int`
+    for an integer in any spelling."""
+    out = []
+    if _PLAIN.fullmatch(token):
+        out.append((Decimal(token), "int"))
+    if _DOTTED.fullmatch(token):
+        out.append((Decimal(token), "gate" if len(token.split(".")[1]) == 2 else "js"))
+    if _PT_GROUPED.fullmatch(token):
+        out.append((Decimal(token.replace(".", "")), "int"))
+    if _PT_DECIMAL.fullmatch(token):
+        out.append((Decimal(token.replace(".", "").replace(",", ".")), "gate" if len(token.split(",")[1]) == 2 else "js"))
+    if _COMMA_DECIMAL.fullmatch(token):
+        out.append((Decimal(token.replace(",", ".")), "gate" if len(token.split(",")[1]) == 2 else "js"))
+    if _EN_GROUPED.fullmatch(token):
+        out.append((Decimal(token.replace(",", "")), "int"))
+    return out
+
+
+def _tokens(text: str):
+    for m in _NUMBER.finditer(text):
+        token = m[0]
+        parts = {token, *token.split(","), *token.split(".")}
+        yield from (p for p in parts if p)
+
+
+def _numbers_in_text(ctx: Context, text: str, file: str, path: str, role: str) -> None:
+    n = ctx.needles
+    for token in _tokens(text):
+        for value, how in _readings(token):
+            if value in n.amounts:
+                if how == "gate":
+                    ctx.find(INSPECT_TEXT, file, path, _canonical_amount(n, value))
+                else:
+                    ctx.find(INSPECT_NUMBER, file, path, _canonical_amount(n, value))
+            if how == "int" and role != CODE and value == value.to_integral_value() and int(value) in n.counts:
+                ctx.find(INSPECT_NUMBER, file, path, int(value))
+
+
+def _canonical_amount(n: Needles, value: Decimal) -> str:
+    return f"{value.quantize(Decimal('0.01'))}"
+
+
+def _text(ctx: Context, data: bytes, text: str, file: str, path: str, role: str, depth: int) -> None:
+    for needle in ctx.needles.texts:
+        if needle.encode("utf-8") in data:
+            ctx.find(INSPECT_TEXT, file, path, needle)
+    _numbers_in_text(ctx, text, file, path, role)
+    stripped = text.strip()
+    if stripped[:1] in "{[":
+        try:
+            parsed = json.loads(stripped)
+        except ValueError:
+            parsed = None
+        if parsed is not None:
+            _structured(ctx, parsed, file, f"{path} > json", role, depth)
+    if "<script" in text:
+        _scripts(ctx, text, file, path, role, depth)
+    for name, out in _text_decoders(text):
+        _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=True)
+
+
+_SCRIPT = re.compile(r"<script([^>]*)>(.*?)</script>", re.S | re.I)
+_DEVALUE_NUMBER = re.compile(r"(?<=[:\[,(])\s*(-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)(?=\s*[,\]})])")
+
+
+def _scripts(ctx: Context, text: str, file: str, path: str, role: str, depth: int) -> None:
+    """Inline scripts of an HTML page: SvelteKit's fetched-data scripts and JSON
+    scripts parsed as JSON — with `data-b64`, their body base64 —; SvelteKit's
+    devalue data read as JSON-like text, every number compared as a number."""
+    for n, m in enumerate(_SCRIPT.finditer(text)):
+        attrs, body = m[1], m[2]
+        where = f"{path} > script#{n}"
+        if "data-sveltekit-fetched" in attrs or "application/json" in attrs:
+            try:
+                parsed = json.loads(body)
+            except ValueError:
+                ctx.report.inconclusive.append(Note(file, where, "a JSON script that does not parse"))
+                continue
+            if "data-b64" in attrs and isinstance(parsed, dict) and isinstance(parsed.get("body"), str):
+                raw = _b64(parsed["body"], "std")
+                if raw is None:
+                    ctx.report.inconclusive.append(Note(file, where, "a data-b64 body that does not decode"))
+                else:
+                    _descend(ctx, raw, file, f"{where} > base64", DATA, depth, speculative=False)
+            _structured(ctx, parsed, file, f"{where} > json", DATA, depth)
+        elif "__sveltekit" in body or "kit.start" in body:
+            for num in _DEVALUE_NUMBER.finditer(body):
+                _number(ctx, num[1], file, f"{where} > devalue", count_too=True)
+
+
+def _number(ctx: Context, literal, file: str, path: str, *, count_too: bool) -> None:
+    try:
+        value = literal if isinstance(literal, Decimal) else Decimal(str(literal))
+    except InvalidOperation:
+        return
+    n = ctx.needles
+    if value in n.amounts:
+        ctx.find(INSPECT_NUMBER, file, path, _canonical_amount(n, value))
+    if count_too and value == value.to_integral_value() and int(value) in n.counts:
+        ctx.find(INSPECT_NUMBER, file, path, int(value))
+
+
+def _structured(ctx: Context, value, file: str, path: str, role: str, depth: int) -> None:
+    """A parsed JSON: every number compared as a number, every string searched
+    and, when it is itself a document, inspected again."""
+    stack = [value]
+    while stack:
+        v = stack.pop()
+        if isinstance(v, bool) or v is None:
+            continue
+        if isinstance(v, (int, float)):
+            _number(ctx, repr(v) if isinstance(v, float) else v, file, path, count_too=True)
+        elif isinstance(v, str):
+            raw = v.encode("utf-8", "surrogatepass")
+            if len(v) >= 3:
+                for needle in ctx.needles.texts:
+                    if needle in v:
+                        ctx.find(INSPECT_TEXT, file, path, needle)
+                _numbers_in_text(ctx, v, file, path, DATA)
+                if v.strip()[:1] in "{[" or len(v) >= 16:
+                    _descend(ctx, raw, file, f"{path} > string", DATA, depth, speculative=True)
+        elif isinstance(v, list):
+            stack.extend(v)
+        elif isinstance(v, dict):
+            stack.extend(v.values())
+            if role == COLLECTED:
+                _calendar(ctx, v, file, path)
+
+
+def _calendar(ctx: Context, record: dict, file: str, path: str) -> None:
+    """Two integer fields of one record whose values are a year and a month of
+    the window: a lead, not a proof (§2.5.2)."""
+    ints = [v for v in record.values() if isinstance(v, int) and not isinstance(v, bool)]
+    years = {y for y, _ in ctx.needles.window}
+    for y in (v for v in ints if v in years):
+        if any((y, m) in ctx.needles.window for m in ints if 1 <= m <= 12):
+            ctx.find(INSPECT_CALENDAR, file, path, y)
+            return
+
+
+# --- Arrow and Parquet ------------------------------------------------------------------
+
+
+def _cells(ctx: Context, table, code: str, file: str, path: str) -> None:
+    n = ctx.needles
+    for column in table.columns:
+        for v in column.to_pylist():
+            if isinstance(v, str):
+                if v in n.texts or any(t in v for t in n.texts):
+                    ctx.find(code, file, path, v)
+            elif isinstance(v, (int, float, Decimal)) and not isinstance(v, bool):
+                d = Decimal(repr(v)) if isinstance(v, float) else Decimal(v)
+                if d in n.amounts or (d == d.to_integral_value() and int(d) in n.counts):
+                    ctx.find(code, file, path, v)
+
+
+def _parquet(ctx: Context, data: bytes, file: str, path: str) -> bool:
+    import pyarrow.parquet as pq
+
+    try:
+        table = pq.read_table(io.BytesIO(data))
+    except Exception:  # noqa: BLE001
+        return False
+    if table.num_rows == 0 and table.column_names == list(fx_mod.COLUMNS):
+        ctx.report.recorded.append(Note(file, path, "Parquet with P01's schema and no row: schema only"))
+        return True
+    _cells(ctx, table, INSPECT_PARQUET, file, path)
+    return True
+
+
+def _arrow(ctx: Context, data: bytes, file: str, path: str) -> bool:
+    import pyarrow.ipc as ipc
+
+    for opener in (ipc.open_file, ipc.open_stream):
+        try:
+            table = opener(io.BytesIO(data)).read_all()
+        except Exception:  # noqa: BLE001
+            continue
+        _cells(ctx, table, INSPECT_ARROW, file, f"{path} > arrow")
+        return True
+    return False
+
+
+# --- binary numbers ---------------------------------------------------------------------
+
+
+def _binary_table(n: Needles) -> dict[int, list[tuple[str, Decimal]]]:
+    table: dict[int, list[tuple[str, Decimal]]] = {}
+    for a in n.amounts:
+        f = float(a)
+        for kind, raw in (("double-le", struct.pack("<d", f)), ("double-be", struct.pack(">d", f))):
+            table.setdefault(struct.unpack("<Q", raw)[0], []).append((kind, a))
+        cents = int(a * 100)
+        if 0 < cents < 2**63:
+            table.setdefault(cents, []).append(("decimal128", a))
+    return table
+
+
+def _binary_numbers(ctx: Context, data: bytes, file: str, path: str) -> None:
+    """Every amount as the 8 bytes of an IEEE 754 double, both byte orders, and
+    as the 16 bytes of an Arrow decimal128 at scale 2 (§2.5.2): each of the 8
+    alignments read as little-endian 64-bit words, intersected with the words
+    of the needles."""
+    if len(data) < 8:
+        return
+    if ctx._binary is None:
+        table = _binary_table(ctx.needles)
+        ctx._binary = {"table": table, "set": frozenset(table)}
+    table, words = ctx._binary["table"], ctx._binary["set"]
+    little = sys.byteorder == "little"
+    for off in range(8):
+        count = (len(data) - off) // 8
+        if count <= 0:
+            break
+        view = memoryview(data[off: off + count * 8]).cast("Q")
+        found = words.intersection(view) if little else words.intersection(struct.unpack(f"<{count}Q", view))
+        if not found:
+            continue
+        for i, word in enumerate(view if little else struct.unpack(f"<{count}Q", view)):
+            if word not in found:
+                continue
+            pos = off + 8 * i
+            for kind, amount in table[word]:
+                if kind == "decimal128" and data[pos + 8: pos + 16] != b"\x00" * 8:
+                    continue
+                ctx.find(INSPECT_BINARY, file, f"{path} > {kind}@{pos}", _canonical_amount(ctx.needles, amount))
+
+
+# --- the gate's own search, every hit -------------------------------------------------
+
+
+_NUMERIC_NEEDLE = re.compile(rb"[0-9.,-]+")
+
+
+def gate_hits(haystacks: dict[str, bytes], needles: list[tuple[str, bytes]]) -> list[tuple[str, bytes, str]]:
+    """`contract.inspect`'s search — substrings of `contract.needles(values,
+    public)`, given — with every (code, needle, file) instead of the first
+    refusal. A numeric needle lies within a maximal run of `[0-9.,-]`, so only
+    those runs are scanned."""
+    numeric = {n for code, n in needles if _NUMERIC_NEEDLE.fullmatch(n)}
+    code_of = {n: code for code, n in needles}
+    others = [(code, n) for code, n in needles if n not in numeric]
+    lengths = sorted({len(n) for n in numeric})
+    hits = []
+    for rel in sorted(haystacks):
+        data = haystacks[rel]
+        for code, n in others:
+            if n in data:
+                hits.append((code, n, rel))
+        found: set[bytes] = set()
+        if lengths:
+            for m in _NUMERIC_NEEDLE.finditer(data):
+                run = m[0]
+                if len(run) < lengths[0]:
+                    continue
+                for i in range(len(run)):
+                    for size in lengths:
+                        if i + size > len(run):
+                            break
+                        s = run[i: i + size]
+                        if s in numeric:
+                            found.add(s)
+        hits += [(code_of[s], s, rel) for s in sorted(found)]
+    return hits
