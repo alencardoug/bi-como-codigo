@@ -163,14 +163,14 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | FPROTO-1-04 | `docs/framework_prototype.md:53` | The missing native row need not produce a reachable empty cell on the proposed page | `adjustment` | Applied (§2.1, §2.3, §2.6): G (no `fixture_raiz_3` row for `fixture_canal_c` in month 5) and Z (`fixture_raiz_2` netting 0.00 for `fixture_canal_b` in month 7), each with its filter, cell and exact text; the check refuses an altered DOM and a fixture mutant that fills G with a zero row. |
 | FPROTO-1-05 | `docs/framework_prototype.md:134` | Cache and delivery conditions are unspecified for first-load and five-run comparisons | `adjustment` | Applied (§2.7): one local server with `firebase.json`'s headers and negotiated compression; five cold runs in fresh profiles and five warm runs, reported apart; one injected timer, submit to all expected cells; per-request origin, wire bytes, encoding and cache flags, split by origin, raw and brotli sizes beside. |
 | FPROTO-1-06 | `docs/framework_prototype.md:195` | Environment scrubbing does not isolate dependency scripts from host credentials or publishing files | `observation` | Applied (§5, §3 A6): `npm ci --ignore-scripts` first, scripts run alone by package; installs and builds in `bubblewrap` with no home folder, checkout or sockets bound and no network at build; proved by a stat-only probe and a planted sentinel; the residual risk written. `bwrap` 0.6.1 ran unprivileged here on 2026-11-20 with the home folder absent (“Round 1 — the author's answer” below). |
-| FPROTO-2-01 | `docs/framework_prototype.md:195` | The encrypted build can query clear data, and X/X/Y can miss stable or noisy emissions | `blocking` | |
-| FPROTO-2-02 | `docs/framework_prototype.md:259` | Browser checks can pass while a worker retains clear Parquet after logout | `blocking` | |
-| FPROTO-2-03 | `docs/framework_prototype.md:84` | The decoy draw cannot remove a verified WASM collision with the fixed row count | `blocking` | |
-| FPROTO-2-04 | `docs/framework_prototype.md:182` | The verdict leaves gate outcomes and package handling undefined, and controls miss key branches | `adjustment` | |
-| FPROTO-2-05 | `docs/framework_prototype.md:63` | Z contradicts the mandatory uniqueness and significance rules for amounts | `adjustment` | |
-| FPROTO-2-06 | `docs/framework_prototype.md:318` | Variable pre-submit engine loading and warm state change the timed comparison | `adjustment` | |
-| FPROTO-2-07 | `DOSSIER.md:160` | The authored Status text falls outside the five-column table | `adjustment` | |
-| FPROTO-2-08 | `docs/framework_prototype.md:400` | A mount-only probe can report isolation while inherited environment entries remain visible | `observation` | |
+| FPROTO-2-01 | `docs/framework_prototype.md:195` | The encrypted build can query clear data, and X/X/Y can miss stable or noisy emissions | `blocking` | Applied in rev. 3 (§1, §2.2, §2.5): the build never receives report data — no clear file, no package, no cache; asserted before each build; the harness adds the package after the build, outside the sandbox; a candidate that cannot build without data fails the criterion (A3). The differential is removed; envelopes are exempt only once `verify` validated them. |
+| FPROTO-2-02 | `docs/framework_prototype.md:259` | Browser checks can pass while a worker retains clear Parquet after logout | `blocking` | Applied (§2.3 item 7, §2.5.3): logout terminates the DuckDB worker and replaces the page by a full navigation; after logout no worker or frame of the session may remain and the context must be new, not restored from the back-forward cache; all targets auto-attached; a body, target or storage not returned is inconclusive; one-carrier browser controls, among them a logout that keeps the worker. |
+| FPROTO-2-03 | `docs/framework_prototype.md:84` | The decoy draw cannot remove a verified WASM collision with the fixed row count | `blocking` | Applied (§2.1): the baseline is each candidate's builder output, fixture-independent by construction since the build has no data, and byte for byte the non-package part of the artifact; the draw checks the full `needles` set — values, totals object, row count, sums — with *k* free (220–226 rows), at most 1,000 draws; an unavoidable collision is a harness limitation; the `226` control in §2.5.5. |
+| FPROTO-2-04 | `docs/framework_prototype.md:182` | The verdict leaves gate outcomes and package handling undefined, and controls miss key branches | `adjustment` | Applied (§2.5.1, §2.5.4, §2.5.5): `verify`'s outcomes classified by subject — declarations and package refusals are `HARNESS_ERROR`, unknown messages too; `FORM`, `CONTENT`, `COLLISION`, `PASS`; a total verdict with precedence, an earlier inconclusive run blocking acceptance until that archive is re-inspected; one leak per control, each asserting its own diagnosis; fixed-label and varying-value controls apart; SvelteKit's fetched-data scripts among the structured carriers. |
+| FPROTO-2-05 | `docs/framework_prototype.md:63` | Z contradicts the mandatory uniqueness and significance rules for amounts | `adjustment` | Applied (§2.1): Z's exceptions stated — gross equals discount on its two rows, the two `0.00` neither distinct nor eligible; the coverage count after `needles`' deduplication; the shape checked before sealing; the count-sum assertion on populated summary cells. |
+| FPROTO-2-06 | `docs/framework_prototype.md:318` | Variable pre-submit engine loading and warm state change the timed comparison | `adjustment` | Applied (§2.7): submit as soon as the password field is enabled; four timestamps, navigation-to-summary and submit-to-summary reported apart; a full priming journey and new tabs for warm runs, carried state listed; every target's requests, in-flight ones counted apart at each cutoff. |
+| FPROTO-2-07 | `DOSSIER.md:160` | The authored Status text falls outside the five-column table | `adjustment` | Applied in `6c0d5bc`: the six answers moved into the fifth column; every findings row has five cells. |
+| FPROTO-2-08 | `docs/framework_prototype.md:400` | A mount-only probe can report isolation while inherited environment entries remain visible | `observation` | Applied (§5): `--clearenv` with a named environment, `--unshare-pid` with its own `/proc`, IPC, UTS, a new session, die-with-parent, descriptors beyond 2 closed; the probe runs through the real wrapper in both modes, by absolute host paths, with a synthetic token, the PID list, the descriptors and the network, each shown to fail with its option removed. |
 
 ## Round 1 — FPROTO
 
@@ -818,3 +818,31 @@ the mount protection and the incomplete proof.
 - [ ] **FPROTO-2-07** — Put the six round 1 answers into the rendered fifth column and verify it.
 - [ ] **FPROTO-2-08** — Account for inherited authority in the sandbox specification and prove the
   claimed isolation with synthetic sentinels through the real wrapper before dependency execution.
+
+
+## Round 2 — the author's answer
+
+Revision 3 of `docs/framework_prototype.md` answers all eight findings; each Status above says where.
+The central change is FPROTO-2-01's: instead of proving after the build that it did not open a
+package it had in reach, the build no longer has it — nor any other report data —, and the harness
+adds the package to the finished output. That also gives FPROTO-2-03 a baseline with no circularity:
+the builder output cannot depend on the fixture, and it is exactly the non-package part of what
+`verify` judges. It is still a plan: nothing of the prototype is built, and every **[planned]** and
+**[assumed]** is unmeasured.
+
+Run for it: nothing new beyond `make check` at the revision, exit 0. The round-2 reviewer's
+`make check` exited 2 on uv's read-only cache in its sandbox, before any check ran — an
+environment limit of that run, not of the repository.
+
+**Not verified, and where I hesitated:**
+
+- Whether Evidence can build its page with no data at all (A3) is now decisive for it: a "no" fails
+  it on the criterion. I chose that over letting the package into its build under a proof of
+  non-use, because round 2 showed such a proof has no trace to read.
+- The classification of `verify`'s outcomes in §2.5.1 reads its messages and codes, which are not a
+  stable API; an unknown message falls to `HARNESS_ERROR`, so a change in the gate stops the run
+  instead of passing it.
+- Logout by a full navigation is the prototype's; 2.5 may want a softer logout, and would have to
+  re-prove §2.5.3 for it.
+- The back-forward cache: §2.5.3 requires a new execution context after logout, but how Chrome
+  treats a page with a terminated worker there is not measured.
