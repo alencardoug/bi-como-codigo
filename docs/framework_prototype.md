@@ -9,7 +9,8 @@
 >
 > **What does not:** why there is a comparison and who chooses — [PLAN §1.2](../PLAN.md#12-the-decisions),
 > N3, and [§7](../PLAN.md#7-what-is-still-decided-at-the-right-moment); where the engine is loaded
-> from — N2 and N94; what the oracle guards against — N95; the envelope the page opens —
+> from — N2 and N94; what the oracle guards against — N95; what the verdict judges, and where the
+> browser's oracle is built — N96 and stage 2.5; the envelope the page opens —
 > [`encryption_envelope.md`](encryption_envelope.md); the package-to-artifact gate whose `verify` is
 > one part of the oracle here, its formats and its limits — [`package_gate.md`](package_gate.md); the
 > complete P01 report, with its accessibility, narrow screens, themes and the partial-month and
@@ -17,7 +18,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-20 — revision 7, answering round 6 of Codex's review (FPROTO-6-01 to -08). Revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
+| Date | 2026-11-20 — revision 8, answering round 7 of Codex's review (FPROTO-7-01 to -06) with the Owner's N96. Revision 7 answered round 6 (FPROTO-6-01 to -08), revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
 | Author | Claude Code |
 | Status | **Planned.** Nothing of it is built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
 
@@ -61,8 +62,15 @@ apart, in its own work tree, and shows whether and how the candidate runs report
 time (A1); it is the diagnostic the criterion asks about, and the oracle's proof that it sees each
 candidate's carriers. A candidate whose encrypted route cannot deliver the page is reported as **"the
 encrypted route is not possible"**, with the probe and its output (A3); it is not said to have run a
-query unless an output shows it did. What can still carry clear data in the encrypted route is the
-browser, which §2.5.3 judges.
+query unless an output shows it did.
+
+**What the verdict judges (N96).** The criterion is about the finished build output, and so is the
+verdict: `verify`, the inspection of the builder output and of the artifact (§2.5.1–§2.5.4). What
+each candidate does in the browser after login — what it stores, what it keeps after logout, when it
+decrypts — is **measured and reported** as part of the comparison (§2.5.3), not judged: a browser's
+storage paths have no closed list, and seven rounds of review showed that a complete observation of
+them is a project of its own. That oracle is built at stage 2.5, for the chosen framework only, with
+its own plan and review; what 2.3 observes of each candidate is its starting point.
 
 ## 2. The common ground
 
@@ -283,9 +291,9 @@ tarball. The own build's subresource-integrity attributes are generated from it.
 
 The **artifact** — the builder output with the validated package added by the harness — is judged
 by the gate's `verify` (§2.5.1); the builder output and the artifact are inspected for fixture data
-(§2.5.2); the browser is judged from before the page's first script to after logout (§2.5.3). The
-verdict combines the three (§2.5.4), and the controls of §2.5.5 prove each part before its "pass"
-means anything.
+(§2.5.2). The verdict combines the two (§2.5.4), and the controls of §2.5.5 prove each part before
+its "pass" means anything. The browser is observed as a diagnostic (§2.5.3), outside the verdict
+(N96).
 
 #### 2.5.1 The gate's own `verify`, and its harness
 
@@ -352,12 +360,13 @@ of the candidate. Step 1 of §7 proves each row with its own control (§2.5.5).
 **Outputs are kept.** Every builder output is archived, as a tarball with its SHA-256, the moment
 its build ends and before any check — under `prototypes/framework/<candidate>/runs/`, ignored by
 Git —, and so is every artifact and everything §2.5.3 collects in the browser. A setting produces a
-new run; the earlier archives stay and keep their verdicts (§2.5.4).
+new run; the earlier archives stay and keep their verdicts (§2.5.4). An archive is inspected from
+the archive, so a builder output archived and never inspected can be inspected later, as it was.
 
 **The carrier inspection [planned].** `prototypes/framework/inspect_output.py` reads a set of files
 and names the carrier of any fixture value it finds. It runs on the builder output — where, by §2.2,
 nothing can be found, and finding something means the harness let data into the build —, on the
-artifact, and on what §2.5.3 collects. Its needles are the fixture's values **and the results of the
+artifact, and, for the diagnostic, on what §2.5.3 collects. Its needles are the fixture's values **and the results of the
 page's queries** — every summary and detail cell under every filter, from the oracle of §2.6 —, since
 a cache of a query holds results, not rows.
 
@@ -369,20 +378,18 @@ number — are everywhere in code and metadata, so what is compared depends on w
   small integers — `month_number`, and `year_number` as a number — are never integer needles on
   their own: a protocol version of `1` or a month number in a metadata document is nothing to
   report;
-- **the calendar is matched as a pair** (FPROTO-6-03): inside a structured, data-bearing record — one
-  JSON or devalue object, one Arrow or Parquet row, one stored record, one history state —, two
-  integer fields whose values are the `year_number` and the `month_number` of one month of the
-  fixture's window are a finding, `INSPECT_CALENDAR`, whatever the fields are called; so is a
-  `year_month` string. A report filter snapshot holding `2048` and `5` side by side is found; a
-  version `1` beside a scroll offset is not a month of the window unless its pair is;
+- **the calendar** is reached as text — a `year_month` string, the labels — and, in the artifact,
+  by the gate's own search of `year_number`; in what the browser diagnostic collects, two integer
+  fields of one structured record whose values are a year and a month of the fixture's window are
+  also reported, `INSPECT_CALENDAR`, as a lead and not a proof (§2.5.3);
 - **code-bearing files** — HTML, JavaScript, CSS, WASM, fonts, images, anything served as the page
   itself —: every text needle; every amount with a fraction, in each spelling of
   `contract.spellings` and in its shortest JavaScript spelling; and the integer needles only inside
   a structured carrier found in them;
 - **data-bearing carriers** — a JSON, devalue, Arrow IPC or Parquet document found anywhere, a
   SvelteKit fetched-data script, and every store, write and history or navigation state of §2.5.3
-  —: every text needle and amount, the integer needles in any spelling, so that `20000` in
-  `orders=20000` written to a store is found, and the calendar pairs.
+  —: every text needle and amount, and the integer needles in any spelling, so that `20000` in
+  `orders=20000` written to a store is found.
 
 **The draw and the inspection use one function.** The draw of §2.1 calls the inspection's own
 recursive dispatch — the same roles, layers and needles — on both builder outputs, so that what it
@@ -407,95 +414,43 @@ outside it is not "clean", it is inconclusive. In the encrypted route the list i
 not the argument: §2.2 keeps data out of the build; the list names the carrier when a control or
 the clear mode puts data in.
 
-#### 2.5.3 In the browser
+#### 2.5.3 The browser, as a diagnostic (N96)
 
-Every Chrome target of the run — the page, its frames and its workers of every type, nested ones
-included — is observed from before its first script runs: the check discovers every target of the
-browser (`Target.setDiscoverTargets`) and attaches to each with execution paused at start, repeating
-the auto-attach inside every attached session, so that nested targets are reached; the
-instrumentation below is installed in each target before it resumes, and in every page realm by
-`Page.addScriptToEvaluateOnNewDocument`. The check then reconciles what it instrumented with what
-exists: every discovered target, and every execution context reported by `Runtime` in each — page,
-frames, workers —, must carry the instrumentation. **A target or context without it, a request
-without a captured body where one was expected, or a store that could not be enumerated makes the
-run inconclusive**; a reply that has no body by its status — a `304`, a `204` — is recorded as such,
-not as a missed capture.
+What each candidate does in the browser is measured and reported, not judged (§1). The diagnostic
+runs on the fixed **journey** — navigation; a wrong password, submitted; the right one; the filters
+and months of §2.6; logout; the new login page — with the DevTools protocol attached to every target
+it can reach, recursively, paused at start where it can, and records **what it observed and what it
+could not observe**, both in the report. Nothing here is claimed complete. **[planned]**
 
-The **journey** observed is fixed: navigation; a **wrong password**, submitted; the right one; the
-filters and months of §2.6; logout; the new login page. In each instrumented realm:
+- **When it decrypts.** `crypto.subtle.deriveKey`, `deriveBits`, `unwrapKey` and `decrypt` are wrapped
+  in each instrumented realm, each call attributed to the submission active when it started. The
+  unchanged reader (`web/envelope.mjs`) allows: before any submission, no call; after a wrong
+  password, a derivation and a failed unwrap; after the right one, derivation, unwrap and decrypt.
+  Anything else is reported as `PREMATURE_DECRYPT` or `UNEXPECTED_DECRYPT`.
+- **What it stores.** The stores the candidate opens, recorded at their entry points in every
+  instrumented realm — `indexedDB.open`, `caches.open`, `navigator.storage.getDirectory`, the Web
+  Storage areas, cookies, service worker registrations, `history.pushState` and `replaceState`, the
+  Navigation API's state calls —, with the values the protocol or a hook gives: `DOMStorage` events,
+  IndexedDB `put`, `add` and cursor updates, CacheStorage enumerated on its content events, history
+  and navigation state as written. Each value goes to the carrier inspection as a data-bearing
+  carrier (§2.5.2).
+- **What persists.** After the journey, the browser is closed and **its profile directory on disk**
+  is read whole by the carrier inspection, with the decoders its formats need — LevelDB with its
+  Snappy blocks, SQLite —, so that what the candidate persisted is seen whatever API wrote it; the
+  envelope, the artifact's own files and the pinned third-party bodies in the HTTP cache are
+  recognised by digest, and any file of the profile no layer decodes is listed.
+- **What survives logout.** The workers and frames of the session still alive, the execution
+  context, the history entries and a `history.back()`, as §2.3 item 7 expects them.
+- **What it fetches.** Every effective response body the protocol returns, before and after login,
+  with the envelope recognised by origin, canonical path and the validated digest of the decoded
+  body (§2.2).
 
-- **Decryption is observed where it can happen.** `crypto.subtle.deriveKey`, `deriveBits`,
-  `unwrapKey` and `decrypt` are wrapped, and each call is recorded with its timestamp, realm,
-  submission and outcome. What each moment allows is fixed by the unchanged reader
-  (`web/envelope.mjs`) (FPROTO-5-01): **before any submission**, no call at all; **after a wrong
-  password's submission**, a derivation, and an `unwrapKey` that fails — no successful unwrap, no
-  `decrypt`, no report opened; **after the right password's submission**, a derivation, a successful
-  unwrap and the report's `decrypt`. A call before any submission is `PREMATURE_DECRYPT`; a
-  successful unwrap or a `decrypt` after a wrong password is `UNEXPECTED_DECRYPT`; both are
-  findings, and both fail the criterion (§2.5.4). A call belongs to the submission that was active
-  when the call **started**; the permission a submission gives ends at logout, and the replacement
-  login page starts again from "before any submission" (FPROTO-6-01).
-- **Every store is observed from the moment it is opened** (FPROTO-6-02). Hooking each write path
-  of each API cannot be complete, so the check holds the entry points, which are few, and treats
-  anything it cannot capture after them as inconclusive:
-  - **the entry points** — `indexedDB.open`, `caches.open` and `caches.has`, the names they are given
-    recorded and inspected; `navigator.storage.getDirectory`; `navigation.updateCurrentEntry`,
-    `navigation.navigate` and `navigation.reload` with a state; `history.pushState` and
-    `replaceState`; the `document.cookie` setter and `cookieStore.set`;
-    `navigator.serviceWorker.register` — are wrapped in every realm, page and worker, and each call
-    is recorded;
-  - **Web Storage** values come from the protocol's `DOMStorage` events, which carry the value
-    whatever path the page used — `setItem` or a named property, as SvelteKit's own snapshots do;
-  - **IndexedDB** values come from hooks on `IDBObjectStore.put` and `add` and `IDBCursor.update`;
-    the protocol's `Storage.trackIndexedDBForStorageKey` events are the control: a content change it
-    reports that no hooked call explains is inconclusive;
-  - **CacheStorage** contents come from `Storage.trackCacheStorageForStorageKey`, each content event
-    triggering an enumeration of that cache on the spot, and each entry's body correlated with the
-    effective network body of the same request when the write was an `add` or `addAll`; an entry
-    whose body is neither enumerated nor correlated is inconclusive. A cache's name is inspected as
-    text when it is opened, so a name created and deleted before logout is still seen;
-  - **history and navigation state** — the state and URL of every `pushState`, `replaceState`,
-    `navigation.updateCurrentEntry` and navigation with a state, and `navigation.currentEntry
-    .getState()` at each enumeration — go to the inspection as data-bearing; a report selection in
-    the state of the one entry is a finding even after logout replaced that entry;
-  - **the origin private file system** has no write path the check can observe completely —
-    native writers and pipes bypass any stream hook —, so **any** call to
-    `navigator.storage.getDirectory` in a judged run makes it inconclusive, whatever it wrote;
-  - every value captured goes to the carrier inspection as a data-bearing carrier (§2.5.2), at the
-    moment of the write; a value written and deleted before logout is still a write. A store opened
-    whose mutation the check could not capture is inconclusive.
-- **The stores are enumerated by storage key**, through the DevTools protocol rather than the page:
-  for each origin and storage key the run touched — `Storage.getStorageKey` per frame —, the
-  IndexedDB databases and their records, the CacheStorage caches and their entries, `localStorage`
-  and `sessionStorage`, the cookies the browser holds for it, the service worker registrations with
-  their scripts, and, from inside the page realm, the origin private file system walked from
-  `navigator.storage.getDirectory()`. `Storage.getUsageAndQuota` is a cross-check, not a substitute:
-  usage above zero with nothing enumerated is inconclusive. They are enumerated before the first
-  submit, after the wrong password, after logout and on the new login page.
-- **Every effective response body** of every target is captured and inspected — before login as a
-  carrier that must hold nothing; after login, the package's envelope bodies are recognised by
-  binding, not exempted by URL: a body from the local origin at the canonical `package/` path whose
-  decoded bytes have the validated digest (§2.2) is an envelope, and any other body there is
-  inspected — during the wrong attempt too, which fetches the envelope before its unwrap fails. The
-  pinned third-party bodies are recognised by `cdn.json` (§2.5.2). **A reused body** — a `304`
-  revalidation, a memory or disk cache hit — is the effective response even when the wire carried
-  none: its bytes are captured from the protocol with `Network.getResponseBody`, which is preferred;
-  failing that, it is bound to the response already inspected **for the same request variant** —
-  same URL, same selected encoding, same strong `ETag` —, which a `304` confirms (FPROTO-6-05). Only
-  a reused body neither captured nor bound is inconclusive.
-- **After logout**: the targets must hold no worker or frame of the session — a DuckDB worker still
-  alive after logout is a finding by itself, whatever it holds —; the page's execution context must
-  be the login page's new one; and the history is checked against what §2.3 item 7 makes it:
-  `Page.getNavigationHistory` must hold exactly one entry, the login page's, and `history.back()`
-  must cause no traversal — no navigation event within two seconds and the same execution context
-  after it. A report page restored from the back-forward cache, or any entry of it in the history,
-  is a finding.
-
-Everything collected goes to the carrier inspection of §2.5.2. A value found fails the criterion,
-as a build-time one would: a framework that caches query results in the browser, decrypts before it
-is asked, or keeps the session's data alive after logout, carries clear data outside the envelope.
-What is not judged here, and is said so: the browser's own HTTP cache of the envelope, which is
-ciphertext, and memory the operating system has not yet reclaimed.
+A clear value found by the diagnostic, or a session that outlives logout, is reported first among
+that candidate's results, with where it was seen: a fact the Owner weighs when choosing, and one
+that the browser oracle of 2.5 must then answer for the chosen framework. It does not change the
+verdict, which is the criterion's. What the diagnostic could not see — a target it could not attach,
+a body it could not read, a profile file it could not decode — is reported beside it, so that an
+absence of findings is never read as a proof.
 
 #### 2.5.4 The verdict
 
@@ -504,33 +459,31 @@ tested in step 1 of §7 with a table of cases — synthetic run histories, judge
 kept apart from any candidate's history. Every real run is labelled when it starts — `judged`,
 `probe` or `control` —, and only judged runs enter a candidate's verdict; a probe's or a control's
 run is the evidence of that probe or control, and the harness asserts that none of them is in a
-candidate's history. A run is a sequence of stages — build, archive,
-inspection of the builder output, assembly, `verify`, inspection of the artifact, browser capture —,
-each with its class or its absence. **The mandatory stages depend on how the run ended**: every
-judged run requires its build, archive and the inspection of its builder output; one whose assembly
-ended in `FORM` requires nothing more — `verify` and the browser do not apply to an artifact that
-was not assembled —; every other requires all seven. **A judged run with a mandatory stage missing
-stays open** until a later judged run closes it (FPROTO-6-04): a run that failed or was interrupted
-**before an artifact existed** — before its archive, or at assembly with `HARNESS_ERROR` — is closed
-by a later judged run with **the same build input**, the digest of its allowlist, that completes the
-stage it lacked; a run whose artifact exists is closed only by **the same artifact digest** run again
-from an equivalent starting state with the stage complete. The precedence, first match wins:
+candidate's history. A run is a sequence of stages — build, archive, inspection of the builder
+output, assembly, `verify`, inspection of the artifact —, each with its class or its absence; the
+browser diagnostic is not one of them (N96). **The mandatory stages depend on how the run ended**:
+every judged run requires its build, archive and the inspection of its builder output; one whose
+assembly ended in `FORM` requires nothing more — `verify` does not apply to an artifact that was not
+assembled —; every other requires all six. **A judged run with a mandatory stage missing stays open**
+until it is closed (FPROTO-7-05): a builder output that was **archived but not inspected** is closed
+only by inspecting **that archive**; a run that failed or was interrupted **before its archive**
+existed is closed by a later judged run with **the same build input**, the digest of its allowlist,
+whose own builder output is then archived **and inspected**; a run whose artifact exists is closed
+only by **the same artifact digest** checked again with the stage complete. The precedence, first
+match wins:
 
 1. **fails the criterion** — in any judged run: `verify`'s `CONTENT`; a finding of the carrier
-   inspection in the builder output, the artifact or the browser; `PREMATURE_DECRYPT` or
-   `UNEXPECTED_DECRYPT`; a session's worker, context or history entry alive after logout. A later run never undoes it, and neither does a
+   inspection in the builder output or the artifact. A later run never undoes it, and neither does a
    `HARNESS_ERROR` in a later run: a setting that removed the carrier does not remove the run that
    showed it;
 2. **not run** — no run of the encrypted route exists, or **the encrypted route is not possible**
    (A3), with its probe: no verdict on the criterion, and the result says why;
 3. **stopped** — the latest run ended in `HARNESS_ERROR`, `COLLISION`, the draw exhausted, or a build
-   or a browser capture interrupted: no verdict until it is repeated;
+   interrupted: no verdict until it is repeated;
 4. **not established** — any judged run, earlier or latest, has a mandatory stage missing, or an
-   inconclusive file, target, context, body or store, that no later evidence resolved. Resolving means re-inspecting **that archived output or
-   capture** with the decoder that reads it, or re-running **the same artifact digest from an
-   equivalent starting state** — a fresh profile for a cold capture, the primed state of §2.7 for a
-   warm one — with the capture complete; a later run of another artifact, or from another state,
-   does not resolve an earlier one;
+   inconclusive file, that no later evidence resolved, as above. Resolving an inconclusive file means
+   re-inspecting **that archived output** with the decoder that reads it; a later run of another
+   artifact does not resolve an earlier one;
 5. **a cost** — the latest run's assembly or `verify` refused by `FORM`, or `verify` by
    `SCHEMA_ONLY`, and nothing above: cleared by a setting of the candidate's build, never by
    changing `verify`; the setting is recorded, the content of the output that carried the refusal
@@ -546,7 +499,7 @@ from an equivalent starting state with the stage complete. The precedence, first
 
 No part of the oracle is trusted until it has failed something real. Each control has **one** leak,
 in one carrier, and asserts its own diagnosis at the layer it is for — the class of the stage, the
-carrier code of the inspection, or the browser finding — and records the others, even where another
+carrier code of the inspection — and records the others, even where another
 part trips too. Controls built from the clear mode carry the clear-mode fixture, and are inspected
 with its needles:
 
@@ -567,11 +520,10 @@ with its needles:
 | Content behind form | a label in a `.map`; a label in a second `manifest.json` | `verify` `FORM`; inspection `INSPECT_TEXT`; verdict fails |
 | Carrier nobody listed | rows encrypted under a key the oracle does not hold | inspection inconclusive; verdict not established — and still so after a later clean run of another artifact |
 | A pinned body changed | a CDN response at a declared URL with other bytes, served by the check | inconclusive; the declared body, clean |
-| The package's body | the clean envelope at its canonical URL; a clear body served at that URL instead; a warm revalidation with body capture unavailable and the variant bound by its `ETag`; a revalidation with body capture unavailable and no `ETag` | clean; the inspection's own diagnosis for the clear body; clean for the bound reuse; inconclusive for the last |
 | Data in the inputs | a fixture file, a package, a clear-mode cache, each planted in an encrypted work folder | the allowlist check refuses the phase, naming the file |
 | No network for package code | an install and a build, each with a local listener serving a package on the loopback | the phase cannot reach it: the probe of §5 in that mode, through the real wrapper |
-| Browser, one each | the normal journey, a wrong password then the right one; a page that decrypts at startup with the public password; one whose wrong attempt unwraps successfully and decrypts, with no report rendered; one that writes a result into IndexedDB after login and deletes it before logout; one that updates a record through `IDBCursor.update`; one that writes a fixture label into `sessionStorage` by a named property and removes it before logout; one that writes `orders=` and a fixture count into `localStorage`; one that writes a result into CacheStorage; into a file of the origin private file system that it keeps after logout; one that puts a report selection into the history state by `replaceState`; one that keeps a selected month in the current entry by `navigation.updateCurrentEntry`; a worker that opens a cache named after the selected channel and deletes it before logout; a worker that fills a cache with `addAll`; a page that writes an OPFS file through a native writer and removes it; a filter snapshot in `sessionStorage` with a typed `year_number` and `month_number` of the window and no text; a logout that drops the table and keeps the worker with its registered file; a logout by `location.assign`, with the back-forward cache available, whose report page `history.back()` restores; a nested worker the check is denied; a context left uninstrumented; a response body withheld | clean for the first; `PREMATURE_DECRYPT`; `UNEXPECTED_DECRYPT`, and a failing judged verdict; a write finding, at the moment of the write, for each of the five writes; a finding for the retained store; a history finding; a navigation-state finding; a finding for the cache's name; the `addAll` entries correlated with their bodies, and a finding if they hold a value; inconclusive for the OPFS use; `INSPECT_CALENDAR`; a finding for the kept worker; a finding for the restored page; inconclusive for the last three. The collectors for retained values are proved apart, each on a value left in its store |
-| Verdict cases | synthetic histories, judged in the test: no run; a build interrupted before its archive, then a clean retry with the same build input; a build interrupted; a capture interrupted; the draw exhausted; an earlier inconclusive run followed by a pass; an incomplete cold capture followed by a clean warm one of the same artifact; a browser capture absent on artifact A followed by a clean run of artifact B; the same, then A run again from a fresh profile with the capture complete and clean; an assembly `FORM` with its builder output inspected; the same without that inspection; a content failure followed by a `HARNESS_ERROR` | not run; passes; stopped; stopped; stopped; not established; not established; not established; passes; a cost; not established; fails. And on the real history: no control or probe run is in it |
+| The diagnostic's own proofs | a page that decrypts at startup; one whose wrong attempt decrypts; one that writes a fixture label into `localStorage`; one that writes a result into IndexedDB and deletes it before logout; one that keeps a selection in the history state; a logout that keeps the worker | each reported by the diagnostic (§2.5.3) where it was seen — the IndexedDB one by the write and again by the profile scan if it persisted —; none changes a verdict. They prove the diagnostic can see what it reports, not that it sees everything |
+| Verdict cases | synthetic histories, judged in the test: no run; a build interrupted before its archive, then a clean retry with the same build input, archived and inspected; the same retry archived and never inspected; a builder output archived and not inspected, then that archive inspected and clean; a build interrupted; the draw exhausted; an earlier inconclusive file followed by a pass of another artifact; the same, then that archive re-inspected and clean; an assembly `FORM` with its builder output inspected; the same without that inspection; a content failure followed by a `HARNESS_ERROR` | not run; passes; not established; passes; stopped; stopped; not established; passes; a cost; not established; fails. And on the real history: no control or probe run is in it |
 | Clear mode | the candidate's natural clear build, in its own work tree, with the clear-mode fixture — Evidence with it as a clear Parquet source; the own build with a page that fetches the clear Parquet | the inspection names every carrier A1 found, each also copied **alone** into a clean artifact and diagnosed there |
 
 The controls run first on hand-made outputs (step 1 of §7), then on each candidate's own builder
@@ -595,7 +547,7 @@ DuckDB over the clear fixture:
 - **`order_count`**: the detail cells equal the native values of the fixture; the summary's header
   has exactly the columns of §2.3 item 4, and no summary element holds any of the sums §2.1 made
   distinct;
-- logs out, and runs §2.5.3's after-logout collection;
+- logs out, and runs the after-logout part of the diagnostic (§2.5.3);
 - records every network request of every target: only the local origin and `cdn.jsdelivr.net` at
   the declared URLs.
 
@@ -797,7 +749,8 @@ the checkout, the publishing tools — within reach. So **[planned]**:
 
 | Measure | How |
 |---|---|
-| The criterion | The verdict of §2.5.4 over every run of the encrypted route, with each stage's class, the inspection's findings and the browser's; the controls of §2.5.5, each with its expected diagnosis; A1's record of the clear mode |
+| The criterion | The verdict of §2.5.4 over every judged run of the encrypted route, with each stage's class and the inspection's findings; the controls of §2.5.5, each with its expected diagnosis; A1's record of the clear mode |
+| The browser's behaviour | The diagnostic of §2.5.3, outside the verdict (N96): when it decrypts, what it stores and what persists in the profile, what survives logout — with what the diagnostic could not see beside it |
 | The page works | The browser check of §2.6: a wrong password opens nothing; cells equal to the oracle after login, under each filter and month, G and Z told apart, `order_count` only native; logout ends the session's context; the check's own refusals of the altered DOM and of the mutant |
 | Lines we wrote | Per file, split into report declaration, glue and configuration |
 | Dependencies | Packages in the lockfile; size of `node_modules`; time of the fetch and of the offline install from an empty cache; scripts that had to run (A6) |
@@ -805,7 +758,7 @@ the checkout, the publishing tools — within reach. So **[planned]**:
 | The gate's lists | Lines of the inclusion list and extensions of the media types the artifact needs |
 | The draw | Seed, *k*, the calendar window, rejections by needle class and inspection, the package's digest (§2.1) |
 | First load | §2.7: encoded bytes observed by the login box and by the summary, and completed responses, cold, by origin, wire and raw, with what was served from cache |
-| Navigation to summary, submit to summary | §2.7: median and range of five cold and of five warm journeys, apart, with the clock's error |
+| Navigation to summary, submit to summary | §2.7: median and range of the five cold journeys, and of each warm series whose samples share their cache evidence — a sample that differs is its own series, and no statistic is taken across series (FPROTO-7-06) —, with the clock's error |
 | What was missing | Each probe answered "no", with its output, and each workaround |
 | Upkeep | Latest release and its date; the licence |
 
@@ -837,13 +790,14 @@ plainly cannot reach one of them is reported as such, with the observation behin
 
 | Choice | Taken | Alternatives | Why |
 |---|---|---|---|
+| What the verdict judges | The finished build output, as the criterion says; the browser measured and reported (N96) | Revisions 2 to 7's browser oracle as part of the verdict | The Owner's choice, on round 7: the stage decides between frameworks; the complete browser oracle belongs to the published page, at 2.5 |
 | What the oracle guards against | Ordinary behaviour of the frameworks, libraries and browser, and our reviewed page code (N95) | Also code turned against the oracle | The Owner's choice: the stage decides between frameworks by what they do on their own; deliberate deception by our own code is a review matter, not an oracle one |
 | The fixture's shape | P01's real columns, invented values, 61 months and 60 categories, with G, Z and the partial month in whole groups | 2.2b's three-column fixture; the 13 months of revision 3 | The page needs months, channels and categories to show what a framework costs; counts of five digits or more keep the gate's substring search from deciding by chance; whole groups keep every summary cell multi-row |
 | The fixture's values | Drawn after the encrypted builds, against both builder outputs with both inspections, with *k* free; a clear-mode fixture of its own | Fixed values; public values; one fixture for both modes | `verify` searches substrings, and a fixed value can be in a bundle by chance; drawn afterwards, the measured fixture cannot have been read by those builds; `public_values.json` keeps meaning "public by design" |
 | Where the engine loads from | jsDelivr, pinned, in both (N94) | Evidence's own origin | N2 and §3.4 already say so, for the quota; its 34 MB hold almost every short integer, which the gate would read as data |
 | How dependencies install | Fetched by the harness, installed and built offline | `npm ci` with the network open in the install phase | No package code then runs with a route to anything the machine serves (FPROTO-4-01) |
 | Where the package enters | After the build, by the harness, validated on its own and bound to the drawn fixture | In the build's static folder | A build with the package in reach can open it with the public password and leave no trace; a package validated apart from `verify` is recognised even when `verify` stops on form |
-| The oracle | The gate's own `verify`, the carrier inspection by role and the browser observed from before its first script, writes included, under one verdict | `verify` alone; a differential build | `verify` is what will judge the chosen framework in the publishing workflow, but cannot see a compressed, encoded or binary value; the differential of revision 2 could not see a result equal for every fixture |
+| The oracle | The gate's own `verify` and the carrier inspection by role, under one verdict on the build output; the browser as a diagnostic (N96) | `verify` alone; a differential build; the browser as a gate | `verify` is what will judge the chosen framework in the publishing workflow, but cannot see a compressed, encoded or binary value; the differential of revision 2 could not see a result equal for every fixture; a gate on the browser needs a complete observation of its stores, which seven rounds did not close, and is built at 2.5 for the chosen framework |
 | Logout | Terminate the engine's worker, then `location.replace` | Drop the tables | A dropped table leaves the registered file in the worker; a replaced page leaves one history entry and nothing of the session to check object by object |
 | Where `order_count` shows | Only in a detail table at the view's grain | In the summary, per row | No summary cell keeps the grain at which the count is defined (M4) |
 | Isolation | `bubblewrap`, with an allowlisted work folder, a named environment, its own PID namespace, no home folder, no checkout, no clear mode and no network | `env -i`; a container | `env -i` is not a sandbox; `bubblewrap` is on the machine and binds only what is named; Docker's daemon runs as root and is itself a credential |
@@ -873,10 +827,13 @@ plainly cannot reach one of them is reported as such, with the observation behin
   both inspections; if not, the run stops with the draw exhausted, reported. What a collision means
   for real data at 2.5 — a real count of three digits that a bundle happens to hold — is a question
   for the gate then, not answered here.
-- **[assumed]** that the DevTools protocol attaches every target before its first script, reports
-  every execution context, returns every body and enumerates every store §2.5.3 needs; what it does
-  not is inconclusive. That a candidate decrypts only through WebCrypto: a decryption of its own
-  would escape `PREMATURE_DECRYPT`; within N95, the page's only path is `web/envelope.mjs`.
+- **Not claimed, by N96**: that the browser diagnostic of §2.5.3 sees every store, write or target;
+  it reports what it saw and what it could not, and the complete browser oracle is 2.5's.
+- **[assumed]** that the DevTools protocol attaches the targets and returns the bodies the diagnostic
+  needs, and that Chrome's profile directory can be decoded — LevelDB, Snappy, SQLite — well enough
+  to be read; what is not is listed in the report. That a candidate decrypts only through
+  WebCrypto: a decryption of its own would escape the diagnostic's `PREMATURE_DECRYPT`; within N95,
+  the page's only path is `web/envelope.mjs`.
 - **[assumed]** that Hosting compresses text as the local server of §2.7 does; wire bytes from the
   local origin are an estimate of Hosting's, and raw bytes are reported beside them.
 - **[measured, partly]** `bubblewrap` 0.6.1 runs unprivileged on this kernel with the home folder not
