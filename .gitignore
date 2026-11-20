@@ -24,3 +24,4 @@ release/firebase-tools/node_modules/
 
 # Clear captures of the warehouse stay on this machine, never in Git (PLAN §6.2, stage 2.4; evidence/20261117/)
 /data/
+/alinhamento.md

@@ -1,5 +1,7 @@
 # Working conventions
 
+Caixa de correio: ao iniciar a sessão, leia @alinhamento.md; se houver aviso depois de "a partir daqui", leu, atua, apaga (regras no próprio arquivo).
+
 > **What lives here:** how this repository is worked on — language, naming, commits and the gate,
 > assisted development, the rules that are never broken and the definition of done.
 >
