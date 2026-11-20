@@ -185,6 +185,14 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | FPROTO-4-05 | `docs/framework_prototype.md:178–190,276–301,366–412,520` | Assembly and signature-only refusals have incomplete verdicts | `adjustment` | Applied (§2.5.1, §2.5.4, §2.5.5): classification by stage, assembly `FORM` in the cost branch; `SCHEMA_ONLY` for a zero-row schema Parquet, a cost, not a failure; a collision established by reproducing the gate's search with the same values, public set and haystack role, a mismatch `HARNESS_ERROR`; a missing mandatory stage stops; resolving a missed capture needs the same artifact from an equivalent starting state; controls for each. |
 | FPROTO-4-06 | `docs/framework_prototype.md:78–106,439–443` | Normal shape validation rejects the G mutant before the browser check | `adjustment` | Applied (§2.1, §2.6): the G mutant derived from the measured fixture after the draw, with its own expected shape and check, then sealed, validated and assembled; the comparator keeps the canonical G expectation and must refuse it on G and nothing else. |
 | FPROTO-4-07 | `docs/framework_prototype.md:450–481,518,603–605` | Cutoff byte counts need a shared clock and revalidation rules | `adjustment` | Applied (§2.7): one wall-time axis, network monotonic times mapped per session through `requestWillBeSent` pairs, the clock's error recorded; cutoff counts labelled as encoded bytes observed by CDP, reconciled with completion totals; wire status beside effective status, `304` wire bytes counted and reused bodies reported as served from cache; A7's local fallback a delivery condition of its own with a quota estimate; the accounting checked on a worker transfer spanning a cutoff and a warm revalidation. |
+| FPROTO-5-01 | `docs/framework_prototype.md:406–412,514–520` | The required wrong-password attempt triggers `PREMATURE_DECRYPT` on the unchanged reader | `blocking` | |
+| FPROTO-5-02 | `docs/framework_prototype.md:413–438,504` | Ordinary transient storage writes and serialized history state escape collection | `blocking` | |
+| FPROTO-5-03 | `docs/framework_prototype.md:139–150,361–382,490` | The numeric role rules and draw contradict the clean metadata and code control | `blocking` | |
+| FPROTO-5-04 | `docs/framework_prototype.md:448–477,494–505` | A later pass can erase a missing mandatory observation from an earlier artifact | `blocking` | |
+| FPROTO-5-05 | `docs/framework_prototype.md:401–404,427–431,501–505,574–583` | The package-body check lacks a control for changed bytes and cached effective responses | `adjustment` | |
+| FPROTO-5-06 | `docs/framework_prototype.md:123–127,213–221,519–537` | The G control needs its own assembly input and detail expectations | `adjustment` | |
+| FPROTO-5-07 | `docs/framework_prototype.md:566–589,716–717` | Successive warm samples can start with different browser cache state | `adjustment` | |
+| FPROTO-5-08 | `docs/framework_prototype.md:152–156,698–701,731–741` | The per-candidate targets have no shared draw and invalidation contract | `adjustment` | |
 
 ## Round 1 — FPROTO
 
@@ -1480,3 +1488,271 @@ Run for it: `make check` at each commit, exit 0. Nothing of the candidates was r
   measured; a realm without it is inconclusive.
 - The role split for numbers trusts the classification of a file as code-bearing; a JSON document
   served as code is still parsed as a structured carrier, so its numbers are compared.
+
+## Round 5 — FPROTO
+
+### 1. Conclusion
+
+**Changes required.** A correct wrong-password attempt triggers the proposed premature-decryption
+finding, and the clean JSON control contains numbers the supplemental rules require it to flag.
+Ordinary browser storage and history writes can go unseen. The verdict can also pass after an
+earlier artifact missed a mandatory check. Stage 2.3's plan review stays open under N95.
+
+### 2. Reviewed scope and version
+
+- `main` at `8d451845c00e914d15f9b247482bc1c1988f7e84`, eight commits ahead of `origin/main`
+  at `23dbcdd`. The working tree started clean with no untracked files. `76c7ebf..8d45184`
+  contains `fa68881`, `c63e545`, `594c636` and `8d45184`, modifying three existing documents.
+  `DOSSIER.md` is the only working-tree edit from this review.
+- Compared revision 5 at `594c636` with the round 4 baseline at `d1b6f4f` using
+  `git diff d1b6f4f 594c636 -- docs/framework_prototype.md`. Used `2178322` and `2542943`
+  for revisions 1 and 2. Reassessed the Status cells and the author's answer against the plan
+  and the evidence from rounds 1–4.
+- Applied `AGENTS.md`, `CLAUDE.md`, `PLAN.md` §1.2, §3.4, §6.2 and §7, the package gate and
+  its §6 limits, and the envelope contract. Traced the unchanged `release.verify`,
+  `contract.needles`, `spellings` and `inspect`, and the existing browser reader. Read the
+  affected Evidence, `universal-sql` and SvelteKit files in the pinned npm archives already
+  fetched for round 2.
+
+### 3. Findings by severity
+
+#### High — blocking
+
+**FPROTO-5-01 — A wrong password triggers `PREMATURE_DECRYPT`.**
+`docs/framework_prototype.md:406–412,514–520`, `web/envelope.mjs:307–322,350–367`,
+`tests/js/envelope.test.mjs:57–89`.
+
+The journey submits a wrong password first. PBKDF2 successfully derives an AES-KW key for that
+attempt. The unchanged reader rejects the password at `unwrapKey`, before decrypting the report.
+The successful derivation precedes the correct password's `submit`, so the plan marks it as
+`PREMATURE_DECRYPT` and permanently fails an otherwise correct candidate. The reader sequence is
+static evidence, and the existing wrong-password vectors passed in the review's `make check`.
+
+Define the expected operations per submission. Before any submission, neither a key derivation nor
+a report open may start. The wrong attempt may derive a key and fail the unwrap, with no successful
+unwrap, report decryption or opened report. Exercise the normal wrong-then-right journey and a
+separate startup-decryption control. The wrong-password UI predates revision 2. The conflicting
+timing rule and required wrong-password journey appear together in revision 5.
+
+**FPROTO-5-02 — Transient storage writes and history state can escape capture.**
+`docs/framework_prototype.md:413–438,504`.
+
+The listed `Storage.setItem` hook misses the native named-property setter. SvelteKit 2.8.4 itself
+writes `sessionStorage[key]` in `session-storage.js:20–26` and persists component snapshots on
+unload or when hidden (`client.js:351–371,2013–2046`). A snapshot of a report filter can contain a
+fixture label. If logout cleanup removes it before the snapshots the plan takes, both the hook and
+enumeration can miss the write. Updating a cached value through `IDBCursor.update` has the same
+gap in the listed IndexedDB hooks. These are ordinary storage paths. Static evidence from the
+pinned archive and the API definitions. [SvelteKit storage](https://cdn.jsdelivr.net/npm/@sveltejs/kit@2.8.4/src/runtime/client/session-storage.js), [SvelteKit client](https://cdn.jsdelivr.net/npm/@sveltejs/kit@2.8.4/src/runtime/client/client.js), [Web Storage](https://html.spec.whatwg.org/multipage/webstorage.html#the-storage-interface), [IndexedDB cursor](https://w3c.github.io/IndexedDB/#dom-idbcursor-update).
+
+The one-entry check proves the final history shape. A normal SvelteKit `replaceState` can put a
+report selection into serialized navigation state during the session while keeping one entry.
+The full logout navigation can replace that entry before it is checked. `Page.getNavigationHistory`
+has no field for serialized state. Observe history state and URLs when written, as well as the
+existing Back assertion. Cover the native store mutations through protocol events or equivalent
+hooks. Single-carrier controls should assert the mutation or history diagnosis before cleanup,
+including a named-property write, a cursor update and a same-entry history update. Separately prove
+the collectors for retained values. Context reconciliation and per-key snapshots do not substitute
+for those controls. The lifecycle gap predates revision 2. Revision 5 adds the incomplete hooks.
+[SvelteKit client `replaceState`](https://cdn.jsdelivr.net/npm/@sveltejs/kit@2.8.4/src/runtime/client/client.js), [HTML History API](https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-history-replacestate), [CDP Page domain](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/Page.pdl), [CDP DOMStorage events](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/DOMStorage.pdl).
+
+**FPROTO-5-03 — The clean metadata and bundle control contradicts the predicates.**
+`docs/framework_prototype.md:84–90,139–150,361–382,490`,
+`src/bi_como_codigo/contract.py:328–376`.
+
+The clean control adds a JSON document with protocol version `1` and a month number. A JSON
+document found anywhere is data-bearing, and its integers are compared as values. Every permitted
+61-month fixture contains month numbers 1–12. The scratch diagnostic confirmed the intersection
+for all starting months and confirmed that the existing gate's small-integer rule accepts this
+metadata. If the draw applies the supplemental predicate to that JSON in the builder output, it
+cannot converge. If the draw skips the JSON, the later inspection can fail the clean artifact.
+The other half of the control specifies that an incidental shortest-JavaScript literal matches the
+fixture amount even though it was present during calibration. A proper draw rejects that pairing.
+
+Specify the metadata fields whose schema and provenance establish their meaning and keep the rest
+of those documents searchable. Use identical recursive role dispatch in the draw and the scan.
+Require the metadata control to pass with a separate report-data integer control that fails, and
+require the incidental literal to reject a draw before the accepted fixture clears it. The gap
+between gate and supplemental eligibility dates to revision 2. These conflicting role rules and
+the clean control are new in revision 5.
+
+**FPROTO-5-04 — An earlier missing mandatory observation can disappear from the verdict.**
+`docs/framework_prototype.md:448–477,494–505`.
+
+The absent-stage and interrupted-capture branches apply only to the latest run. Suppose artifact A
+passes assembly, `verify` and static inspection, but browser capture never starts. No file, target,
+context, body or store was marked inconclusive because no capture exists. A different artifact B
+then completes cleanly. The written precedence permits `passes` even though A had no browser
+observation and B has a different digest. The existing table tests an absent stage on the latest
+run and a later pass after an explicitly inconclusive object. It omits this sequence. This follows
+from the specified branches without running the harness.
+
+Define the mandatory stages for each terminal outcome of a judged run. An assembly `FORM` can
+legitimately make `verify` and browser capture inapplicable, while its archived builder output
+still requires inspection. Keep a missing required observation on an earlier judged artifact open
+under the equivalent-state retry rule. Make probe and control runs explicit in the inputs to the
+verdict. Prove both `assembly FORM` with its required inspection and `capture absent on A → pass
+on B`, plus successful resolution on A. Revision 2 introduced archive-aware precedence.
+Revision 4 had the latest-only interruption gap. Revision 5 adds the same gap for absent stages.
+
+#### Medium — adjustment
+
+**FPROTO-5-05 — Prove browser binding on an effective body, including revalidation.**
+`docs/framework_prototype.md:401–404,427–431,501–505,574–583`.
+
+Origin, path and decoded digest are the right binding for an observed envelope. No planned
+browser control substitutes different bytes at the canonical package URL. The corrupt-envelope
+control stops at assembly, and the CDN control checks a different exemption. A collector that
+skips package bodies by URL would therefore pass those controls. The bodyless `304` example also
+needs to distinguish the wire reply from the effective response. CDP can report a wire `304`
+alongside effective `200` with reused content, as §2.7 already accounts for in the byte metric.
+This is a validation gap supported by the protocol, with no candidate trace in this review.
+[CDP Network domain](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/Network.pdl), [RFC 9111 §4.3](https://www.rfc-editor.org/rfc/rfc9111.html#section-4.3.3).
+
+Require capture of the effective bytes or a traceable binding to the same previously inspected
+representation on cache reuse. A missing effective body is inconclusive. Test the clean envelope,
+a single clear body at its URL with the inspector's own diagnosis, and a warm revalidation without
+proven body identity. Revision 1 recorded requests. Revision 2 added body collection without
+package binding. The digest rule and explicit bodyless-status exception arrived in revision 5.
+
+**FPROTO-5-06 — The G mutation changes the assembly input and the detail rows.**
+`docs/framework_prototype.md:123–127,213–221,519–537`.
+
+The separate shape check admits G's 12 added rows. Assembly still says the opened rows must equal
+the drawn fixture, which lacks them. Even with successful assembly, the canonical detail under
+`todos` or `fixture_canal_c` in month five is missing 12 rows the mutant legitimately renders.
+The scratch DuckDB query reproduced those differences and confirmed that only G's summary cell
+changes. The general instruction to retain the canonical expectation and fail only on G leaves
+these two comparisons at odds with the control.
+
+Pass the derived rows as this control's expected package input. Check its detail against those
+rows and retain the canonical expectation specifically for G's summary cell. Require a successful
+open, a clean mutant detail comparison and the specific G refusal. The live G mutant dates to
+revision 2. The current assembly row identity requirement and the G-only assertion are in revision 5.
+
+**FPROTO-5-07 — The five warm samples can start from different cache states.**
+`docs/framework_prototype.md:566–589,716–717`.
+
+Closing each tab and waiting for quiescence ends in-flight work. It leaves a single profile for
+all five samples after one prime. Chrome can create a disk code-cache entry on a second use of an
+eligible script and consume it on the third, saving compilation time. That change can happen with
+the same HTTP cache hit flags and no live target from the preceding sample. The warm median can
+mix first-warm and later code-cache states. This is an inference from Chrome's documented cache
+lifecycle and the sampling schedule. [V8 code-cache lifecycle](https://v8.dev/blog/code-caching-for-devs#code-caching-recap).
+
+Start each warm sample after the same predeclared priming sequence from independent profiles,
+or report distinct start states separately. Check the priming and sample traces against the
+same artifact and delivery condition. Revision 1 mixed cold and warm samples. Revision 2
+introduced the separate warm statistic over a progressively reused profile, which remains here.
+
+**FPROTO-5-08 — The per-candidate targets leave the shared draw implicit.**
+`docs/framework_prototype.md:152–156,698–701,731–741`.
+
+§7 correctly puts A6 and A1 in the clear-mode phase, then A7, A2 and A3 before one draw against
+both encrypted builds. §5 also gives each `make prototype-*` target its own build, draw and
+assembly. The target contract leaves unstated how the first invocation obtains both archived
+outputs, or how a later rebuild of one candidate invalidates both packages and measurements.
+Independent invocations can produce different fixtures and timings even though §6 reports one
+comparison. The conflict is static. The per-candidate targets date to revision 1. The shared
+post-build draw was added in revision 3, while the target descriptions retained a draw each.
+
+Give the entry points one shared source for the pair of final builder digests and the draw.
+Exercise the first invocation and a rerun of either candidate. Comparison requires both artifacts
+to carry the same package digest. A rebuild invalidates both sets of measurements, and an
+infeasible candidate leaves the comparison explicitly incomplete.
+
+### 4. Status of previous findings
+
+| ID | Reassessment | Evidence |
+|---|---|---|
+| FPROTO-4-01 | Resolved | §2.2 and §5 separate fetch from package execution and unshare the network for every install, selected rebuild script and build, including reruns. A6 is the install precondition, then A1 uses its own clear seed ahead of the encrypted builds in both §3 and §7. The pinned Node query path calls `connection.query` and the cache writes the resulting Arrow table with a query hash. A1 requires a populated result for its query claim. FPROTO-5-08 concerns target orchestration. |
+| FPROTO-4-02 | Partially resolved | §2.5.3 adds per-key enumeration, reconciles contexts, and tests one-entry logout with a restoration control. The protocol has `Storage.getStorageKey`. Data-bearing plain integers have a predicate. FPROTO-5-01 to FPROTO-5-03 cover the remaining phase, mutation and role gaps. |
+| FPROTO-4-03 | Partially resolved | §2.4 and §2.5.2 bind direct CDN responses to pinned URL and digest, make a changed body inconclusive and scope five digits to counts. The two inspections are called in the draw, but the role and control conflict remains in FPROTO-5-03. |
+| FPROTO-4-04 | Partially resolved | Assembly binds rows, inventory and entitlements. The independent manifest path applies the full gate needle set to labels behind `FORM`, with a dedicated control. A captured envelope requires the right origin, path and decoded digest. Its effective-body proof remains in FPROTO-5-05. |
+| FPROTO-4-05 | Partially resolved | The table classifies by stage and distinguishes `SCHEMA_ONLY` from populated Parquet. Reproduction uses the same search and haystack role, and an archive mismatch stops. Same-digest retries require equivalent state. FPROTO-5-04 covers missing stages and assembly `FORM` precedence. |
+| FPROTO-4-06 | Partially resolved | §2.1 gives G its own shape. The assembly equality and detail oracle still need separate expectations. See FPROTO-5-06. |
+| FPROTO-4-07 | Resolved | §2.7 maps clocks per session, labels observed progress, distinguishes wire 304 from a reused body and names a worker-transfer and revalidation control. The A7 local fallback has its own delivery condition and quota estimate. Warm start equivalence is FPROTO-5-07. |
+| FPROTO-1-01 | Partially resolved | Gate and supplemental inspection remain independent. The plan can still miss browser state and pass after an absent observation. See FPROTO-5-02 through FPROTO-5-05. |
+| FPROTO-1-05 | Partially resolved | Cold and warm, local and CDN, and the two timing intervals are explicit. Starting states and execution through the targets remain open in FPROTO-5-07 and FPROTO-5-08. |
+| FPROTO-1-06 | Resolved | The plan requires offline package execution, allowlisted mounts and explicit inherited state, with controls through the real wrapper. Execution of that wrapper remains a stage check. |
+| FPROTO-2-01 | Resolved | The encrypted build cannot read either fixture or a prior served package under the proposed mount and network boundary. The measured fixture is drawn later. |
+| FPROTO-2-02 | Partially resolved | Worker termination, a fresh context and one-entry history have separate checks. Transient store and serialized history writes remain open in FPROTO-5-02. |
+| FPROTO-2-04 | Partially resolved | The manifest, assembly and known verifier branches now have classifications. Missing-stage precedence and the browser package-body control remain in FPROTO-5-04 and FPROTO-5-05. |
+| FPROTO-2-06 | Partially resolved | Submit timing and the two intervals are fixed. The priming schedule still permits different warm starts. See FPROTO-5-07. |
+| FPROTO-2-08 | Resolved | §5 specifies the mount, environment, namespace and descriptor boundary and counter-proofs. Earlier component probes support parts of it. The full wrapper remains unverified. |
+| FPROTO-3-01 | Resolved | Fresh input allowlists and offline phases address initial builds and reruns. A3 separates infeasibility from a demonstrated clear query. |
+| FPROTO-3-02 | Partially resolved | Runtime reconciliation, listed write hooks and no-traversal checks improve coverage. FPROTO-5-01, FPROTO-5-02 and FPROTO-5-05 cover the remaining browser gaps. |
+| FPROTO-3-03 | Partially resolved | Round 4's six counts clear the pinned WASM and workers, and the CDN binding is specified. The supplemental calibration can still fail clean metadata. See FPROTO-5-03. The final build draw and A7 remain pending. |
+| FPROTO-3-04 | Partially resolved | Package identity and full label inspection behind form are explicit. Effective browser body validation remains pending under FPROTO-5-05. |
+| FPROTO-3-05 | Partially resolved | Reproduced collision, zero-row Parquet and separate form and content controls address the verifier issues. The mandatory-stage disposition remains open in FPROTO-5-04. |
+| FPROTO-3-06 | Partially resolved | Canonical groups still eliminate singleton summary cells. The revised G control has a feasible shape, with the package and comparator alignment open in FPROTO-5-06. |
+| FPROTO-3-07 | Partially resolved | §2.1 and §7 bind the final artifacts to one draw, and §2.7 specifies cutoff accounting. FPROTO-5-07 and FPROTO-5-08 cover cache and rerun comparability. |
+
+### 5. Checks executed and results
+
+- Ran `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` once at `8d45184` before editing.
+  Exit **0**. The uv and pytest caches and temporary directory were under `/tmp`. Reused the
+  round 4 Git adapter for upstream object existence checks through `git show`. The author
+  separately reported exit **0** at `8d45184` in the round 4 answer. Selected review output follows.
+
+  ```text
+  secrets review: nothing found in the tracked files
+  history review: nothing found (170 occurrence(s) of values public by design, 2 registered; 15 blob(s) skipped)
+  docs-check: 31 documents, 200 file links, 69 anchors, 23 ADR citations, 101 links into mvp_eng_dados_1 — nothing broken
+  adr-check: 3 accepted, 1 pending — record consistent
+  470 passed, 1 warning in 197.09s (0:03:17)
+  ℹ tests 157
+  ℹ pass 156
+  ℹ fail 0
+  ℹ skipped 1
+  ```
+
+- Ran a scratch `python -B` diagnostic with the repository's virtual environment, exit **0**.
+  Used synthetic values, the existing `contract.inspect` and an in-memory DuckDB query for G.
+
+  ```text
+  calendar: every starting month yields 1..12; both clean JSON integers match fixture month values
+  contract.inspect: that metadata passes the gate's small-integer eligibility rule
+  fifth-month todos: canonical detail=168; mutant detail=180; summary roots changed=[]
+  fifth-month fixture_canal_c: canonical detail=48; mutant detail=60; summary roots changed=[3]
+  ```
+
+- Read the pinned sources and the relevant browser protocol definitions. The A1 query evidence
+  is consistent with the cache implementation. The Node path runs the SQL on a cache miss and
+  `cache_for_hash` writes the result under `api/prerendered_queries/`, with the route's query-name
+  mapping to the result hash. A1 execution is still pending.
+  [Node query](https://cdn.jsdelivr.net/npm/@evidence-dev/universal-sql@3.0.1/src/client-duckdb/node.js), [Arrow cache](https://cdn.jsdelivr.net/npm/@evidence-dev/universal-sql@3.0.1/src/cache-duckdb.js).
+- Checked table shape, preservation of prior text and whitespace. Candidate installs, builds
+  and browser runs were outside the review's execution scope. Reused prior loopback and WASM
+  probe evidence without repeating those checks.
+
+### 6. Limitations and open questions
+
+- `PLAN.md:141` and the prototype plan's §1, §5, §8 and §9 agree on N95. Deliberately deceptive
+  page code or a compromised dependency bypassing the observed reader is a residual-risk
+  observation, because it requires code acting against the oracle. The findings above concern
+  ordinary operations, the unchanged reader or requirements for the harness itself.
+- Full wrapper and cache seeding, A1–A7, target attachment in the installed Chrome, control
+  diagnoses on actual artifacts, collision rate and all comparison measurements remain pending.
+  M54 and the earlier sandbox and WASM outputs are dated evidence. Revision 5 still marks the
+  prototype results as pending. PLAN §7 leaves the framework decision to the Owner.
+
+### 7. Handoff to Claude Code
+
+- [ ] **FPROTO-5-01** — Normal wrong-then-right login clears the phase check, wrong login opens no
+  report, and the startup-decryption control produces `PREMATURE_DECRYPT`.
+- [ ] **FPROTO-5-02** — Prove the named-property, cursor and same-entry history write paths with
+  separate controls and their specific diagnoses. Keep the per-key collection and logout checks.
+- [ ] **FPROTO-5-03** — Use the same role predicates in draw and inspection. Clean metadata passes,
+  a report integer fails, and an incidental literal forces a redraw before a clean pass.
+- [ ] **FPROTO-5-04** — Show the mandatory-stage matrix and exercise the `FORM` branch and an
+  earlier absent capture. A different artifact's pass leaves the missed observation open.
+- [ ] **FPROTO-5-05** — Prove canonical package URL and digest binding, including changed bytes and
+  a revalidated effective body. Missing body evidence yields inconclusive.
+- [ ] **FPROTO-5-06** — Assemble and open the G package against its derived rows. The detail agrees
+  with those rows and G alone fails its canonical summary assertion.
+- [ ] **FPROTO-5-07** — Start warm samples from equivalent primed conditions or report distinct
+  conditions separately, with the trace and artifact digest for each.
+- [ ] **FPROTO-5-08** — Trace both entry points to one shared draw from both archives. On a rebuild,
+  invalidate the pair of measurements and confirm the replacement pair shares a package digest.
+
