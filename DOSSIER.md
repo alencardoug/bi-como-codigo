@@ -201,6 +201,12 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | FPROTO-6-06 | `docs/framework_prototype.md:614–623,637–639,774` | Equal priming does not establish equal cache state | `adjustment` | Applied (§2.7): the warm condition reported as two standard priming journeys, not an equal cache state; each sample keeps its cache evidence — per-request reuse or revalidation and V8 code-cache consumption from a trace —; matching samples form a series, a differing one its own series; the split proved on a mismatched trace. |
 | FPROTO-6-07 | `docs/framework_prototype.md:154–158,748–757,769–774` | The shared state can reuse results after a byte-identical rebuild | `adjustment` | Applied (§5): the state keyed by build-invocation ids, build inputs and harness inputs as well as digests; any rebuild invocation, even byte-identical, and any harness-input change invalidate the draw, both artifacts and both measure sets; first comparison, identical rebuild and declaration change each shown to give a fresh comparison. |
 | FPROTO-6-08 | `docs/framework_prototype.md:229–233,822–824,842–845` | A deliberate replacement of the reader would escape the WebCrypto hooks | `observation` | No change needed: outside N95, and §9 of the plan already records it — the page's only path to the report is `web/envelope.mjs`, reviewed with the page code. |
+| FPROTO-7-01 | `docs/framework_prototype.md:438–474,573` | Storage notifications cannot prove which bytes or schema names were written | `blocking` | |
+| FPROTO-7-02 | `docs/framework_prototype.md:441–445,457–460,486–492` | Native fragment replacements escape URL inspection | `blocking` | |
+| FPROTO-7-03 | `docs/framework_prototype.md:441–445,461–474,573` | The OPFS guard misses named buckets and catches the collector's own walk | `blocking` | |
+| FPROTO-7-04 | `docs/framework_prototype.md:141–149,364–389,573` | The calendar rule misses split selections and matches unrelated metadata | `blocking` | |
+| FPROTO-7-05 | `docs/framework_prototype.md:352–355,507–533,574` | A retry can close a finished builder output that was never inspected | `adjustment` | |
+| FPROTO-7-06 | `docs/framework_prototype.md:528–533,638–652,806–808` | The results table still calls for one statistic across five warm runs | `adjustment` | |
 
 ## Round 1 — FPROTO
 
@@ -2108,3 +2114,250 @@ Chrome probes are the only browser runs so far, and they are what revision 7 lea
 - The calendar pair matches any two integer fields of one record; a record holding an unrelated
   year-like and month-like pair would be a false finding. Within the browser stores, which should
   hold no data at all, I judged that acceptable.
+
+## Round 7 — FPROTO
+
+### 1. Conclusion
+
+**Changes required.** Revision 7 closes the decryption verdict gap and specifies how to prove reuse
+of an inspected HTTP representation. Ordinary browser writes still escape the proposed collection
+or calendar predicates. A clean candidate run is therefore insufficient evidence under N95.
+Stage 2.3's plan review stays open.
+
+### 2. Reviewed scope and version
+
+- `main` at `242012340dc4230cdc703fe3e8934c191606b977`, 14 commits ahead of `origin/main`
+  (`23dbcdd`). The working tree started clean with no untracked files. The range
+  `3e95566..2420123` contains `c56f441` (round 6 record), `8fd890a` (revision 7), and
+  `2420123` (the author's Status cells and answer). It adds no files. This review changes
+  only `DOSSIER.md`.
+- Compared `git diff 3e9b9e2 8fd890a -- docs/framework_prototype.md`. The plan baseline
+  `3e9b9e2` is revision 6. Used `2178322` and `2542943` to date behavior in revisions 1 and 2.
+- Applied PLAN §1.2 (N95), §3.4, §6.2 (stage 2.3), and §7. Traced the unchanged
+  `release.verify`, `contract.needles`, `spellings` and `inspect`, the package gate's §6 limits,
+  the envelope reader contract, and the relevant pinned SvelteKit and Evidence source.
+
+### 3. Findings by severity
+
+#### High — blocking
+
+**FPROTO-7-01 — Storage notifications cannot prove which bytes or schema names were written.**
+High · `blocking`. `docs/framework_prototype.md:438–474,573`.
+
+- **CacheStorage.** A preview cache can overwrite a response as the selection changes or during
+  cleanup. The Chrome probe committed a clear response with `Cache.put` and then overwrote it.
+  Four identical content notifications arrived. Enumeration requested on the first notification
+  and the final enumeration both returned the replacement. No network request could substantiate
+  the intermediate body. §2.5.3 checks whether a returned entry has a body. Both enumerations can
+  satisfy that check with the same clean body, while the event carries too little information to
+  account for either write. [CDP Storage events](https://chromedevtools.github.io/devtools-protocol/tot/Storage/#event-cacheStorageContentUpdated), [CDP CacheStorage](https://chromedevtools.github.io/devtools-protocol/tot/CacheStorage/).
+- **IndexedDB.** A version upgrade can create a store keyed by the report period under a fixed
+  database name, and a later upgrade can remove it. The probe verified the committed store name.
+  Only list notifications arrived, with no store name. The database-open hook sees a fixed name,
+  and the content-event cross-check and final enumeration provide no coverage for the schema
+  write. The record value hooks still cover the cursor path tested in round 6.
+
+Require mutation evidence for each write or mark the affected run inconclusive. Capture
+`Cache.put` request metadata and response bytes at the call, and require a provable write-to-body
+match for network-backed insertion. Treat a later enumeration as proof only for bytes bound to
+that mutation. Cover IndexedDB schema names and record keys, including operations signalled only
+by list changes. Prove an overwritten cache entry and a transient schema name, plus a retained
+entry. Revision 2 introduced storage snapshots with the transient gap already present in
+revision 1. Removing the `Cache.put` hook is a revision 7 regression from revision 6.
+
+**FPROTO-7-02 — Native fragment replacements escape URL inspection.**
+High · `blocking`. `docs/framework_prototype.md:441–445,457–460,486–492`.
+
+A report can reflect the selected month in the current URL with `location.replace('#2048-05')`.
+Chrome emitted the marked URL in `Page.navigatedWithinDocument`, with zero calls to the listed
+history or navigation-state hooks and no network request carrying the marker. Full replacement at
+logout left exactly one clean entry. The post-logout check can pass after the earlier URL carried
+clear report data. Revision 7 adds Navigation API state hooks and drops the CDP URL feed that
+would catch this. [CDP same-document event](https://chromedevtools.github.io/devtools-protocol/tot/Page/#event-navigatedWithinDocument), [HTML Location API](https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-location-replace).
+
+Inspect same-document URLs from the protocol alongside native state. Prove that the fragment
+replacement is diagnosed when it happens, with one login entry after logout. URL coverage was
+absent in revisions 1 and 2, added in revision 6, and dropped in revision 7.
+
+**FPROTO-7-03 — The OPFS guard misses named buckets and catches the collector's own walk.**
+High · `blocking`. `docs/framework_prototype.md:441–445,461–474,573`.
+
+`StorageBucket.getDirectory()` is a separate ordinary entry point. In a clean Chrome origin the
+probe wrote a file there via a native writer, read it back, and deleted the bucket. There were zero
+calls to the default getter, no bucket left, and zero usage at the next quota read. The sole
+tracked event was an IndexedDB list invalidation, which contains no file or body evidence. The
+default-root walk found no file. The plan also calls the wrapped default getter for its own
+enumerations, so its literal “any call” condition fires during a clean walk. The probe counted one
+such call for the empty root. [Chromium StorageBucket interface](https://raw.githubusercontent.com/chromium/chromium/main/third_party/blink/renderer/modules/buckets/storage_bucket.idl).
+
+Make candidate use of either OPFS entry point inconclusive when capture is unproved. Account for
+named buckets and give observer-initiated collection explicit provenance, or collect without
+opening the default directory in the candidate realm. Prove clean collection, candidate default
+and named-bucket use followed by deletion, and the separate retained-file diagnosis. Revisions 1
+and 2 lacked OPFS coverage. The self-trigger and default-getter-only guard are specific to
+revision 7.
+
+**FPROTO-7-04 — The calendar rule misses split selections and matches unrelated metadata.**
+High · `blocking`. `docs/framework_prototype.md:141–149,364–389,573`,
+`src/bi_como_codigo/contract.py:328–376`.
+
+The added predicate finds two typed fields in one record and the draw now uses the full dispatch.
+Separate filter controls can persist their selections independently. Chrome delivered
+`{"year_number":2048}` and `{"month_number":5}` as two Web Storage writes. Each is clean under the
+documented browser predicate. The static gate finds the year when given the same bytes as a file,
+and never sees those browser writes. In the other direction, pinned SvelteKit persists its scroll
+position as an `{x,y}` record. A benign pair of `5` and `2048` is positive under the new rule and
+the build-output draw cannot calibrate a run-time scroll position. The Chrome writes and gate
+check were executed. The supplemental results follow from the stated predicate.
+[Pinned SvelteKit client](https://cdn.jsdelivr.net/npm/@sveltejs/kit@2.8.4/src/runtime/client/client.js).
+
+Bind calendar fields to their report context, including supported selection fields stored
+separately. Preserve count-only generic integers. Prove the paired and split selections with no
+`year_month` string, and clean version/month and scroll metadata. Run the same dispatch during
+calibration. Browser numeric coverage was absent in revision 1. Revision 2 introduced the browser
+scan, revision 6 explicitly excluded standalone calendar integers, and revision 7 introduces
+the unbound pair test.
+
+#### Medium — adjustment
+
+**FPROTO-7-05 — A retry can close a finished builder output that was never inspected.**
+Medium · `adjustment`. `docs/framework_prototype.md:352–355,507–533,574`.
+
+Suppose run A archived a finished build and stopped before its builder inspection. Run B can
+use the same allowlist, produce different output bytes, and complete the inspection and every
+later stage. The new pre-artifact rule keys closure by build input and never requires the retry
+to inspect A's archived bytes. Rule 4 refers to the archived output, so the two rules leave this
+case ambiguous. Applying the pre-artifact rule by itself lets B's scan stand in for A's mandatory
+inspection. This follows from the plan's stage rules. Both builds remain subject to the
+encrypted input isolation.
+
+Use the allowlist digest for retry when no finished archive exists. Bind required inspection to
+the existing builder archive once it exists, and keep the artifact-digest rule after assembly.
+Prove that B's scan alone leaves A open and that scanning archived A closes it. Keep the
+before-archive retry and both assembly `FORM` cases in the synthetic histories. Revision 2 added
+the archive and revision 7 introduced this closure rule.
+
+**FPROTO-7-06 — The results table still calls for one statistic across five warm runs.**
+Medium · `adjustment`. `docs/framework_prototype.md:528–533,638–652,806–808`.
+
+§2.7 now splits warm runs by observed cache evidence. §6 still specifies a median and range of the
+five warm journeys. With three disk-cache uses and two fresh `200` responses for the same script,
+the literal result in §6 pools two conditions that §2.7 separates. This is a static contradiction.
+No candidate timing was taken.
+
+Make §6 report the statistic and sample count for each qualified series, with unqualified samples
+identified. Use the mismatched-trace control to check the actual reported rows. Also state what
+evidence makes a warm retry equivalent under §2.5.4, since the same priming schedule can yield
+different cache evidence. Revision 1 pooled timings and revision 2 added a separate warm
+aggregate. The retained table row conflicts with the new split in revision 7.
+
+### 4. Status of previous findings
+
+| ID | Reassessment | Evidence |
+|---|---|---|
+| FPROTO-6-01 | Resolved | §2.5.3 assigns calls at start and resets permission at logout and on the new page. §2.5.4 fails both findings. §2.5.5 adds the wrong-attempt control. The unchanged reader derives before the failed unwrap, as the clean journey expects. |
+| FPROTO-6-02 | Partially resolved | The named Web Storage, cursor, cache-name and native state paths are covered as specified. Default OPFS use now has an explicit disposition. Mutation evidence, native URL coverage and named-bucket OPFS remain open in FPROTO-7-01 to -03. |
+| FPROTO-6-03 | Partially resolved | The same-record typed control and full dispatch address round 6's examples. Split selections and unrelated pair matches remain open in FPROTO-7-04. |
+| FPROTO-6-04 | Partially resolved | The histories are synthetic, real controls stay out of candidate history, and there is a same-input retry before archive. Existing archives before assembly need FPROTO-7-05. |
+| FPROTO-6-05 | Resolved | §2.5.3 prefers the effective bytes, then binds URL, encoding and strong validator. §2.7 specifies per-representation tags and `Vary`. The planned controls with capture unavailable distinguish bound reuse from unprovable reuse. The envelope binding includes the wrong attempt. [RFC 9110 §8.8.3.3](https://www.rfc-editor.org/rfc/rfc9110.html#section-8.8.3.3). |
+| FPROTO-6-06 | Partially resolved | §2.7 qualifies series by observed HTTP and code-cache evidence, with a mismatched trace. The required report in §6 still needs FPROTO-7-06. |
+| FPROTO-6-07 | Resolved | §5 binds invocation and harness inputs, invalidates a byte-identical rebuild or a declaration change, and requires fresh comparison evidence. |
+| FPROTO-6-08 | Resolved as an observation | §2.2 and §9 retain the reviewed reader boundary. Deliberately replacing it to get around the collector requires adversarial page code or a compromised dependency, outside N95. |
+| FPROTO-5-01 | Resolved | The clean wrong-then-right sequence and forbidden wrong-attempt outcome now agree with the reader and verdict. See FPROTO-6-01. |
+| FPROTO-5-02 | Partially resolved | Named writes, cursor updates and Navigation API state are accounted for. The remaining collection gaps are FPROTO-7-01 to -03. |
+| FPROTO-5-03 | Partially resolved | Count-only generic integers and full role dispatch agree. The typed-calendar boundary remains open in FPROTO-7-04. |
+| FPROTO-5-04 | Partially resolved | A different artifact cannot close a missing browser capture. Synthetic histories cover this and both assembly `FORM` cases. A finished builder archive still needs FPROTO-7-05. |
+| FPROTO-5-05 | Resolved | The changed-body and body-unavailable reuse controls in §2.5.5 now test identity and its absence. See FPROTO-6-05. |
+| FPROTO-5-07 | Partially resolved | The independent primes and trace split are specified. The aggregate in §6 still pools warm conditions. See FPROTO-7-06. |
+| FPROTO-5-08 | Resolved | The shared command binds one package and both current builds and invalidates on either invocation or changed harness input. |
+| FPROTO-1-01 | Partially resolved | The gate and supplemental output inspection operate independently, including behind `FORM`. Incomplete browser evidence and archive closure remain open. |
+| FPROTO-1-05 | Partially resolved | Encoded variants and build identities are bound. The warm reporting rule still needs FPROTO-7-06. |
+| FPROTO-2-02 | Partially resolved | Context replacement, worker lifetime and history traversal checks remain. State can persist during the journey through FPROTO-7-01 to -04. |
+| FPROTO-2-04 | Partially resolved | The gate classifications match `release.verify`. Browser response binding and the synthetic control inputs are specified. Pre-assembly archive closure remains open. |
+| FPROTO-2-06 | Partially resolved | Immediate submit, both intervals and independent priming are specified. The warm report still needs FPROTO-7-06. |
+| FPROTO-3-02 | Partially resolved | Target reconciliation and wrong-attempt and reused-response rules are specified. Browser storage and URL capture still have the gaps above. |
+| FPROTO-3-03 | Resolved | The full calibration dispatch is consistent. The six counts passed the earlier pinned WASM/worker check. A7 and the final draw remain planned. |
+| FPROTO-3-04 | Resolved | Validated package binding and manifest-label inspection survive `FORM`. Effective browser reuse now has a representation check. |
+| FPROTO-3-05 | Partially resolved | `FORM`, `SCHEMA_ONLY`, collisions and verdict controls have dispositions. Retry evidence for a finished builder remains open in FPROTO-7-05. |
+| FPROTO-3-07 | Partially resolved | Common package, per-origin accounting, cutoff clocks and invalidation are specified. The warm reporting conflict remains. |
+| FPROTO-4-02 | Partially resolved | Named writes, cursor hooks and count rules are retained. Mutations, URLs and typed values still escape in FPROTO-7-01 to -04. |
+| FPROTO-4-03 | Resolved | §2.1 and §2.5.2 now call the same full dispatch. Pinned CDN bodies are bound by URL and digest. |
+| FPROTO-4-04 | Resolved | Assembly validates rows, inventory and entitlements. The full gate set applies to manifest labels behind `FORM`, and the browser fallback binds cached bytes. |
+| FPROTO-4-05 | Partially resolved | Gate classification, verdict-control isolation and same-artifact retry are specified. FPROTO-7-05 remains open before assembly. |
+
+### 5. Checks executed and results
+
+- Ran `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` once on the clean
+  `2420123` checkout before editing. `UV_CACHE_DIR` and the pytest cache were under `/tmp`.
+  Exit **0**. The upstream `git cat-file -t` checks were the authorized read-only lookups.
+  The author separately reported exit **0** at `2420123`. Selected reviewer output follows.
+
+  ```text
+  history review: nothing found (170 occurrence(s) of values public by design, 2 registered; 15 blob(s) skipped)
+  docs-check: 31 documents, 200 file links, 69 anchors, 23 ADR citations, 101 links into mvp_eng_dados_1 — nothing broken
+  adr-check: 3 accepted, 1 pending — record consistent
+  470 passed, 1 warning in 195.56s (0:03:15)
+  ℹ tests 157
+  ℹ pass 156
+  ℹ fail 0
+  ℹ skipped 1
+  ```
+
+- Ran synthetic browser primitive probes with the repository's `.venv` Python (`-B`) and
+  Chrome `156.0.8078.79` under `bwrap`. The final main probe and the fresh-origin bucket probe
+  both exited **0**. Early attempts exposed an omitted Python runtime alias and two probe
+  assumptions about the blank initial entry and background favicon traffic. The corrected
+  probe used a true initial replacement and tested for document requests or requests with the
+  marker. The final probe scripts and profiles are under `/tmp/fproto7-browser.h2M7QB`.
+
+  ```text
+  CacheStorage overwrite {"after": "empty", "contentEvents": 4, "firstEnumeration": "empty", "lastEnumeration": "empty", "networkRequests": 0, "sameEventPayload": true, "whileStored": "2048-05"}
+  IndexedDB schema {"after": ["settings"], "contentEvents": 0, "listEvents": 4, "markerInEvents": false, "whileStored": ["2048-05", "settings"]}
+  Fragment replacement {"entryCountAfterLogout": 1, "entryCountBeforeLogout": 1, "historyHookCalls": 0, "markerAfterLogout": false, "navigationStateHookCalls": 0, "networkRequestsWithMarker": 0, "withinDocumentURLHasMarker": true}
+  Calendar snapshot writes [{"year_number": 2048}, {"month_number": 5}]
+  Bucket OPFS {"available": true, "bucketsAfter": [], "defaultDirectoryCalls": 0, "trackedStoreEvents": ["Storage.indexedDBListUpdated"], "usageAfterBucketDelete": 0, "usageBefore": 0, "whileStored": "2048-05"}
+  Default OPFS enumeration {"calls": 1, "names": []}
+  ```
+
+- Scratch `contract.inspect` and the documented calendar predicate on synthetic records,
+  `.venv/bin/python -B`, exit **0**. The predicate in this diagnostic is the plan's rule
+  evaluated on the examples. The supplemental scanner is still planned.
+
+  ```text
+  paired documented pair predicate: True static gate: clear_value (in entry-0)
+  split documented pair predicate: False static gate: clear_value (in entry-0)
+  scroll documented pair predicate: True static gate: clear_value (in entry-0)
+  version_and_month documented pair predicate: False static gate: PASS
+  ```
+
+- Re-read the pinned tarballs from round 6 to check SvelteKit's snapshot and scroll storage and
+  Evidence's engine initialization and prerender-cache reads. Reused prior cursor, named-property,
+  revalidation and gate-layout evidence. Candidate installs, builds, full journeys and timings
+  remain implementation work under this review's execution scope.
+
+### 6. Limitations and open questions
+
+- The probes establish browser and protocol behavior on synthetic inputs in one Chrome version.
+  Candidate behavior, complete target attachment, A1–A7, the actual draw, the full wrapper,
+  variant fallback controls and cache trace qualification remain implementation checks.
+- The conclusion applies to revision 7. The remaining blockers use ordinary APIs and good-faith
+  state handling. The deliberate reader substitution remains the documented N95 residual risk.
+  Results in §10 remain pending and PLAN §7 leaves the framework decision to the Owner.
+
+### 7. Handoff to Claude Code
+
+- [ ] **FPROTO-7-01** — Diagnose a transient cache body and a transient IndexedDB schema name,
+  or withhold the verdict if their mutations are unaccounted for. Retained-value controls still
+  exercise enumeration.
+- [ ] **FPROTO-7-02** — Diagnose the report value in a native fragment replacement at the event,
+  with the normal clean history after logout.
+- [ ] **FPROTO-7-03** — Separate collector calls from candidate OPFS use. Default and named-bucket
+  transient writes produce an explicit disposition. The clean collector and retained-file
+  controls each produce their expected result.
+- [ ] **FPROTO-7-04** — Find paired and split typed calendar selections. Pass clean scroll and
+  version metadata, and demonstrate calibration with the same dispatch.
+- [ ] **FPROTO-7-05** — An unchecked archive stays open after a clean retry with different output
+  bytes from the same allowlist. Its own inspection closes it. A retry before archive can still
+  succeed by build input.
+- [ ] **FPROTO-7-06** — Make the report and retry rules agree with observed warm cache conditions.
+  Demonstrate separate summary rows and sample counts on the mismatched trace.
