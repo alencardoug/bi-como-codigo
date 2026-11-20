@@ -208,8 +208,8 @@ file —:
 - for the build, the `node_modules/` the install phase produced, archived with its listing.
 
 Before each phase the harness lists every file in the work folder and compares the listing with the
-allowlist: an extra, missing or changed file refuses the phase. The fixture generator, every
-fixture, every package and the whole **clear mode** — its fixture, its work tree, its npm cache, its
+allowlist: an extra, missing or changed file refuses the phase. What the fixture generator
+writes — every fixture, every package — and the whole **clear mode** — its fixture, its work tree, its npm cache, its
 build output, its query caches, its `.evidence/` and `.svelte-kit/` folders — live under
 `prototypes/framework/clear/`, which is never bound into the encrypted route's sandbox; the clear
 mode never shares a work folder or a cache with it.

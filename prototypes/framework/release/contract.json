@@ -1,0 +1,24 @@
+{
+  "contract_version": 1,
+  "reports": {
+    "P01": {
+      "version": 1,
+      "columns": [
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "sales_channel_name", "type": "VARCHAR", "nullable": false},
+        {"name": "channel_type", "type": "VARCHAR", "nullable": false},
+        {"name": "root_category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "order_count", "type": "BIGINT", "nullable": false},
+        {"name": "unit_count", "type": "BIGINT", "nullable": false},
+        {"name": "gross_revenue_amount", "type": "DECIMAL(18,2)", "nullable": false},
+        {"name": "discount_amount", "type": "DECIMAL(18,2)", "nullable": false},
+        {"name": "net_revenue_amount", "type": "DECIMAL(18,2)", "nullable": false}
+      ],
+      "grain": ["year_month", "sales_channel_name", "category_name"],
+      "sums": ["unit_count", "gross_revenue_amount", "discount_amount", "net_revenue_amount"]
+    }
+  }
+}

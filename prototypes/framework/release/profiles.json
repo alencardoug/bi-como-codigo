@@ -1,0 +1,6 @@
+{
+  "about": "The profiles of the framework prototype (docs/framework_prototype.md §2.2): Diretoria alone, with the showcase's public password (N22), entitled to P01. Logística stays out; the access matrix is stage 2.6's.",
+  "profiles": [
+    {"id": "diretoria", "label": "Diretoria", "password": "senha_complexa_123", "reports": ["P01"]}
+  ]
+}

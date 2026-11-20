@@ -2,7 +2,7 @@
 # commit only when it exits 0, read from its own exit code — never through a pipe.
 
 .DEFAULT_GOAL := help
-.PHONY: help sync docs-check adr-check secrets secrets-history test test-js check
+.PHONY: help sync docs-check adr-check secrets secrets-history test test-js check prototype-test
 
 UV_RUN := uv run --frozen
 
@@ -47,3 +47,9 @@ check: ## The gate: secrets, history, documents, decision record and both test s
 	@$(UV_RUN) python .claude/skills/adr/verify.py
 	@$(UV_RUN) pytest -q
 	@$(MAKE) --no-print-directory test-js
+
+# The framework prototype of stage 2.3 (docs/framework_prototype.md) runs on
+# this machine only: never in CI, never in `check`, whose time and dependencies
+# stay as they are. Its inspection libraries are the `prototype` group.
+prototype-test: ## The framework prototype's own tests, with its dependency group; not part of check
+	@$(UV_RUN) --group prototype pytest -q -p no:cacheprovider prototypes/framework/tests
