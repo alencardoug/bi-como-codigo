@@ -1,0 +1,15 @@
+# source_diff.sh — 2026-11-20T03:06:46Z — git only
+## b0ef66e on origin/main
+  origin/HEAD -> origin/main
+  origin/main
+## files changed, whole tree
+ README.md                         |    2 +-
+ docs/consumidores.md              |    3 +
+ docs/pacote_de_metadados.json     | 7601 ++++++++++++++++++-------------------
+ docs/pacote_de_metadados.md       |    2 +-
+ docs/pendencias.md                |  110 +-
+ src/mvp_ed1/models/pacote.py      |    4 +-
+ tests/auditoria/resultado.yml     |   19 +-
+ tests/test_auditoria_resultado.py |   29 +
+ 8 files changed, 3912 insertions(+), 3858 deletions(-)
+## files changed under dbt/: 0

@@ -1,0 +1,15 @@
+# package_diff.py — 2026-11-20T03:06:46Z — files only, no database
+## top-level sections that differ, outside checks: {'open_items': 1, 'provenance': 1, 'view_audits': 5}
+provenance.inputs_sha256: "992ba54927dfeca16a531c762930b424a374162f8e634c38da3caca7481f4c09" -> "20e1e64fb8fd4d5b7cd8efa4dd721d44e3480c7a364a2c614aa2f3d132d17ecb"
+view_audits.consumption.average_order_value_by_channel_and_segment.commit: "0471f6a" -> "504271a"
+view_audits.consumption.skus_below_reorder_point.commit: "0471f6a" -> "edf564a"
+view_audits.consumption.skus_below_reorder_point.findings: [] -> ["F36"]
+view_audits.consumption.support_tickets_per_hundred_orders.commit: "0471f6a" -> "4da9e60"
+view_audits.consumption.top_skus_by_revenue.commit: "0471f6a" -> "504271a"
+open_items: [('D43', 'deferred'), ('V1', 'deferred'), ('V2', 'deferred'), ('V3', 'deferred'), ('V5', 'deferred'), ('V6', 'deferred'), ('V7', 'deferred')] -> [('D43', 'deferred'), ('V1', 'deferred'), ('V2', 'deferred'), ('V3', 'deferred')]
+
+## checks
+ids: 1889 -> 1890; added ['tests/test_auditoria_resultado.py::test_o_commit_de_cada_view_e_o_da_definicao_auditada']; removed []
+status changed: []
+status at b0ef66e: {'pass': 1871, 'skipped': 19}
+runs: ['2026-11-19T17:52:15.035982Z'] -> ['2026-11-20T02:20:07.480717Z']
