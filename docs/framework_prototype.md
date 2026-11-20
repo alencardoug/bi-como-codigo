@@ -18,9 +18,9 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-20 — revision 8, answering round 7 of Codex's review (FPROTO-7-01 to -06) with the Owner's N96. Revision 7 answered round 6 (FPROTO-6-01 to -08), revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
+| Date | 2026-11-20 — revision 9, with the five adjustments of round 8 of Codex's review (FPROTO-8-01 to -05), which found no blocking finding and closed the review. Revision 8 answered round 7 (FPROTO-7-01 to -06) with the Owner's N96, revision 7 answered round 6 (FPROTO-6-01 to -08), revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
 | Author | Claude Code |
-| Status | **Planned.** Nothing of it is built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
+| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. Nothing of it is built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool that the stage proves or refutes (§9).
@@ -423,10 +423,17 @@ it can reach, recursively, paused at start where it can, and records **what it o
 could not observe**, both in the report. Nothing here is claimed complete. **[planned]**
 
 - **When it decrypts.** `crypto.subtle.deriveKey`, `deriveBits`, `unwrapKey` and `decrypt` are wrapped
-  in each instrumented realm, each call attributed to the submission active when it started. The
-  unchanged reader (`web/envelope.mjs`) allows: before any submission, no call; after a wrong
-  password, a derivation and a failed unwrap; after the right one, derivation, unwrap and decrypt.
-  Anything else is reported as `PREMATURE_DECRYPT` or `UNEXPECTED_DECRYPT`.
+  in each instrumented realm, and each call is kept with its realm, its start time and its outcome
+  (FPROTO-8-05). **Attempts** are bounded by the journey: an attempt opens at a submission and
+  closes at the next submission or at logout; the replacement login page opens with no attempt. A
+  call belongs to the attempt open when it **started** — a call already in flight at logout keeps
+  that attribution. The unchanged reader (`web/envelope.mjs`) allows: with no attempt open, no call;
+  in a wrong password's attempt, a derivation and a failed unwrap — reported as the expected
+  outcome of a wrong attempt —; in the right one's, derivation, unwrap and decrypt. A call with no
+  attempt open — before any submission, after logout in a target of the session, or on the new page
+  before a new submission — is reported as `PREMATURE_DECRYPT`, with which of the three it was; a
+  successful unwrap or a decrypt in a wrong attempt as `UNEXPECTED_DECRYPT`; a realm the wrappers
+  did not reach as not observed.
 - **What it stores.** The stores the candidate opens, recorded at their entry points in every
   instrumented realm — `indexedDB.open`, `caches.open`, `navigator.storage.getDirectory`, the Web
   Storage areas, cookies, service worker registrations, `history.pushState` and `replaceState`, the
@@ -434,16 +441,26 @@ could not observe**, both in the report. Nothing here is claimed complete. **[pl
   IndexedDB `put`, `add` and cursor updates, CacheStorage enumerated on its content events, history
   and navigation state as written. Each value goes to the carrier inspection as a data-bearing
   carrier (§2.5.2).
-- **What persists.** After the journey, the browser is closed and **its profile directory on disk**
-  is read whole by the carrier inspection, with the decoders its formats need — LevelDB with its
-  Snappy blocks, SQLite —, so that what the candidate persisted is seen whatever API wrote it; the
-  envelope, the artifact's own files and the pinned third-party bodies in the HTTP cache are
-  recognised by digest, and any file of the profile no layer decodes is listed.
+- **What persists**, reported as three different kinds of evidence, never merged (FPROTO-8-02):
+  **written during the journey** — what the collectors above saw as it happened —; **readable by
+  the browser at the end** — what the protocol still enumerates on the new login page, cookies with
+  their values included —; and **bytes on disk after close** — the profile directory, read by the
+  carrier inspection with the decoders its formats need, LevelDB with its Snappy blocks and SQLite.
+  Coverage is reported per storage format and per field, not per file: a field the scan reads but
+  cannot open, as a persistent cookie's value, which Chromium keeps encrypted in its database, is
+  reported as unobserved on disk, and found, if at all, by the second kind. The envelope, the
+  artifact's own files and the pinned third-party bodies in the HTTP cache are recognised by
+  digest. The known gaps are named in the report wherever their collector is absent: a write
+  created and removed during the journey that no collector saw, a fragment change of the URL, an
+  origin private file system bucket opened by name. The scan runs on a profile used for this
+  journey only, and is proved on one retained marker it reads on disk and one retained cookie it
+  reports as unobserved there.
 - **What survives logout.** The workers and frames of the session still alive, the execution
   context, the history entries and a `history.back()`, as §2.3 item 7 expects them.
 - **What it fetches.** Every effective response body the protocol returns, before and after login,
   with the envelope recognised by origin, canonical path and the validated digest of the decoded
-  body (§2.2).
+  body (§2.2). A body the protocol does not return — a reused one behind a wire `304`, for
+  instance — is reported as unobserved, never inferred from a status or a validator (FPROTO-8-03).
 
 A clear value found by the diagnostic, or a session that outlives logout, is reported first among
 that candidate's results, with where it was seen: a fact the Owner weighs when choosing, and one
@@ -465,11 +482,16 @@ browser diagnostic is not one of them (N96). **The mandatory stages depend on ho
 every judged run requires its build, archive and the inspection of its builder output; one whose
 assembly ended in `FORM` requires nothing more — `verify` does not apply to an artifact that was not
 assembled —; every other requires all six. **A judged run with a mandatory stage missing stays open**
-until it is closed (FPROTO-7-05): a builder output that was **archived but not inspected** is closed
-only by inspecting **that archive**; a run that failed or was interrupted **before its archive**
-existed is closed by a later judged run with **the same build input**, the digest of its allowlist,
-whose own builder output is then archived **and inspected**; a run whose artifact exists is closed
-only by **the same artifact digest** checked again with the stage complete. The precedence, first
+until it is closed (FPROTO-7-05, FPROTO-8-01): a builder output that was **archived but not
+inspected** is closed only by inspecting **that archive** — and that closes the inspection only,
+the stages after it still open —; a run whose builder output was archived and inspected but whose
+**assembly or a later stage** ended in `HARNESS_ERROR` or was interrupted is closed by resuming
+from **that inspected builder digest**: assembly, `verify` and the artifact's inspection, all of
+them, on that archive; a run that failed or was interrupted **before its archive** existed is closed
+by a later judged run with **the same build input**, the digest of its allowlist, whose own builder
+output is then archived, inspected and carried through every remaining stage; a run whose artifact
+exists is closed only by **the same artifact digest** checked again with the stage complete. No
+other archive stands in for the one that is open. The precedence, first
 match wins:
 
 1. **fails the criterion** — in any judged run: `verify`'s `CONTENT`; a finding of the carrier
@@ -523,7 +545,7 @@ with its needles:
 | Data in the inputs | a fixture file, a package, a clear-mode cache, each planted in an encrypted work folder | the allowlist check refuses the phase, naming the file |
 | No network for package code | an install and a build, each with a local listener serving a package on the loopback | the phase cannot reach it: the probe of §5 in that mode, through the real wrapper |
 | The diagnostic's own proofs | a page that decrypts at startup; one whose wrong attempt decrypts; one that writes a fixture label into `localStorage`; one that writes a result into IndexedDB and deletes it before logout; one that keeps a selection in the history state; a logout that keeps the worker | each reported by the diagnostic (§2.5.3) where it was seen — the IndexedDB one by the write and again by the profile scan if it persisted —; none changes a verdict. They prove the diagnostic can see what it reports, not that it sees everything |
-| Verdict cases | synthetic histories, judged in the test: no run; a build interrupted before its archive, then a clean retry with the same build input, archived and inspected; the same retry archived and never inspected; a builder output archived and not inspected, then that archive inspected and clean; a build interrupted; the draw exhausted; an earlier inconclusive file followed by a pass of another artifact; the same, then that archive re-inspected and clean; an assembly `FORM` with its builder output inspected; the same without that inspection; a content failure followed by a `HARNESS_ERROR` | not run; passes; not established; passes; stopped; stopped; not established; passes; a cost; not established; fails. And on the real history: no control or probe run is in it |
+| Verdict cases | synthetic histories, judged in the test: no run; a build interrupted before its archive, then a clean retry with the same build input, archived and inspected; the same retry archived and never inspected; a builder output archived and not inspected, then that archive inspected and clean, with nothing after; the same, then assembly, `verify` and the artifact's inspection resumed on that archive and clean; the same inspection done on another archive instead; an inspected builder output whose assembly ended in `HARNESS_ERROR`, then assembly resumed on that digest and every later stage clean; a build interrupted; the draw exhausted; an earlier inconclusive file followed by a pass of another artifact; the same, then that archive re-inspected and clean; an assembly `FORM` with its builder output inspected; the same without that inspection; a content failure followed by a `HARNESS_ERROR` | not run; passes; not established; not established; passes; not established; passes; stopped; stopped; not established; passes; a cost; not established; fails. And on the real history: no control or probe run is in it |
 | Clear mode | the candidate's natural clear build, in its own work tree, with the clear-mode fixture — Evidence with it as a clear Parquet source; the own build with a page that fetches the clear Parquet | the inspection names every carrier A1 found, each also copied **alone** into a clean artifact and diagnosed there |
 
 The controls run first on hand-made outputs (step 1 of §7), then on each candidate's own builder
@@ -567,7 +589,7 @@ running them **[planned]**:
   `firebase.json`'s headers — `Cache-Control: no-cache` on every file —, compresses text files with
   brotli or gzip as the request accepts, as Hosting does **[assumed]**, with `Vary: Accept-Encoding`,
   and gives each representation its own strong `ETag` — the SHA-256 of the bytes sent and their
-  encoding —, which §2.5.3 binds reused bodies with. jsDelivr serves itself;
+  encoding —, so that revalidations behave as they would on a host. jsDelivr serves itself;
   its encoding is recorded as received. If A7 fails, Evidence's engine is served by the local server:
   that is recorded as a delivery condition of its own, with the engine's bytes counted on the local
   origin and Hosting's quota cost estimated from them.
@@ -595,11 +617,15 @@ running them **[planned]**:
   every script, and no sample inherits another's state. The condition is reported as what it is —
   **two standard priming journeys** —, not as an equal cache state (FPROTO-6-06): each sample keeps
   its **cache evidence** — per request, served from memory or disk cache, revalidated with a `304`
-  or fetched again with a `200`, and, from a Chrome trace of the `v8` category, which scripts
-  consumed a compiled-code cache. Samples whose evidence matches form one series; a sample whose
-  evidence differs is reported in its own series with the difference named, and the warm statistic
-  is never taken across them. The priming and sample traces are checked to be of the same artifact
-  and delivery condition, and the split is proved once on a deliberately mismatched trace. What
+  or fetched again with a `200`; from a Chrome trace of the `v8` category, which scripts consumed a
+  compiled-code cache; and, from the WebAssembly events of the same trace, whether the engine's
+  module was compiled or taken from Chromium's compiled-WASM cache — both DuckDB-WASM loaders reach
+  `WebAssembly.instantiateStreaming` (FPROTO-8-04). Samples whose evidence matches on all three
+  form one series; a sample whose evidence differs is reported in its own series with the
+  difference named, and the warm statistic is never taken across them. A sample whose trace was
+  incomplete — the protocol reports lost trace data — enters no series, and is reported apart. The priming and sample traces are checked to be of the same artifact
+  and delivery condition, and the split is proved once on a deliberately mismatched trace — equal
+  HTTP and JavaScript evidence with a different WASM observation — and once on an incomplete one. What
   carries over from the priming, and the origin storage the candidate kept, are listed beside each
   sample. Cold and warm are reported apart, never in one statistic.
 - **Bytes.** For every request of every target — page, worker, frame —, from the DevTools protocol:
@@ -611,7 +637,10 @@ running them **[planned]**:
   and in batches — and **completed responses**, those finished before it, with their
   `encodedDataLength`; their sum over the whole journey is checked against the completion totals. A
   revalidation answered `304` counts its wire bytes, and the body it let the browser reuse is
-  reported apart, as **served from cache**, with its size; the same for memory and disk cache hits.
+  reported apart, as **served from cache**, with its size when the protocol returns that body or an
+  independent size of it — the cached response's `Content-Length` —, and as **size unknown**
+  otherwise; the same for memory and disk cache hits. A reused body with no observed size never
+  changes a byte total silently, and never touches the artifact's verdict (FPROTO-8-03).
   Totals split by origin — the local origin is what Hosting would serve and count,
   `cdn.jsdelivr.net` is not — and, for each local file, its size raw and brotli-compressed.
 
