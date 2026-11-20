@@ -14,7 +14,7 @@ demonstrated by encryption in a static site — access scoped to the key supplie
 ([PLAN.md §3.2](PLAN.md#32-the-showcase)) —, with every change going through a reviewed pull request.
 The plan says what gets built, in what order and why ([PLAN.md](PLAN.md)).
 
-**Status: stage 2.3 of the plan — the comparative prototype of the framework.** Part I, the
+**Status: stage 2.3 of the plan — the comparative prototype of the framework, its plan reviewed.** Part I, the
 maintenance release of mvp_eng_dados_1, is done, and so is its stage 13, the replication on Google
 Cloud; here, the encryption envelope, the publishing pipeline and its package gate are done, live
 serving harmless fixtures only; no report, portal or real publication exists yet. The data is synthetic end to end, and all of it comes from mvp_eng_dados_1.
@@ -32,7 +32,7 @@ serving harmless fixtures only; no report, portal or real publication exists yet
 | [`docs/publishing_pipeline.md`](docs/publishing_pipeline.md) | The publishing pipeline of stage 2.2: the candidate, publishing and promotion workflows, the federation to Google Cloud, the environments and the tests of each criterion — a plan in review |
 | [`docs/package_gate.md`](docs/package_gate.md) | The package gate of stage 2.2b: the report contract, the control totals, the Parquet checks, the comparison with the live package, the value inspection and the mutations it refuses |
 | [`docs/upstream_questions.md`](docs/upstream_questions.md) | What this repository asks of mvp_eng_dados_2, where eng_dados continues since 2026-11-13, and its answers — UQ-01 to UQ-11 answered at `32397cc` |
-| [`docs/framework_prototype.md`](docs/framework_prototype.md) | The framework prototype of stage 2.3: the fixture and the page both candidates build, the oracle on their finished output, the probes and the measures the Owner chooses from — a plan under review |
+| [`docs/framework_prototype.md`](docs/framework_prototype.md) | The framework prototype of stage 2.3: the fixture and the page both candidates build, the oracle on their finished output, the probes and the measures the Owner chooses from — a reviewed plan, not yet built |
 | [`docs/public_by_design.yml`](docs/public_by_design.yml) | The two demo passwords, public by design (N22), registered for the secrets review |
 | [`docs/regeneration_runbook.md`](docs/regeneration_runbook.md) | The runbook of stage 1.4: how stage 1.6 regenerates eng_dados v1.1.0 — every checkpoint with a command, an oracle and a restart point, the rollback cut and the recovery package —, and the record of its review by Codex |
 | [`evidence/`](evidence/20261022/README.md) | The read-only probes behind every measurement in the plan, with their literal outputs — [M1–M18](evidence/20261022/README.md) and [M19–M26](evidence/20261023/README.md) |
