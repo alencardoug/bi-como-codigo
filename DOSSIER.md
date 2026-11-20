@@ -157,12 +157,20 @@ Filled in by the reviewer. One finding per line, with a verdict.
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| FPROTO-1-01 | `docs/framework_prototype.md:109` | Raw-byte inspection and a Parquet counter-proof cannot establish absence of clear query results; form refusals can mask content | `blocking` || Applied in rev. 2 (§2.5.2–§2.5.4): `verify` kept unchanged as a necessary half; a differential build (X, X, Y; only the package may depend on the fixture) and a carrier inspection with closed decoders, numeric parsing of JSON/devalue/Arrow/Parquet, doubles and decimal128, query results as needles; unknown carriers inconclusive, never a pass; outputs archived before any check, content judged regardless of form, an earlier failing run stands; independent controls per carrier, candidate-native, content-behind-form and an unlisted carrier; browser storage and responses inspected (§2.5.3); the coverage assertion on `needles` (§2.1). |
-| FPROTO-1-02 | `docs/framework_prototype.md:112` | The documented verifier root/layout omits a required declaration and does not match the API | `adjustment` || Applied (§2.5.1): one assembled root per run, `verify(<run>/root, <run>/output, live=lambda: NO_LIVE)`, the three shared declarations including an empty `public_values.json`, the two lists in `site/` syntax; any non-`Refused` exception is `HARNESS_ERROR`, apart; proved in step 1 on a clean output, a clear-label mutation and a missing declaration. |
-| FPROTO-1-03 | `docs/framework_prototype.md:90` | The summary table has no valid scalar `order_count` at its declared grain | `adjustment` || Applied (§2.3, §2.6): the summary has no `order_count`; a detail table at the view's grain shows it native; the generator makes every summary sum of counts distinct from every displayed value, and the check asserts no summary element holds one; the comparator is proved on an altered DOM. |
-| FPROTO-1-04 | `docs/framework_prototype.md:53` | The missing native row need not produce a reachable empty cell on the proposed page | `adjustment` || Applied (§2.1, §2.3, §2.6): G (no `fixture_raiz_3` row for `fixture_canal_c` in month 5) and Z (`fixture_raiz_2` netting 0.00 for `fixture_canal_b` in month 7), each with its filter, cell and exact text; the check refuses an altered DOM and a fixture mutant that fills G with a zero row. |
-| FPROTO-1-05 | `docs/framework_prototype.md:134` | Cache and delivery conditions are unspecified for first-load and five-run comparisons | `adjustment` || Applied (§2.7): one local server with `firebase.json`'s headers and negotiated compression; five cold runs in fresh profiles and five warm runs, reported apart; one injected timer, submit to all expected cells; per-request origin, wire bytes, encoding and cache flags, split by origin, raw and brotli sizes beside. |
-| FPROTO-1-06 | `docs/framework_prototype.md:195` | Environment scrubbing does not isolate dependency scripts from host credentials or publishing files | `observation` || Applied (§5, §3 A6): `npm ci --ignore-scripts` first, scripts run alone by package; installs and builds in `bubblewrap` with no home folder, checkout or sockets bound and no network at build; proved by a stat-only probe and a planted sentinel; the residual risk written. `bwrap` 0.6.1 ran unprivileged here on 2026-11-20 with the home folder absent (“Round 1 — the author's answer” below). |
+| FPROTO-1-01 | `docs/framework_prototype.md:109` | Raw-byte inspection and a Parquet counter-proof cannot establish absence of clear query results; form refusals can mask content | `blocking` | Applied in rev. 2 (§2.5.2–§2.5.4): `verify` kept unchanged as a necessary half; a differential build (X, X, Y; only the package may depend on the fixture) and a carrier inspection with closed decoders, numeric parsing of JSON/devalue/Arrow/Parquet, doubles and decimal128, query results as needles; unknown carriers inconclusive, never a pass; outputs archived before any check, content judged regardless of form, an earlier failing run stands; independent controls per carrier, candidate-native, content-behind-form and an unlisted carrier; browser storage and responses inspected (§2.5.3); the coverage assertion on `needles` (§2.1). |
+| FPROTO-1-02 | `docs/framework_prototype.md:112` | The documented verifier root/layout omits a required declaration and does not match the API | `adjustment` | Applied (§2.5.1): one assembled root per run, `verify(<run>/root, <run>/output, live=lambda: NO_LIVE)`, the three shared declarations including an empty `public_values.json`, the two lists in `site/` syntax; any non-`Refused` exception is `HARNESS_ERROR`, apart; proved in step 1 on a clean output, a clear-label mutation and a missing declaration. |
+| FPROTO-1-03 | `docs/framework_prototype.md:90` | The summary table has no valid scalar `order_count` at its declared grain | `adjustment` | Applied (§2.3, §2.6): the summary has no `order_count`; a detail table at the view's grain shows it native; the generator makes every summary sum of counts distinct from every displayed value, and the check asserts no summary element holds one; the comparator is proved on an altered DOM. |
+| FPROTO-1-04 | `docs/framework_prototype.md:53` | The missing native row need not produce a reachable empty cell on the proposed page | `adjustment` | Applied (§2.1, §2.3, §2.6): G (no `fixture_raiz_3` row for `fixture_canal_c` in month 5) and Z (`fixture_raiz_2` netting 0.00 for `fixture_canal_b` in month 7), each with its filter, cell and exact text; the check refuses an altered DOM and a fixture mutant that fills G with a zero row. |
+| FPROTO-1-05 | `docs/framework_prototype.md:134` | Cache and delivery conditions are unspecified for first-load and five-run comparisons | `adjustment` | Applied (§2.7): one local server with `firebase.json`'s headers and negotiated compression; five cold runs in fresh profiles and five warm runs, reported apart; one injected timer, submit to all expected cells; per-request origin, wire bytes, encoding and cache flags, split by origin, raw and brotli sizes beside. |
+| FPROTO-1-06 | `docs/framework_prototype.md:195` | Environment scrubbing does not isolate dependency scripts from host credentials or publishing files | `observation` | Applied (§5, §3 A6): `npm ci --ignore-scripts` first, scripts run alone by package; installs and builds in `bubblewrap` with no home folder, checkout or sockets bound and no network at build; proved by a stat-only probe and a planted sentinel; the residual risk written. `bwrap` 0.6.1 ran unprivileged here on 2026-11-20 with the home folder absent (“Round 1 — the author's answer” below). |
+| FPROTO-2-01 | `docs/framework_prototype.md:195` | The encrypted build can query clear data, and X/X/Y can miss stable or noisy emissions | `blocking` | |
+| FPROTO-2-02 | `docs/framework_prototype.md:259` | Browser checks can pass while a worker retains clear Parquet after logout | `blocking` | |
+| FPROTO-2-03 | `docs/framework_prototype.md:84` | The decoy draw cannot remove a verified WASM collision with the fixed row count | `blocking` | |
+| FPROTO-2-04 | `docs/framework_prototype.md:182` | The verdict leaves gate outcomes and package handling undefined, and controls miss key branches | `adjustment` | |
+| FPROTO-2-05 | `docs/framework_prototype.md:63` | Z contradicts the mandatory uniqueness and significance rules for amounts | `adjustment` | |
+| FPROTO-2-06 | `docs/framework_prototype.md:318` | Variable pre-submit engine loading and warm state change the timed comparison | `adjustment` | |
+| FPROTO-2-07 | `DOSSIER.md:160` | The authored Status text falls outside the five-column table | `adjustment` | |
+| FPROTO-2-08 | `docs/framework_prototype.md:400` | A mount-only probe can report isolation while inherited environment entries remain visible | `observation` | |
 
 ## Round 1 — FPROTO
 
@@ -530,3 +538,283 @@ checks green).
   including the page's query results.
 - `bubblewrap` over Docker: Docker is installed, but its daemon is root; a mount mistake there is
   worse than one in `bwrap`, which binds only what is named.
+
+## Round 2 — FPROTO
+
+### 1. Conclusion
+
+**Changes required.** Three blockers remain. The build oracle can accept a clear query result that
+is invariant across fixture seeds, the logout check can miss registered clear Parquet, and the fixed
+fixture shape can cause an honest build to fail the gate. Stage 2.3's plan review stays open.
+
+### 2. Reviewed scope and version
+
+- `main` at `da75364f5e9eac79d4588d2e06a3097ce19086ed`, four commits ahead of `origin/main`.
+  The working tree started clean with zero untracked files. HEAD stayed at that revision during
+  the review. The report is the sole working-tree change.
+- Compared `docs/framework_prototype.md` at `2178322` (revision 1) and `2542943` (revision 2) using
+  the supplied path-restricted diff. Reviewed only the six Status edits and the author's answer in
+  `da75364`. Intervening pin and Owner-decision commits supplied context where relevant.
+- Applied `AGENTS.md`, `CLAUDE.md`, PLAN §3.4, §6.2 stage 2.3 and §7, and the owning gate and
+  envelope documents. Traced the current verifier, the contract filters and the relevant pinned
+  Evidence and SvelteKit paths. The framework choice remains the Owner's.
+
+### 3. Findings by severity
+
+#### High — blocking
+
+**FPROTO-2-01 — The differential can pass a build that queried clear data.**
+`docs/framework_prototype.md:195–234`, `:473–477`, `PLAN.md:61`.
+
+N22 puts the password below the login box, and the staged build receives the sealed package and the
+reader. An ordinary shared login/demo helper can supply the public password to prerender code, even
+if the wrapper provides no password variable or file. The successful extraction of a result also
+need not change any delivered bytes. A query can emit a stable dimension or count from the fixed
+shape, or its result can be discarded before output. A path with a varying build stamp is already
+in X/X noise, so Y's differences at that path can be ignored. The inspector further excuses
+undecoded binaries on X/Y equality, and the differential skips the entire package directory.
+
+The synthetic diagnostic decrypted two different fixtures using the same public test input, queried
+`min(month_number)`, and wrote `export const firstMonth = 11;`. All three calls to the real `verify`
+passed and all result bytes were equal. This is a native fixture integer below the gate's threshold,
+and §2.5.2 compares integers only in structured carriers. In the full fixture, 13 consecutive
+months always give `min(month_number) = 1`, even if X and Y use different windows. The diagnostic
+exercised the verifier and query logic, with the pass of the proposed combined rules inferred from
+the plan. Evidence's pinned `+layout.js:118–149` supplies a prerender query path and
+`cache-duckdb.js:72–96` can serialize its results to Arrow. Candidate execution remains pending.
+
+Keep the sealed package and clear source, including generated sources and query caches, outside the
+encrypted-route build. Insert the exact verified package in a trusted post-build step and inspect
+both the archived builder output and the complete served artifact. Where a candidate requires a
+different arrangement, require direct evidence that its build cannot open the report or execute a
+clear-data query. Use X/X/Y as a diagnostic and require evidence for noisy and unknown regions.
+Restrict package exemptions to validated envelope bytes. Exercise an invariant result, a noisy
+file with a leak and a build-time query whose result is discarded. The underlying gap is preexisting.
+Revision 2 introduces the unsound differential and sandbox coverage claims.
+
+**FPROTO-2-02 — The browser oracle misses decrypted bytes in live worker state.**
+`docs/framework_prototype.md:115–117`, `:259–280`, `:287–302`.
+
+Dropping the SQL table and removing its DOM can both succeed while the DuckDB worker's registered
+Parquet and JavaScript's chart/query objects remain reachable. This can happen during ordinary
+logout cleanup without writing any of the enumerated storage APIs or making another network
+request. A follow-up query against the registered file can still read P01. Evidence's pinned
+`src/client-duckdb/browser.js:12–19`, `:53–70` keeps a module-scoped database and worker with a
+window reference, and `:98–102` drops registered files separately. DuckDB-WASM 1.32.0's
+`async_bindings.d.ts:48–126` declares separate file registration, lookup and removal operations.
+This is static evidence of a supported carrier and a missing test, with no browser run.
+
+Account for the live document, hydration data, worker and application state as well as origin
+storage. Require proof that each clear-data holder is retired or disposed of at logout. Check for
+registered files and retained results, or prove the isolated data-owning context is gone. Account
+for response capture from worker and frame targets and treat missing bodies or unsupported used
+carriers as inconclusive. Add single-carrier browser controls, including a logout that drops the
+table but leaves a registered file. The cleanup blind spot is preexisting. Revision 2 adds useful
+storage inspection, with the central runtime carrier still uncovered.
+
+**FPROTO-2-03 — The decoy draw can falsely disqualify Evidence.**
+`docs/framework_prototype.md:69–98`, `:238–240`, `:485–488`,
+`src/bi_como_codigo/contract.py:314–321`, `:354–376`.
+
+The gate inspects the totals' row count, complete totals object and additive sums along with cell
+values. The row count is always `226`. The DuckDB 1.32.0 EH WASM previously observed in round 1
+contains that byte sequence 33 times, and the actual `contract.inspect` refuses the engine with
+`226` as its only eligible value. Evidence's dependency range permits this version and its pinned
+browser module imports the EH asset. If the finished output contains these bytes, a correct package
+with this shape trips the unchanged gate. Range widening can never redraw `226`. The fixture lock
+and candidate build have yet to run, so the measured collision applies to the identified asset.
+
+The draw relies on fixture independence, the property the differential fails to prove.
+Calibrating against arbitrary decoy emissions can train the fixture away from actual leaks, while
+new bundle noise or a changed hash/build setting can introduce collisions after calibration. Check
+the full real `needles` set, including fixed values and derived totals, against a baseline whose
+provenance excludes the fixture, and bound the draw. Resolve invariant collisions by revising the
+test shape or returning a harness limitation with evidence. Keep gate refusals visible and preserve
+`verify` and the meaning of `public_values.json`. Validate with the measured `226` collision and a
+true leak in a fixture-aware run. Raw substring collisions are preexisting. The fixed count and the
+purported decoy remedy are introduced by revision 2.
+
+#### Medium — adjustment
+
+**FPROTO-2-04 — The verdict and its controls leave ordinary branches undefined.**
+`docs/framework_prototype.md:179–188`, `:223–283`, `:443–446`.
+
+The new root layout and API call work. The probe also shows that a malformed trusted
+`public_values.json` produces `release.Refused(public_values_invalid)`, so classifying every
+`Refused` as the candidate's result misattributes a harness defect. The verdict leaves other real
+outcomes such as an invalid manifest, corrupt envelope or reserved Hosting path outside its listed
+classes. The carrier rules also need an explicit clean path for the validated `.bice` bytes, which
+legitimately differ between X and Y and fit none of the listed decoders. Independent inspection and
+archival protect a known content failure behind a form refusal, and a known earlier failure stands.
+Specify what happens when an earlier archived run was inconclusive and a later setting removes the
+carrier. An unresolved earlier run must prevent acceptance.
+
+The label control expects an X/Y difference even though the specified fixture labels are fixed.
+The browser control plants two leaks in one run. The natural clear build may exercise several
+carriers at once, which can establish discovery. To establish independent detection, isolate each
+carrier and assert its local diagnosis even if the gate trips elsewhere. The Arrow cache is
+explicitly candidate-native. The other synthetic controls cover their encodings, while A1 must
+supply actual carrier samples, including SvelteKit 2.8.4's `serialize_data.js:61–78` JSON-in-HTML
+with `data-sveltekit-fetched` and optional `data-b64`, if present in A1 output.
+
+Specify a total verdict and test valid envelopes, malformed trusted declarations, invalid candidate
+packages, content plus form, unknown carriers and archived inconclusive results. Use fixed-label
+and varying-value controls with the appropriate layer expectations. The incomplete categorization
+predates revision 2. The package-inspector ambiguity, blanket trusted-declaration classification
+and contradictory control expectations are new.
+
+**FPROTO-2-05 — The amount generator cannot satisfy Z as written.**
+`docs/framework_prototype.md:58–80`, `:295–307`.
+
+Z requires two `0.00` net amounts and each row's gross to equal its discount. The blanket
+distinctness rule across all amounts prohibits both equalities and the duplicate zero, and zero
+cannot have three significant digits. A literal generator can reject every draw or lose the case
+that distinguishes zero from absence. The dimensional probe confirms 13 months, 226 rows, no G
+rows, two Z rows and 12 rows in the final month. The contradiction follows from the amount rules.
+
+State the exact Z exceptions for uniqueness and significance, and count unique needles using
+`contract.needles`' deduplication. Check G and Z before sealing and assert both DOM mutations fail.
+Keep the count-sum assertion on populated summary groups and independently check the native detail
+counts. Revision 2 introduces the contradictory requirements.
+
+**FPROTO-2-06 — The performance protocol leaves pre-submit work and warm state uncontrolled.**
+`docs/framework_prototype.md:314–332`, `:433–434`, `:452`.
+
+Fresh cold profiles and separate origin totals are specified. The protocol also says cold is
+navigation to table, while the reported login timer starts at submit, with no fixed submit trigger
+or separate navigation-to-table time in §6. Evidence starts `profile(loadDB)` when `+layout.js`
+evaluates (`:20–53`), so an unspecified pause after the login box appears can move engine work
+outside the timed interval. Reusing a profile across warm reloads retains origin state as well as
+HTTP cache. The stated prime could stop before the encrypted package and engine are fetched. These
+are static protocol gaps. No timing or transfer measurement was taken in this review.
+
+Fix the automation trigger for submit, record navigation-to-summary and submit-to-summary as
+separate observations, and define a complete priming journey and which state carries over. Collect
+worker and page requests under a shared accounting rule that defines how in-flight responses at
+each cutoff are counted. Validate with timestamps and request/cache traces for both candidates.
+The timing and cache ambiguity is preexisting. Revision 2 narrows it and introduces the conflicting
+cold boundaries.
+
+**FPROTO-2-07 — The Status edits are outside the rendered table.**
+`DOSSIER.md:158–165` at `da75364`.
+
+The inserted `|| Applied` creates an empty fifth cell and a sixth cell containing each answer. A
+five-column GFM table ignores the extra cell. The source diff confirms the extra delimiter in all
+six rows. The underlying claims are visible in Markdown source. Put each answer in the fifth cell
+and verify the column count and rendered Status. This is a regression in `da75364`.
+
+#### Low — observation
+
+**FPROTO-2-08 — The sandbox probe can miss inherited authority.**
+`docs/framework_prototype.md:397–415`.
+
+The proposed mount allowlist is meaningful. A probe with the stated style of mounts, an empty
+`HOME` and `--unshare-net` hid a controlled host sentinel and `/home/doug`. A second run with a
+synthetic inherited token passed the direct sentinel test while retaining the token. It could also
+see the parent PID under `/proc`. The sentinel remained inaccessible through the parent's procfs
+root in that run. Setting `HOME` alone leaves the rest of the environment intact. §5 should carry
+forward explicit environment clearing into both execution modes and verify it through the actual
+wrapper. This is low because the demonstrated disclosure requires an inherited value and a
+dependency that reads or reports it. The evidence is limited to a synthetic value and process
+visibility.
+
+Use scrubbed environment and file-descriptor allowlists, and isolate the PID namespace if exposing
+procfs. Test absolute host paths with positive host sentinels, test environment exclusion and verify
+both network modes with appropriate controls. Host-execution risk is preexisting. Revision 2 adds
+the mount protection and the incomplete proof.
+
+### 4. Status of previous findings
+
+| ID | Reassessment | Evidence |
+|---|---|---|
+| FPROTO-1-01 | Partially resolved | Independent content inspection, archival, known-failure precedence and Arrow coverage improve the plan. Stable and noisy build emissions, live worker state, the decoy collision and control gaps remain open under FPROTO-2-01 through FPROTO-2-04. |
+| FPROTO-1-02 | Resolved | The parent root, shared declarations, `site/` inclusion globs, extension-to-type media list and `live=lambda: NO_LIVE` match `release.py:57–79`, `:98–102`, `:230–254` and `contract.py:384–387`. The clean, clear-label and missing-declaration controls behaved as expected. FPROTO-2-04 records the separate malformed-declaration case. |
+| FPROTO-1-03 | Resolved | The revised summary omits `order_count`, the detail uses the view grain, and the planned fixture assertions and mutated DOM test distinguish a sum from the independently expected native counts. These are plan corrections. |
+| FPROTO-1-04 | Partially resolved | The exact filter and location of G and Z and the exact Portuguese text are specified. The 226-row shape checks out. The Z generator rules conflict, as recorded in FPROTO-2-05. |
+| FPROTO-1-05 | Partially resolved | Cold and warm samples and local/CDN transfer are now labelled separately. Submit boundaries, priming and retained state still permit mixed conditions. See FPROTO-2-06. |
+| FPROTO-1-06 | Partially resolved | Scripts are suppressed on the initial install and the direct mount test passed on 0.6.1. The full wrapper and its write/network and inherited-authority checks remain pending. See FPROTO-2-08. |
+
+### 5. Checks executed and results
+
+- Ran the requested `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` once. Exit **2**.
+  It stopped at the first uv invocation before the gate checks ran. The author's exit **0** at
+  `da75364` is a separate reported result. Relevant output from `/tmp/fproto-r2-check.cPUW4T`:
+
+  ```text
+  error: Could not acquire lock
+    Caused by: Could not create temporary file
+    Caused by: Read-only file system (os error 30) at path "/home/doug/.cache/uv/.tmp0HqbRI"
+  make: *** [Makefile:44: check] Error 2
+  ```
+
+- Read the four pinned npm tarballs using `env -i`, a throwaway HOME/cache, and
+  `npm pack --ignore-scripts` under `/tmp/fproto-r2-npm.TU6wnx`. The EH WASM was 34,242,586 bytes,
+  SHA-256 `4c221bfa59c11f24dbd750e70c90b9252eca6eec5633936e6a2ec766e55fd879`, matching round 1.
+  Used `git show` on the two upstream pins. Both P01 SQL versions select the same twelve columns
+  in the same order. Diff whitespace checks for both scoped commits exited 0.
+- `.venv/bin/python -B` diagnostics under `/tmp/fproto-r2-python.bHTcsB` exercised the repository
+  verifier, contract and envelope on temporary fixture data. The gate diagnostics used a small
+  synthetic contract and one synthetic public password. The shape check was separate.
+
+  ```text
+  wasm_bytes=34242586 fixed_row_needle_occurrences=33
+  wasm_count_only: REFUSE clear_value (in engine.wasm)
+  shape month_count=13 rows=226 gap=0 zero_rows=2 last_month=12
+  harness_clean: PASS
+  harness_clear_label: REFUSE clear_value (in index.html)
+  harness_missing_declaration: EXCEPTION FileNotFoundError: public_values.json
+  harness_malformed_declaration: REFUSE public_values_invalid
+  const_query_X_0: month=11 verify=PASS
+  const_query_X_1: month=11 verify=PASS
+  const_query_Y_2: month=11 verify=PASS
+  const_query_output_equal_xx=True xy=True
+  ```
+
+- Two controlled `bwrap` 0.6.1 probes bound only scratch work writable and read zero credential
+  files. The first reported `host sentinel exists: yes` and `bwrap exit=0` after asserting the
+  sentinel and `/home/doug` were absent inside. The second printed:
+
+  ```text
+  direct_sentinel=absent
+  fake_environment_token=retained
+  parent_pid=visible
+  sentinel_through_proc=not_visible
+  bwrap exit=0
+  ```
+
+- Candidate installs, candidate builds, browser runs and deployment/service checks were outside this
+  review's execution scope. The finished carriers, actual runtime cleanup, phase timings, Hosting
+  transfer and full wrapper behavior therefore remain pending.
+- `git diff --check -- DOSSIER.md` and a structural check passed. All prior text is byte-for-byte
+  intact, and the eight added table rows have empty Status cells.
+
+### 6. Limitations and open questions
+
+- The `[measured]` candidate claims carry forward M54's pinned metadata. The author's
+  home-visibility transcript measures a small sandbox premise. The fixture oracle, controls and
+  result table remain planned.
+- The differential's determinism and the final dependency lock are execution questions. The same-X
+  and different-Y counterexample and the fixed-count collision establish plan defects independently
+  of those questions. The WASM result is specific to the identified hash.
+- Source inspection establishes available Evidence/SvelteKit and DuckDB-WASM paths. A1 and the
+  browser controls still need to establish which paths the two finished candidates actually use.
+
+### 7. Handoff to Claude Code
+
+- [ ] **FPROTO-2-01** — Make the encrypted build incapable of a clear-data query and inspect the
+  final artifact and exact package boundary. Invariant results, noise and discarded query results
+  cannot turn a failing build into a pass.
+- [ ] **FPROTO-2-02** — Cover the browser's actual data holders. A retained DuckDB file must fail
+  the logout control even when the table is gone. Missing capture prevents a pass.
+- [ ] **FPROTO-2-03** — Calibrate the full gate needle set against a fixture-independent baseline
+  and address fixed collisions. Demonstrate the refusal on `226`, a valid clean control and a real
+  leaked value receiving distinct diagnoses.
+- [ ] **FPROTO-2-04** — Specify complete verdict precedence, package treatment and harness-error
+  classification. Exercise independent native controls, form masking and earlier inconclusive runs.
+- [ ] **FPROTO-2-05** — Make Z's exceptions explicit. Verify shape, native counts and both G/Z
+  outcomes, with each planned mutation rejected for the intended reason.
+- [ ] **FPROTO-2-06** — Fix submit and timing boundaries, warm priming and transfer accounting.
+  Retain comparable traces with cold and warm and both serving origins identifiable.
+- [ ] **FPROTO-2-07** — Put the six round 1 answers into the rendered fifth column and verify it.
+- [ ] **FPROTO-2-08** — Account for inherited authority in the sandbox specification and prove the
+  claimed isolation with synthetic sentinels through the real wrapper before dependency execution.
