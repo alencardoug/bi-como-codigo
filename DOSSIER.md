@@ -178,6 +178,13 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | FPROTO-3-05 | `docs/framework_prototype.md:227–244,299–339` | Gate attribution, verdict coverage and the Parquet control still disagree with the verifier | `adjustment` | Applied (§2.5.1, §2.5.4, §2.5.5): the classification table lists the gate's actual messages and codes, zero manifests a harness error and two a form refusal; a collision established by re-searching the archived file against the builder output, not by the message; verdict cases for no run, interrupted build or capture, exhausted draw, earlier inconclusive then pass, content then harness error; each carrier control states its `verify` class and inspection code, the Parquet one `CONTENT` and `INSPECT_PARQUET`. |
 | FPROTO-3-06 | `docs/framework_prototype.md:78–100,355–368` | An odd partial-month row count makes the native-count assertion unsatisfiable | `adjustment` | Applied (§2.1, §2.6): the partial month keeps whole groups of 12 rows; no summary cell has a single row, checked before sealing; the G mutant is drawn, sealed, validated and assembled like any fixture. |
 | FPROTO-3-07 | `docs/framework_prototype.md:379–399,531–537` | A redraw, successive warm tabs and in-flight transfers can change comparison conditions | `adjustment` | Applied (§2.1, §2.7, §7): one shared draw after both builder outputs are final, both artifacts reassembled and measures discarded on any rebuild, each measure bound to the package and artifact digests; warm samples separated by closing the tab and two seconds of quiescence; bytes received by each cutoff, partial transfers included, reported beside completed responses. |
+| FPROTO-4-01 | `docs/framework_prototype.md:168–176,501–520,565–581,619–627` | An online reinstall can reach an earlier run's package, and the two probe schedules conflict | `blocking` | |
+| FPROTO-4-02 | `docs/framework_prototype.md:204–225,321–364,411,421–437` | Browser snapshots miss authenticated writes and clear integer carriers | `blocking` | |
+| FPROTO-4-03 | `docs/framework_prototype.md:71–72,109–139,310–328,529–533` | Calibration covers the gate but leaves false refusals in the supplemental inspection | `blocking` | |
+| FPROTO-4-04 | `docs/framework_prototype.md:184–190,319,360` | Independent package inspection can skip a numeric leak in a manifest label | `blocking` | |
+| FPROTO-4-05 | `docs/framework_prototype.md:178–190,276–301,366–412,520` | Assembly and signature-only refusals have incomplete verdicts | `adjustment` | |
+| FPROTO-4-06 | `docs/framework_prototype.md:78–106,439–443` | Normal shape validation rejects the G mutant before the browser check | `adjustment` | |
+| FPROTO-4-07 | `docs/framework_prototype.md:450–481,518,603–605` | Cutoff byte counts need a shared clock and revalidation rules | `adjustment` | |
 
 ## Round 1 — FPROTO
 
@@ -1151,3 +1158,297 @@ the candidates was run.
   compare.
 - `PREMATURE_DECRYPT` sees WebCrypto only; a candidate with its own AES would escape it. I judged a
   search of the dependency tree for AES implementations too fuzzy to promise, and recorded it in §9.
+
+## Round 4 — FPROTO
+
+### 1. Conclusion
+
+**Changes required.** An encrypted rerun can reach a previously served package during install.
+The browser oracle can miss clear report data, and its current inspection rules can also reject
+clean runs. Stage 2.3's plan review stays open.
+
+### 2. Reviewed scope and version
+
+- `main` at `76c7ebf429b48b9dad51dceacbc5871ef2baccae`, four commits ahead of
+  `origin/main` at `23dbcdd`. The working tree started clean with no untracked files. The range
+  changes three existing documents. `DOSSIER.md` is the only working-tree edit from this review.
+- Reviewed `8dceb4c`, `406c6a6`, `d1b6f4f` and `76c7ebf` in `23dbcdd..76c7ebf`.
+  Compared revision 4 at `d1b6f4f` against revision 3 at `b9d751c` using the path-restricted
+  diff for `docs/framework_prototype.md`. Used `2178322` and `2542943` for revision 1 and 2
+  provenance. Read the earlier Status cells and the author's answer as claims.
+- Applied `AGENTS.md`, `CLAUDE.md`, `PLAN.md` §3.4, §6.2 and §7, the envelope and package gate,
+  and the existing verifier. Traced the affected Evidence sources in the pinned npm archives.
+  The cache writes Arrow during prerendering, the layout starts engine initialization on
+  evaluation, and the browser client imports Vite WASM and worker assets.
+  [Cache](https://cdn.jsdelivr.net/npm/@evidence-dev/universal-sql@3.0.1/src/cache-duckdb.js),
+  [Layout](https://cdn.jsdelivr.net/npm/@evidence-dev/evidence@40.1.8/template/src/pages/+layout.js),
+  [Browser client](https://cdn.jsdelivr.net/npm/@evidence-dev/universal-sql@3.0.1/src/client-duckdb/browser.js).
+
+### 3. Findings by severity
+
+#### High — blocking
+
+**FPROTO-4-01 — An online reinstall can reach an earlier package.**
+`docs/framework_prototype.md:155–176,501–520,565–581,619–627`.
+
+The initial encrypted builds can run before the measured fixture exists. A4, A5 or a later
+configuration change can require another install after step 4 has served an artifact. Step 5
+repeats the draw after the rebuild, with no precondition that the previous server is stopped or
+unreachable during the online install and any selected A6 scripts. A package reachable over
+loopback can be opened with the public demo password. The build allowlist then accepts the
+installed `node_modules/`, and a new draw can miss data from the earlier package. The scratch
+`bwrap` probe reached a host loopback listener with networking shared and lost access with
+`--unshare-net`. The probe used a minimal wrapper and a synthetic listener.
+
+There are also two incompatible orders. §3 says A1 and its controls precede the encrypted route,
+while §7 runs A1 against the measured fixture after both encrypted builds. Use one order and
+enforce the boundary before **every** encrypted install, rebuild and build, including reruns.
+Prove the actual install wrapper can reach the registry and cannot reach an earlier package
+endpoint or clear-mode tree. A3's new attribution is sound for build infeasibility. A1's query
+claim should come from query evidence, such as a populated prerendered Arrow result in the
+pinned cache path. Build-time data access predates revision 2. The probe-order conflict and the
+gap between post-build fixture creation and a later online reinstall arise in revision 4.
+
+**FPROTO-4-02 — Browser snapshots miss authenticated writes and clear integer carriers.**
+`docs/framework_prototype.md:204–225,321–364,411,421–437`.
+
+A page can write a clear query result to IndexedDB after a successful login and delete it before
+logout. Both specified store snapshots are empty and the pre-submit WebCrypto check has no
+finding. A retained value such as plain text `orders=20000` also escapes the proposed carrier
+rules: the value is an integer in unstructured text, and the browser collections never reach
+`verify`. A storage entry can therefore be observed without its report data being reported.
+The synthetic diagnostic confirms the plain integer witness has no JSON structure. The browser
+outcomes follow from the plan.
+
+Observe writes and the data path from startup through logout, including a failed-password journey
+and the new login document. Establish that the report-opening path goes through the observed
+reader. Reconcile scriptable frames and execution contexts as well as target IDs, with hooks in
+each relevant realm before its scripts run. Enumerate stores by context and storage key, including
+browser-visible cookies and service-worker registrations. Treat the usage estimate as a
+cross-check alongside explicit enumeration. Assert a diagnosis for a transient
+write, a retained plain integer, a nested frame or worker, and each storage collector. The Back
+test also needs a known history entry or an asserted no-traversal case. A clean one-entry tab can
+produce no new `pageshow` after `history.back()`. Prove that a report restoration is detected
+with back-forward caching available. The lifecycle gap predates revision 2, which added the
+integer restriction. Revision 4 adds the unconditional Back check.
+[DevTools Page protocol](https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-addScriptToEvaluateOnNewDocument),
+[Storage Standard §6](https://storage.spec.whatwg.org/#usage-and-quota),
+[HTML history API](https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-history-back).
+
+**FPROTO-4-03 — The draw calibrates only one of the two inspections.**
+`docs/framework_prototype.md:71–72,94–139,310–328,529–533`,
+`src/bi_como_codigo/contract.py:314–376`, `evidence/20261119/capture.out.txt:68–79`.
+
+The real gate accepted a clean synthetic artifact with a JSON protocol version of `1`, a
+`month_number` in every allowed calendar window. It also accepted an unrelated literal in an
+amount's shortest JavaScript spelling. The written supplemental rules compare both as numbers
+and can turn either into a permanent content failure. The draw calls only `contract.inspect`,
+which omits small integers and the shortest JavaScript spelling. Ordinary four-digit
+`year_number` values are eligible and part of that draw. The plan's claim about every integer
+needle having five digits needs to be scoped to the row, order and unit counts.
+
+The clean browser path has a related gap. A pinned jsDelivr WASM body reaches the same inspector
+and falls outside its listed decoders. Candidate B installs nothing from npm, so it cannot use
+the exception for a byte-identical member of its locked dependency tree. Specify how exact,
+independently pinned CDN bodies are recognised, with unexpected bytes inconclusive. Calibrate the
+supplemental predicates against trusted clean baselines, and give small structured numbers
+meaning through field or carrier context. Test clean metadata and an incidental shortened
+literal alongside actual leaks in separate controls. Prove a clean CDN response and a changed
+body at the same URL take distinct paths. The mismatch between the two scans dates to revision 2.
+Revision 1 already uses the CDN for B. Revision 4 extends CDN delivery to A.
+
+**FPROTO-4-04 — The independent inspector can miss a numeric leak in a manifest label.**
+`docs/framework_prototype.md:184–190,319,360`,
+`src/bi_como_codigo/release.py:264–299,317–335`,
+`src/bi_como_codigo/contract.py:354–381`, `src/bi_como_codigo/envelope.py:222–254,621–645`.
+
+Path and digest binding solves the artifact exemption problem even when `verify` stops on form.
+The proposed inspector searches validated labels for text needles only. The real verifier
+searches the label bytes with the full needle set under N83. A synthetic manifest whose label
+contains only a numeric fixture match passed manifest and package validation. `verify` refused
+it as `clear_value`, then stopped at the manifest-count check when a second manifest was present.
+The supplemental rule misses that leak behind form. A later clean run could then pass because
+the earlier result was recorded as form only.
+
+Keep the typed-field treatment and apply the same value search to label bytes independently
+of form. Bind the package to the selected fixture and declared inventory and entitlements
+before granting exemptions. For browser bodies, bind the local origin and canonical package
+path to the validated digest of the decoded HTTP body. Prove the numeric-label case behind
+form, the clean package in both locations, and a body mismatch. The early form refusal
+predates revision 2. The weaker label search is new in revision 4.
+
+#### Medium — adjustment
+
+**FPROTO-4-05 — Assembly and signature-only refusals have incomplete verdicts.**
+`docs/framework_prototype.md:178–190,276–301,366–412,520`,
+`src/bi_como_codigo/release.py:194–223,245–335`,
+`src/bi_como_codigo/contract.py:41–47,368–376`.
+
+The message table covers the ordinary `NO_LIVE` verifier refusals and sends unknowns to
+`HARNESS_ERROR`. Assembly's refusal of a builder `package/` is `FORM`, but the cost branch
+requires the latest run's **verify** to have refused by `FORM`. Assembly stops before that
+call, leaving this specified branch without a verdict. Conversely, a successful A3 build can
+emit its allowed zero-row schema Parquet. The real gate refused that synthetic output by
+magic. The plan makes it a permanent criterion failure without evidence of a clear report
+row or a build-time query.
+
+Drive the verdict from completed stages and their classifications with explicit entries for
+assembly `FORM` and a missing mandatory check. A proved empty schema can fail publishing
+compatibility without evidence of report data. For a collision, require a reproduction of the
+named file and code against the archived bytes using the same package, public set and haystack
+role. A mismatch in that evidence needs a harness diagnosis. A retry that resolves a missed
+capture needs equivalent starting browser state as well as the same artifact digest. Test the
+assembly branch, empty and populated Parquet, a forced collision, an archive disagreement and
+an incomplete cold capture followed by a clean warm one. Preserve the precedence of a proved
+leak. The incomplete verdict dates to revision 2. The assembly and empty-source cases are new
+in revision 4.
+
+**FPROTO-4-06 — Normal shape checks reject the G mutant.**
+`docs/framework_prototype.md:78–106,439–443`.
+
+Filling G with a zero-valued group adds 12 rows with the partial month unchanged. It violates
+the standard generator's row formula, its absence check for G and its restriction of zero
+exceptions to Z. The synthetic diagnostic rejected this shape under the normal assertions.
+With recomputed totals and a fresh envelope, the unchanged gate passed the mutant. The
+conflict is in fixture validation before the browser, where the plan requires the mutant to
+follow the normal draw.
+
+Generate the canonical fixture first. Give the mutation its own expected shape and preserve
+the contract, package validation and assembly checks. The live comparator must use the
+canonical G expectation and refuse the mutant for G. The mutant dates to revision 2.
+Revision 4 explicitly routes it through the normal fixture procedure.
+
+**FPROTO-4-07 — Cutoff byte counts need a shared clock and revalidation rules.**
+`docs/framework_prototype.md:450–481,518,603–605`.
+
+The shared package, rebuild invalidation and warm teardown address the earlier sample
+conditions. The new partial-transfer counters combine page marks with Network event
+timestamps without a common clock rule. Chromium can deliver accumulated encoded progress
+only with a later data event or at loading completion. A request can therefore have crossed
+the network before a cutoff while contributing zero **observed** bytes to it. With
+`Cache-Control: no-cache`, a warm revalidation can also report effective status 200 and wire
+status 304 in different events. Treating its cached body as received bytes changes the
+comparison. This is static protocol and source evidence.
+[DevTools Network protocol](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/Network.pdl),
+[Chromium encoded progress reporting](https://github.com/chromium/chromium/blob/main/third_party/blink/renderer/core/inspector/inspector_network_agent.cc).
+
+Specify a common timebase across the page marks and network sessions. Label cutoff counts as
+encoded progress observed by CDP and define how they reconcile with completion totals, cache
+hits and 304s. Record expected bodyless replies separately from a missed capture and account
+for the effective cached bytes when the browser uses them. Validate a worker transfer spanning
+a cutoff and a warm revalidation. Label any A7 local-origin fallback as its own delivery
+condition, with Hosting cost estimated and an exhausted draw visible. The cutoff gap predates
+revision 2. Revision 4 adds the partial-transfer metric that needs these rules.
+
+### 4. Status of previous findings
+
+| ID | Reassessment | Evidence |
+|---|---|---|
+| FPROTO-3-01 | Partially resolved | §2.2 stages initial inputs by path and digest, uses a zero-row schema where needed and keeps the clear tree unmounted. A3 distinguishes infeasibility from a proved query. Later online installs and the A1 schedule remain open in FPROTO-4-01. |
+| FPROTO-3-02 | Partially resolved | §2.5.3 adds recursive paused attachment, WebCrypto hooks, OPFS, cookies, service-worker registrations and post-logout history. FPROTO-4-02 covers the remaining lifecycle and control gaps. |
+| FPROTO-3-03 | Partially resolved | All six new counts clear the pinned EH and MVP files. A full synthetic fixture cleared the gate's scan of three relevant pinned Evidence sources. The actual build corpus and A7 remain pending. The calendar claim and supplemental calibration need FPROTO-4-03. |
+| FPROTO-3-04 | Partially resolved | Independent assembly and its digest record give validated files an artifact path behind form. The role-specific label search and the browser binding remain open in FPROTO-4-04. |
+| FPROTO-3-05 | Partially resolved | Zero and multiple manifests have distinct classes. The Parquet control distinguishes the gate's magic refusal from `INSPECT_PARQUET`. Assembly `FORM`, empty schema and archive disagreement need FPROTO-4-05. |
+| FPROTO-3-06 | Partially resolved | Whole groups eliminate singleton summary cells. The diagnostic checked all six shapes and the count-sum assertion. The G control needs FPROTO-4-06. |
+| FPROTO-3-07 | Partially resolved | Both artifacts use one draw, and a rebuild invalidates both sets of old measures. Warm runs close tabs and require two seconds of quiescence. See FPROTO-4-07 for cutoffs. |
+| FPROTO-1-01 | Partially resolved | Gate and supplemental inspection are independent, including behind form. The browser and supplemental gaps are FPROTO-4-02 through FPROTO-4-04. |
+| FPROTO-1-05 | Partially resolved | Cold and warm runs, origin and artifact digests are explicit. Transfer accounting remains under FPROTO-4-07. |
+| FPROTO-1-06 | Partially resolved | §5 specifies the mount, environment and process boundary and a negative control for each. Its full wrapper remains pending, with the online rerun gap in FPROTO-4-01. |
+| FPROTO-2-01 | Partially resolved | Post-build draw and separate clear inputs close the initial differential blind spot. An earlier package can be reachable on a rerun. See FPROTO-4-01. |
+| FPROTO-2-02 | Partially resolved | Worker termination and fresh navigation are specified and have separate controls. Storage during the session and history restoration remain under FPROTO-4-02. |
+| FPROTO-2-03 | Resolved | The measured universal row-count collision from revision 2 is gone for the six new counts on both pinned assets. Exhaustion is an explicit stop. Full calibration against final outputs remains a stage measurement. |
+| FPROTO-2-04 | Partially resolved | Independent package validation and several verdict branches are specified. FPROTO-4-04 and FPROTO-4-05 cover the residual package and classification gaps. |
+| FPROTO-2-06 | Partially resolved | Fixed submit timing, priming and quiescence improve comparability. Cutoff and cache accounting still need FPROTO-4-07. |
+| FPROTO-2-08 | Partially resolved | §5 specifies `--clearenv`, isolated PID/IPC/UTS and closure of inherited descriptors. Earlier component probes and this round's loopback probe cover parts of the boundary. The real wrapper and its counter-proofs remain unverified. |
+
+### 5. Checks executed and results
+
+- Ran `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` once before editing at
+  `76c7ebf`. Exit **0**. Used the existing virtual environment and put the uv and pytest
+  caches under `/tmp`. A temporary Git adapter performed the document checker's upstream
+  `cat-file -t` existence lookups with `git show` of the pinned trees to stay within the
+  permitted checkout commands. The author separately reported exit **0** at `76c7ebf`.
+
+  ```text
+  secrets review: nothing found in the tracked files
+  history review: nothing found (168 occurrence(s) of values public by design, 2 registered; 15 blob(s) skipped)
+  docs-check: 31 documents, 199 file links, 69 anchors, 23 ADR citations, 101 links into mvp_eng_dados_1 — nothing broken
+  adr-check: 3 accepted, 1 pending — record consistent
+  470 passed, 1 warning in 195.84s (0:03:15)
+  ℹ tests 157
+  ℹ pass 156
+  ℹ fail 0
+  ℹ skipped 1
+  ```
+
+- Ran `python -B` diagnostics in `/tmp` with the repository's virtual environment. Reused
+  the pinned npm archives from round 2. The six counts and their gate spellings had zero
+  hits in either pinned WASM or either pinned browser worker. Each stock worker had one
+  `sourceMappingURL` marker. Evidence's emitted worker bytes remain pending. Selected output
+  from the scratch fixture, package and verifier checks follows.
+
+  ```text
+  row counts [10848, 10860, 10872, 10884, 10896, 10908]
+  all six shapes: group, G, Z and displayed count-sum assertions pass
+  full shape package: Parquet 221754 bytes; 141109 deduplicated gate needles
+  calendar eligible {'1': False, '12': False, '2031': True}
+  three pinned Evidence source files, full real substring scan: PASS
+  clean toy artifact with protocol=1: PASS
+  toy artifact with incidental shortest-JS amount: PASS
+  numeric manifest label: REFUSED clear_value (in package/manifest.json)
+  numeric manifest label behind second manifest: REFUSED 2 package manifests in the artifact; exactly one is expected
+  published schema rows: 0
+  published zero-row schema Parquet: REFUSED schema.parquet holds a Parquet magic outside an envelope
+  G mutant: normal shape assertion refuses, 10860 rows
+  G mutant with regenerated valid package and totals: PASS
+  ```
+
+- Ran a minimal `bwrap` 0.6.1 loopback check with a temporary synthetic listener and `/usr`
+  bound read-only. The listener was closed.
+
+  ```text
+  network shared: exit=0; no stderr
+  --unshare-net: exit=1; _: connect: Connection refused
+  ```
+
+- Checked the dossier diff for whitespace, preserved prior text and table structure.
+  Candidate installs, builds and browser runs were outside the review's execution scope.
+  The actual wrapper, A1–A7, artifact collision rate, browser controls and comparison
+  measurements remain pending.
+
+### 6. Limitations and open questions
+
+- N94's pinned jsDelivr target agrees with N2 and PLAN §3.4. A7 tests whether Evidence can
+  use it and remove the engine assets from its output. A local fallback is an A7 cost and
+  can exhaust the draw. The open question at `PLAN.md:953` is the candidate's ability to meet
+  the CDN target. The prototype serves locally under §1. The Owner chooses the framework
+  under PLAN §7.
+- The fixture and archive diagnostics establish the stated shape and test the unchanged
+  gate on representative inputs. Only the final emitted files can establish the clean
+  draw. Runtime capture completeness, reader and worker behavior, and actual timings
+  remain implementation checks.
+- The added WASM claim points to literal output in round 3. M54 describes the dated
+  registry snapshot, and the partial sandbox claims cite their prior probes. No new
+  candidate result is presented as measured.
+
+### 7. Handoff to Claude Code
+
+- [ ] **FPROTO-4-01** — Align the A1 schedule and prove the boundary on a rerun with an earlier
+  served package. Exercise the real install and selected-script path and the offline build path.
+- [ ] **FPROTO-4-02** — Require complete phase, context and storage observations. A clear write
+  removed before logout, a plain count, a missed nested realm and a restored report each get
+  their specific diagnosis. A clean logout can complete with the declared history setup.
+- [ ] **FPROTO-4-03** — Clean metadata and unchanged CDN responses pass the supplemental check.
+  A separate leak still fails and a changed CDN binary is inconclusive. Show the final draw
+  against both archived builder outputs and report exhaustion when applicable.
+- [ ] **FPROTO-4-04** — Verify package identity, labels and effective browser bodies independently
+  of the gate's form branch. The numeric label behind form is detected and exact package copies
+  are recognised.
+- [ ] **FPROTO-4-05** — Make assembly `FORM`, missing observations, signature-only refusals,
+  genuine content matches and archive mismatches reach their specified verdicts. The same
+  artifact in different cache conditions leaves a missed capture unresolved.
+- [ ] **FPROTO-4-06** — Show the dedicated G mutant passes package and assembly checks and reaches
+  the browser comparator, where it fails for G.
+- [ ] **FPROTO-4-07** — Demonstrate the shared timebase and account for observed partial encoded
+  bytes and 304 revalidation in trace controls. Record actual engine origin and label any fallback
+  measurements with that configuration.
