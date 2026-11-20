@@ -157,12 +157,12 @@ Filled in by the reviewer. One finding per line, with a verdict.
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| FPROTO-1-01 | `docs/framework_prototype.md:109` | Raw-byte inspection and a Parquet counter-proof cannot establish absence of clear query results; form refusals can mask content | `blocking` | |
-| FPROTO-1-02 | `docs/framework_prototype.md:112` | The documented verifier root/layout omits a required declaration and does not match the API | `adjustment` | |
-| FPROTO-1-03 | `docs/framework_prototype.md:90` | The summary table has no valid scalar `order_count` at its declared grain | `adjustment` | |
-| FPROTO-1-04 | `docs/framework_prototype.md:53` | The missing native row need not produce a reachable empty cell on the proposed page | `adjustment` | |
-| FPROTO-1-05 | `docs/framework_prototype.md:134` | Cache and delivery conditions are unspecified for first-load and five-run comparisons | `adjustment` | |
-| FPROTO-1-06 | `docs/framework_prototype.md:195` | Environment scrubbing does not isolate dependency scripts from host credentials or publishing files | `observation` | |
+| FPROTO-1-01 | `docs/framework_prototype.md:109` | Raw-byte inspection and a Parquet counter-proof cannot establish absence of clear query results; form refusals can mask content | `blocking` || Applied in rev. 2 (§2.5.2–§2.5.4): `verify` kept unchanged as a necessary half; a differential build (X, X, Y; only the package may depend on the fixture) and a carrier inspection with closed decoders, numeric parsing of JSON/devalue/Arrow/Parquet, doubles and decimal128, query results as needles; unknown carriers inconclusive, never a pass; outputs archived before any check, content judged regardless of form, an earlier failing run stands; independent controls per carrier, candidate-native, content-behind-form and an unlisted carrier; browser storage and responses inspected (§2.5.3); the coverage assertion on `needles` (§2.1). |
+| FPROTO-1-02 | `docs/framework_prototype.md:112` | The documented verifier root/layout omits a required declaration and does not match the API | `adjustment` || Applied (§2.5.1): one assembled root per run, `verify(<run>/root, <run>/output, live=lambda: NO_LIVE)`, the three shared declarations including an empty `public_values.json`, the two lists in `site/` syntax; any non-`Refused` exception is `HARNESS_ERROR`, apart; proved in step 1 on a clean output, a clear-label mutation and a missing declaration. |
+| FPROTO-1-03 | `docs/framework_prototype.md:90` | The summary table has no valid scalar `order_count` at its declared grain | `adjustment` || Applied (§2.3, §2.6): the summary has no `order_count`; a detail table at the view's grain shows it native; the generator makes every summary sum of counts distinct from every displayed value, and the check asserts no summary element holds one; the comparator is proved on an altered DOM. |
+| FPROTO-1-04 | `docs/framework_prototype.md:53` | The missing native row need not produce a reachable empty cell on the proposed page | `adjustment` || Applied (§2.1, §2.3, §2.6): G (no `fixture_raiz_3` row for `fixture_canal_c` in month 5) and Z (`fixture_raiz_2` netting 0.00 for `fixture_canal_b` in month 7), each with its filter, cell and exact text; the check refuses an altered DOM and a fixture mutant that fills G with a zero row. |
+| FPROTO-1-05 | `docs/framework_prototype.md:134` | Cache and delivery conditions are unspecified for first-load and five-run comparisons | `adjustment` || Applied (§2.7): one local server with `firebase.json`'s headers and negotiated compression; five cold runs in fresh profiles and five warm runs, reported apart; one injected timer, submit to all expected cells; per-request origin, wire bytes, encoding and cache flags, split by origin, raw and brotli sizes beside. |
+| FPROTO-1-06 | `docs/framework_prototype.md:195` | Environment scrubbing does not isolate dependency scripts from host credentials or publishing files | `observation` || Applied (§5, §3 A6): `npm ci --ignore-scripts` first, scripts run alone by package; installs and builds in `bubblewrap` with no home folder, checkout or sockets bound and no network at build; proved by a stat-only probe and a planted sentinel; the residual risk written. `bwrap` 0.6.1 ran unprivileged here on 2026-11-20 with the home folder absent (“Round 1 — the author's answer” below). |
 
 ## Round 1 — FPROTO
 
@@ -491,3 +491,42 @@ docs/ADR checks are **reported, not independently rerun**. No live service state
 Apply corrections in their owning documents; keep this review's Status cells for the author to
 fill in. Return the revised plan for review before implementing the prototype.
 
+
+## Round 1 — the author's answer
+
+Revision 2 of `docs/framework_prototype.md` answers all six findings; each Status above says where.
+It is still a plan: nothing of the prototype is built, and every **[planned]** and **[assumed]** in it
+is unmeasured. Two things were run for it, on 2026-11-20:
+
+The pin it cites. P01's model at `mvp_eng_dados_2` `b0ef66e` (N91) has the same twelve columns, in
+the same order, as at `f86b9fb` — read with `git show b0ef66e:dbt/models/consumption/monthly_revenue_by_channel_and_category.sql`
+in that checkout; the plan cites M59 for it, and links nothing of `mvp_eng_dados_2` before N86.
+
+The sandbox premise of §5, unprivileged, with the home folder not bound:
+
+```text
+$ bwrap --version
+bubblewrap 0.6.1
+$ bwrap --ro-bind /usr /usr --symlink usr/bin /bin --symlink usr/lib /lib --symlink usr/lib64 /lib64 --tmpfs /home --unshare-net --proc /proc --dev /dev /bin/sh -c 'ls /home; test -e /home/doug && echo HOME_VISIBLE || echo home_absent; echo ok'
+home_absent
+ok
+```
+
+`make check` at the revision: exit 0 (157 JS tests, 156 pass, 1 skipped; Python, docs and ADR
+checks green).
+
+**Not verified, and where I hesitated:**
+
+- The differential's premise that both builds are deterministic enough (§9): if Evidence's noise
+  covers its bundles, the differential degrades to the inspection there, and the result is
+  inconclusive. Not measured.
+- The draw against the decoy outputs (§2.1) converging with three-digit integers against Evidence's
+  34 MB WASM: not measured. I chose drawing over declaring public values, so that the gate's
+  `public_values.json` keeps meaning "public by design".
+- The inspection's decoders are a closed list I chose; the differential, not the list, is the
+  coverage argument for build output. For the browser (§2.5.3), the inspection alone judges: a
+  carrier outside its list there is inconclusive only if it is a binary no layer decodes — a
+  re-spelled text value in storage it does not know is the gap I see, bounded by the needles
+  including the page's query results.
+- `bubblewrap` over Docker: Docker is installed, but its daemon is root; a mount mistake there is
+  worse than one in `bwrap`, which binds only what is named.
