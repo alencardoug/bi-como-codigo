@@ -201,12 +201,12 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | FPROTO-6-06 | `docs/framework_prototype.md:614–623,637–639,774` | Equal priming does not establish equal cache state | `adjustment` | Applied (§2.7): the warm condition reported as two standard priming journeys, not an equal cache state; each sample keeps its cache evidence — per-request reuse or revalidation and V8 code-cache consumption from a trace —; matching samples form a series, a differing one its own series; the split proved on a mismatched trace. |
 | FPROTO-6-07 | `docs/framework_prototype.md:154–158,748–757,769–774` | The shared state can reuse results after a byte-identical rebuild | `adjustment` | Applied (§5): the state keyed by build-invocation ids, build inputs and harness inputs as well as digests; any rebuild invocation, even byte-identical, and any harness-input change invalidate the draw, both artifacts and both measure sets; first comparison, identical rebuild and declaration change each shown to give a fresh comparison. |
 | FPROTO-6-08 | `docs/framework_prototype.md:229–233,822–824,842–845` | A deliberate replacement of the reader would escape the WebCrypto hooks | `observation` | No change needed: outside N95, and §9 of the plan already records it — the page's only path to the report is `web/envelope.mjs`, reviewed with the page code. |
-| FPROTO-7-01 | `docs/framework_prototype.md:438–474,573` | Storage notifications cannot prove which bytes or schema names were written | `blocking` | |
-| FPROTO-7-02 | `docs/framework_prototype.md:441–445,457–460,486–492` | Native fragment replacements escape URL inspection | `blocking` | |
-| FPROTO-7-03 | `docs/framework_prototype.md:441–445,461–474,573` | The OPFS guard misses named buckets and catches the collector's own walk | `blocking` | |
-| FPROTO-7-04 | `docs/framework_prototype.md:141–149,364–389,573` | The calendar rule misses split selections and matches unrelated metadata | `blocking` | |
-| FPROTO-7-05 | `docs/framework_prototype.md:352–355,507–533,574` | A retry can close a finished builder output that was never inspected | `adjustment` | |
-| FPROTO-7-06 | `docs/framework_prototype.md:528–533,638–652,806–808` | The results table still calls for one statistic across five warm runs | `adjustment` | |
+| FPROTO-7-01 | `docs/framework_prototype.md:438–474,573` | Storage notifications cannot prove which bytes or schema names were written | `blocking` | Moved by the Owner's N96 (PLAN §1.2): the browser is now a diagnostic outside the verdict, and the complete browser oracle is built at 2.5 for the chosen framework; rev. 8's §2.5.3 reports what it saw and what it could not, and adds a scan of the Chrome profile on disk for what persisted. |
+| FPROTO-7-02 | `docs/framework_prototype.md:441–445,457–460,486–492` | Native fragment replacements escape URL inspection | `blocking` | Moved by N96, as FPROTO-7-01: URLs and history state are reported by the diagnostic as observed; completeness is 2.5's. |
+| FPROTO-7-03 | `docs/framework_prototype.md:441–445,461–474,573` | The OPFS guard misses named buckets and catches the collector's own walk | `blocking` | Moved by N96, as FPROTO-7-01: OPFS use, named buckets included, is reported by the diagnostic, and the profile scan reads what persisted; completeness is 2.5's. |
+| FPROTO-7-04 | `docs/framework_prototype.md:141–149,364–389,573` | The calendar rule misses split selections and matches unrelated metadata | `blocking` | Applied with N96 (§2.5.2): the calendar is reached as text and, in the artifact, by the gate; the pair rule is kept only for the browser diagnostic, as a lead and not a proof, so it neither misses a verdict case nor fails clean metadata. |
+| FPROTO-7-05 | `docs/framework_prototype.md:352–355,507–533,574` | A retry can close a finished builder output that was never inspected | `adjustment` | Applied (§2.5.2, §2.5.4, §2.5.5): an archived builder output not inspected is closed only by inspecting that archive; a run that failed before its archive is closed by a retry with the same build input whose builder output is archived and inspected; verdict cases for both. |
+| FPROTO-7-06 | `docs/framework_prototype.md:528–533,638–652,806–808` | The results table still calls for one statistic across five warm runs | `adjustment` | Applied (§6): the timing row takes statistics per warm series of matching cache evidence, never across series. |
 
 ## Round 1 — FPROTO
 
@@ -2361,3 +2361,25 @@ aggregate. The retained table row conflicts with the new split in revision 7.
   succeed by build input.
 - [ ] **FPROTO-7-06** — Make the report and retry rules agree with observed warm cache conditions.
   Demonstrate separate summary rows and sample counts on the mismatched trace.
+
+## Round 7 — the author's answer
+
+Revision 8 of `docs/framework_prototype.md` answers the six findings; each Status above says where.
+The four blocking ones were all in the browser oracle. The Owner decided N96 (PLAN §1.2): the
+verdict of 2.3 judges the finished build output, as the criterion of PLAN §6.2 says, and what each
+candidate does in the browser is measured and reported as a diagnostic (§2.5.3) — the complete
+browser oracle is built at stage 2.5, for the chosen framework, with its own plan and review, and
+the 2.5 row of PLAN §6.2 now says so. Please review the browser part of the plan as a diagnostic:
+what it reports must be true and its blind spots stated, but its incompleteness is not a blocker for
+2.3. It is still a plan: nothing of the prototype is built, and every **[planned]** and **[assumed]**
+is unmeasured.
+
+Run for it: `make check` at each commit, exit 0. Nothing of the candidates was run.
+
+**Not verified, and where I hesitated:**
+
+- Reading Chrome's profile directory — LevelDB with Snappy blocks, SQLite — is planned, not tried;
+  where a file cannot be decoded, the diagnostic lists it.
+- Taking the browser out of the verdict means a candidate can pass 2.3 while storing report data in
+  the browser; the diagnostic reports it first among that candidate's results, and the Owner sees it
+  before choosing.
