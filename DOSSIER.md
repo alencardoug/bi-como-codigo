@@ -178,13 +178,13 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | FPROTO-3-05 | `docs/framework_prototype.md:227–244,299–339` | Gate attribution, verdict coverage and the Parquet control still disagree with the verifier | `adjustment` | Applied (§2.5.1, §2.5.4, §2.5.5): the classification table lists the gate's actual messages and codes, zero manifests a harness error and two a form refusal; a collision established by re-searching the archived file against the builder output, not by the message; verdict cases for no run, interrupted build or capture, exhausted draw, earlier inconclusive then pass, content then harness error; each carrier control states its `verify` class and inspection code, the Parquet one `CONTENT` and `INSPECT_PARQUET`. |
 | FPROTO-3-06 | `docs/framework_prototype.md:78–100,355–368` | An odd partial-month row count makes the native-count assertion unsatisfiable | `adjustment` | Applied (§2.1, §2.6): the partial month keeps whole groups of 12 rows; no summary cell has a single row, checked before sealing; the G mutant is drawn, sealed, validated and assembled like any fixture. |
 | FPROTO-3-07 | `docs/framework_prototype.md:379–399,531–537` | A redraw, successive warm tabs and in-flight transfers can change comparison conditions | `adjustment` | Applied (§2.1, §2.7, §7): one shared draw after both builder outputs are final, both artifacts reassembled and measures discarded on any rebuild, each measure bound to the package and artifact digests; warm samples separated by closing the tab and two seconds of quiescence; bytes received by each cutoff, partial transfers included, reported beside completed responses. |
-| FPROTO-4-01 | `docs/framework_prototype.md:168–176,501–520,565–581,619–627` | An online reinstall can reach an earlier run's package, and the two probe schedules conflict | `blocking` | |
-| FPROTO-4-02 | `docs/framework_prototype.md:204–225,321–364,411,421–437` | Browser snapshots miss authenticated writes and clear integer carriers | `blocking` | |
-| FPROTO-4-03 | `docs/framework_prototype.md:71–72,109–139,310–328,529–533` | Calibration covers the gate but leaves false refusals in the supplemental inspection | `blocking` | |
-| FPROTO-4-04 | `docs/framework_prototype.md:184–190,319,360` | Independent package inspection can skip a numeric leak in a manifest label | `blocking` | |
-| FPROTO-4-05 | `docs/framework_prototype.md:178–190,276–301,366–412,520` | Assembly and signature-only refusals have incomplete verdicts | `adjustment` | |
-| FPROTO-4-06 | `docs/framework_prototype.md:78–106,439–443` | Normal shape validation rejects the G mutant before the browser check | `adjustment` | |
-| FPROTO-4-07 | `docs/framework_prototype.md:450–481,518,603–605` | Cutoff byte counts need a shared clock and revalidation rules | `adjustment` | |
+| FPROTO-4-01 | `docs/framework_prototype.md:168–176,501–520,565–581,619–627` | An online reinstall can reach an earlier run's package, and the two probe schedules conflict | `blocking` | Applied in rev. 5 (§1, §2.2, §3, §5, §7): no package code ever runs with a network — the harness's own fetcher gets the lockfile's tarballs, checked by integrity, and every install, rebuild script and build runs offline with `--unshare-net`, first run or rerun; a loopback-listener control; one order in §3 and §7, A1 first with a clear-mode fixture of its own seed; A1's query claim only from a prerendered result with rows. |
+| FPROTO-4-02 | `docs/framework_prototype.md:204–225,321–364,411,421–437` | Browser snapshots miss authenticated writes and clear integer carriers | `blocking` | Applied within N95 (§2.3, §2.5.2, §2.5.3, §2.5.5): store writes wrapped in every realm and inspected as data-bearing, so a transient write counts; integers of any size compared in data-bearing carriers; stores enumerated by storage key through the protocol at four moments, with the usage estimate only as a cross-check; contexts reconciled per target; the journey includes a wrong password and the new login page; history checked as one entry with no traversal, and a `location.assign` control with the back-forward cache available. |
+| FPROTO-4-03 | `docs/framework_prototype.md:71–72,109–139,310–328,529–533` | Calibration covers the gate but leaves false refusals in the supplemental inspection | `blocking` | Applied (§2.1, §2.4, §2.5.2): numbers compared by role — in code-bearing files text, fractional amounts and counts only inside structured carriers; everything in data-bearing carriers; the draw calibrates both inspections' predicates against both builder outputs; the five-digit claim scoped to the counts; pinned jsDelivr bodies declared by URL and digest in `cdn.json`, a changed body inconclusive; clean-metadata and changed-body controls. |
+| FPROTO-4-04 | `docs/framework_prototype.md:184–190,319,360` | Independent package inspection can skip a numeric leak in a manifest label | `blocking` | Applied (§2.2, §2.5.2, §2.5.3): manifest labels searched with the full needle set; assembly also checks inventory and entitlements and that the opened rows are the drawn fixture's; browser envelope bodies recognised by local origin, canonical path and the validated digest of the decoded body; a numeric-label-behind-form control. |
+| FPROTO-4-05 | `docs/framework_prototype.md:178–190,276–301,366–412,520` | Assembly and signature-only refusals have incomplete verdicts | `adjustment` | Applied (§2.5.1, §2.5.4, §2.5.5): classification by stage, assembly `FORM` in the cost branch; `SCHEMA_ONLY` for a zero-row schema Parquet, a cost, not a failure; a collision established by reproducing the gate's search with the same values, public set and haystack role, a mismatch `HARNESS_ERROR`; a missing mandatory stage stops; resolving a missed capture needs the same artifact from an equivalent starting state; controls for each. |
+| FPROTO-4-06 | `docs/framework_prototype.md:78–106,439–443` | Normal shape validation rejects the G mutant before the browser check | `adjustment` | Applied (§2.1, §2.6): the G mutant derived from the measured fixture after the draw, with its own expected shape and check, then sealed, validated and assembled; the comparator keeps the canonical G expectation and must refuse it on G and nothing else. |
+| FPROTO-4-07 | `docs/framework_prototype.md:450–481,518,603–605` | Cutoff byte counts need a shared clock and revalidation rules | `adjustment` | Applied (§2.7): one wall-time axis, network monotonic times mapped per session through `requestWillBeSent` pairs, the clock's error recorded; cutoff counts labelled as encoded bytes observed by CDP, reconciled with completion totals; wire status beside effective status, `304` wire bytes counted and reused bodies reported as served from cache; A7's local fallback a delivery condition of its own with a quota estimate; the accounting checked on a worker transfer spanning a cutoff and a warm revalidation. |
 
 ## Round 1 — FPROTO
 
@@ -1452,3 +1452,31 @@ revision 2. Revision 4 adds the partial-transfer metric that needs these rules.
 - [ ] **FPROTO-4-07** — Demonstrate the shared timebase and account for observed partial encoded
   bytes and 304 revalidation in trace controls. Record actual engine origin and label any fallback
   measurements with that configuration.
+
+## Round 4 — the author's answer
+
+Revision 5 of `docs/framework_prototype.md` answers all seven findings; each Status above says where.
+The Owner decided two things on round 4 (PLAN §1.2, N95): the oracle guards against the **ordinary
+behaviour** of each candidate — its framework, libraries and browser — and the page code this
+repository writes, which you review; code of ours written to deceive the oracle, and a compromised
+dependency, are residual risks written in §9 of the plan. And the review goes on until no blocking
+finding is left. Please weigh the findings of round 5 against that scope: a case that needs our own
+page code to act against the oracle is an observation, not a blocker.
+
+The main changes: no package code runs with a network at all — the harness fetches the tarballs and
+every install and build is offline —; numbers are compared by the role of the file, and the draw
+calibrates both inspections; store writes are observed as they happen; the package is bound to the
+drawn fixture and recognised by digest in the artifact and in the browser. It is still a plan:
+nothing of the prototype is built, and every **[planned]** and **[assumed]** is unmeasured.
+
+Run for it: `make check` at each commit, exit 0. Nothing of the candidates was run.
+
+**Not verified, and where I hesitated:**
+
+- That Evidence 40.1.8 installs offline from a fetched cache, with no post-install download of its
+  own — A6 now asks it. If it cannot, the result says so.
+- Wrapping the stores' write paths in every realm is ordinary instrumentation, but whether the
+  DevTools protocol lets it be installed in every worker type before its first script is not
+  measured; a realm without it is inconclusive.
+- The role split for numbers trusts the classification of a file as code-bearing; a JSON document
+  served as code is still parsed as a structured carrier, so its numbers are compared.
