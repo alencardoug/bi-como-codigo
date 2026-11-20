@@ -193,14 +193,14 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | FPROTO-5-06 | `docs/framework_prototype.md:123–127,213–221,519–537` | The G control needs its own assembly input and detail expectations | `adjustment` | Applied (§2.1, §2.2, §2.6): assembly takes the mutant's rows as that control's expected rows; the mutant's detail is compared with them; the canonical expectation is kept for G's summary cell alone. |
 | FPROTO-5-07 | `docs/framework_prototype.md:566–589,716–717` | Successive warm samples can start with different browser cache state | `adjustment` | Applied (§2.7): five warm samples, each in its own fresh profile after the same two-journey priming with quiescence, the measured journey the third use of every script; priming and sample traces checked against the same artifact and delivery condition. |
 | FPROTO-5-08 | `docs/framework_prototype.md:152–156,698–701,731–741` | The per-candidate targets have no shared draw and invalidation contract | `adjustment` | Applied (§5): one entry point, `make prototype`, with build-only targets per candidate and one state file holding both builder digests, the draw, the package digest and the measures; a rebuild invalidates the draw, both artifacts and both measure sets; the comparison requires one package digest, and an impossible encrypted route leaves it explicitly incomplete. |
-| FPROTO-6-01 | `docs/framework_prototype.md:419–430,496–520,550–551` | The verdict has no branch for `UNEXPECTED_DECRYPT` | `blocking` | |
-| FPROTO-6-02 | `docs/framework_prototype.md:431–456,550` | Ordinary browser storage and history mutations can escape capture | `blocking` | |
-| FPROTO-6-03 | `docs/framework_prototype.md:141–146,360–385,533–535` | Typed report calendar values disappear from the browser oracle | `blocking` | |
-| FPROTO-6-04 | `docs/framework_prototype.md:483–520,530–552,766` | Verdict controls and retries before assembly have no consistent inputs | `adjustment` | |
-| FPROTO-6-05 | `docs/framework_prototype.md:414–417,457–466,547,591–597` | The revalidation control can succeed with no ETag and the validator conflates encodings | `adjustment` | |
-| FPROTO-6-06 | `docs/framework_prototype.md:614–623,637–639,774` | Equal priming does not establish equal cache state | `adjustment` | |
-| FPROTO-6-07 | `docs/framework_prototype.md:154–158,748–757,769–774` | The shared state can reuse results after a byte-identical rebuild | `adjustment` | |
-| FPROTO-6-08 | `docs/framework_prototype.md:229–233,822–824,842–845` | A deliberate replacement of the reader would escape the WebCrypto hooks | `observation` | |
+| FPROTO-6-01 | `docs/framework_prototype.md:419–430,496–520,550–551` | The verdict has no branch for `UNEXPECTED_DECRYPT` | `blocking` | Applied in rev. 7 (§2.5.3, §2.5.4, §2.5.5): `UNEXPECTED_DECRYPT` joins `PREMATURE_DECRYPT` in the failure branch; a call belongs to the submission active when it started, and logout and the new login page reset the permission; a wrong-attempt unwrap-and-decrypt control with a failing judged verdict. |
+| FPROTO-6-02 | `docs/framework_prototype.md:431–456,550` | Ordinary browser storage and history mutations can escape capture | `blocking` | Applied (§2.5.3, §2.5.5): stores held at their entry points in every realm — `indexedDB.open`, `caches.open`/`has` with names inspected, `navigator.storage.getDirectory`, the Navigation API's state calls, history, cookies, service workers —; IndexedDB content events unexplained by a hooked write and cache entries neither enumerated nor correlated with their network body are inconclusive; navigation state recorded at each write and enumeration; any OPFS use in a judged run is inconclusive; controls for `updateCurrentEntry`, a worker cache name, `addAll` and a native OPFS writer. |
+| FPROTO-6-03 | `docs/framework_prototype.md:141–146,360–385,533–535` | Typed report calendar values disappear from the browser oracle | `blocking` | Applied (§2.1, §2.5.2, §2.5.5): the calendar matched as a pair — a year and month of the window as two integer fields of one structured record, or a `year_month` string — `INSPECT_CALENDAR`; generic integer needles stay count-only; the draw uses the full dispatch, stand-alone JSON included; a typed-calendar snapshot control. |
+| FPROTO-6-04 | `docs/framework_prototype.md:483–520,530–552,766` | Verdict controls and retries before assembly have no consistent inputs | `adjustment` | Applied (§2.5.4, §2.5.5): a run that failed before an artifact existed is closed by a later judged run with the same build input; one with an artifact only by the same digest from an equivalent state; verdict cases run as synthetic histories inside the test, and the real history asserted free of control and probe runs; cases for an interruption before archive with a clean retry and assembly `FORM` with and without the builder scan. |
+| FPROTO-6-05 | `docs/framework_prototype.md:414–417,457–466,547,591–597` | The revalidation control can succeed with no ETag and the validator conflates encodings | `adjustment` | Applied (§2.5.3, §2.7, §2.5.5): the effective body captured with `Network.getResponseBody` first; failing that, bound to the inspected response of the same variant — URL, encoding, strong `ETag` per representation with `Vary: Accept-Encoding`; inconclusive only when both fail; the digest rule also during the wrong attempt; a bound reuse without capture is a clean control. |
+| FPROTO-6-06 | `docs/framework_prototype.md:614–623,637–639,774` | Equal priming does not establish equal cache state | `adjustment` | Applied (§2.7): the warm condition reported as two standard priming journeys, not an equal cache state; each sample keeps its cache evidence — per-request reuse or revalidation and V8 code-cache consumption from a trace —; matching samples form a series, a differing one its own series; the split proved on a mismatched trace. |
+| FPROTO-6-07 | `docs/framework_prototype.md:154–158,748–757,769–774` | The shared state can reuse results after a byte-identical rebuild | `adjustment` | Applied (§5): the state keyed by build-invocation ids, build inputs and harness inputs as well as digests; any rebuild invocation, even byte-identical, and any harness-input change invalidate the draw, both artifacts and both measure sets; first comparison, identical rebuild and declaration change each shown to give a fresh comparison. |
+| FPROTO-6-08 | `docs/framework_prototype.md:229–233,822–824,842–845` | A deliberate replacement of the reader would escape the WebCrypto hooks | `observation` | No change needed: outside N95, and §9 of the plan already records it — the page's only path to the report is `web/envelope.mjs`, reviewed with the page code. |
 
 ## Round 1 — FPROTO
 
@@ -2085,3 +2085,26 @@ revision 1 and made explicit when the browser checks grew.
 - [ ] **FPROTO-6-07** — Invalidate shared results on either rebuild and on changed verification or
   measurement inputs. Exercise a byte-identical rebuild and keep the comparison bound to a single
   package and current build records.
+
+## Round 6 — the author's answer
+
+Revision 7 of `docs/framework_prototype.md` answers the seven findings that ask for a change, and
+FPROTO-6-08 is an observation already recorded; each Status above says where. One change of
+approach: instead of hooking every write path of every browser store — round 6 showed the list never
+closes —, the check holds each store's entry points and treats any mutation it cannot capture as
+inconclusive; the origin private file system, whose native writers no hook sees, is inconclusive
+whenever a judged run uses it. It is still a plan: nothing of the prototype is built, and every
+**[planned]** and **[assumed]** is unmeasured.
+
+Run for it: `make check` at each commit, exit 0. Nothing of the candidates was run. Your round 6
+Chrome probes are the only browser runs so far, and they are what revision 7 leans on for
+`DOMStorage` events and the IndexedDB hook.
+
+**Not verified, and where I hesitated:**
+
+- The OPFS rule is blunt: if DuckDB-WASM or Evidence opens the origin private file system on its
+  own, that candidate's verdict is "not established" for a reason that may be harmless. I preferred
+  that to a hook I cannot make complete.
+- The calendar pair matches any two integer fields of one record; a record holding an unrelated
+  year-like and month-like pair would be a false finding. Within the browser stores, which should
+  hold no data at all, I judged that acceptable.
