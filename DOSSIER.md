@@ -207,6 +207,11 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | FPROTO-7-04 | `docs/framework_prototype.md:141–149,364–389,573` | The calendar rule misses split selections and matches unrelated metadata | `blocking` | Applied with N96 (§2.5.2): the calendar is reached as text and, in the artifact, by the gate; the pair rule is kept only for the browser diagnostic, as a lead and not a proof, so it neither misses a verdict case nor fails clean metadata. |
 | FPROTO-7-05 | `docs/framework_prototype.md:352–355,507–533,574` | A retry can close a finished builder output that was never inspected | `adjustment` | Applied (§2.5.2, §2.5.4, §2.5.5): an archived builder output not inspected is closed only by inspecting that archive; a run that failed before its archive is closed by a retry with the same build input whose builder output is archived and inspected; verdict cases for both. |
 | FPROTO-7-06 | `docs/framework_prototype.md:528–533,638–652,806–808` | The results table still calls for one statistic across five warm runs | `adjustment` | Applied (§6): the timing row takes statistics per warm series of matching cache evidence, never across series. |
+| FPROTO-8-01 | `docs/framework_prototype.md:462–496,526` | An archived build interrupted at assembly has no specified recovery | `adjustment` | |
+| FPROTO-8-02 | `docs/framework_prototype.md:419–453,525,830–836` | A readable Chrome profile file can contain values the scan cannot read | `adjustment` | |
+| FPROTO-8-03 | `docs/framework_prototype.md:444–453,566–573,605–616` | Measurement refers to an effective-body fallback the diagnostic no longer defines | `adjustment` | |
+| FPROTO-8-04 | `docs/framework_prototype.md:590–604,761` | Warm series can mix DuckDB-WASM compilation-cache conditions | `adjustment` | |
+| FPROTO-8-05 | `docs/framework_prototype.md:419–429,442–443,525` | The decryption diagnostic leaves logout as an attempt boundary unspecified | `adjustment` | |
 
 ## Round 1 — FPROTO
 
@@ -2383,3 +2388,241 @@ Run for it: `make check` at each commit, exit 0. Nothing of the candidates was r
 - Taking the browser out of the verdict means a candidate can pass 2.3 while storing report data in
   the browser; the diagnostic reports it first among that candidate's results, and the Owner sees it
   before choosing.
+
+## Round 8 — FPROTO
+
+### 1. Conclusion
+
+**No blockers found within the reviewed scope.** The judged build has no report input, and assembly
+adds only the validated, row-bound package to the archived builder output. A pass requires both
+output inspections and the unchanged gate. Revision 8 removes browser capture and findings from
+that decision. Five adjustments remain for retry evidence and for the accuracy of the comparison.
+The review of stage 2.3's plan can be closed and the prototype implemented. The framework choice
+remains with the Owner under PLAN §7.
+
+### 2. Reviewed scope and version
+
+- `main` at `52b5507efc05eb448f29975997835647976a7bdd`, 18 commits ahead of `origin/main`.
+  The checkout started clean with zero untracked files reported by Git. HEAD stayed at that commit.
+  This round adds only the report and table rows in `DOSSIER.md`.
+- Reviewed the four commits in `2420123..52b5507` (`754cb38`, `6946a70`, `ec95d3a`, `52b5507`).
+  Compared revision 7 (`8fd890a`) with revision 8 (`ec95d3a`) using the requested path-restricted
+  diff. The author’s last commit changes the six Status cells and adds the answer. Used the earlier
+  evidence in this dossier and traced the unchanged gate, envelope and relevant package sources.
+- PLAN N95 scopes ordinary framework, library and good-faith page behavior. N96 and PLAN §6.2
+  assign the finished-build decision to 2.3 and the complete browser oracle to 2.5. Prototype
+  §1 and §2.5 agree with the six stages and precedence in §2.5.4. The §2.5.5 diagnostic proofs
+  explicitly leave the verdict unchanged. §6 gives the browser behavior and the page check their
+  own results, and §8 carries the same decision. A3's infeasibility evidence is the build error
+  named in §3. A browser failure is evidence about the page or the diagnostic.
+- The artifact scan survives a gate refusal on form. `release.verify` checks the inclusion list
+  and file form before package identity and the raw-byte search. The supplemental scanner inspects
+  the builder archive even for assembly `FORM`, and binds the package exemption to its path and
+  digest, with manifest labels searched in full. The pinned Evidence code confirms that SSR query
+  results can be written as Arrow IPC and read back by the page. That is an inspection target
+  for A1. The judged build can see only the allowlist, with a zero-row schema source if needed.
+  `src/bi_como_codigo/release.py:245–335`, `docs/framework_prototype.md:197–241,399–409,629–661`.
+  [Evidence query cache 3.0.1](https://cdn.jsdelivr.net/npm/@evidence-dev/universal-sql@3.0.1/src/cache-duckdb.js), [Evidence page layout 40.1.8](https://cdn.jsdelivr.net/npm/@evidence-dev/evidence@40.1.8/template/src/pages/+layout.js).
+
+### 3. Findings by severity
+
+No critical or high findings. No new low observations.
+
+#### Medium — adjustment
+
+**FPROTO-8-01 — An archived build interrupted at assembly has no specified recovery.**
+Medium · `adjustment`. `docs/framework_prototype.md:462–496,526`.
+
+Consider a judged run with an inspected builder archive whose package validation ends in
+`HARNESS_ERROR` before an artifact exists. Rule 3 stops on the error. After a successful retry,
+rule 4 still sees the first run's missing artifact stages. The new closure rules apply before
+archive, to the builder inspection itself, or after an artifact exists. The assembly case lands
+between them. The positive control at line 526 also expects `passes` after inspecting a builder
+archive without specifying assembly, `verify` or the artifact scan. The explicit pass rule still
+requires those stages.
+
+Allow assembly to resume from the same inspected builder digest and require all remaining stages.
+Prove that another archive cannot substitute for missing inspection, that inspecting the right
+archive alone leaves absent downstream stages open, and that assembly recovery on that archive
+can complete. Static trace of the stage rules. Revision 2 introduced archives. Revision 7
+explicitly covered assembly errors and revision 8 removed that clause.
+
+**FPROTO-8-02 — A readable Chrome profile file can contain values the scan cannot read.**
+Medium · `adjustment`. `docs/framework_prototype.md:419–453,525,830–836`.
+
+The profile scan promises to see persisted values regardless of the API and lists undecodable
+files. In the isolated Chrome probe, a synthetic persistent cookie was readable on the replacement
+page and after a browser restart. Its SQLite row was readable too. The plaintext column was empty,
+the value was in a 67-byte encrypted blob, and the marker did not occur in the database bytes.
+A decoder can therefore read the file and still miss a retained value that the browser can use.
+Round 7 also demonstrated transient cache, schema and named-bucket writes whose values were
+gone from live storage at the end. A post-close scan cannot reliably reconstruct those writes.
+The current proof that deletes the IndexedDB record does not exercise the positive profile-scan
+case. [Chromium persistent cookie store](https://chromium.googlesource.com/chromium/src/+/HEAD/net/extras/sqlite/sqlite_persistent_cookie_store.cc).
+
+Report coverage at the record or storage-format level, including opaque fields inside decoded
+files. Distinguish a write observed during the journey, state the browser can still read, and
+bytes observed on disk after close. Name the known transient, native fragment and named-bucket
+gaps where the relevant collector is absent. Use a fresh diagnostic profile and prove one
+retained marker the scan reads and one opaque retained value it reports as unobserved on disk.
+The cookie result was executed. The planned scanner's coverage claim follows from the text.
+Earlier revisions had runtime storage checks. The post-close scan and its claim are new in
+revision 8.
+
+**FPROTO-8-03 — Measurement refers to an effective-body fallback the diagnostic no longer defines.**
+Medium · `adjustment`. `docs/framework_prototype.md:444–453,566–573,605–616`.
+
+§2.7 still says §2.5.3 binds reused bodies using the strong representation ETag. §2.5.3 now
+inspects returned effective bodies and reports unread bodies. Revision 8 removed the fallback
+and its controls. A wire `304` with unavailable effective bytes has no documented path to
+body identity, yet §2.7 requires the reused body's size. A status or validator alone provides
+neither the body nor its size. The round 6 probe also showed that a response can have no ETag
+and still yield the effective bytes.
+
+Make both sections agree on the evidence for a reused body. If capture is the only source,
+report a missing body as unobserved and its size as unknown when there is no independent size
+evidence. If the fallback is retained, require a previously inspected body bound to the URL,
+encoding and strong validator for the selected representation. Prove that a bodyless wire
+revalidation with unavailable effective bytes produces the appropriate report and leaves the
+artifact verdict unchanged. Static diff and reused round 6 evidence. Revision 2 introduced
+response capture. Revision 7 specified the validated fallback and revision 8 left a stale
+reference to it. [RFC 9110 §8.8.3.3](https://www.rfc-editor.org/rfc/rfc9110.html#section-8.8.3.3).
+
+**FPROTO-8-04 — Warm series can mix DuckDB-WASM compilation-cache conditions.**
+Medium · `adjustment`. `docs/framework_prototype.md:590–604,761`.
+
+The revised table reports per series. The qualification compares HTTP cache behavior and which
+scripts used the JavaScript code cache. Both pinned DuckDB-WASM workers have an HTTP
+`WebAssembly.instantiateStreaming` path. Chromium can reuse compiled WASM separately from the
+HTTP body and reports that in the WASM trace. Two independently primed samples can have the same
+HTTP and JavaScript evidence while one reuses compiled WASM and the other compiles it. Moreover,
+a trace with missing events cannot establish that there was no cache consumption. This is a
+source-level risk to the proposed measurement. No candidate timings or cache hits were observed.
+[DuckDB-WASM 1.32.0 worker](https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-browser-eh.worker.js), [Chromium WASM trace events](https://chromium.googlesource.com/chromium/src/+/6b0ad3c48259d7f3b74d3ea1b4dee773066fb7fe/third_party/blink/renderer/bindings/core/v8/v8_wasm_response_extensions.cc), [CDP trace loss](https://chromedevtools.github.io/devtools-protocol/tot/Tracing/#event-tracingComplete).
+
+Qualify the engine's observed compilation-cache condition, or establish that it is inapplicable
+for the measured loader. Keep incomplete traces out of qualified series. Check the reported
+sample counts and summaries using equal HTTP and JavaScript evidence with different WASM
+observations and with an incomplete trace. Revision 1 pooled timings. Revision 2 split cold
+from warm and pooled all warm samples. Revision 7 introduced the incomplete qualification and
+revision 8 correctly applied it to the results table.
+
+**FPROTO-8-05 — The decryption diagnostic leaves logout as an attempt boundary unspecified.**
+Medium · `adjustment`. `docs/framework_prototype.md:419–429,442–443,525`,
+`web/envelope.mjs:310–321,350–364`.
+
+The wrappers attribute calls to the submission active at start, but the rule drops the explicit
+expiry at logout and reset on the replacement login page. With a delayed call in a surviving
+target after logout, the last right-password submission can still look like the active attempt.
+The worker observation alone gives no classification for that call. The reader still derives
+before a failed unwrap on the wrong-password path. That path needs a distinct outcome from a
+successful unwrap, a decrypt, or missing coverage.
+
+Specify the attempt boundary in the diagnostic and retain the realm, call start and outcome it
+uses to classify evidence. Prove the normal failed unwrap, a call starting after logout in an
+old target, and a new-page call before a new submission. Preserve the start attribution of a
+call already in flight at logout. Static diff and reader trace. Revision 1 and revision 2 lacked
+this attempt rule. Revision 8 drops the logout boundary that revision 7 specified.
+
+### 4. Status of previous findings
+
+| ID | Reassessment | Evidence |
+|---|---|---|
+| FPROTO-7-01 | Partially resolved | N96 closes the verdict issue. Cache event enumeration still lacks historical bodies, and IndexedDB put/add/cursor hooks lack schema names. The round 7 negative cases limit the diagnostic and its profile scan. See FPROTO-8-02. |
+| FPROTO-7-02 | Partially resolved | N96 closes the verdict issue. §2.5.3 lists state hooks and final history. It does not describe a same-document URL feed. Round 7 observed the transient fragment only at the protocol event. See FPROTO-8-02. |
+| FPROTO-7-03 | Partially resolved | The default-getter inconclusive guard and collector walk are gone. §2.5.3 names the default getter only, despite the author's Status claim about named buckets. The round 7 named-bucket write invoked it zero times and left no live file. See FPROTO-8-02. |
+| FPROTO-7-04 | Resolved | §2.5.2 keeps text and eligible raw gate spellings for the artifact. `contract.inspect` found the plain year and calendar string. The browser pair is a lead only, so a split selection may escape and the pinned SvelteKit scroll pair cannot decide the verdict. Encoded calendar-only coverage is limited as noted below. |
+| FPROTO-7-05 | Partially resolved | §2.5.2 and §2.5.4 now require inspection of the actual builder archive. The control omits the different-archive negative and the downstream stages of the positive case. Assembly recovery remains without a rule. See FPROTO-8-01. |
+| FPROTO-7-06 | Partially resolved | §6 now reports the statistic per warm series and never pools observed differences. Warm state no longer affects verdict retries. The qualification and report proof still need FPROTO-8-04. |
+| FPROTO-1-01 | Resolved | The encrypted build has no report input. Independent builder and artifact inspections survive form refusals and the package exemption is bound. Browser incompleteness is diagnostic under N96. |
+| FPROTO-1-05 | Partially resolved | Encoded variants and build identities remain bound. Per-series reporting is fixed. The measured warm conditions and cache-body evidence need FPROTO-8-03 and -04. |
+| FPROTO-2-02 | Resolved | §2.3 keeps worker termination and full navigation. §2.5.3 observes surviving session targets and history, with a kept-worker control. N96 removes the dependency of the verdict on complete worker or storage observation. |
+| FPROTO-2-04 | Partially resolved | The gate classes and isolation of synthetic histories still agree with the source. The missing assembly and continuation cases are FPROTO-8-01. |
+| FPROTO-2-06 | Partially resolved | Immediate submit, the two intervals and independent priming remain explicit. Warm trace qualification is open in FPROTO-8-04. |
+| FPROTO-3-02 | Partially resolved | Target and body capture are explicitly best-effort. Runtime and profile blind spots remain under FPROTO-8-02, -03 and -05. They no longer gate the build. |
+| FPROTO-3-05 | Partially resolved | `FORM`, `SCHEMA_ONLY` and collisions still have dispositions, and missing inspection stays tied to the archive. Continuation into the remaining stages needs FPROTO-8-01. |
+| FPROTO-3-07 | Partially resolved | Both candidates use one package, per-origin byte accounting and the cutoff clock. Evidence for readable cached bytes and warm series remains open in FPROTO-8-03 and -04. |
+| FPROTO-4-02 | Partially resolved | Named Web Storage and cursor write hooks, count rules and calendar leads are specified. Transient and opaque values remain coverage limits. See FPROTO-8-02. |
+| FPROTO-4-05 | Partially resolved | Assembly `FORM` still requires the builder scan, and artifact retry is bound by digest. The assembly `HARNESS_ERROR` gap is FPROTO-8-01. |
+| FPROTO-5-02 | Partially resolved | The diagnostic retains named and cursor paths and state hooks. Native URL and transient storage coverage claims need FPROTO-8-02. |
+| FPROTO-5-03 | Resolved | The count-only generic integer rule and full draw dispatch agree. The browser pair is a lead and does not invalidate clean artifact metadata. |
+| FPROTO-5-04 | Partially resolved | An inconclusive archived file still requires reinspection of that same archive. Browser capture is no longer mandatory. A failure before assembly completes needs FPROTO-8-01. |
+| FPROTO-5-07 | Partially resolved | Each sample still has separate priming and §6 follows the trace split. WASM use and incomplete traces need FPROTO-8-04. |
+| FPROTO-6-02 | Partially resolved | N96 closes the fail-closed browser requirement at 2.3. The named-bucket claim and transient coverage gaps remain in the diagnostic. See FPROTO-8-02. |
+| FPROTO-6-03 | Resolved | Full dispatch still calibrates both builder outputs. The calendar pair is explicitly a browser lead and split numeric values are a diagnostic limit. |
+| FPROTO-6-04 | Partially resolved | Same-input retry before archive and synthetic verdict isolation remain. Failure between a completed archive and an artifact reopens the recovery gap. See FPROTO-8-01. |
+| FPROTO-6-06 | Partially resolved | The protocol says two priming journeys and §6 groups matching observed conditions. The missing compilation-cache dimension is FPROTO-8-04. |
+| FPROTO-6-05, FPROTO-5-05 | Partially resolved | These were closed in round 7. Returned bodies still require the decoded digest and the server still sends variant tags. The revision removed the fallback that the measurement cites. See FPROTO-8-03. |
+| FPROTO-6-01, FPROTO-5-01 | Partially resolved | These were closed in round 7. The wrong attempt still expects derivation plus a failed unwrap. The diagnostic loses the explicit logout reset. See FPROTO-8-05. |
+
+### 5. Checks executed and results
+
+- Ran `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` once on the clean
+  `52b5507` checkout. `UV_CACHE_DIR` and the pytest cache were under
+  `/tmp/fproto8-check.NhQjFk`. Exit **0**, read directly. The docs check used the permitted
+  upstream Git lookups. The author separately reported exit **0** at `52b5507`.
+
+  ```text
+  docs-check: 31 documents, 201 file links, 69 anchors, 23 ADR citations, 101 links into mvp_eng_dados_1 — nothing broken
+  adr-check: 3 accepted, 1 pending — record consistent
+  470 passed, 1 warning in 276.85s (0:04:36)
+  ℹ tests 157
+  ℹ pass 156
+  ℹ fail 0
+  ℹ skipped 1
+  ```
+
+- Ran the synthetic profile probe with `.venv/bin/python -B`, headless Chrome and `bwrap`,
+  using an isolated home, disposable profile, private loopback and `--password-store=basic`.
+  The first launch lacked the Python symlink target inside the sandbox. After correcting that
+  mount, the probe exited **0**. Scratch script and profile are under `/tmp/fproto8-browser.hVcyOH`.
+
+  ```text
+  post-close synthetic cookie {"available_after_replacement": true, "available_after_restart": true, "chrome": "Chrome/156.0.8078.79", "marker_in_sqlite_bytes": false, "persistent_sqlite_row": true, "sqlite_encrypted_bytes": 67, "sqlite_plaintext_empty": true}
+  ```
+
+- Ran `contract.needles` and `contract.inspect` on scratch calendar records with
+  `.venv/bin/python -B`, exit **0**, under `/tmp/fproto8-gate.rpKfC3`. This exercises the
+  raw gate predicate. The supplemental scanner has no implementation yet.
+
+  ```text
+  plain year only: clear_value
+  plain month only: PASS
+  plain calendar string: clear_value
+  gzip year only before decoding: PASS
+  gzip year only after decoding: clear_value
+  ```
+
+- Read the pinned Evidence, SvelteKit and DuckDB-WASM sources from prior tarballs. Reused round 7's
+  transient write, fragment and bucket evidence and round 6's effective-body evidence. A1–A7,
+  candidate installation and builds, the final draw, full prototype wrapper and inspectors, and
+  browser journeys and performance measurements remain implementation checks. No database or
+  publishing operation was needed.
+
+### 6. Limitations and open questions
+
+- `release.verify` searches raw eligible spellings as documented in `docs/package_gate.md` §6.
+  A calendar-only encoded carrier can escape that predicate, and §2.5.2's generic typed integers
+  exclude the calendar. The data-free build and the validated package boundary support the verdict
+  for the specified route. A1 still has to show which carriers the clear-mode page actually emits.
+- The profile probe establishes one on-disk limit in one Chrome configuration. The complete browser
+  oracle, including comprehensive transient state and lifecycle coverage, belongs to 2.5. A
+  deliberately substituted reader or compromised dependency remains the residual risk recorded
+  under N95. §10 is pending and the preparation evidence is distinct from candidate measurements.
+
+### 7. Handoff to Claude Code
+
+- [ ] **FPROTO-8-01** — Add retry histories for an inspected builder with a failed assembly and
+  for an uninspected archive followed by a different clean output. Require the relevant original
+  archive's inspection and all remaining mandatory stages.
+- [ ] **FPROTO-8-02** — Report material gaps inside decoded profile files as well as unsupported
+  files and unobserved transient paths. A retained-value control produces a positive disk result.
+  An opaque retained-value control produces an explicit coverage gap.
+- [ ] **FPROTO-8-03** — Make the response and byte reports agree when capture is unavailable.
+  Report only a size or body attested by the recorded evidence. Exercise the unavailable-body
+  case with the same build verdict.
+- [ ] **FPROTO-8-04** — Exercise the report with matching HTTP and JS evidence but different WASM
+  cache use, and with missing trace evidence. Show separate series counts and summaries and
+  identify the sample whose condition is unknown.
+- [ ] **FPROTO-8-05** — Verify the clean wrong attempt, the first post-logout call in an old
+  target and a call on the new login page. Show their start phases and outcomes in the diagnostic.
