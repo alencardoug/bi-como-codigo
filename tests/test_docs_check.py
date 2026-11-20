@@ -5,7 +5,7 @@ depends on has its counter-proof here, because getting one wrong produces the
 worst possible result: a tool that says "nothing broken" about a broken map.
 
 Ported from mvp_eng_dados_1 (`tests/test_docs_check.py` at `26b58b3`); the
-tests of links into mvp_eng_dados_1 are new here.
+tests of links into mvp_eng_dados_1 and mvp_eng_dados_2 are new here.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ import pytest
 from bi_como_codigo import docs_check
 
 UPSTREAM = "https://github.com/alencardoug/mvp_eng_dados_1"
+UPSTREAM_2 = "https://github.com/alencardoug/mvp_eng_dados_2"
 
 
 def _git(root: pathlib.Path, *args: str) -> str:
@@ -43,18 +44,29 @@ def repo(tmp_path: pathlib.Path) -> pathlib.Path:
     return root
 
 
-@pytest.fixture
-def upstream(tmp_path: pathlib.Path) -> tuple[docs_check.EngDados, str]:
-    """A stand-in for mvp_eng_dados_1 with one commit, and that commit."""
-    root = tmp_path / "upstream"
+def _source(root: pathlib.Path, message: str) -> tuple[docs_check.EngDados, str]:
+    """A stand-in for a source with one commit, and that commit. `message`
+    makes the commit of each stand-in its own, as the two real histories are."""
     (root / "docs").mkdir(parents=True)
     _init(root)
     (root / "docs" / "gov.md").write_text("# Governança\n\n## 7. Regras de acesso\n", encoding="utf-8")
     (root / "src").mkdir()
     (root / "src" / "lineage.py").write_text("", encoding="utf-8")
     _git(root, "add", "-A")
-    _git(root, "commit", "-q", "-m", "base")
+    _git(root, "commit", "-q", "-m", message)
     return docs_check.EngDados(root), _git(root, "rev-parse", "--short", "HEAD")
+
+
+@pytest.fixture
+def upstream(tmp_path: pathlib.Path) -> tuple[docs_check.EngDados, str]:
+    """A stand-in for mvp_eng_dados_1 with one commit, and that commit."""
+    return _source(tmp_path / "upstream", "base")
+
+
+@pytest.fixture
+def upstream_2(tmp_path: pathlib.Path) -> tuple[docs_check.EngDados, str]:
+    """A stand-in for mvp_eng_dados_2, with a history of its own."""
+    return _source(tmp_path / "upstream_2", "base of the continuation")
 
 
 def _write(root: pathlib.Path, relative: str, text: str) -> None:
@@ -64,8 +76,8 @@ def _write(root: pathlib.Path, relative: str, text: str) -> None:
     _git(root, "add", relative)
 
 
-def _broken(root: pathlib.Path, eng_dados: docs_check.EngDados | None = None) -> list[docs_check.Broken]:
-    return docs_check.check(root, eng_dados)[0]
+def _broken(root: pathlib.Path, sources: dict[str, docs_check.EngDados] | None = None) -> list[docs_check.Broken]:
+    return docs_check.check(root, sources)[0]
 
 
 # ── The slug rule, which is where mistakes come from ───────────────────────
@@ -294,9 +306,9 @@ def test_pinned_upstream_links_are_checked_at_their_commit(repo, upstream):
         f"[file]({UPSTREAM}/blob/{ref}/docs/gone.md)\n",
     )
 
-    broken, counts, unverified = docs_check.check(repo, eng_dados)
+    broken, counts, unverified = docs_check.check(repo, {"mvp_eng_dados_1": eng_dados})
 
-    assert counts["eng_dados"] == 5 and unverified == []
+    assert counts["mvp_eng_dados_1"] == 5 and unverified == []
     assert [(b.line, b.reason) for b in broken] == [
         (7, f"heading does not exist in docs/gov.md at {ref}"),
         (9, f"does not exist in mvp_eng_dados_1 at {ref}"),
@@ -324,19 +336,93 @@ def test_without_a_checkout_the_upstream_links_are_listed_not_passed(repo, capsy
     assert "1 not verified" in output.out
 
 
+# ── Two sources, each in its own checkout (N86) ────────────────────────────
+
+
+def test_each_link_is_read_in_the_checkout_its_url_names(repo, upstream, upstream_2):
+    """A commit of one source never passes for the other: the histories are
+    disjoint, and each link is read only where its URL points."""
+    eng_dados_1, ref_1 = upstream
+    eng_dados_2, ref_2 = upstream_2
+    assert ref_1 != ref_2
+    _write(
+        repo,
+        "README.md",
+        f"[one]({UPSTREAM}/blob/{ref_1}/docs/gov.md#7-regras-de-acesso)\n\n"
+        f"[two]({UPSTREAM_2}/blob/{ref_2}/docs/gov.md#7-regras-de-acesso)\n\n"
+        f"[two at one's commit]({UPSTREAM_2}/blob/{ref_1}/docs/gov.md)\n\n"
+        f"[one at two's commit]({UPSTREAM}/blob/{ref_2}/src/lineage.py)\n",
+    )
+
+    broken, counts, unverified = docs_check.check(
+        repo, {"mvp_eng_dados_1": eng_dados_1, "mvp_eng_dados_2": eng_dados_2}
+    )
+
+    assert counts["mvp_eng_dados_1"] == 2 and counts["mvp_eng_dados_2"] == 2 and unverified == []
+    assert [(b.line, b.reason) for b in broken] == [
+        (5, f"does not exist in mvp_eng_dados_2 at {ref_1}"),
+        (7, f"does not exist in mvp_eng_dados_1 at {ref_2}"),
+    ]
+
+
+def test_a_source_with_no_checkout_is_listed_with_its_variable(repo, upstream):
+    """With only mvp_eng_dados_1's checkout, the links into mvp_eng_dados_2 are
+    not verified — and say which variable would verify them."""
+    eng_dados_1, ref_1 = upstream
+    _write(
+        repo,
+        "README.md",
+        f"[one]({UPSTREAM}/blob/{ref_1}/docs/gov.md)\n\n[two]({UPSTREAM_2}/blob/{ref_1}/docs/gov.md)\n",
+    )
+
+    broken, _, unverified = docs_check.check(repo, {"mvp_eng_dados_1": eng_dados_1})
+
+    assert broken == []
+    assert [(u.line, u.reason) for u in unverified] == [(3, "ENG_DADOS_2_DIR not set")]
+
+
+def test_an_unpinned_link_into_the_second_source_is_broken_without_a_checkout(repo):
+    _write(repo, "README.md", f"[two]({UPSTREAM_2}/blob/v2.3.0/docs/gov.md)\n")
+
+    assert [b.reason for b in _broken(repo)] == [
+        "not pinned: `v2.3.0` is not a commit, so the fact it cites can move"
+    ]
+
+
+def test_a_checkout_for_an_unknown_source_is_refused(repo, upstream):
+    with pytest.raises(ValueError, match="not a source"):
+        docs_check.check(repo, {"mvp_eng_dados_3": upstream[0]})
+
+
+def test_main_reads_each_checkout_from_its_own_variable(repo, upstream, upstream_2, capsys, monkeypatch):
+    eng_dados_1, ref_1 = upstream
+    eng_dados_2, ref_2 = upstream_2
+    monkeypatch.setenv("ENG_DADOS_DIR", str(eng_dados_1.checkout))
+    monkeypatch.setenv("ENG_DADOS_2_DIR", str(eng_dados_2.checkout))
+    _write(repo, "README.md", f"[two]({UPSTREAM_2}/blob/{ref_2}/docs/gov.md)\n")
+    assert docs_check.main([str(repo)]) == 0
+    assert "0 links into mvp_eng_dados_1, 1 links into mvp_eng_dados_2 — nothing broken" in capsys.readouterr().out
+
+    _write(repo, "README.md", f"[two]({UPSTREAM_2}/blob/{ref_1}/docs/gov.md)\n")
+    assert docs_check.main([str(repo)]) == 1
+    assert f"does not exist in mvp_eng_dados_2 at {ref_1}" in capsys.readouterr().err
+
+
 def test_the_documentation_of_this_repository_passes():
     """The check holds for the real repository, not only for the throwaway one.
 
-    The links into mvp_eng_dados_1 are verified when `ENG_DADOS_DIR` names a
-    checkout of it; `make check` requires it.
+    The links into each source are verified when its variable names a checkout
+    of it — `ENG_DADOS_DIR` for mvp_eng_dados_1, `ENG_DADOS_2_DIR` for
+    mvp_eng_dados_2; `make check` requires both.
     """
     root = pathlib.Path(__file__).resolve().parent.parent
-    checkout = os.environ.get("ENG_DADOS_DIR")
-    broken, counts, unverified = docs_check.check(
-        root, docs_check.EngDados(pathlib.Path(checkout)) if checkout else None
-    )
+    sources = {
+        name: docs_check.EngDados(pathlib.Path(os.environ[variable]))
+        for name, variable in docs_check.SOURCES.items()
+        if os.environ.get(variable)
+    }
+    broken, counts, unverified = docs_check.check(root, sources)
 
     assert broken == [], "\n".join(str(b) for b in broken)
-    assert counts["eng_dados"] > 0
-    if checkout:
-        assert unverified == []
+    assert counts["mvp_eng_dados_1"] > 0
+    assert [u for u in unverified if u.reason[: -len(" not set")] in {docs_check.SOURCES[s] for s in sources}] == []
