@@ -21,7 +21,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const instrument = readFileSync(path.join(here, "instrument.js"), "utf8");
 mkdirSync(path.join(config.out, "bodies"), { recursive: true });
 
-const raw = { events: [], marks: [], targets: {}, requests: {}, unobserved: [], end: {}, errors: [] };
+const raw = { events: [], marks: [], committed: [], targets: {}, requests: {}, unobserved: [], end: {}, errors: [] };
 const wall = () => Date.now();
 const trace = (...a) => { if (process.env.BICE_TRACE) console.error(new Date().toISOString(), ...a); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -74,10 +74,12 @@ handlers.push(async (msg) => {
       return;
     }
     raw.targets[info.targetId] = { type: info.type, url: info.url, attached: wall(), session: s };
-    const steps = [call("Runtime.enable", {}, s), send("Network.enable", {}, s), send("Target.setAutoAttach", autoAttach, s)];
+    // Every setup step rejects on a protocol error, so that a collector that
+    // could not start is listed as unobserved (PROTO-1-12).
+    const steps = [call("Runtime.enable", {}, s), call("Network.enable", {}, s), call("Target.setAutoAttach", autoAttach, s)];
     if (info.type === "page" || info.type === "iframe") {
-      steps.push(call("Page.enable", {}, s), call("Page.addScriptToEvaluateOnNewDocument", { source: instrument }, s));
-      if (config.fulfill) steps.push(send("Fetch.enable", { patterns: Object.keys(config.fulfill).map((u) => ({ urlPattern: u })) }, s));
+      steps.push(call("Page.enable", {}, s), call("Page.addScriptToEvaluateOnNewDocument", { source: instrument }, s), call("DOMStorage.enable", {}, s));
+      if (config.fulfill) steps.push(call("Fetch.enable", { patterns: Object.keys(config.fulfill).map((u) => ({ urlPattern: u })) }, s));
       if (info.type === "page" && !pageSession) pageSession = s;
     } else {
       // A worker is held before its first script by an instrumentation
@@ -86,7 +88,7 @@ handlers.push(async (msg) => {
       steps.push(call("Debugger.enable", {}, s), call("Debugger.setInstrumentationBreakpoint", { instrumentation: "beforeScriptExecution" }, s));
     }
     const results = await Promise.allSettled(steps);
-    results.forEach((r, n) => { if (r.status === "rejected") raw.unobserved.push({ target: info.type, url: info.url, what: `setup step ${n}`, why: String(r.reason) }); });
+    results.forEach((r, n) => { if (r.status === "rejected") raw.unobserved.push({ target: info.type, url: info.url, what: `collector setup step ${n}`, why: String(r.reason) }); });
     await send("Runtime.runIfWaitingForDebugger", {}, s);
   } else if (method === "Debugger.paused") {
     const entry = Object.values(raw.targets).find((t) => t.session === sessionId);
@@ -100,6 +102,12 @@ handlers.push(async (msg) => {
     await send("Debugger.resume", {}, sessionId);
   } else if (method === "Target.detachedFromTarget") {
     for (const t of Object.values(raw.targets)) if (t.session === params.sessionId) t.detached = wall();
+  } else if (method === "DOMStorage.domStorageItemAdded" || method === "DOMStorage.domStorageItemUpdated") {
+    raw.committed.push({ store: params.storageId.isLocalStorage ? "localStorage" : "sessionStorage", op: method.split(".")[1], key: params.key, value: params.newValue, t: wall() });
+  } else if (method === "DOMStorage.domStorageItemRemoved" || method === "DOMStorage.domStorageItemsCleared") {
+    raw.committed.push({ store: params.storageId.isLocalStorage ? "localStorage" : "sessionStorage", op: method.split(".")[1], key: params.key ?? null, t: wall() });
+  } else if (method === "Storage.cacheStorageContentUpdated" || method === "Storage.cacheStorageListUpdated" || method === "Storage.indexedDBContentUpdated" || method === "Storage.indexedDBListUpdated") {
+    raw.committed.push({ store: method.includes("cache") ? "CacheStorage" : "indexedDB", op: method.split(".")[1], key: params.cacheName ?? params.databaseName ?? null, t: wall() });
   } else if (method === "Runtime.consoleAPICalled") {
     const a = params.args || [];
     if (a[0] && a[0].value === "__bice__" && a[1]) {
@@ -168,6 +176,11 @@ const options = (selector) => evaluate(`[...document.querySelectorAll(${JSON.str
 
 try {
   step("navigate");
+  const origin = new URL(config.url).origin;
+  for (const m of ["Storage.trackCacheStorageForOrigin", "Storage.trackIndexedDBForOrigin"]) {
+    const r = await send(m, { origin }, pageSession);
+    if (r.error) raw.unobserved.push({ what: m, why: r.error.message });
+  }
   await call("Page.navigate", { url: config.url }, pageSession);
   raw.journey = { loginBox: await waitFor("[data-bice=password]:not([disabled])") };
   raw.end.historyAtStart = await evaluate("history.length");
@@ -189,6 +202,7 @@ try {
   }
   step("filters done");
   raw.end.historyBeforeLogout = await evaluate("history.length");
+  raw.end.titleBeforeLogout = await evaluate("document.title");
   await mark("logout");
   await evaluate("document.querySelector('[data-bice=logout]').click(), true");
   await sleep(500);

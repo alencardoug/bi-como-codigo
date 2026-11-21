@@ -55,7 +55,8 @@ class Diagnosis:
     def leads(self) -> list[str]:
         """What is reported first among a candidate's results (§2.5.3)."""
         out = [d["code"] for d in self.decrypt if d["code"] in {PREMATURE_DECRYPT, UNEXPECTED_DECRYPT}]
-        for name, part in (("written", self.written), ("readable", self.readable), ("on disk", self.on_disk), ("fetched", self.fetches)):
+        for name, part in (("written", self.written), ("committed", self.written.get("committed", {})), ("readable", self.readable),
+                           ("on disk", self.on_disk), ("fetched", self.fetches)):
             out += [f"{name}: {f['code']}" for f in part.get("findings", [])]
         out += [s["code"] for s in self.survives]
         return out
@@ -67,6 +68,17 @@ class Diagnosis:
 # --- when it decrypts -------------------------------------------------------------------
 
 
+def journey_marks(events: list[dict], driver_marks: list[dict]) -> tuple[list[dict], list[dict]]:
+    """The submissions and the logout, as the page's own hooks saw them at the
+    events (PROTO-1-11); the driver's marks only where the page's are missing,
+    said so."""
+    page = sorted((e for e in events if e["kind"] == "mark" and e["targetType"] == "page"), key=lambda e: e["t"])
+    if page:
+        return [{"mark": e["mark"], "t": e["t"], "doc": e["doc"]} for e in page], []
+    return ([{"mark": m["mark"], "t": m["t"], "doc": None} for m in driver_marks if m["mark"] in ("submit", "logout")],
+            [{"what": "journey marks", "why": "the page's hooks marked no submission or logout; the driver's marks stand in"}])
+
+
 def attempts(marks: list[dict]) -> list[tuple[float, float, str]]:
     """(opens, closes, which): an attempt opens at a submission and closes at
     the next submission or at logout; the journey submits the wrong password,
@@ -74,6 +86,7 @@ def attempts(marks: list[dict]) -> list[tuple[float, float, str]]:
     out = []
     submits = [m["t"] for m in marks if m["mark"] == "submit"]
     logout = next((m["t"] for m in marks if m["mark"] == "logout"), float("inf"))
+    submits = [t for t in submits if t < logout]
     for n, t in enumerate(submits):
         closes = submits[n + 1] if n + 1 < len(submits) else logout
         out.append((t, closes, "wrong" if n == 0 else "right"))
@@ -82,9 +95,11 @@ def attempts(marks: list[dict]) -> list[tuple[float, float, str]]:
 
 def decrypt_calls(events: list[dict], marks: list[dict]) -> list[dict]:
     """Each call attributed to the attempt open when it started — a call in
-    flight at logout keeps it (FPROTO-8-05)."""
+    flight at logout keeps it (FPROTO-8-05). After logout, the document a call
+    ran in says where: the session's own document, a worker of the session, or
+    the new page (PROTO-1-11)."""
     windows = attempts(marks)
-    logout = next((m["t"] for m in marks if m["mark"] == "logout"), float("inf"))
+    logout = next((m for m in marks if m["mark"] == "logout"), None)
     first = windows[0][0] if windows else float("inf")
     starts = {(e["target"], e["doc"], e["id"]): e for e in events if e["kind"] == "crypto" and e["phase"] == "start"}
     ends = {(e["target"], e["doc"], e["id"]): e["phase"] for e in events if e["kind"] == "crypto" and e["phase"] != "start"}
@@ -94,8 +109,14 @@ def decrypt_calls(events: list[dict], marks: list[dict]) -> list[dict]:
         attempt = next((w for w in windows if w[0] <= e["t"] < w[1]), None)
         rec = {"method": e["method"], "realm": e["realm"], "target_type": e["targetType"], "t": e["t"], "outcome": outcome}
         if attempt is None:
-            when = ("before any submission" if e["t"] < first else
-                    "on the new page before a new submission" if e["targetType"] == "page" else "after logout in a target of the session")
+            if e["t"] < first:
+                when = "before any submission"
+            elif logout is not None and e["doc"] == logout["doc"]:
+                when = "after logout in the session's own document"
+            elif e["targetType"] == "page":
+                when = "on the new page before a new submission"
+            else:
+                when = "after logout in a target of the session"
             rec |= {"code": PREMATURE_DECRYPT, "when": when}
         elif attempt[2] == "wrong":
             bad = (e["method"] == "unwrapKey" and outcome == "ok") or e["method"] == "decrypt"
@@ -103,6 +124,18 @@ def decrypt_calls(events: list[dict], marks: list[dict]) -> list[dict]:
         else:
             rec |= {"code": "expected", "attempt": "right"}
         out.append(rec)
+    return out
+
+
+def unacknowledged(raw: dict) -> list[dict]:
+    """A realm the driver attached whose hooks never said they were installed:
+    nothing of it was observed (PROTO-1-12)."""
+    installed = {e["target"] for e in raw["events"] if e["kind"] == "installed"}
+    out = []
+    for target, t in raw["targets"].items():
+        if t["type"] in {"page", "iframe", "worker", "shared_worker", "service_worker"} and target not in installed \
+                and not str(t.get("url", "")).startswith("about:"):
+            out.append({"what": "hooks", "target": t["type"], "url": t.get("url"), "why": "no acknowledgement from this realm"})
     return out
 
 
@@ -124,19 +157,32 @@ def _inspect(items: list[io_.Item], needles, **kw) -> dict:
     return report.record() | {"carriers": len(items)}
 
 
-def written(events: list[dict], marks: list[dict], needles) -> dict:
+def written(events: list[dict], marks: list[dict], committed: list[dict], needles, *, until_wall: float | None = None) -> dict:
     """What the collectors saw during the journey — until the diagnostic's own
-    enumeration of the stores begins."""
-    items, entry_points = [], []
+    enumeration of the stores begins —, kept apart: the hooks' write attempts,
+    each value as the browser stored it, and the writes the protocol reports
+    as committed, a transient property write among them (PROTO-1-12)."""
+    items, entry_points, unobserved = [], [], []
     until = next((m["t"] for m in marks if m["mark"] == "enumerate"), float("inf"))
     for n, e in enumerate(x for x in events if x["kind"] == "store" and x["t"] < until):
         entry_points.append({"store": e["store"], "op": e["op"], "target_type": e["targetType"]})
-        data = _value_bytes(e.get("value"))
+        value = e.get("value") or {}
+        if value.get("unreadable"):
+            unobserved.append({"what": f"{e['store']}.{e['op']}", "why": value["unreadable"]})
+        data = _value_bytes(value)
         if data is not None:
             items.append(io_.Item(f"write#{n}:{e['store']}.{e['op']}", data, role=io_.COLLECTED))
         if isinstance(e.get("key"), str) and e["store"] in {"history", "navigation"}:
             items.append(io_.Item(f"write#{n}:{e['store']}.url", e["key"].encode(), role=io_.COLLECTED))
-    return _inspect(items, needles) | {"entry_points": entry_points}
+    attempts_report = _inspect(items, needles)
+    done, changes = [], []
+    for n, w in enumerate(x for x in committed if until_wall is None or x["t"] < until_wall):
+        if w.get("value") is not None:
+            done.append(io_.Item(f"committed#{n}:{w['store']}.{w['key']}", f"{w['key']}={w['value']}".encode(), role=io_.COLLECTED))
+        else:
+            changes.append({"store": w["store"], "op": w["op"], "name": w.get("key")})
+    return attempts_report | {"entry_points": entry_points, "committed": _inspect(done, needles), "content_changes": changes,
+                              "unobserved": unobserved}
 
 
 def readable(end: dict, needles) -> dict:
@@ -215,7 +261,19 @@ def _utf16(data: bytes) -> bytes | None:
     return data.decode("utf-16-le", "ignore").encode("utf-8")
 
 
-def on_disk(profile: pathlib.Path, needles, *, known: set[str]) -> dict:
+def _without_known_bodies(data: bytes, bodies: list[bytes]) -> tuple[bytes, int]:
+    """An HTTP or script cache entry holds a response body beside its key and
+    headers: a body that is a file of the artifact or a pinned third-party body
+    is recognised and taken out, and the rest is inspected."""
+    found = 0
+    for body in bodies:
+        if len(body) >= 64 and body in data:
+            data = data.replace(body, b"")
+            found += 1
+    return data, found
+
+
+def on_disk(profile: pathlib.Path, needles, *, known: set[str], bodies: list[bytes] = ()) -> dict:
     """The profile directory, read by format: LevelDB with its Snappy blocks,
     SQLite, and the rest as bytes; files recognised by digest are recorded.
     Coverage is per format and per field."""
@@ -256,6 +314,10 @@ def on_disk(profile: pathlib.Path, needles, *, known: set[str]) -> dict:
             except sqlite3.Error as error:
                 unobserved.append({"file": rel, "why": f"SQLite unreadable: {error}"})
             continue
+        if "Cache_Data" in rel or "ScriptCache" in rel or "Code Cache" in rel:
+            data, recognised = _without_known_bodies(data, list(bodies))
+            if recognised:
+                coverage["cache entries with a known body taken out"] = coverage.get("cache entries with a known body taken out", 0) + 1
         items.append(io_.Item(rel, data, role=io_.COLLECTED))
         coverage["bytes"] = coverage.get("bytes", 0) + 1
     report = io_.inspect_items(items, needles)
@@ -265,6 +327,29 @@ def on_disk(profile: pathlib.Path, needles, *, known: set[str]) -> dict:
 
 
 # --- the whole diagnostic -----------------------------------------------------------------
+
+
+_BASELINE: dict[str, frozenset[str]] = {}
+
+
+def baseline(chrome: str | None = None, seconds: float = 6) -> frozenset[str]:
+    """The digests of every file of a pristine profile of the same Chrome, on
+    `about:blank` with no page of ours: what Chrome writes on its own — its
+    built-in extensions' scripts among them — is recognised in a journey's
+    profile, so that it is never read as the candidate's."""
+    binary = chrome or "google-chrome"
+    if binary not in _BASELINE:
+        with tempfile.TemporaryDirectory(prefix="bice-baseline-") as tmp:
+            proc = subprocess.Popen([binary, "--headless=new", "--no-first-run", "--no-default-browser-check",
+                                     "--disable-background-networking", "--disable-component-update", "--disable-sync",
+                                     f"--user-data-dir={tmp}", "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                proc.wait(timeout=seconds)
+            except subprocess.TimeoutExpired:
+                proc.terminate()
+                proc.wait(timeout=10)
+            _BASELINE[binary] = frozenset(x.digest for x in trees.entries(pathlib.Path(tmp)) if x.kind == "file")
+    return _BASELINE[binary]
 
 
 def low_port() -> int:
@@ -314,16 +399,19 @@ def run(artifact: pathlib.Path, needles: io_.Needles, *, out: pathlib.Path, quer
         if result.returncode != 0 or not (out / "raw.json").exists():
             raise RuntimeError(f"the driver failed: {result.stderr.decode(errors='replace')[-3000:]}")
         raw = json.loads((out / "raw.json").read_text())
-        known = set(artifact_digests.values()) | set((cdn or {}).values())
-        disk = on_disk(profile, needles, known=known)
+        known = set(artifact_digests.values()) | set((cdn or {}).values()) | set(baseline(chrome))
+        bodies = [x for x in trees.files(trees.real_root(artifact)).values()] + list((fulfill or {}).values())
+        disk = on_disk(profile, needles, known=known, bodies=bodies)
+    marks, mark_gaps = journey_marks(raw["events"], raw["marks"])
     return Diagnosis(
-        decrypt=decrypt_calls(raw["events"], raw["marks"]),
-        written=written(raw["events"], raw["marks"], needles),
+        decrypt=decrypt_calls(raw["events"], marks),
+        written=written(raw["events"], raw["marks"], raw.get("committed", []), needles,
+                        until_wall=next((m["t"] for m in raw["marks"] if m["mark"] == "enumerate"), None)),
         readable=readable(raw["end"], needles),
         on_disk=disk,
         survives=survival(raw),
         fetches=fetched(raw, out, server.url, artifact_digests, needles, cdn=cdn or {}, validated=validated or {}),
-        unobserved=raw["unobserved"] + [{"what": "driver error", "why": e} for e in raw["errors"]]
+        unobserved=raw["unobserved"] + mark_gaps + unacknowledged(raw) + [{"what": "driver error", "why": e} for e in raw["errors"]]
         + [{"what": "known gap", "why": g} for g in (
             "a write created and removed during the journey that no collector saw",
             "a fragment change of the URL",

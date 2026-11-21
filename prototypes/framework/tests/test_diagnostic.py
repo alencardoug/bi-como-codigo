@@ -7,7 +7,9 @@ is a verdict (N96)."""
 from __future__ import annotations
 
 import hashlib
+import json
 import shutil
+import struct
 
 import pytest
 
@@ -54,8 +56,11 @@ def test_a_clean_journey_reports_nothing_and_decrypts_only_when_expected(control
 
 
 def test_a_decryption_at_startup_is_premature_before_any_submission_and_on_the_new_page(control, tmp_path):
-    whens = {c["when"] for c in _journey(control, tmp_path, "startup").decrypt if c["code"] == d.PREMATURE_DECRYPT}
-    assert whens == {"before any submission", "on the new page before a new submission"}
+    """The page opens the package with the public password on load: derivation,
+    unwrap and decrypt, all before any submission, and again on the new page."""
+    calls = [(c["method"], c["when"]) for c in _journey(control, tmp_path, "startup").decrypt if c["code"] == d.PREMATURE_DECRYPT]
+    for when in ("before any submission", "on the new page before a new submission"):
+        assert {m for m, w in calls if w == when} == {"deriveKey", "unwrapKey", "decrypt"}
 
 
 def test_a_decryption_in_the_wrong_attempt_is_unexpected(control, tmp_path):
@@ -97,3 +102,52 @@ def test_snappy_literals_and_copies():
     assert leveldb.snappy(stream) == b"abcabcabcabc"
     with pytest.raises(leveldb.Unreadable):
         leveldb.snappy(bytes([4, ((4 - 1) << 2) | 2, 9, 0]))
+
+
+# --- boundaries, read-backs and committed writes (PROTO-1-11, -12) ----------------------
+
+
+def test_a_decryption_in_the_old_documents_logout_handler_is_the_sessions(control, tmp_path):
+    r = _journey(control, tmp_path, "logoutcrypto")
+    assert [(c["method"], c["when"]) for c in r.decrypt if c["code"] == d.PREMATURE_DECRYPT] == [
+        ("decrypt", "after logout in the session's own document")]
+
+
+def test_the_hooks_record_what_the_browser_stored_without_running_the_pages_getters(control, tmp_path):
+    r = _journey(control, tmp_path, "getter")
+    raw = json.loads((tmp_path / "out" / "raw.json").read_text())
+    assert raw["end"]["titleBeforeLogout"] == "reads=1"
+    assert [e["value"] for e in raw["events"] if e["kind"] == "store" and e["store"] == "history"] == [{"text": '{"v":1}'}]
+
+
+def test_a_label_inside_a_stored_parquet_is_found_written_committed_and_readable(control, tmp_path):
+    r = _journey(control, tmp_path, "label")
+    assert io_.INSPECT_PARQUET in {x["code"] for x in r.written["findings"]}
+    assert io_.INSPECT_PARQUET in {x["code"] for x in r.written["committed"]["findings"]}
+    assert io_.INSPECT_PARQUET in {x["code"] for x in r.readable["findings"]}
+
+
+def test_a_transient_property_write_no_hook_sees_is_committed(control, tmp_path):
+    r = _journey(control, tmp_path, "transient")
+    assert not r.written["findings"]
+    assert [x["code"] for x in r.written["committed"]["findings"]] == [io_.INSPECT_TEXT]
+    assert {"store": "localStorage", "op": "domStorageItemRemoved", "name": "p01"} in r.written["content_changes"]
+
+
+def test_a_cachestorage_write_is_seen_by_the_hook_the_protocol_and_the_end(control, tmp_path):
+    r = _journey(control, tmp_path, "cache")
+    assert any(x["file"].endswith("CacheStorage.put") for x in r.written["findings"])
+    assert {"store": "CacheStorage", "op": "cacheStorageContentUpdated", "name": "bice-control"} in r.written["content_changes"]
+    assert r.readable["findings"]
+
+
+def test_a_truncated_leveldb_log_is_unreadable():
+    record = struct.pack("<IHB", 0, 40, 1) + b"x" * 10
+    with pytest.raises(leveldb.Unreadable):
+        list(leveldb.read_log(record))
+
+
+def test_a_realm_whose_hooks_never_answered_is_unobserved():
+    raw = {"events": [{"kind": "installed", "target": "p1"}], "targets": {"p1": {"type": "page", "url": "http://x/"},
+                                                                         "w1": {"type": "worker", "url": "blob:http://x/1"}}}
+    assert d.unacknowledged(raw) == [{"what": "hooks", "target": "worker", "url": "blob:http://x/1", "why": "no acknowledgement from this realm"}]

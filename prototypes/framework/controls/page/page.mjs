@@ -8,10 +8,17 @@ const subtle = crypto.subtle;
 let worker = null;
 let opened = null;
 
-if (leak === "startup") {
-  const base = await subtle.importKey("raw", new TextEncoder().encode("x"), "PBKDF2", false, ["deriveKey"]);
-  await subtle.deriveKey({ name: "PBKDF2", salt: new Uint8Array(16), iterations: 1000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+async function openPackage(password) {
+  const manifest = env.parseManifest(await (await fetch("package/manifest.json")).text());
+  const entry = manifest.reports.get("P01");
+  const envelope = new Uint8Array(await (await fetch(`package/${entry.file}`)).arrayBuffer());
+  const key = await env.login(manifest, "diretoria", password);
+  return env.openReport(manifest, envelope, "P01", key);
 }
+
+const b64 = (bytes) => { let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); };
+
+if (leak === "startup") await openPackage("senha_complexa_123");  // the public password, before any submission: the whole decryption
 
 async function decryptAnything() {
   const key = await subtle.generateKey({ name: "AES-GCM", length: 128 }, false, ["encrypt", "decrypt"]);
@@ -40,6 +47,14 @@ $("[data-bice=login]").addEventListener("submit", async (ev) => {
     document.cookie = `p01=${totals.rows}; max-age=3600; path=/`;
   }
   if (leak === "history") history.replaceState({ selection: "todos", rows: totals.rows }, "");
+  if (leak === "label") localStorage.setItem("p01", b64(opened.parquet));  // the report's labels, inside its Parquet
+  if (leak === "transient") { localStorage.p01 = totals.sums.net_revenue_amount; delete localStorage.p01; }  // no setItem to hook
+  if (leak === "cache") await (await caches.open("bice-control")).put("/q", new Response(totals.sums.net_revenue_amount));
+  if (leak === "getter") {  // a state whose getter counts its reads: the hooks must not add one
+    let reads = 0;
+    history.replaceState({ get v() { reads += 1; return reads; } }, "");
+    document.title = `reads=${reads}`;
+  }
   if (leak === "idb") {
     const db = await new Promise((res) => { const r = indexedDB.open("bice-control"); r.onupgradeneeded = () => r.result.createObjectStore("q"); r.onsuccess = () => res(r.result); });
     await new Promise((res) => { const t = db.transaction("q", "readwrite"); t.objectStore("q").put({ rows: totals.rows, net: totals.sums.net_revenue_amount }, "r"); t.oncomplete = res; });
@@ -54,6 +69,7 @@ $("[data-bice=login]").addEventListener("submit", async (ev) => {
 });
 
 $("[data-bice=logout]").addEventListener("click", async () => {
+  if (leak === "logoutcrypto") await subtle.digest("SHA-256", new Uint8Array(1)).then(() => decryptAnything());  // in the old document, after the click
   if (leak === "idb") {
     const db = await new Promise((res) => { const r = indexedDB.open("bice-control"); r.onsuccess = () => res(r.result); });
     await new Promise((res) => { const t = db.transaction("q", "readwrite"); t.objectStore("q").clear(); t.oncomplete = res; });

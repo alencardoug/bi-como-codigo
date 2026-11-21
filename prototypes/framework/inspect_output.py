@@ -433,6 +433,8 @@ def _tokens(text: str):
     inside `1.234,50,7` (PROTO-1-06) —, with whether a minus sign precedes it."""
     for m in _RUN.finditer(text):
         run, start = m[0], m.start()
+        if _in_digest(text, start, m.end()):
+            continue  # digits inside a long hexadecimal word — a digest, an identifier — are not a number
         negative = start > 0 and text[start - 1] in "-\u2212" and not (start > 1 and text[start - 2].isalnum())
         seps = [i for i, ch in enumerate(run) if ch in _SEPARATORS]
         starts = [0] + [i + 1 for i in seps]
@@ -442,6 +444,21 @@ def _tokens(text: str):
                 token = run[s0:ends[b]]
                 if token and token[0].isdigit() and token[-1].isdigit():
                     yield token, negative and s0 == 0
+
+
+_HEX_CHARS = frozenset("0123456789abcdefABCDEF")
+DIGEST_MIN = 16
+
+
+def _in_digest(text: str, start: int, end: int) -> bool:
+    a, b = start, end
+    while a > 0 and text[a - 1] in _HEX_CHARS:
+        a -= 1
+    while b < len(text) and text[b] in _HEX_CHARS:
+        b += 1
+    word = text[a:b]
+    return len(word) >= DIGEST_MIN and any(ch.isalpha() for ch in word) and (a == 0 or not text[a - 1].isalnum()) \
+        and (b == len(text) or not text[b].isalnum())
 
 
 def _numbers_in_text(ctx: Context, text: str, file: str, path: str, role: str) -> None:

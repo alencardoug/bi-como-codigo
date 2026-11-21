@@ -73,18 +73,29 @@ def snappy(data: bytes) -> bytes:
 
 
 def _batch(record: bytes):
+    try:
+        yield from _batch_entries(record)
+    except (IndexError, struct.error) as error:
+        raise Unreadable(f"a write batch that does not parse: {type(error).__name__}") from None
+
+
+def _batch_entries(record: bytes):
     if len(record) < 12:
-        return
+        raise Unreadable("a write batch shorter than its header")
     count = struct.unpack_from("<I", record, 8)[0]
     pos = 12
     for _ in range(count):
         tag = record[pos]
         pos += 1
         klen, pos = _varint(record, pos)
+        if pos + klen > len(record):
+            raise Unreadable("a key runs past its batch")
         key = record[pos:pos + klen]
         pos += klen
         if tag == 1:
             vlen, pos = _varint(record, pos)
+            if pos + vlen > len(record):
+                raise Unreadable("a value runs past its batch")
             yield key, record[pos:pos + vlen]
             pos += vlen
         else:
@@ -100,6 +111,8 @@ def read_log(data: bytes):
             pos += block_left
             continue
         length, kind = struct.unpack_from("<HB", data, pos + 4)
+        if pos + 7 + length > len(data):
+            raise Unreadable("a log record runs past the end of the file")  # truncated: never read as complete (PROTO-1-12)
         payload = data[pos + 7:pos + 7 + length]
         pos += 7 + length
         if kind == 0 and length == 0:
