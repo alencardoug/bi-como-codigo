@@ -101,7 +101,7 @@ def prove(work: pathlib.Path, *, absent: list[str], options: Options = Options()
     listener.listen(1)
     port = listener.getsockname()[1]
     host_ns = {kind: os.readlink(f"/proc/self/ns/{kind}") for kind in ("pid", "ipc", "uts", "net", "mnt")}
-    config = {"absent": absent, "token_name": token_name, "host_ns": host_ns, "host_sid": os.getsid(0), "port": port,
+    config = {"absent": absent, "token_name": token_name, "host_ns": host_ns, "port": port,
               "write": ["/usr/bice-probe", "/etc/bice-probe", "/bice-probe", *[os.path.join(p, "bice-probe") for p in absent if os.path.isdir(p)]],
               "registry": "registry.npmjs.org"}
     shutil.copyfile(PROBE, work / "sandbox_probe.py")

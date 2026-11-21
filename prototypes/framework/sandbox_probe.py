@@ -42,31 +42,44 @@ for p in os.listdir("/proc"):
             others.add("unreadable")  # a process it cannot inspect is not shown to be its own
 seen["pid_namespaces_visible"] = sorted(others)
 checks["every visible process in its own PID namespace"] = others == {own["pid"]}
-# bubblewrap's setsid: the session's leader is inside the sandbox (0 when it is outside the PID namespace)
+# bubblewrap's setsid: the session's leader is inside the sandbox's PID namespace.
+# Seen from inside, a leader outside the namespace has SID 0; no number of the
+# host's is compared, since namespaces may share numbers (PROTO-2-07).
 seen["sid"] = os.getsid(0)
-checks["a session of its own"] = os.getsid(0) not in (0, config["host_sid"])
+checks["a session of its own"] = os.getsid(0) != 0
 checks["root not writable"] = not os.access("/", os.W_OK)
 
-fds = []
-for fd in os.listdir("/proc/self/fd"):
-    try:
-        target = os.readlink("/proc/self/fd/" + fd)
-    except OSError:
-        continue  # the descriptor of the listing itself, already closed
-    if target.startswith("/proc/") and target.endswith("/fd"):
-        continue
-    fds.append(int(fd))
-seen["fds"] = sorted(fds)
-checks["only fds 0, 1, 2"] = sorted(fds) == [0, 1, 2]
+# Every live descriptor, a directory's included; only the one this listing
+# opens is left out, by its own number (PROTO-2-07).
+listing = os.open("/proc/self/fd", os.O_RDONLY | os.O_DIRECTORY)
+try:
+    listed = [int(fd) for fd in os.listdir(listing) if int(fd) != listing]
+    fds = []
+    for fd in listed:  # listdir's own duplicate is closed by now; an inherited one is not
+        try:
+            os.readlink("/proc/self/fd/%d" % fd)
+            fds.append(fd)
+        except OSError:
+            pass
+    fds.sort()
+finally:
+    os.close(listing)
+seen["fds"] = fds
+checks["only fds 0, 1, 2"] = fds == [0, 1, 2]
 
 for path in config["write"]:
+    wrote = False
     try:
         with open(path, "w") as handle:
             handle.write("x")
-        os.unlink(path)
-        wrote = True
+        wrote = True  # recorded before any cleanup, which may fail on its own
     except OSError:
-        wrote = False
+        pass
+    if wrote:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
     checks["no write " + path] = not wrote
 
 try:

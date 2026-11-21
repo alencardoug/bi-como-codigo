@@ -70,3 +70,44 @@ def test_only_the_work_folder_is_written_on_the_host(setting):
     assert (work / "out.txt").read_text() == "built\n"
     unprotected = sb.run(work, ["/usr/bin/sh", "-c", script], options=sb.Options(remount_ro=False))
     assert unprotected.returncode != 0  # without the remount the sandbox's own root takes the write
+
+
+# --- round 2 (PROTO-2-07) ----------------------------------------------------------
+
+
+def test_the_proof_holds_when_the_outer_session_shares_the_inner_numbers(setting):
+    """Run from a fresh outer session, as the reviewer's was: the session check
+    compares nothing across namespaces."""
+    import json
+    import subprocess
+    import sys
+
+    work, absent, _ = setting
+    script = (f"import sys, json, pathlib; sys.path.insert(0, {str(sb.HERE)!r}); import sandbox as sb; "
+              f"p = sb.prove(pathlib.Path({str(work)!r}), absent={absent!r}); print(json.dumps(p.checks))")
+    out = subprocess.run(["setsid", sys.executable, "-c", script], capture_output=True, text=True, check=True)
+    checks = json.loads(out.stdout)
+    assert all(checks.values()), {k: v for k, v in checks.items() if not v}
+
+
+def test_an_inherited_directory_descriptor_is_seen(setting):
+    work, absent, _ = setting
+    fd = os.open("/proc/self/fd", os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        proof = sb.prove(work, absent=absent, pass_fds=(fd,))
+    finally:
+        os.close(fd)
+    assert not proof.checks["only fds 0, 1, 2"]
+
+
+def test_a_write_whose_cleanup_fails_is_still_a_write(setting):
+    work, absent, scratch = setting
+    os.chmod(scratch, 0o755)
+    target = scratch / "bice-probe"
+    target.write_text("existing marker")
+    os.chmod(scratch, 0o555)  # the file is writable, the folder refuses its removal
+    try:
+        proof = sb.prove(work, absent=[*absent, str(scratch)], options=sb.Options(extra_binds=(str(scratch),)))
+    finally:
+        os.chmod(scratch, 0o755)
+    assert proof.checks[f"no write {target}"] is False
