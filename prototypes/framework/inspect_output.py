@@ -230,7 +230,10 @@ def _blob(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int
     decompressed = _decompress_by_magic(data)
     if decompressed is not None:
         for name, out in decompressed:
-            _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=False)
+            if "incomplete" in name:
+                ctx.report.inconclusive.append(Note(file, f"{path} > {name}", "a compressed frame that ends before its end"))
+            if out:
+                _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=False)
         return
     # The byte checks run on every blob, binary included, before any exemption (PROTO-1-05).
     for needle in ctx.needles.texts:
@@ -247,7 +250,7 @@ def _blob(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int
         if out is not None:
             _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=speculative)
             return
-    if not speculative and _arrow(ctx, data, file, path):  # a stream with no continuation marker
+    if _arrow(ctx, data, file, path):  # a stream with no continuation marker, speculative or not (PROTO-2-05)
         return
     if speculative:
         return  # a speculative decoding no layer reads: an identifier, not a carrier
@@ -262,8 +265,8 @@ def _looks_like_carrier(data: bytes) -> bool:
     if _decompress_by_magic(data) is not None or data[:4] in (b"PAR1", b"\xff\xff\xff\xff") or data[:6] == b"ARROW1":
         return True
     text = _is_text(data)
-    if text is None:
-        return False
+    if text is None:  # the layers with no magic, too (PROTO-2-05)
+        return _brotli(data) is not None or _raw_deflate(data) is not None or _arrow_opens(data)
     stripped = text.strip()
     if stripped[:1] in "{[":
         try:
@@ -308,8 +311,19 @@ def _decompress_by_magic(data: bytes) -> list[tuple[str, bytes]] | None:
         if data[:4] == b"\x28\xb5\x2f\xfd":
             import zstandard
 
-            with zstandard.ZstdDecompressor().stream_reader(io.BytesIO(data), read_across_frames=True) as reader:
-                return [("zstd", reader.read())]
+            parts, remaining = [], data
+            while remaining:  # frame by frame: a frame not read to its end is said so (PROTO-2-05)
+                if remaining[:4] != b"\x28\xb5\x2f\xfd":
+                    parts.append(("after zstd", remaining))
+                    break
+                obj = zstandard.ZstdDecompressor().decompressobj()
+                out = obj.decompress(remaining)
+                if not obj.eof:
+                    parts.append(("zstd, incomplete frame", out))
+                    break
+                parts.append(("zstd", out))
+                remaining = obj.unused_data
+            return parts
     except Exception:  # noqa: BLE001 — a magic that does not decode is no carrier
         return None
     return None
@@ -404,6 +418,7 @@ _COMMA_DECIMAL = re.compile(r"[0-9]+,[0-9]+")
 _EN_GROUPED = re.compile(r"[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?")
 _SPACE_GROUPED = re.compile(r"[0-9]{1,3}(?:[\u00a0\u202f\u2009][0-9]{3})+(?:[.,][0-9]+)?")
 WINDOW = 4  # separators a token may span inside one run of digits and separators
+_LITERAL_SPACE = re.compile(r"(?<![0-9 ])[0-9]{1,3}(?: [0-9]{3})+(?:,[0-9]+)?(?![0-9]| [0-9])")
 
 
 def _readings(token: str):
@@ -433,10 +448,11 @@ def _tokens(text: str):
     """Every window of a run of digits and separators that starts and ends on a
     digit and spans at most `WINDOW` separators — so that `1.234,50` is read
     inside `1.234,50,7` (PROTO-1-06) —, with whether a minus sign precedes it."""
+    exponents = [(m.start(), m.end()) for m in _EXPONENT.finditer(text)]
     for m in _RUN.finditer(text):
         run, start = m[0], m.start()
-        if _in_digest(text, start, m.end()):
-            continue  # digits inside a long hexadecimal word — a digest, an identifier — are not a number
+        if any(a <= start < b or a < m.end() <= b for a, b in exponents):
+            continue  # part of a scientific literal, read as one number below (PROTO-2-06)
         negative = start > 0 and text[start - 1] in "-\u2212" and not (start > 1 and text[start - 2].isalnum())
         seps = [i for i, ch in enumerate(run) if ch in _SEPARATORS]
         starts = [0] + [i + 1 for i in seps]
@@ -446,21 +462,6 @@ def _tokens(text: str):
                 token = run[s0:ends[b]]
                 if token and token[0].isdigit() and token[-1].isdigit():
                     yield token, negative and s0 == 0
-
-
-_HEX_CHARS = frozenset("0123456789abcdefABCDEF")
-DIGEST_MIN = 16
-
-
-def _in_digest(text: str, start: int, end: int) -> bool:
-    a, b = start, end
-    while a > 0 and text[a - 1] in _HEX_CHARS:
-        a -= 1
-    while b < len(text) and text[b] in _HEX_CHARS:
-        b += 1
-    word = text[a:b]
-    return len(word) >= DIGEST_MIN and any(ch.isalpha() for ch in word) and (a == 0 or not text[a - 1].isalnum()) \
-        and (b == len(text) or not text[b].isalnum())
 
 
 def _numbers_in_text(ctx: Context, text: str, file: str, path: str, role: str) -> None:
@@ -473,9 +474,14 @@ def _numbers_in_text(ctx: Context, text: str, file: str, path: str, role: str) -
     for m in _EXPONENT.finditer(text):
         if not m[1]:
             try:
-                _match(ctx, Decimal(m[2]), "exponent", file, path, role)
+                value = Decimal(m[2])
             except InvalidOperation:
-                pass
+                continue
+            if value.is_finite() and abs(value.adjusted()) <= 30:  # an exponent never becomes a huge integer
+                _match(ctx, value, "exponent", file, path, role)
+    for m in _LITERAL_SPACE.finditer(text):  # "20 000": grouping by an ordinary space (PROTO-2-06)
+        if not (m.start() > 0 and text[m.start() - 1] in "-\u2212"):
+            _match(ctx, Decimal(m[0].replace(" ", "").replace(",", ".")), "int" if "," not in m[0] else "js", file, path, role)
 
 
 def _match(ctx: Context, value: Decimal, how: str, file: str, path: str, role: str) -> None:
@@ -569,6 +575,8 @@ def _number(ctx: Context, literal, file: str, path: str, *, count_too: bool) -> 
         value = literal if isinstance(literal, Decimal) else Decimal(str(literal))
     except InvalidOperation:
         return
+    if not value.is_finite() or abs(value.adjusted()) > 30:  # 1e309, NaN: no needle (PROTO-2-06)
+        return
     n = ctx.needles
     if value in n.amounts:
         ctx.find(INSPECT_NUMBER, file, path, _canonical_amount(n, value))
@@ -626,8 +634,12 @@ def _cells(ctx: Context, table, code: str, file: str, path: str) -> None:
                     ctx.find(code, file, path, t)
             elif isinstance(v, (int, float, Decimal)) and not isinstance(v, bool):
                 d = Decimal(repr(v)) if isinstance(v, float) else Decimal(v)
-                if d in n.amounts or (d == d.to_integral_value() and int(d) in n.counts):
-                    ctx.find(code, file, path, v)
+                if not d.is_finite():
+                    continue
+                if d in n.amounts:
+                    ctx.find(code, file, path, _canonical_amount(n, d))  # the canonical value the draw can move (PROTO-2-08)
+                if d == d.to_integral_value() and int(d) in n.counts:
+                    ctx.find(code, file, path, int(d))
 
 
 def _parquet(ctx: Context, data: bytes, file: str, path: str) -> bool:
@@ -642,6 +654,18 @@ def _parquet(ctx: Context, data: bytes, file: str, path: str) -> bool:
         return True
     _cells(ctx, table, INSPECT_PARQUET, file, path)
     return True
+
+
+def _arrow_opens(data: bytes) -> bool:
+    import pyarrow.ipc as ipc
+
+    for opener in (ipc.open_file, ipc.open_stream):
+        try:
+            opener(io.BytesIO(data)).read_all()
+            return True
+        except Exception:  # noqa: BLE001
+            continue
+    return False
 
 
 def _arrow(ctx: Context, data: bytes, file: str, path: str) -> bool:

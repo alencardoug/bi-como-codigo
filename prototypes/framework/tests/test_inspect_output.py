@@ -378,3 +378,54 @@ def test_a_zero_row_parquet_with_other_types_is_not_schema_only(needles):
         data = open(f"{d}/x.parquet", "rb").read()
     report = _one(needles, "wrong.parquet", data)
     assert not any("schema only" in x.reason for x in report.recorded)
+
+
+# --- round 2 (PROTO-2-05, -06, -08) ---------------------------------------------------
+
+
+@pytest.mark.parametrize("inner", ["brotli", "legacy arrow"])
+def test_a_layer_with_no_magic_past_the_depth_is_inconclusive(fx, needles, samples, inner):
+    if inner == "brotli":
+        data = brotli.compress(json.dumps({"c": samples["label"]}).encode())
+    else:
+        table = pa.table({"order_count": [samples["count"]]})
+        sink = io.BytesIO()
+        with ipc.new_stream(sink, table.schema, options=ipc.IpcWriteOptions(use_legacy_format=True)) as w:
+            w.write_table(table)
+        data = sink.getvalue()
+    for _ in range(io_.DEPTH):
+        data = base64.b64encode(data)
+    report = _one(needles, "deep.txt", data)
+    assert report.findings or any("deeper" in x.reason for x in report.inconclusive)
+
+
+def test_a_truncated_final_zstd_frame_is_inconclusive(needles, samples):
+    z = zstandard.ZstdCompressor()
+    data = z.compress(b"nothing") + z.compress(samples["label"].encode() * 4)[:-1]
+    report = _one(needles, "x.bin", data)
+    assert any("ends before its end" in x.reason for x in report.inconclusive)
+
+
+def test_a_count_in_a_hex_looking_string_of_a_data_carrier_is_found(needles, samples):
+    import gzip as gz
+
+    value = f"abcdef{samples['count']}abcdef0123"
+    report = _one(needles, "rows.bin", gz.compress(json.dumps({"id": value}).encode()))
+    assert io_.INSPECT_NUMBER in report.codes()
+
+
+def test_a_scientific_literal_is_one_number(needles, samples):
+    n = samples["count"]
+    assert _one(needles, "store.txt", f"orders={n}e-1".encode()).clean
+    assert _one(needles, "store.txt", f"orders=2e-{n}".encode()).clean
+    assert io_.INSPECT_NUMBER in _one(needles, "store.txt", f"{n:,}".replace(",", " ").encode()).codes()
+    assert _one(needles, "q.json", b'{"v": 1e309, "w": -1e309}').clean
+
+
+def test_an_integral_arrow_float_names_its_canonical_count(fx, needles):
+    table = pa.table({"c": [float(len(fx.cells))]})
+    sink = io.BytesIO()
+    with ipc.new_file(sink, table.schema) as w:
+        w.write_table(table)
+    report = _one(needles, "q.arrow", sink.getvalue())
+    assert {x.value for x in report.findings} == {str(len(fx.cells))}
