@@ -13,9 +13,10 @@ import serve
 
 
 @pytest.mark.parametrize("accept, coding", [
-    ("", None), ("identity", None), ("gzip", "gzip"), ("br, gzip", "br"), ("gzip, br", "br"),
-    ("br;q=0, gzip;q=1", "gzip"), ("br;q=0.5, gzip;q=0.8", "gzip"), ("*", "br"), ("*;q=0, identity", None),
-    ("br;q=0, gzip;q=0", None),
+    ("", "identity"), ("identity", "identity"), ("gzip", "gzip"), ("br, gzip", "br"), ("gzip, br", "br"),
+    ("br;q=0, gzip;q=1", "gzip"), ("br;q=0.5, gzip;q=0.8", "gzip"), ("*", "br"), ("*;q=0, identity", "identity"),
+    ("br;q=0, gzip;q=0", "identity"), ("br;Q=0,gzip", "gzip"), ("BR;q=0, GZIP", "gzip"),
+    ("br;q=0, gzip;q=0, identity;q=0", None), ("*;q=0", None), ("identity;q=1, gzip;q=0.5", "identity"),
 ])
 def test_negotiation_honours_the_weights(accept, coding):
     assert serve.negotiate(accept) == coding
@@ -43,3 +44,13 @@ def test_each_representation_has_its_own_validator(tmp_path):
         assert all(r[1]["Vary"] == "Accept-Encoding" and r[1]["Cache-Control"] == "no-cache" for r in (plain, zipped, brot))
         assert _get(url, "br;q=0, gzip", zipped[1]["ETag"])[0] == 304
         assert _get(url, "br", zipped[1]["ETag"])[0] == 200  # another representation's validator is not this one's
+
+
+def test_a_request_that_accepts_no_representation_is_refused(tmp_path):
+    (tmp_path / "app.js").write_text("export const v = 1;\n")
+    (tmp_path / "x.bice").write_bytes(b"\x00\x01")
+    with serve.Server(tmp_path) as s:
+        for accept in ("br;q=0, gzip;q=0, identity;q=0", "*;q=0"):
+            assert _get(s.url + "app.js", accept)[0] == 406
+        assert _get(s.url + "x.bice", "identity;q=0")[0] == 406
+        assert _get(s.url + "x.bice", "gzip")[0] == 200  # a binary is sent as it is, which identity allows

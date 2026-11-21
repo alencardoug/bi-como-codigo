@@ -33,37 +33,51 @@ def hosting_headers() -> list[tuple[str, str]]:
     return out
 
 
-def negotiate(accept: str) -> str | None:
-    """The encoding the request accepts with the highest weight — `br`, then
-    `gzip`, then identity on a tie —, honouring `q=0` and `*` (RFC 9110
-    §12.5.3; PROTO-1-15). `None` is identity."""
-    weights: dict[str, float] = {}
+def weights(accept: str) -> dict[str, float]:
+    """`Accept-Encoding` as coding → weight, tokens and parameters read
+    without regard to case (RFC 9110 §12.5.3; PROTO-2-12)."""
+    out: dict[str, float] = {}
     for part in accept.split(","):
         token, *params = [x.strip() for x in part.split(";")]
         if not token:
             continue
         q = 1.0
         for param in params:
-            if param.startswith("q="):
+            name, _, value = param.partition("=")
+            if name.strip().lower() == "q":
                 try:
-                    q = float(param[2:])
+                    q = float(value)
                 except ValueError:
                     q = 0.0
-        weights[token.lower()] = q
-    star = weights.get("*")
-
-    def weight(coding: str) -> float:
-        return weights.get(coding, star if star is not None else 0.0)
-
-    compressed = sorted((c for c in ("br", "gzip") if weight(c) > 0), key=lambda c: (-weight(c), c != "br"))
-    explicit_identity = weights.get("identity")
-    if compressed and not (explicit_identity is not None and explicit_identity > weight(compressed[0])):
-        return compressed[0]
-    return None  # identity: what is sent when no compressed coding is preferred
+        out[token.lower()] = q
+    return out
 
 
-def _encode(data: bytes, accept: str) -> tuple[bytes, str | None]:
-    coding = negotiate(accept)
+def acceptable(accept: str, coding: str) -> float:
+    w = weights(accept)
+    star = w.get("*")
+    if coding in w:
+        return w[coding]
+    if coding == "identity":  # identity is acceptable unless excluded, by name or by `*;q=0`
+        return star if star is not None else 1.0
+    return star if star is not None else 0.0
+
+
+def negotiate(accept: str, *, compressible: bool = True) -> str | None:
+    """The representation to send — "br", "gzip" or "identity" — or None when
+    the request accepts none of them, which is answered 406: the compressed
+    coding of the highest weight, Brotli on a tie, unless identity is weighed
+    higher (PROTO-1-15, PROTO-2-12)."""
+    identity = acceptable(accept, "identity")
+    if compressible:
+        ranked = sorted(((acceptable(accept, c), c != "br", c) for c in ("br", "gzip")), key=lambda x: (-x[0], x[1]))
+        best_q, _, best = ranked[0]
+        if best_q > 0 and not ("identity" in weights(accept) and identity > best_q):
+            return best
+    return "identity" if identity > 0 else None
+
+
+def _encode(data: bytes, coding: str) -> tuple[bytes, str | None]:
     if coding == "br":
         import brotli
 
@@ -98,9 +112,15 @@ def handler_for(root: pathlib.Path):
                 return
             data = target.read_bytes()
             suffix = target.suffix.lower()
-            encoding = None
-            if suffix in TEXT:
-                data, encoding = _encode(data, self.headers.get("Accept-Encoding", ""))
+            coding = negotiate(self.headers.get("Accept-Encoding", ""), compressible=suffix in TEXT)
+            if coding is None:
+                self.send_response(406)
+                self.send_header("Content-Length", "0")
+                self.send_header("Vary", "Accept-Encoding")
+                self.end_headers()
+                log.append({"path": path, "status": 406})
+                return
+            data, encoding = _encode(data, coding)
             etag = '"' + hashlib.sha256(data + b"\0" + (encoding or "identity").encode()).hexdigest() + '"'
             if self.headers.get("If-None-Match") == etag:
                 self.send_response(304)
