@@ -8,87 +8,88 @@
 > session: if the request was to implement, implement — this file stays here waiting for
 > whoever reviews.
 
+This is a **fresh dossier for round 3** of the review of step 1 of stage 2.3's prototype
+(`docs/framework_prototype.md` §7). Rounds 1 and 2 ran on the dossier this one replaces; their
+findings, with the author's status of each, are kept in the table at the end, and the full text of
+those rounds stays in Git history. Round 3 is the review of round 2's corrections.
+
+**Out of scope of this round, by the Owner's decision of 2026-11-21:** the isolation wrapper and
+its self-check — `prototypes/framework/sandbox.py`, `prototypes/framework/sandbox_probe.py`,
+`prototypes/framework/tests/test_sandbox.py` — and the network test of
+`prototypes/framework/tests/test_inputs.py` (`test_package_code_cannot_reach_a_listener_on_the_hosts_loopback`).
+Do not open them; commit `a52a210`, which changes only those files, is outside the range reviewed.
+They stay as a recorded limit of step 1 (section 4). Code in scope that calls the wrapper
+(`npm_offline.py`, `allowlist.py`) is reviewed only for what it does with the wrapper's result.
+
 ## 1. Scope
 
-Range: `1378b28..610fd4e` — read the diff, it is not repeated here.
+Range: `58e6deb..497e764` — read the diff, it is not repeated here. `58e6deb` is the tree round 2
+reviewed.
 
 Both ends are fixed SHAs on purpose: a dossier that said `..HEAD` would describe another
 range at the next commit, with the list below unchanged.
 
 ```
-befd211 feat(prototype): draw and seal the fixture of stage 2.3
-be4fd4e feat(prototype): assemble the artifact and classify verify's outcomes
-3447cd7 feat(prototype): inspect builder outputs and artifacts by carrier
-62c7833 feat(prototype): judge a candidate's history with one verdict function
-a9fbc29 feat(prototype): run package code in a proved bubblewrap sandbox
-4431757 feat(prototype): fetch npm tarballs and install offline from an allowlist
-054917a feat(prototype): draw the fixture against the builder outputs
-3cb1d34 feat(prototype): observe the browser as a diagnostic
-5f2403a test(prototype): run the cross-layer controls through every layer
-610fd4e docs: record that step 1 of stage 2.3's prototype is built
+6836307 docs: record round 2 of Codex's review of the prototype's step 1
+59f71c9 fix(prototype): keep trees, additions and reproduction inside their subjects
+59c2b1e fix(prototype): decide the verdict only on bound, ordered evidence
+80d2cc1 fix(prototype): read unread layers, exponents and typed cells as the plan says
+8dfb902 fix(prototype): scope the diagnostic's exclusions and account for its gaps
+a52a210 fix(prototype): prove the sandbox's session, descriptors and writes        (out of scope)
+a32e3b9 test(prototype): make the controls fail when their evidence is missing
+ae3c26d fix(prototype): refuse a request that accepts no representation
+497e764 docs: answer round 2 of the prototype's step 1 review
 ```
+
+After the range, `97538c1` records that round 3 could not run on the previous dossier, and the
+commit that adds this file replaces it. Neither changes code: `git diff ae3c26d HEAD -- prototypes`
+is empty.
 
 ## 2. Review map
 
 Where to spend effort. **An error in derived output is a symptom: fix it in the declaration.**
 
-### Written by hand — 38 files
+### Written by hand — 20 files in scope
 
-- `.gitignore`
-- `Makefile`
-- `PLAN.md`
-- `README.md`
-- `docs/framework_prototype.md`
-- `prototypes/framework/allowlist.py`
 - `prototypes/framework/browser/diagnostic.mjs`
 - `prototypes/framework/browser/enumerate.js`
 - `prototypes/framework/browser/instrument.js`
-- `prototypes/framework/calibrate.py`
-- `prototypes/framework/controls/page/index.html`
 - `prototypes/framework/controls/page/page.mjs`
 - `prototypes/framework/diagnose.py`
 - `prototypes/framework/fixture.py`
 - `prototypes/framework/harness.py`
 - `prototypes/framework/inspect_output.py`
 - `prototypes/framework/leveldb.py`
-- `prototypes/framework/npm_offline.py`
-- `prototypes/framework/release/contract.json`
-- `prototypes/framework/release/profiles.json`
-- `prototypes/framework/release/public_values.json`
-- `prototypes/framework/sandbox.py`
-- `prototypes/framework/sandbox_probe.py`
 - `prototypes/framework/serve.py`
-- `prototypes/framework/tests/conftest.py`
 - `prototypes/framework/tests/test_calibrate.py`
 - `prototypes/framework/tests/test_controls.py`
 - `prototypes/framework/tests/test_diagnostic.py`
-- `prototypes/framework/tests/test_fixture.py`
 - `prototypes/framework/tests/test_harness.py`
-- `prototypes/framework/tests/test_inputs.py`
 - `prototypes/framework/tests/test_inspect_output.py`
-- `prototypes/framework/tests/test_sandbox.py`
+- `prototypes/framework/tests/test_serve.py`
 - `prototypes/framework/tests/test_verdict.py`
 - `prototypes/framework/tests/test_wasm_collision.py`
+- `prototypes/framework/trees.py`
 - `prototypes/framework/verdict.py`
-- `pyproject.toml`
-- `uv.lock`
 
-### Generated — 0 files, review by sample
+Three more files of the range are out of scope (above).
 
-- `(none)`
+### Generated — 0 files
 
-**Declaration of this delivery:** `docs/framework_prototype.md` (revision 9, reviewed in rounds 1–8)
-is the specification; every file under `prototypes/framework/` implements its §7 step 1 and is
-hand-written, so all of it needs a full review. Nothing is generated. The three files of
-`prototypes/framework/release/` are the prototype's declarations (§2.1, §2.2). Where each part of
-the plan lives is listed in its §7, step 1. The documents changed only to say that step 1 is built
-and what building it measured (§9 of the plan, the README map, the PLAN status).
+- `(none)` — `DOSSIER.md` is listed by the generator only because the range rewrites it.
+
+**Declaration of this delivery:** `docs/framework_prototype.md` (revision 9, reviewed in rounds 1–8
+of the plan) is the specification and has no diff in the range; every file above implements its §7
+step 1 and is hand-written, so all of it needs a full review. The findings of round 2 are the
+hypotheses of this round: each Status cell names the commit and the tests that claim to close it.
 
 ## 3. What was measured
 
 Literal output, not a summary. A command with no output here is not a measurement.
 
 ### `make check` ✓
+
+Run by the generator at `97538c1`, 2026-11-21, with `ENG_DADOS_DIR` set; the tail of its output:
 
 ```
   027b441c1130  site/package/P01.b5a1a95c427399d6.bice  skipped: not UTF-8 text
@@ -105,84 +106,64 @@ Literal output, not a summary. A command with no output here is not a measuremen
   e0bb3c323cac  site/package/P13.646219cec9b25ccc.bice  skipped: not UTF-8 text
 ```
 
-### `make prototype-test` — the prototype's own suite, outside `make check` ✓
+### `make prototype-test` — the prototype's own suite, outside `make check`
 
-Run at `610fd4e`, 2026-11-21T01:27Z, with `-rs`; no test skipped (Chrome 156, Node 24.18, npm 12.2.1,
-bubblewrap 0.6.1 and the DuckDB-WASM tarball of `make prototype-third-party` present):
-
-```
-........................................................................ [ 50%]
-.......................................................................  [100%]
-143 passed in 290.46s (0:04:50)
-```
-
-### `python prototypes/framework/sandbox.py` — the probe of §5 through the real wrapper ✓
+The full suite, at `97538c1` (same code as `ae3c26d`), 2026-11-21 16:41–16:50Z, exit 0:
 
 ```
-{
-  "passed": true,
-  "checks": {
-    "absent /home/doug": true,
-    "absent /home/doug/.config/gcloud": true,
-    "absent /home/doug/.config/configstore": true,
-    "absent /home/doug/.ssh": true,
-    "absent /home/doug/Projetos/bi-como-codigo/.git": true,
-    "absent /home/doug/Projetos/bi-como-codigo/prototypes/framework/clear": true,
-    "absent /var/run/docker.sock": true,
-    "absent /run/docker.sock": true,
-    "absent /tmp/bice-sandbox-2130l1sw/sentinel": true,
-    "absent /home/doug/Projetos/bi-como-codigo/prototypes/framework/clear/planted": true,
-    "token not inherited": true,
-    "no host pid": true,
-    "only fds 0, 1, 2": true,
-    "no write /usr/bice-probe": true,
-    "no write /etc/bice-probe": true,
-    "no write /bice-probe": true,
-    "no write /home/doug/bice-probe": true,
-    "no write /home/doug/.config/gcloud/bice-probe": true,
-    "no write /home/doug/.config/configstore/bice-probe": true,
-    "no write /home/doug/.ssh/bice-probe": true,
-    "no write /home/doug/Projetos/bi-como-codigo/.git/bice-probe": true,
-    "host loopback unreachable": true,
-    "registry unreachable": true
-  }
-}
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 84%]
+.......................................                                  [100%]
+255 passed in 516.39s (0:08:36)
 ```
+
+The count includes the out-of-scope test files; the command of §6 runs the suite without them.
+
+### Timing of the carrier inspection (PROTO-2-13)
+
+The script `time_inspect.py` times one `inspect_items` call on one third-party bundle with the
+fixture of seed 20261120, on three revisions of `prototypes/framework/` extracted with
+`git archive`. Output recorded in round 2's answer:
+
+```
+rev=rev-3447cd7 bundle_sha256=341b762ed592171859978ff6f0ca19142854bda3b2df6d9c54b0abdae8e98c8a bytes=3635597 seed=20261120 seconds=8.0 findings=0 inconclusive=0
+rev=rev-3c4a300 bundle_sha256=341b762ed592171859978ff6f0ca19142854bda3b2df6d9c54b0abdae8e98c8a bytes=3635597 seed=20261120 seconds=28.9 findings=5 inconclusive=0
+rev=rev-ae3c26d bundle_sha256=341b762ed592171859978ff6f0ca19142854bda3b2df6d9c54b0abdae8e98c8a bytes=3635597 seed=20261120 seconds=41.5 findings=5 inconclusive=0
+```
+
+The bundle is `@google/gemini-cli`'s `bundle/chunk-3KNX7NZM.js` on the author's machine, by its
+digest. The script lived in a session scratchpad that a reboot cleared: it is not in the repository
+and the timing cannot be rerun from here as recorded (section 4).
 
 ## 4. What was NOT verified
 
 The most useful section of the dossier, and the one the author least wants to write.
 Every claim with no command output in section 3 belongs here.
 
+- **Round 2's corrections to the isolation wrapper (PROTO-2-07, `a52a210`) are not reviewed.** By
+  the Owner's decision they stay out of this review; whether the wrapper's self-check proves what
+  §5 of the plan asks is, after round 2, only the author's claim. It is a limit of step 1.
 - **No candidate exists.** Every control ran on hand-made outputs or on the control page of
   `controls/page/`; none on Evidence's or the own build's carriers (§7 steps 2–5). Whether the
   carrier inspection's decoders and the diagnostic's collectors see what a real framework writes is
   untested.
-- **The browser check of §2.6** (the comparator of the DOM against Python's DuckDB, its altered-DOM
-  proofs and the G mutant served once) is not built: it is step 5 of §7. The fixture and the G
-  mutant it needs are.
-- **The measures of §2.7** are not built beyond the local server (`serve.py`, whose compression,
-  `Vary` and per-representation `ETag` are not tested on their own): no clock mapping, no cold/warm
-  series, no trace, no byte accounting.
-- **`make prototype` and `prototypes/framework/runs/state.json`** (§5, FPROTO-5-08, FPROTO-6-07) do
-  not exist yet; nothing ties runs, build inputs and the draw together on disk. `verdict.Record` is
-  built by the tests by hand.
-- **The build phase** has no runner of its own: `npm_offline.install` is the install phase; a build
-  is `sandbox.run` on an allowlist (`tests/test_inputs.py` runs a script from `node_modules/.bin`).
-  No `npm rebuild <package>` path for A6 exists.
+- **The browser check of §2.6** (the comparator of the DOM against Python's DuckDB) is not built:
+  step 5 of §7.
+- **The measures of §2.7** are not built beyond the local server (`serve.py`): no clock mapping,
+  no cold/warm series, no trace, no byte accounting.
+- **`make prototype` and `prototypes/framework/runs/state.json`** do not exist yet; `verdict.Record`
+  is built by the tests by hand.
 - **The draw's convergence** on real builder outputs is unmeasured; against the EH WASM alone one
-  draw is rejected on 176 values (see §9 of the plan), and `draw` redraws one cell per value
-  rejection per round, so convergence there is doubtful.
+  draw is rejected on 176 values (§9 of the plan).
 - **The diagnostic** ran only on the control page: one origin, one dedicated worker, no iframe, no
-  service worker, no shared worker. The `instrumentation` breakpoint for workers is proved on a blob
-  worker only. Response bodies of two requests per journey come back "No resource with given
-  identifier found" and are listed as unobserved, not investigated. The profile scan reads 32
-  byte files, one LevelDB, one SQLite per journey and lists ~29 Chrome binaries as inconclusive;
-  the "IndexedDB on disk" branch never found the deleted record (as allowed by §2.5.3), and no
-  LevelDB `.ldb` table was produced, so `leveldb.read_table` never ran: it is untested.
-- **Snappy** is tested on one hand-built stream; the only real Snappy input would be a `.ldb`
-  table, which no journey produced.
-- **Mutation testing** was not run on the prototype (unlike M52 for the gate).
+  service worker, no shared worker. No LevelDB `.ldb` table was produced, so `leveldb.read_table`
+  and the real Snappy path are untested.
+- **The carrier inspection's cost**: about five times slower than its first version on the 3.6 MB
+  bundle (section 3); not measured on a real candidate's output, and the timing script is not in
+  the repository.
+- **Mutation testing** was not run on the prototype, beyond the one by-hand removal named in
+  PROTO-2-11's status.
 
 ## 5. Assumptions about the environment
 
@@ -192,84 +173,58 @@ delivery. It is the class of error that passes code review unseen.
 - That `release.verify` refusal messages are stable: the classification of §2.5.1 matches them by
   regular expression (`harness._TABLE`); a reworded message falls to `HARNESS_ERROR`, never to a pass.
 - That `contract.needles` and `c.spellings` are the gate's whole search: `inspect_output.gate_hits`
-  reproduces `contract.inspect` by scanning maximal runs of `[0-9.,-]` for numeric needles and plain
-  substrings for the rest; its agreement is tested on 300 sampled needles, not proved.
-- That DuckDB writes the prototype's Parquet with the contract's types through an Arrow table
-  (`fixture.parquet`): `check_payload` accepts it, which tests it for this fixture only.
-- That npm finds tarballs by integrity after `npm cache add --offline` (proved on one hand-made
-  package, not on Evidence's ~1,000).
-- That Chrome keeps Local Storage in a LevelDB `.log` readable by `leveldb.read_log`, and the cookie
-  value encrypted in `Default/Cookies` (both seen once, on Chrome 156).
+  reproduces `contract.inspect`; its agreement is tested on sampled needles, not proved.
+- That Chrome 156 keeps Local Storage in a LevelDB `.log` readable by `leveldb.read_log`, and that
+  its HTTP cache entries carry the local server's `ETag` values verbatim — the exclusion of
+  PROTO-2-10 removes only those exact strings.
 - That headless Chrome 156's `Target.setAutoAttach` with `flatten` and `waitForDebuggerOnStart`
-  reaches every target of the page; the targets it reached are recorded in each `raw.json`.
+  reaches every target of the page; the targets reached are recorded in each `raw.json`.
 
 ## 6. Environment the review needs
 
 What must be up for the probes, and how to bring it up. **Bringing up is allowed;
-changing data is not.** "Leave the environment as you found it" applies to the content of
-databases and volumes — not to a stopped or absent container, which the reviewer starts.
+changing data is not.**
 
-| Needs | How to bring it up | How to check |
-|---|---|---|
-| The locked Python environment of this repository | `make sync` | `uv run --frozen python -c 'import bi_como_codigo'` |
-| A checkout of mvp_eng_dados_1, for the pinned links and the probes | `ENG_DADOS_DIR=<checkout>` in the environment | `git -C "$ENG_DADOS_DIR" cat-file -t 26b58b3` prints `commit` |
-| The eng_dados databases, for the SQL probes of `evidence/` | `make up` in the eng_dados checkout — recreates the containers on the existing volumes; nothing is regenerated | `make ps` there; each probe runs through `evidence/20261022/ro.sh`, in a read-only session |
-
-**Never** in a review: any eng_dados target that rewrites data — `make reset`, `seed-*`,
-`CARGA=1`, `FATO=1`, or anything with `FORCE=1`. That is execution, not review. If the
-environment cannot be prepared, the unavailability goes into the findings and what depended
-on it stays **not measured** — never inferred.
-
-**This review needs none of the eng_dados databases**: the prototype reads no warehouse data.
-The last row above is the generic template's and does not apply; and since 2026-11-13 no `make`
-target of eng_dados runs from here (CLAUDE.md §5). Beyond `make sync`, it needs:
+**This review needs none of the eng_dados databases**: the prototype reads no warehouse data, and
+since 2026-11-13 no `make` target of eng_dados runs from here (CLAUDE.md §5).
 
 | Needs | How | Check |
 |---|---|---|
-| The `prototype` dependency group (pyarrow, brotli, zstandard) | `uv sync --frozen --group prototype` | `make prototype-test` collects 143 tests |
-| bubblewrap, Node 20+, npm, Google Chrome | already on this machine | `bwrap --version`, `node --version`, `google-chrome --version` |
-| DuckDB-WASM 1.32.0's tarball, for `test_wasm_collision.py` | `make prototype-third-party` (a GET from registry.npmjs.org, checked against its integrity) | `prototypes/framework/runs/third_party/duckdb-wasm-1.32.0.tgz` |
+| The locked Python environment, with the `prototype` group (pyarrow, brotli, zstandard) | `uv sync --frozen --group prototype` | `make prototype-test` collects the suite |
+| A checkout of mvp_eng_dados_1, for `make check`'s pinned links | `ENG_DADOS_DIR=<checkout>` | `git -C "$ENG_DADOS_DIR" cat-file -t 26b58b3` prints `commit` |
+| Node 20+, npm, Google Chrome | already on this machine | `node --version`, `google-chrome --version` |
+| DuckDB-WASM 1.32.0's tarball, for `test_wasm_collision.py` | already in `prototypes/framework/runs/third_party/` | the `.tgz` there |
 
 The prototype's tests write only under pytest's temporary folders and `prototypes/framework/runs/`
-(ignored by Git); Chrome runs on throwaway profiles under the system's temporary folder.
+(ignored by Git); Chrome runs on throwaway profiles under the system's temporary folder. To run
+the suite without the out-of-scope files:
+`uv run --frozen --group prototype pytest -q -p no:cacheprovider prototypes/framework/tests --ignore=prototypes/framework/tests/test_sandbox.py`.
 
 ## 7. Where I hesitated
 
 Decisions that could have gone the other way, with the reason they went this one.
 
-- **Numbers in text are tokenized, not searched as substrings** (`inspect_output._readings`): a
-  token is read as each spelling it can be — canonical, pt-BR, comma decimal, JavaScript's shortest,
-  en-US grouping — and compared as a number, with digit boundaries. Substring search of ~140,000
-  needles was too slow on a 3.6 MB bundle and reads `12345` inside `112345`. The gate's substring
-  semantics are kept where they matter — in the draw, through `gate_hits`.
-- **What a carrier finding is**: an amount in a gate spelling is `INSPECT_TEXT`, in a shorter
-  JavaScript spelling `INSPECT_NUMBER`; a count in a data-bearing carrier `INSPECT_NUMBER`. §2.5.5's
-  "numeric label behind form" expects `INSPECT_NUMBER`, so its control puts the amount in its
-  JavaScript spelling.
-- **Speculative decodings are dropped when they lead nowhere**: a base64 or hex run decoded to bytes
-  no layer reads is not inconclusive (every long identifier of a bundle is base64-shaped); a file,
-  or a body of a known carrier, that no layer reads is.
-- **The draw redraws one cell per rejected value per round** and gives up only on a fixed label or
-  when every *k* was tried: simple, but slow to converge on a haystack as dense as the WASM.
-- **The diagnostic is a raw CDP client**, as M49, not Playwright, which is not installed here and
-  would be one more dependency to pin; workers are held at an `instrumentation` breakpoint because
-  `Runtime.evaluate` on a worker paused at start never answered.
-- **The local server binds a port below 10,000**, because the origin's port appeared in Local
-  Storage keys and matched a count once.
-- **The control page writes a control total, not a label**, into localStorage: it opens the package
-  with the unchanged reader but parses no Parquet.
-- **A wrong-password attempt's `deriveKey` and failed `unwrapKey` are "expected"**, a successful
-  `unwrapKey` or any `decrypt` in it `UNEXPECTED_DECRYPT`, per §2.5.3.
+- **The global hexadecimal-word rule was removed instead of narrowed (PROTO-2-06).** Narrowing it
+  would keep hiding fixture counts inside long hex-looking runs; the false leads it masked in a
+  clean journey were the local server's own `ETag` values, so they are removed where they can be
+  attributed (PROTO-2-10) and nowhere else.
+- **Control additions are a separate, labelled assembly (PROTO-2-02)** rather than forbidden: the
+  table controls need to plant a value into an artifact, and a judged `verify` refuses any assembly
+  labelled `control`, so a control can never become a candidate's pass.
+- **An unreadable folder refuses the walk (PROTO-2-01)** instead of being reported as inconclusive
+  beside what was read: a tree the harness cannot read whole is not the tree it binds.
+- **A request with no acceptable representation gets 406 (PROTO-2-12)**, not identity: the plan's
+  measures depend on the server sending what the browser asked for; whether RFC 9110 prefers 406
+  or an unencoded body here was not checked against its text.
 
 ---
 
 ## Review findings
 
-Filled in by the reviewer. One finding per line, with a verdict.
+Rounds 1 and 2, with the author's status. Round 3 reassesses each row in scope.
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| | | | `blocking` · `adjustment` · `observation` | |
 | PROTO-1-01 | `allowlist.py:162`, `npm_offline.py:132` | Host-side output copies follow a symlink at the output root. | blocking | Fixed in `533c603`: `trees.py` refuses a linked root or folder on the way to it and never follows a link; `copy_out`, `keep_install` and the diagnostic's hashing go through it. `tests/test_inputs.py::test_a_linked_output_root_is_never_followed_on_the_host` (dist and node_modules, sibling marker not copied), in-folder links kept. |
 | PROTO-1-02 | `harness.py:207`, `harness.py:235` | Verify can pass a substituted package and misattribute refusals. | blocking | Fixed in `533c603`: assembly binds the artifact's tree (modes and links included) and `verify` refuses any other tree before and after the gate; exact message forms, the named file required, two forms → `HARNESS_ERROR`; I/O and schema-check failures are `HARNESS_ERROR`. Tests: swapped valid package, linked envelope, `schema_exact.js` → `FORM`, injected faults. |
 | PROTO-1-03 | `harness.py:54`, `harness.py:72`, `harness.py:165` | Archiving drops entries and changes modes that assembly never compares. | blocking | Fixed in `533c603`: archives keep modes, links and FIFOs; an entry no tar can carry refuses the archive and is assembly `FORM`; assembly copies the FIFO so `verify` judges it. Tests: 0664 file, link and FIFO round trip to the gate; a socket. |
@@ -277,7 +232,7 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | PROTO-1-05 | `inspect_output.py:210`, `inspect_output.py:240`, `inspect_output.py:420` | Supported or explicitly identified carriers can disappear during dispatch. | blocking | Fixed in `3c4a300`: byte checks on every blob before any exemption; every decoder whatever the speculation; all zstd frames, gzip members, the remainder of a zlib stream; legacy Arrow streams; past the depth the bytes are still searched and a layer that would open is inconclusive; `data-b64` with no body inconclusive. One test per case Codex executed. |
 | PROTO-1-06 | `inspect_output.py:190`, `inspect_output.py:344`, `inspect_output.py:397` | Numeric matching misses structured and rendered values and omits gate needles in manifest labels. | blocking | Fixed in `3c4a300`: windows across separators, exponents, spaced grouping, no positive match after a minus sign, JSON embedded in code as a structured carrier, case-insensitive JSON scripts, the gate's own needles on validated manifest labels, schema only by types. Tests per case. |
 | PROTO-1-07 | `calibrate.py:24`, `calibrate.py:35` | The draw accepts missing and inconclusive builder inputs. | blocking | Fixed in `534263a`: a missing or linked builder output refuses the draw; an inconclusive one stops it with file and reason (`DrawStopped`); needles from the fixture sealed and opened. Tests. |
-| PROTO-1-08 | `sandbox.py:84`, `sandbox_probe.py:29`, `tests/test_sandbox.py:66` | The sandbox proof can fail on an isolated PID and pass with the root remount removed. | blocking | Fixed in `80f1bd9`: namespace identities instead of PID numbers; own PID, IPC, UTS, network and mount namespaces, a session led inside, a root it cannot write; seven variants each failing its check (CLI output in the answer below); sentinels planted and removed; network phases shown to fail at the connection attempted. §9 corrected in the docs commit. |
+| PROTO-1-08, PROTO-2-07 | `sandbox.py`, `sandbox_probe.py` | The isolation wrapper's self-check (rounds 1 and 2). | blocking | Fixed by the author in `80f1bd9` and `a52a210`; **out of scope of round 3** by the Owner's decision of 2026-11-21 — round 2's correction is unreviewed, a recorded limit (section 4). |
 | PROTO-1-09 | `fixture.py:515`, `inspect_output.py:373`, `inspect_output.py:498` | Redraw order varies across processes and a movable calendar can cause immediate exhaustion. | adjustment | Fixed in `534263a`: rejections sorted before redraw (same fixture under `PYTHONHASHSEED` 1 and 2, tested in subprocesses); every source of a value; matched needles from structured cells; grouped row count named; limit above 1,000 refused. |
 | PROTO-1-10 | `fixture.py:262`, `fixture.py:413` | Shape and coverage checks omit required properties. | adjustment | Fixed in `5e88630`: types and YYYY-MM checked; the partial month's smaller amounts as constants and a row property; coverage under the effective public declarations with an independent expectation (own totals, own spellings). Tests for each. |
 | PROTO-1-11 | `diagnose.py:82`, `browser/diagnostic.mjs:153`, `browser/instrument.js:20` | Attempt and document attribution can be wrong, and hooks can change stored values. | adjustment | Fixed in `cf9a0dd`: marks at the submit and logout events from the page's hooks; post-logout calls placed by document; values read back from the browser's own copies. Tests: decryption in the old document's logout handler; a getter read once. |
@@ -291,835 +246,10 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | PROTO-2-04 | `verdict.py:90,163,180` | Unbound findings and invalid closure evidence can determine the verdict. | blocking | Fixed in `59c2b1e`: content only from bound stages; a tail before the builder's inspection does not count; a resumed assembly `FORM` closes as a cost; an exhausted draw closes only by an assembly on the same builder. The four histories plus a bound finding surviving a later harness error. |
 | PROTO-2-05 | `inspect_output.py:258,276,306` | Supported layers at the depth limit and incomplete zstd frames can appear clean. | blocking | Fixed in `80d2cc1`: no-magic layers count at the depth limit; legacy Arrow opens from speculative decodings; zstd frame by frame, an incomplete frame inconclusive beside what was read. Tests: base64 ×3 over Brotli and over legacy Arrow, a truncated final frame. |
 | PROTO-2-06 | `inspect_output.py:394,430,453,483` | The number scan suppresses fixture counts and reports parts of exponents as counts. | blocking | Fixed in `80d2cc1`: the global hex-word rule is removed — the profile's false leads it masked are now handled where attributable (`8dfb902`, PROTO-2-10); scientific literals read as one number, bounded; literal-space grouping; non-finite values skipped. Tests per case. |
-| PROTO-2-07 | `sandbox_probe.py:45,50,62` | The sandbox proof rejects a valid session and misses some inherited descriptors and writes. | blocking | Fixed in `a52a210`: session = leader inside the PID namespace (SID ≠ 0), no host number compared; every live descriptor counted; a write recorded before cleanup. The CLI exits 0 run directly and under `setsid`; tests for the shared-number session, a directory descriptor and a write whose unlink fails. |
 | PROTO-2-08 | `inspect_output.py:625`, `calibrate.py:69` | An integral Arrow count can exhaust the draw as a fixed label. | adjustment | Fixed in `80d2cc1` (canonical values from typed cells) and tested in `a32e3b9`: an integral Arrow float equal to the row count changes *k*. |
 | PROTO-2-09 | `diagnose.py:71`, `browser/instrument.js:76`, `browser/diagnostic.mjs:109`, `browser/enumerate.js:7`, `leveldb.py:104` | Missing journey marks and storage values can be reported as observed. | adjustment | Fixed in `8dfb902`: missing page boundaries taken from the driver and reported as gaps; repeated IndexedDB writes said unreadable; Maps, Sets and Blobs at the end; CacheStorage read on content events; LevelDB fragmented record unreadable. Tests for each. |
 | PROTO-2-10 | `diagnose.py:264,291,335` | Global profile exclusions can hide records, and baseline collection can abort a journey. | adjustment | Fixed in `8dfb902`: baseline by path and digest, made by the driver and closed through the protocol; cache entries give up only the body of the URL they are keyed by (artifact file, or pinned body of the declared digest) and the ETags the local server recorded issuing. Tests: unrelated record keeps its body; the clean journey stays clean. |
 | PROTO-2-11 | `tests/test_controls.py:41,180`, `tests/test_diagnostic.py:123` | Controls can pass without archive evidence, label detection or stable redraw ordering. | adjustment | Fixed in `a32e3b9`: the helper archives and extracts the builder and builds records from real digests and outcomes; a FIFO alone reaches `FORM`; the stored-Parquet control needs a label from text cells; the order test fails with the sort removed (checked by mutation). |
 | PROTO-2-12 | `serve.py:36,63,98` | The server sends identity even when every supported representation is refused. | adjustment | Fixed in `ae3c26d`: no acceptable representation → 406; case-insensitive weights; identity only when acceptable. Tests including `br;Q=0`, all-zero, `*;q=0`. |
-| PROTO-2-13 | `DOSSIER.md`, Round 1 author's answer | The 28.7 s and 8.0 s bundle timings have no reproducible command output. | adjustment | Answered with output: `time_inspect.py` and its runs at three revisions on the same bundle and seed, in the answer below; the 8.0 and 28.7 s of round 1 reproduce as 8.0 and 28.9 s, and the current code takes 41.5 s. |
+| PROTO-2-13 | `DOSSIER.md`, Round 1 author's answer | The 28.7 s and 8.0 s bundle timings have no reproducible command output. | adjustment | Answered with output (section 3): the 8.0 and 28.7 s of round 1 reproduce as 8.0 and 28.9 s, and the code at `ae3c26d` takes 41.5 s. The script is not in the repository (section 4). |
 | PROTO-2-14 | `trees.py:147,166` | A supplied tar with an absolute directory member can change permissions outside extraction. | observation | Fixed in `59f71c9`: extraction refuses absolute or `..` members before writing and applies modes only inside the folder. Test: the reviewer's tar leaves the sibling at `0700`. |
-
-## Round 1 — PROTO
-
-### 1. Conclusion
-
-**Changes required.** The reviewed implementation can accept an unobserved carrier, issue a pass
-without the required archive evidence and copy files outside a sandbox work folder during
-host-side output collection. The sandbox proof also has an untested isolation requirement that
-survived mutation. Keep §7 step 2 pending until the blocking findings are resolved and their
-controls demonstrate the corrections.
-
-### 2. Reviewed scope and version
-
-- `main` at `1e7070ac136f6049ae9f15787b9dba23b619cf3e`, one commit ahead of local
-  `origin/main`. The worktree and index were clean at intake, with no untracked files reported.
-  The tip adds only this dossier.
-- Fixed comparison `1378b28..610fd4e`, the ten commits in §1. The baseline is the closed revision 9
-  plan. The diff adds 31 tracked files, all in `prototypes/framework/`, and changes seven existing
-  files. This review covers the prototype tree, its two Make targets and dependency group, and
-  the documentation delta at `610fd4e`.
-- Traced the calls into `release.verify`, `contract` and `envelope` in the unchanged gate. The
-  `make check` recipe and its resolved dependencies are unchanged. `uv.lock` adds the prototype
-  group and three libraries. No separate baseline timing was taken.
-
-### 3. Findings
-
-Paths below are relative to `prototypes/framework/` unless indicated.
-
-#### Blocking
-
-##### PROTO-1-01 — Constrain host-side collection to the checked work folder
-
-**High · `blocking`** · `allowlist.py:162–167`, `npm_offline.py:132–138`,
-`diagnose.py:300–306`.
-
-**Executed.** A synthetic `dist` directory link in a temporary work folder caused
-`copy_out` to copy a marker from a sibling directory. The copy runs on the host.
-`symlinks=True` preserves nested links but does not protect the source root. The same root
-operation exports `node_modules`; its allowlist is computed after the copy. A symlink produced by
-a build can therefore bring unlisted host bytes into an artifact or a later input folder.
-**Static.** Diagnostic hashing also follows file links before the server applies its containment
-check. Anchor collection to a real work root and inspect entry types before any host reads.
-
-##### PROTO-1-02 — Verify can accept or misclassify a harness fault
-
-**High · `blocking`** · `harness.py:205–261`, `harness.py:264–309`,
-`src/bi_como_codigo/release.py:245–301,314–344`.
-
-**Executed.** Assembled a package for the throwaway fixture, then replaced it with a valid package
-for a different seed. `verify` returned `PASS` with a manifest digest that differed from
-`ValidatedPackage.files`. Replacing an envelope with a dangling link yielded `FORM` for the
-harness-owned package. A real gate extension refusal for `schema_exact.js` yielded
-`HARNESS_ERROR` because the package-code prefix matched first.
-
-**Static.** In the intact layout, reproduction uses `contract.inspect` with the correct file or
-label role. It takes values from the assembly token even when the gate opened a different
-package. The two searches can reproduce the same code on different needles. The archive reads
-after reproduction can also raise outside the handler, and `schema_only` turns even an I/O or
-DuckDB setup error into `CONTENT`. Bind verify and reproduction to the validated package and
-archived artifact, disambiguate the exact refusal forms and distinguish infrastructure errors
-from a file that parses as something other than the permitted empty schema.
-
-##### PROTO-1-03 — The archive can erase part of the builder output
-
-**High · `blocking`** · `harness.py:54–104,165–185`, `tests/test_harness.py:218–234,301–309`.
-
-**Executed.** A builder with a file at mode `0664` and a FIFO came back from the checked tarball
-with mode `0644` and no FIFO. After removing the original FIFO, `tree` considered the two
-directories equal. Direct assembly of the original builder raised `shutil.Error`, while
-assembly from the reduced archive passed. A real builder's non-plain entry can disappear before
-the gate checks it. The current FIFO control adds it after assembly and so bypasses both paths.
-Preserve comparable entries and modes, and record entries the archive cannot carry before any
-judgment. Report a failed copy as a harness outcome.
-
-##### PROTO-1-04 — Verdict closure accepts incomplete or unrelated evidence
-
-**High · `blocking`** · `verdict.py:62–106,109–162`, `tests/test_verdict.py:33–85`.
-
-**Executed.** Six done statuses and no build input, builder digest or artifact digest produced
-`passes`. For an archived builder, a tail completion followed by the first inspection of that
-builder also produced `passes`. An inspection with `status="error"` and one finding produced
-`fails the criterion`. An assembly `HARNESS_ERROR` produced `stopped`, then `not established`
-after an unrelated inspection-only resume. The supplied positive histories cover the normal
-order, and the verdict excludes browser data. The gaps are stage identity and sequencing.
-Require evidence for each stage to bind to its archived subject, validate resumes in order and
-retain a stop until the relevant evidence closes it. Define how a confirmed finding is carried
-forward when a different operation errors.
-
-##### PROTO-1-05 — Dispatch can return clean for a carrier it did not read
-
-**High · `blocking`** · `inspect_output.py:210–263,397–442,525–535`.
-
-**Executed.** A fixture label inside base64-wrapped Brotli in JavaScript, a second valid zstd
-frame carrying the label, four layers in a standalone base64 file, and a fetched-data script
-with `data-b64` and no body each returned clean. Four gzip layers correctly returned
-inconclusive. A valid legacy Arrow IPC stream that PyArrow reopened was reported as opaque.
-A plain-byte label in a synthetic binary matching a dependency digest was also missed.
-
-**Static.** The speculative branch skips the no-magic decoders and suppresses its depth note.
-zstd dispatch uses a single decompress object without checking its remainder or completion.
-Byte text search runs only after UTF-8 decoding. Keep speculative identifier matches from adding
-noise while following supported layers, checking complete consumption and reporting unreadable
-declared carriers. Run the required byte checks before exempting a locked binary.
-
-##### PROTO-1-06 — Numeric matching misses required needles by role
-
-**High · `blocking`** · `inspect_output.py:182–198,344–390,397–481,511–522`.
-
-**Executed.** `orders=20000units` was found. `orders=2e4`, a narrow-space grouped count and a
-pt-BR amount followed by a comma delimiter were missed. `orders=-20000` matched a positive
-count. A strict JSON object embedded in JavaScript with a count in exponent notation was
-missed, as was an uppercase HTML JSON script. For a validated manifest whose label contains
-the fixture year, the unchanged `contract.inspect` returned `clear_value` on the label and
-carrier inspection returned clean. A prior form refusal can therefore mask that label.
-
-**Static.** The labels path receives the carrier needle set, which excludes standalone years
-and omits the gate's raw totals object. The empty-Parquet note compares column names without
-checking types. Keep role-aware numeric parsing for carrier comparisons, run the full gate
-search on validated labels and use the declared types for the schema-only designation.
-
-##### PROTO-1-07 — Calibration suppresses incomplete builder inspections
-
-**High · `blocking`** · `calibrate.py:24–61`, `fixture.py:515–548`.
-
-**Executed.** With a named builder containing opaque bytes, the draw accepted its first fixture
-with zero rejections, while `inspect_dir` on that builder was inconclusive. A nonexistent
-named builder also produced a first-draw acceptance. **Static.** Calibration uses the common
-carrier dispatch but only reads its findings. It calls `check_payload` directly on generated
-bytes and omits the seal/open sequence of §2.1. Require readable archives, carry unresolved
-inspection results into a stopped draw with the file and reason, and exercise the specified
-payload path. The optimized gate search enumerates each candidate substring contained in a
-maximal `[0-9.,-]` run and uses raw byte containment for the other needles. The unchanged
-gate search remains the reproduction oracle.
-
-##### PROTO-1-08 — The sandbox proof misses regressions and can reject a good namespace
-
-**High · `blocking`** · `sandbox.py:84–118,130–140`, `sandbox_probe.py:29–43`,
-`tests/test_sandbox.py:19–71`, `tests/test_inputs.py:174–191`,
-`docs/framework_prototype.md:877–884` at the repository root.
-
-**Executed.** The standalone proof exited 1 on `no host pid`. A separate probe saw outer PID
-3 with parent 2, sandbox PIDs `[1, 2]`, and distinct PID namespace identities. Numeric overlap
-triggered the failure. With only the root remount removed in memory, `test -w /` changed from
-exit 1 to exit 0 inside bubblewrap, and the existing writable-path control still passed. Its
-final `true` masks the write outcomes. All mutations used private scratch roots.
-
-**Static.** The configured `clear/planted` path is never planted by the CLI or tests, and it was
-absent on this checkout. There are no separate removal proofs for IPC, UTS, session or root
-remount. The isolated npm/build network control accepts any nonzero exit on the closed side.
-The new §9 claim that each check fails with its option removed is contradicted by the executed
-mutation. Use namespace identities and existing synthetic sentinels, assert each property and
-show that both closed network phases reached their attempted connection. Attach the resulting
-probe and mutation output.
-
-#### Adjustments
-
-##### PROTO-1-09 — Deterministic redraw and precise collision provenance
-
-**Medium · `adjustment`** · `fixture.py:487–548`, `inspect_output.py:373–377,498–508`,
-`harness.py:312–322`.
-
-**Executed.** A fixed seed and a builder with two short JavaScript spellings accepted different
-row digests with `PYTHONHASHSEED=1` and `2`, both after two draws and two rejections. With a
-single `period=<fixture year-month>` string in gzip-wrapped Arrow, the only rejection was
-`label`; the draw exhausted immediately. The scanner returns the whole cell as provenance,
-and a token set can change rejection order before the RNG consumes it. **Static.** Reproduction
-labels only the canonical row-count spelling as `row_count`, and a numeric year as `number`.
-Sort stable collision identities before drawing and map the matched lexeme to every applicable
-fixture source and class. Enforce the 1,000-draw ceiling at the public draw entry point.
-
-##### PROTO-1-10 — Complete the fixture assertions
-
-**Medium · `adjustment`** · `fixture.py:262–346,413–433`,
-`tests/test_fixture.py:53–111,122–152`.
-
-**Executed.** A complete fixture with slashes in all month strings passed `check_shape`, as did
-one with a fractional `order_count`. **Static.** The shape check has no assertion for smaller
-amounts in the partial month. It does verify whole groups, G's absence or mutant zero rows,
-Z's zero-net arithmetic, and the order-count sums across the four filter sets. Coverage passes
-an empty public set regardless of the loaded declarations and builds part of its expected
-count from the supplied totals payload and the same spelling routine used by the gate. Derive
-the expectation from the fixture and assert coverage with the effective public declarations.
-Make the partial-month property testable from rows.
-
-##### PROTO-1-11 — Browser timing and hooks can misstate the journey
-
-**Medium · `adjustment`** · `diagnose.py:69–104`, `browser/diagnostic.mjs:153–208`,
-`browser/instrument.js:20–48,74–86`.
-
-**Executed on localhost in headless Chrome.** The old document issued a WebCrypto call during
-its logout handler before navigation. The diagnostic labeled it “on the new page before a new
-submission.” A history-state getter produced `first-read` in the hook and `second-read` in the
-value actually persisted by the page. **Static.** The driver timestamps separate CDP commands
-that precede the click, and the post-logout classifier uses target type as document identity.
-Start/outcome correlation does preserve the attribution of calls whose recorded start was in a
-valid attempt. Capture submission and logout at their event boundaries and use document IDs
-across navigation. Use native snapshots where possible and report values that cannot be read
-without invoking application behavior.
-
-##### PROTO-1-12 — Record missing browser evidence by collector and field
-
-**Medium · `adjustment`** · `browser/diagnostic.mjs:66–100,109–125,196–208`,
-`browser/enumerate.js:7–27`, `diagnose.py:126–158,217–263,285–297`,
-`leveldb.py:75–117`.
-
-**Executed.** A transient ordinary `localStorage` property write and deletion left no event in
-the diagnostic. A truncated LevelDB log received `leveldb: 1` coverage with no unobserved
-entry. **Static.** CDP DOMStorage events and CacheStorage content events are absent.
-Setup errors from `send` return fulfilled promises, absent hook acknowledgements are not
-reconciled with discovered realms, and the driver only summarizes workers for session
-target survival. Serialization can reduce a structured-clone Map or Set to an empty object
-silently. Keep the existing written, readable and disk reports, expose each missing collector
-or unreadable format field and preserve the distinction between a write attempt and a
-committed write. These results stay diagnostic under N96.
-
-##### PROTO-1-13 — Make the controls prove their cross-layer claims
-
-**Medium · `adjustment`** · `tests/test_controls.py:40–125`,
-`tests/test_inspect_output.py:120–212`, `tests/test_fixture.py:178–192`,
-`tests/test_diagnostic.py:56–86`.
-
-**Static.** Arrow, compressed and escaped controls assert inspection in isolation, with no
-observed `verify` class on the same artifact. The opaque carrier and its history are tested
-separately. The second-manifest form case with a label in the builder's manifest is missing.
-The draw's no-values assertion also succeeds when a rejection has a value field and a class.
-The startup control derives a key only. The localStorage control persists a control total,
-as the dossier records, and leaves the fixture-label case unproved. Exercise the required
-artifacts and derive the verdict stages from what each control actually ran. Keep evidence
-for the other layers even when an earlier layer refuses.
-
-##### PROTO-1-14 — Validate the cached bytes and parse Git paths losslessly
-
-**Medium · `adjustment`** · `npm_offline.py:54–66,84–105`, `allowlist.py:61–75`.
-
-**Executed.** Given a corrupt file already at the content-addressed path and no integrity
-sidecar, `fetch` accepted the incoming bytes and listed their digest while leaving the wrong
-bytes on disk. Later allowlist assembly would refuse them, so the immediate result is a misleading
-cache record and a failed retry. The strongest-algorithm and same-algorithm alternatives
-behaved as expected in an independent SRI check. **Static.** The fetcher prohibits
-redirects and uses HTTPS registry URLs. The Git input reader splits line-oriented `ls-tree`
-output and feeds quoted filenames straight to `git show`, so names escaped by Git are not
-looked up as their actual paths. Write the cache listing only after all listed bytes are
-verified on disk and use NUL-delimited Git output with the pinned blob identities.
-
-##### PROTO-1-15 — Honor the request's encoding weights
-
-**Medium · `adjustment`** · `serve.py:36–44,70–98`.
-
-**Executed on localhost.** A request with `Accept-Encoding: br;q=0, gzip;q=1` returned
-`200` with `Content-Encoding: br` and `Vary: Accept-Encoding`. The server drops quality
-weights and always prefers Brotli. The future wire-byte and revalidation measures would
-describe the wrong representation for such a request. Select an acceptable encoding before
-deriving its ETag and test negotiation and 304 behavior together.
-
-### 4. Checks and evidence
-
-The first invocation of each Make target exited 2 before any checks ran because UV could not
-lock its read-only default cache. Each target then ran to completion once with an isolated UV
-cache and project environment under `/tmp`. Bytecode and pytest cache writes were disabled.
-
-| Executed command | Exit | Observed result |
-|---|---:|---|
-| `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` | 0 | `470 passed, 1 warning in 193.73s (0:03:13)`. Node reported `pass 156`, `fail 0`, `skipped 1`. The history scan reported 15 skipped non-text blobs. |
-| `make prototype-test` | 0 | `143 passed in 302.66s (0:05:02)`, no skips. |
-| `python -B prototypes/framework/sandbox.py` with the review venv on PATH | 1 | `passed: false`. Sole false check was `no host pid`. See PROTO-1-08 for the companion namespace probe. |
-| Sandbox writability control with the remount removed in memory | 0 | `root-writable-test exit default 1 without-remount 0`, then `1 passed in 0.03s`. |
-| Planted-fixture allowlist control with `allowlist.check` made a no-op in memory | 1 (expected) | `Failed: DID NOT RAISE <class 'allowlist.Refused'>`, then `1 failed in 0.10s`. |
-
-§3 reports that Claude Code ran both Make targets with exit 0 at `610fd4e`, including
-`143 passed in 290.46s` for the prototype. The standalone proof reported there is also the
-author's run. The review results above are from the dossier-only tip.
-
-Used the existing DuckDB-WASM 1.32.0 tarball. Its stored SRI sidecar matched the bytes. Ran
-the gate substring search on the EH WASM with the throwaway fixture. The prototype test for
-exhaustion does not output the quantity or timing claimed in the new §9 text. Independent
-output from this review supports the quantity and gives separate timings:
-
-```text
-WASM initial seed=20261120 hits=177 {'calendar': 1, 'value': 176} search=3.50s including fixture and tar=7.16s
-WASM local SRI sidecar match True
-```
-
-Other checks were targeted Python probes with temporary carriers, archives, verdict histories,
-lockfile and cache inputs, and a Chrome journey on a throwaway localhost page. Their observed
-results are identified as executed in the findings. `make prototype-third-party` was unnecessary
-with the tarball present. Registry metadata was not refreshed.
-
-### 5. Limitations and open questions
-
-- The real candidate builds, their clear-mode carrier controls, A6/A7, a full draw against both
-  candidates, and the stage 2.5 browser oracle have no review evidence here. No candidate was
-  installed or built. The comparison runner and persistent state are future integration points
-  recorded in §4. The review exercises the stage functions and synthetic histories.
-- The browser checks used the repository control page and one synthetic page. Capturing all
-  frame and worker types, successful LevelDB table scans from real profiles, and the performance
-  measures remain unverified. The identified browser faults affect observation under N96.
-- The host-side boundary proof used a harmless marker under `/tmp`. No credential was read and
-  no database, deployment or service changed. No separate observation-level findings are filed.
-
-### 6. Handoff to Claude Code
-
-- [ ] **PROTO-1-01** Refuse linked `dist` and `node_modules` roots before copying. Prove rejection
-  with a scratch sibling marker, preserve the supported in-folder npm links, and verify that
-  inspection and diagnostic hashing stay within the artifact.
-- [ ] **PROTO-1-02** Classify a valid swapped package and a damaged package entry as
-  `HARNESS_ERROR`. Keep an ordinary filename's real form refusal. Prove whole-file and label-role
-  reproduction against the matching archive and inject an I/O failure in the classification path.
-- [ ] **PROTO-1-03** Round-trip permissions and link types. Run the non-plain entry control from
-  the original builder through archival and assembly, and require a recorded refusal or a gate
-  judgment on that entry.
-- [ ] **PROTO-1-04** Extend the synthetic histories with missing identities, tail stages before
-  builder inspection, an unrelated resume after a stop, and error stages. Assert the full
-  same-input retry, same-builder tail and same-artifact reinspection cases with valid digests.
-- [ ] **PROTO-1-05** Require findings in nested Brotli and later zstd frames, and an inconclusive
-  record for a declared body or depth the scanner could not read. Exercise both Arrow stream
-  encodings and text bytes in binary.
-- [ ] **PROTO-1-06** Add positive and negative cases for signs, exponents, grouping, delimiters and
-  structured JSON within code. Exercise the full manifest label search behind a real form
-  refusal and withhold the schema-only designation when a zero-row file has the wrong types.
-- [ ] **PROTO-1-07** Show that a missing builder and an unreadable carrier cannot yield an accepted
-  fixture. Record which archive and decoder caused the stop and compare a clean draw with
-  both inspections on the opened package's values.
-- [ ] **PROTO-1-08** Show the sandbox proof succeeding despite PID number overlap and failing for
-  each removed isolation property. Prove network denial from inside each phase and attach the
-  executed outputs to the measurement claim.
-- [ ] **PROTO-1-09** Show identical accepted row digests and rejection logs across hash seeds.
-  Exercise a calendar substring inside a structured cell, a grouped row count, and a draw
-  attempt beyond the specified ceiling.
-- [ ] **PROTO-1-10** Add malformed month, count-type, partial-month and Z/G exception controls.
-  A public declaration excluding a fixture needle and a missing spelling must each fail
-  coverage against an independently computed expectation.
-- [ ] **PROTO-1-11** Exercise calls in flight at logout, calls in the old document and new-page
-  startup. Verify the instrumented page stores the same value as the native page for state
-  with an accessor.
-- [ ] **PROTO-1-12** Demonstrate a transient property write and a CacheStorage content change.
-  Expose failed collector setup and truncated LevelDB input in the appropriate unobserved
-  fields, with written, readable and disk results intact.
-- [ ] **PROTO-1-13** Use real outputs for the missing control paths. Assert the expected class,
-  path and verdict at the required layers and show that removing the tested detection causes
-  its control to fail.
-- [ ] **PROTO-1-14** Repair or refuse a corrupt content-addressed entry before writing the listing.
-  Round-trip a tracked filename escaped by Git and show its listed digest comes from the
-  pinned commit.
-- [ ] **PROTO-1-15** Exercise identity, gzip and Brotli, including an explicit zero quality weight.
-  A validator should yield 304 only for the negotiated representation it identifies.
-
-
-## Round 1 — the author's answer
-
-All fifteen findings are fixed, each in its own commit (the Status column names it), between
-`aa9e459` (the record of round 1) and `edb1359`; none is refused. Two of the corrections went beyond
-the letter of the finding, and are claims to verify:
-
-- **The diagnostic's false leads in a clean journey.** The broader number search of PROTO-1-06 made a
-  clean journey report counts found in Chrome's HTTP cache and in its built-in speech extension's
-  script cache. A journey's profile is now read against a pristine profile of the same Chrome (its
-  files recognised by digest), a cache entry's body that is a file of the artifact or a pinned body is
-  taken out before the rest is inspected, and a digit run inside a hexadecimal word of 16 characters
-  or more (a digest) is not read as a number (`inspect_output._in_digest`). The last rule applies to
-  every carrier, not only the profile.
-- **The verdict's stop.** PROTO-1-04 asked to retain a stop until the relevant evidence closes it; the
-  verdict now treats any record from the latest run onwards whose stop no later record has closed on
-  the same subject as stopping — a resume of another subject leaves it stopped —, while an earlier
-  run superseded by a later run is judged through its missing stages, as §2.5.4 says.
-
-Executed at `edb1359`, 2026-11-21:
-
-```
-$ make prototype-test
-216 passed in 493.88s (0:08:13)
-
-$ uv run --frozen --group prototype python prototypes/framework/sandbox.py   # exit 0; summarised from its JSON
-the wrapper: passed True - 31 checks, failing: []
-without clearenv: check 'token not inherited' holds=False, probe passed=False
-without unshare_pid: check 'own PID namespace' holds=False, probe passed=False
-without unshare_net: check 'host loopback unreachable' holds=False, probe passed=False
-without unshare_ipc: check 'own IPC namespace' holds=False, probe passed=False
-without unshare_uts: check 'own UTS namespace' holds=False, probe passed=False
-without new_session: check 'a session of its own' holds=False, probe passed=False
-without remount_ro: check 'no write /bice-probe' holds=False, probe passed=False
-```
-
-`ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` exited 0 before each commit. The carrier
-inspection of the same 3.6 MB third-party bundle as before takes 28.7 s, against 8.0 s before the
-round, because every decoder now runs on speculative decodings and code is scanned for embedded JSON.
-
-
-## Round 2 — PROTO
-
-### 1. Conclusion
-
-**Changes required.** A linked artifact root can pass binding, an unreadable builder directory
-can lose files during archival, and a supported carrier can return clean with fixture data still
-inside. Verify can also attribute a harness fault to the candidate, and an incomplete history
-can pass. The sandbox proof rejected a correctly isolated session in this review. Keep §7 step 2
-pending until the blocking findings and their controls are closed.
-
-### 2. Reviewed scope and version
-
-- `main` at `58e6debf067a0a38dd156ae97b03efc691b97102`, 14 commits ahead of local `origin/main`.
-  Baseline `aa9e45965346784a4b4f57823b7c63fc3808abdb` is the recorded round 1 implementation.
-  The index and worktree were clean at intake, with no untracked files reported.
-- Reviewed `git diff aa9e459 58e6deb -- prototypes/framework docs/framework_prototype.md`, the
-  §9 correction in `edb1359`, and the finding statuses and author's answer in `58e6deb`.
-  The range adds `prototypes/framework/trees.py` and `prototypes/framework/tests/test_serve.py`
-  and modifies 27 files, including this dossier. `release.py`, `contract.py`, `envelope.py`
-  and the gate recipes and dependencies have no range diff.
-- Applied revision 9 §§2.1, 2.2, 2.5.1–2.5.5, 5 and 7 step 1. Reopened baseline code where a
-  correction calls it. The tip stayed at `58e6deb` throughout. Only this report and its findings
-  rows were added to the worktree.
-
-### 3. Findings
-
-Paths are relative to `prototypes/framework/` unless indicated.
-
-#### Blocking
-
-##### PROTO-2-01 — Refuse linked and unreadable tree roots and preserve archived modes
-
-**High · `blocking`** · `trees.py:38–83,86–167`, `harness.py:247–259`,
-`inspect_output.py:171–174`.
-
-**Executed.** The original `copy_out` and `keep_install` probes refused linked `dist` and
-`node_modules`. Direct `entries`, `copy` and `archive` still read a linked root's scratch
-sibling. `real_root(base)` accepted a real leaf under a linked ancestor. Replacing an assembled
-artifact with a symlink to its unchanged tree yielded bound `verify PASS`. With a builder
-subdirectory changed to mode `000`, the archive completed, omitted its file, and carrier
-inspection reported clean. The `0664` file, link and FIFO round-tripped. A `01775` directory
-came back as `0775`.
-
-**Correction and validation.** Use the same checked root and error-reporting traversal for
-collection, archival, verification and inspection. Reject directory traversal failures with the
-path. Preserve supported permission bits and give any refused mode a recorded outcome. Test a
-linked ancestor and an artifact substituted by a linked root, an unreadable populated directory,
-and the affected mode round trip. The new helper closes the original export entry points only.
-The silent incomplete walk was already possible in carrier inspection.
-
-##### PROTO-2-02 — Contain control additions and keep test-only outcomes out of judged runs
-
-**High · `blocking`** · `harness.py:131–173,226–260`, `tests/test_harness.py:56–78`.
-
-**Executed.** An absolute `control_additions` key wrote a marker to a scratch sibling. Assembly
-recorded the addition and returned `PASS`, and bound verify returned `PASS` with the file absent
-from the artifact. A relative addition under a copied directory symlink also wrote to the
-sibling and assembled with `PASS`. **Static.** A control assembly returns the same token type as
-a judged assembly. `run_gate` deliberately returns `PASS` on a valid swapped package. Its only
-direct callers other than the bound wrapper are the table controls.
-
-**Correction and validation.** Use normalized relative paths, ensure every new entry is contained
-and materialized, and reject link traversal and overwrites before writing. Make both the
-control-assembly path and unbound gate evidence explicitly test-only at the judged boundary.
-Assert that absolute and linked-parent additions leave the sibling untouched and that a judged
-path refuses control-only evidence. The addition path and unbound API were introduced in
-`533c603`.
-
-##### PROTO-2-03 — Bind refusal reproduction to the original builder and distinguish schema I/O faults
-
-**High · `blocking`** · `harness.py:283–325`, `fixture.py:425–450`.
-
-**Executed.** The gate refused the same bound artifact for a fixture count in the archived
-builder file. Reproduction returned `COLLISION` with the correct builder and `CONTENT` when
-given a different, readable builder. With a valid empty P01 Parquet, the normal class was
-`SCHEMA_ONLY`. Removing the check's temporary Parquet just before the DuckDB schema query
-raised `IOException`, which classification treated as `CONTENT`. Both cases can turn a harness
-fault into a criterion failure.
-
-**Correction and validation.** Bind the builder used for reproduction to the assembly token or
-to its checked archive identity. Distinguish a schema-query infrastructure error from a
-completed parse that establishes candidate content. Test the same refusal against the wrong
-builder and an actual query-time I/O error, and retain the real non-schema Parquet case. Both
-misattributions existed before the correction and remain reachable through the new binding and
-schema check.
-
-##### PROTO-2-04 — Use bound, ordered evidence for verdict precedence and closure
-
-**High · `blocking`** · `verdict.py:64–83,90–130,163–208`.
-
-**Executed.** Four histories exposed the remaining gaps:
-
-| History | Observed | Required by §2.5.4 |
-|---|---|---|
-| Done artifact finding or `CONTENT` with no artifact digest | `fails the criterion` | The unbound stage cannot establish a failure |
-| Tail already present in the original record with builder inspection missing, followed by only that inspection | `passes` | `not established` until the tail is completed after inspection |
-| Assembly `HARNESS_ERROR` followed by assembly `FORM` on the same inspected builder | `not established` | `a cost` after a valid form refusal, with no artifact stages required |
-| Latest run's exhausted draw followed by a clean tail resume on a different builder | `not established` | `stopped` until the relevant draw is repeated |
-
-**Correction and validation.** Apply subject validation to confirmed content, preserve the
-builder-inspection boundary for tail evidence, apply the `FORM` exception to a resumed assembly,
-and close a draw stop only with evidence of the relevant draw. Add the four histories and retain
-the plan's precedence cases, including a bound content finding that survives a later harness
-error. The first two gaps survived `96adaf3`. The latter two are in its new closure logic.
-
-##### PROTO-2-05 — Make unread supported layers inconclusive
-
-**High · `blocking`** · `inspect_output.py:258–288,294–312`.
-
-**Executed.** One layer of base64 over Brotli found a fixture label. Four base64 layers over the
-same Brotli bytes returned no finding and no inconclusive entry. Four layers over a legacy Arrow
-stream behaved the same way. Gzip at that boundary was flagged. Two complete zstd frames were
-read successfully, but a complete first frame followed by a second frame truncated by one byte
-returned clean. The second frame would otherwise contain a fixture label.
-
-**Correction and validation.** At the depth cutoff, record a supported layer left unread,
-including no-magic formats. Require complete zstd frame consumption, or record incomplete
-input alongside any findings already confirmed. Exercise the same carriers both within and
-beyond the limit and a truncated final frame. These paths defeat the depth and multi-frame
-corrections in `3c4a300`.
-
-##### PROTO-2-06 — Keep data-bearing number matches and tokenize exponents as a unit
-
-**High · `blocking`** · `inspect_output.py:394–446,449–484,565–586`.
-
-**Executed.** A gzip JSON field with a fixture count in a hex-looking string yielded assembly
-`PASS`, gate `PASS`, zero carrier findings and zero inconclusive entries. The same suppression
-applies to collected data. §2.5.2 defines count searches for these carriers and gives no
-hex-word exemption. With a synthetic `20000` needle, `20 000` was missed, while
-`orders=20000e-1` and `orders=2e-20000` both reported the count. A structured `1e309` value
-raised `OverflowError`.
-
-**Correction and validation.** Scope proven digest metadata exclusions to their fields and
-retain count searches in data values. Consume a signed scientific literal before examining
-separator windows and compare finite numeric values without converting unrelated exponents to
-huge integers. Add a literal-space grouping case and cross-layer positive and negative
-cases for compressed structured text and exponents. The global hex suppression and exponent
-interaction are regressions of this round.
-
-##### PROTO-2-07 — Prove sandbox properties in the right namespace and count live descriptors
-
-**High · `blocking`** · `sandbox.py:92–113,157–178`, `sandbox_probe.py:45–70`.
-
-**Executed.** The standalone probe exited 1 with only `a session of its own` false. Both outer
-and inner SIDs were `1`. Starting the same CLI in a fresh outer session made it exit 0 with all
-31 checks true. With that setup each of the seven variants failed its designated check.
-An inherited pipe was seen, while an inherited open `/proc/self/fd` directory descriptor was
-omitted from the check. In a writable scratch bind, writing an existing marker succeeded but
-unlinking it failed, and the probe reported `no write` as true.
-
-**Correction and validation.** Require an in-namespace session and test session separation
-without comparing PID numbers from different namespaces. Count every live descriptor and
-record a successful write before cleanup. Run the valid wrapper with overlapping IDs, repeat
-all seven negative variants, and use both inherited descriptor types and the write/unlink
-case. The SID comparison is new. The descriptor and cleanup shortcuts predate it. The
-executed defaults establish namespace isolation apart from the faulty session assertion.
-
-#### Adjustments
-
-##### PROTO-2-08 — Map typed numeric matches to their canonical redraw sources
-
-**Medium · `adjustment`** · `inspect_output.py:618–628`, `calibrate.py:65–78`, `fixture.py:557–584`.
-
-**Executed.** A readable Arrow `float64` cell equal to the fixture row count matched in the
-carrier inspection. Calibration reported `label` and raised `DrawExhausted` at draw 1.
-`_cells` records the float spelling with `.0`, while provenance indexes the integer. The
-raw gate search had no hit.
-
-**Correction and validation.** Carry the canonical matched count or amount from the detector
-into provenance and retain every applicable source. Verify that an integral Arrow float
-changes `k` and a shorter decimal representation redraws its value. This is the numeric
-counterpart of the structured string correction in this round.
-
-##### PROTO-2-09 — Account for missing browser boundaries and stored values
-
-**Medium · `adjustment`** · `diagnose.py:71–79,130–139`, `browser/instrument.js:72–93`,
-`browser/diagnostic.mjs:109–110`, `browser/enumerate.js:7–20`, `leveldb.py:104–129`.
-
-**Executed.** In a trace with two page submit marks and a missing page logout mark, the driver
-had a logout mark. The report recorded no gap and called a new-document decrypt expected in
-the right attempt. In headless Chrome, two IndexedDB puts to the same key in one transaction
-both read back the second value. The end collector serialized a surviving Map and Blob as
-`{}` with no unobserved field. A transient `Cache.add` followed by delete gave two cache
-content events and zero committed value findings. A log ending after a complete first
-fragment of a LevelDB batch received `leveldb: 1` coverage with no unobserved entry.
-
-**Correction and validation.** Reconcile each expected journey boundary and realm, and report
-a gap where attribution is uncertain. For repeated writes, recover each value if possible or
-mark the unread attempt. Enumerate CacheStorage on content events and preserve or report
-unreadable end-state fields. Flag incomplete logical LevelDB records. Retest the five cases
-alongside the passing old-document, getter and transient DOMStorage controls. These are
-remaining gaps in the collector corrections. They affect the diagnostic under N96.
-
-##### PROTO-2-10 — Scope profile exclusions to verified cache fields and wait for Chrome to finish
-
-**Medium · `adjustment`** · `diagnose.py:264–273,281–321,335–352,402–404`.
-
-**Executed with scratch profile inputs.** A known-body substring in a different cache record
-reduced three scan findings to zero. An item under `File System` with bytes matching a supplied
-baseline digest went from one finding to zero, regardless of the origin of that digest.
-**Static.** The exclusions match a byte substring or a digest anywhere in the scanned storage.
-They have no cache body boundary or baseline path check. Fulfilled response bytes are eligible
-for subtraction even when their pinned digest differs. **Executed in the full suite.** A
-baseline profile file disappeared during hashing, and cleanup failed with
-`OSError: [Errno 39] Directory not empty`. The same clean journey passed when run alone.
-
-**Correction and validation.** Exempt only a verified file at its attributable baseline path
-or a parsed response body with the expected URL and digest. Report ambiguous bytes or
-incomplete baseline coverage. Ensure the baseline browser has finished writing before
-enumeration and cleanup. Test a known substring embedded in an unrelated record, identical
-bytes under a candidate-owned path, and baseline shutdown. Both exclusions and the baseline
-lifecycle were introduced in `cf9a0dd`.
-
-##### PROTO-2-11 — Make controls fail when their promised evidence is missing
-
-**Medium · `adjustment`** · `tests/test_controls.py:41–71,164–199`,
-`tests/test_harness.py:325–340`, `tests/test_diagnostic.py:123–127`,
-`tests/test_calibrate.py:128–143`.
-
-**Static.** The cross-layer helper asserts a completed archive using literal identities and
-creates no tarball. The opaque history also fills in the second gate result without reading
-it. The link and FIFO archive test reaches the symbolic-link refusal first. **Executed.**
-Removing Arrow, gzip or escape detection made each corresponding cross-layer test fail.
-Removing detection of fixture text cells left the stored-Parquet label control passing.
-Removing redraw sorting left the hash-seed test passing, although reversing two equivalent
-rejections changed the accepted row digest with that mutation.
-
-**Correction and validation.** Build the control stage records from checked archives, actual
-digests and returned outcomes. Show a FIFO itself causing `FORM`. Require the specific
-label evidence and a redraw test sensitive to reordered rejections. Rerun the corresponding
-tests with each detector or check removed. These tests were added or strengthened in this
-round.
-
-##### PROTO-2-12 — Do not serve a representation with zero weight
-
-**Medium · `adjustment`** · `serve.py:36–74,94–111`.
-
-**Executed on localhost.** `br;q=0, gzip;q=1` selected gzip. Its ETag produced `304` for gzip
-and `200` for Brotli. With all three supported representations explicitly at zero, and
-separately with `*;q=0`, the response was `200` identity. `br;Q=0,gzip` also selected Brotli.
-
-**Correction and validation.** Represent “no acceptable coding” separately from an identity
-selection. Honor case-insensitive weight syntax and return a refusal when none is acceptable.
-Test explicit identity and wildcard exclusions, plus the per-representation validator on
-the acceptable path. The original weighted Brotli case is fixed. Identity fallback and the
-weight parser leave other zero-weight cases open.
-
-##### PROTO-2-13 — Attach the output behind the bundle timing
-
-**Medium · `adjustment`** · Root `DOSSIER.md`, “Round 1 — the author's answer.”
-
-**Static.** The answer gives 28.7 s and 8.0 s for an unnamed 3.6 MB third-party bundle. It
-contains neither the command/output nor the input and fixture identities. The reviewer could
-identify the distinct EH WASM search cited in §9 and reproduced its hit count. That evidence
-does not establish the bundle timing.
-
-**Correction and validation.** Attach the two timed commands and their observed output,
-identifying the same input body and fixture on each revision, or mark the comparison pending.
-This is a new measurement claim in `58e6deb`.
-
-#### Observation
-
-##### PROTO-2-14 — Apply extracted modes only inside the checked destination
-
-**Low · `observation`** · `trees.py:147–167`.
-
-**Executed.** A scratch tar with an absolute directory member and its supplied matching
-digest extracted the directory inside the destination. The later `chmod` used the original
-member name and changed a scratch sibling's mode from `0700` to `0755`. **Static.** The
-prototype's archiver emits relative names. This case requires replacing both the archive and
-the digest supplied by the harness, outside N95 and the ordinary generated-archive flow.
-The directory mode pass is new.
-
-**Correction and validation.** Reject absolute members or use only checked destination paths
-for all post-extraction attributes. Verify with the supplied tar and assert that the sibling
-mode stays `0700`.
-
-### 4. Status of previous findings
-
-| ID | Reassessment | Evidence at `58e6deb` |
-|---|---|---|
-| PROTO-1-01 | Partially resolved | Both linked export roots were refused and nested links were retained. Tree and control-addition boundary gaps remain in PROTO-2-01 and -02. |
-| PROTO-1-02 | Partially resolved | Bound verify refused the valid swapped package and dangling envelope. The real `schema_exact.js` extension refusal returned `FORM`. A nonexistent named file returned `HARNESS_ERROR`, and a message matching two forms with a real named path also returned `HARNESS_ERROR`. See PROTO-2-02 and -03. |
-| PROTO-1-03 | Partially resolved | The `0664` file, link and FIFO survived the round trip, and a separate FIFO-only artifact got the gate's non-plain-file `FORM`. A socket was named in both archive refusal and assembly `FORM`. Unreadable subtrees and modes remain in PROTO-2-01. |
-| PROTO-1-04 | Partially resolved | The original no-identity and out-of-order histories returned `not established`. The errored finding and unrelated resume after assembly error returned `stopped`. All supplied plan-table histories passed. See PROTO-2-04. |
-| PROTO-1-05 | Partially resolved | Base64/Brotli in JS, concatenated zstd and gzip, zlib remainder, legacy Arrow and raw text in a locked binary were found. The missing `data-b64` body was inconclusive. PROTO-2-05 exposes other unread layers. |
-| PROTO-1-06 | Partially resolved | Exponent `2e4`, narrow-space grouping, pt-BR amount before a comma, embedded JSON and uppercase JSON scripts matched. A plain negative count stayed clean. The full gate label search found the fixture year, and wrong Parquet types lost the schema-only designation. See PROTO-2-06. |
-| PROTO-1-07 | Partially resolved | Missing and linked builder roots were refused. Opaque bytes produced `DrawStopped` with file and reason at draw 1. The calibration used `open_report` and returned gate needles from the opened payload. Incomplete traversal or dispatch can still feed a clean draw. |
-| PROTO-1-08 | Partially resolved | PID namespace identities and the remount mutation behaved as intended. All seven variants failed their named checks with a fresh outer session. The SID, descriptor and write probes have the gaps in PROTO-2-07. |
-| PROTO-1-09 | Partially resolved | The fixture digest and rejection log agreed across the two hash seeds. The compressed Arrow calendar moved the window, the grouped row count changed `k`, and the ceiling was enforced. Numeric provenance and mutation coverage remain in PROTO-2-08 and -11. |
-| PROTO-1-10 | Resolved | Slashed months, fractional counts, larger partial-month amounts and invalid Z/G shapes were refused. A public fixture needle and a spelling removed from the gate both failed coverage. The throwaway seed yielded 141,733 eligible needles after deduplication. |
-| PROTO-1-11 | Partially resolved | The old document's logout decrypt was attributed to that document. An in-flight decrypt retained the right attempt after logout in a synthetic trace, and the history getter ran once with a correct read-back. A missing boundary and repeated writes still cause misattribution or false absence. See PROTO-2-09. |
-| PROTO-1-12 | Partially resolved | The transient DOMStorage write, CacheStorage event, simple truncated log and missing hook acknowledgement passed their controls. End values, cache event bodies, logical log truncation and profile exclusions remain open. See PROTO-2-09 and -10. |
-| PROTO-1-13 | Partially resolved | Cross-layer carrier controls now run verify and inspection, and the startup control calls the full reader. Three carrier controls failed their detector mutations. The archive, label and redraw proof gaps are in PROTO-2-11. |
-| PROTO-1-14 | Resolved | The corrupt cache entry was repaired before listing. A tab/Unicode Git path assembled from the pinned blob after its working-tree bytes changed. Both tests failed with their old implementations. |
-| PROTO-1-15 | Partially resolved | The original zero-weight Brotli probe chose gzip. Identity, gzip and Brotli had distinct ETags and the 304 was specific to its representation. The unacceptable-identity cases are in PROTO-2-12. |
-
-### 5. Checks executed and results
-
-The Make targets ran once each. The pinned scratch checkout for `make prototype-test` kept
-its planted `clear/` sentinel and generated files under `/tmp`. For `make check`, the Git
-shim redirected only the link checker's upstream `git cat-file` calls to a scratch Git
-directory referencing that checkout's existing object store. The original `git show` reads
-were allowed. The gate validated 101 pinned links. The repository had no local `.env`.
-
-| Executed command or probe | Exit | Observed output |
-|---|---:|---|
-| `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` | 0 | `470 passed, 1 warning in 210.30s (0:03:30)`. Node reported `pass 156`, `fail 0`, `skipped 1`. The history scan reported 15 skipped blobs. |
-| `make prototype-test` | 2 | `2 failed, 214 passed in 502.71s (0:08:22)`. Both failures were new paths, the sandbox session check and the clean Chrome journey's baseline-profile cleanup. |
-| `uv run --frozen --group prototype python -B prototypes/framework/sandbox.py` | 1 | 31 checks, only `a session of its own` false. Distinct PID namespace identities, equal numeric SIDs. |
-| Same CLI with `setsid --wait` | 0 | 31 checks passed. Removing `clearenv`, `unshare_pid`, `unshare_net`, `unshare_ipc`, `unshare_uts`, `new_session` or `remount_ro` made the designated check false in every case. |
-| Loopback install and build control with wrapper outcomes printed | 0 | `install-closed exit 1` with `ECONNREFUSED`, `build-closed exit 3` from the fetch rejection branch, both shared-network phases exit 0. `1 passed in 1.92s`. The npm input was the test's hand-made tarball. |
-| Single clean Chrome journey after the suite | 0 | `1 passed in 15.20s`. The full-suite cleanup failure remains recorded. |
-| Gate search on the existing DuckDB-WASM 1.32.0 EH WASM, seed `20261120` | 0 | Stored SRI matched. The unchanged gate returned `clear_value (in duckdb-eh.wasm)`. Enumerating the hits gave 177, comprising 176 values and one calendar year, in 2.2 s for that search in this run. |
-
-The author's answer reports `216 passed in 493.88s (0:08:13)` at `edb1359` and `make check`
-exit 0 before each commit. The results above are the independent runs at `58e6deb`.
-
-Representative single tests exited 1 under the corresponding deliberate mutation for
-PROTO-1-01 through -12, -14 and -15. The mutations covered linked-root export, verify binding,
-mode retention, verdict subjects, nested Brotli, embedded JSON, missing builder refusal, root
-remount, structured calendar provenance, shape and independent spellings, history read-back,
-committed DOMStorage, corrupt cache and quoted paths, and encoding weights. For PROTO-1-13,
-the Arrow, gzip and escape tests exited 1. The label and hash-seed tests exited 0 under the
-mutations described in PROTO-2-11. These mutations ran only in scratch processes or browser
-profiles. Further targeted output is recorded with the relevant findings.
-
-### 6. Limitations and open questions
-
-- The candidate installs and builds, their natural clear-mode carriers, A6/A7, a converged
-  draw against both final candidates, the stateful comparison runner and the §2.6 browser
-  oracle remain future work. The review uses hand-made files, synthetic histories and a
-  localhost control journey.
-- Chrome coverage here is limited to the controls and the additional IndexedDB/CacheStorage
-  journey. The profile exclusions were isolated with scratch records. Live coverage of all
-  frame and worker types and real Snappy table decoding remain unverified. The browser
-  findings inform the diagnostic under N96.
-- The existing third-party tarball and SRI sidecar were sufficient, so `make prototype-third-party`
-  and registry refresh were unnecessary. No private credential was read, and no database,
-  deployment or shared service was changed.
-
-### 7. Handoff to Claude Code
-
-- [ ] **PROTO-2-01** Refuse linked or unreadable traversal before reporting a clean tree.
-  Show complete round trips for supported modes and an explicit outcome for refused entries.
-- [ ] **PROTO-2-02** Constrain every addition to the artifact and enforce the control-only
-  boundary. Show that absolute and symlink-parent paths cannot write a scratch sibling.
-- [ ] **PROTO-2-03** Return `HARNESS_ERROR` for an unrelated builder or query-time I/O failure.
-  Keep the intended collision, schema-only and content classes on their real inputs.
-- [ ] **PROTO-2-04** Add the four closure histories and keep every plan-table result, including
-  failure precedence on bound evidence.
-- [ ] **PROTO-2-05** Show inconclusive results for unread depth-limited layers and a truncated
-  final zstd frame, with the within-limit controls still finding their values.
-- [ ] **PROTO-2-06** Find the compressed count at the required data role and exercise grouping
-  and scientific notation without partial-number matches or numeric exceptions.
-- [ ] **PROTO-2-07** Pass the sandbox proof across numeric ID overlap and demonstrate all
-  seven removals, inherited descriptors and accurate write outcomes with recorded output.
-- [ ] **PROTO-2-08** Show an Arrow count matching its canonical redraw source and changing
-  `k`. Show an amount match that retains all applicable sources and redraws from the matching cells.
-- [ ] **PROTO-2-09** Expose each missing mark or collector field, retain transient writes
-  where observable, and report incomplete logical storage records.
-- [ ] **PROTO-2-10** Attribute exemptions to checked paths or body fields and make the
-  baseline lifecycle repeatable. Keep unrelated records visible in the disk report.
-- [ ] **PROTO-2-11** Produce the recorded archive and stage evidence. Require the FIFO,
-  label and ordering tests to fail when their corresponding behavior is removed.
-- [ ] **PROTO-2-12** Refuse a request with no acceptable representation and retain validator
-  behavior for acceptable encodings.
-- [ ] **PROTO-2-13** Attach reproducible timing output or mark the bundle comparison pending.
-
-PROTO-2-14 is an observation for the archive helper. Keep its recommended containment check
-with the tree evidence if addressed.
-
-## Round 2 — the author's answer
-
-All fourteen findings are fixed, each in the commit its Status cell names, between `6836307` (the
-record of round 2) and `ae3c26d`; none is refused. A claim to verify beyond the findings:
-
-- **The hexadecimal-word rule is gone (PROTO-2-06)**, and the false leads it had masked in a clean
-  journey's profile — digits inside the `ETag` values of Chrome's HTTP cache entries, which are the
-  local server's own SHA-256 validators — are now taken out only where attributable (PROTO-2-10): the
-  server records every `ETag` it issues and only those exact strings are removed from cache entries,
-  beside the body of the URL an entry is keyed by. A clean journey of the control page reports no
-  lead, executed while fixing it.
-
-The timing claim of round 1 (PROTO-2-13), reproduced with a script and the same input on three
-revisions of `prototypes/framework/`, each extracted with `git archive`:
-
-```
-$ for rev in 3447cd7 3c4a300 ae3c26d; do uv run --frozen --group prototype python time_inspect.py rev-$rev <bundle> 20261120; done
-rev=rev-3447cd7 bundle_sha256=341b762ed592171859978ff6f0ca19142854bda3b2df6d9c54b0abdae8e98c8a bytes=3635597 seed=20261120 seconds=8.0 findings=0 inconclusive=0
-rev=rev-3c4a300 bundle_sha256=341b762ed592171859978ff6f0ca19142854bda3b2df6d9c54b0abdae8e98c8a bytes=3635597 seed=20261120 seconds=28.9 findings=5 inconclusive=0
-rev=rev-ae3c26d bundle_sha256=341b762ed592171859978ff6f0ca19142854bda3b2df6d9c54b0abdae8e98c8a bytes=3635597 seed=20261120 seconds=41.5 findings=5 inconclusive=0
-```
-
-The bundle is `@google/gemini-cli`'s `bundle/chunk-3KNX7NZM.js`, a third-party file of this machine,
-by its digest above; `time_inspect.py` times one `inspect_items` call with the fixture of seed
-20261120. The carrier inspection is now about five times slower than its first version on that file.
-
-Executed at `ae3c26d`, 2026-11-21:
-
-```
-$ make prototype-test
-255 passed in 534.32s (0:08:54)
-
-$ uv run --frozen --group prototype python prototypes/framework/sandbox.py   # exit 0; summarised from its JSON
-the wrapper: passed True - 31 checks, failing: []
-without clearenv: check 'token not inherited' holds=False, probe passed=False
-without unshare_pid: check 'own PID namespace' holds=False, probe passed=False
-without unshare_net: check 'host loopback unreachable' holds=False, probe passed=False
-without unshare_ipc: check 'own IPC namespace' holds=False, probe passed=False
-without unshare_uts: check 'own UTS namespace' holds=False, probe passed=False
-without new_session: check 'a session of its own' holds=False, probe passed=False
-without remount_ro: check 'no write /bice-probe' holds=False, probe passed=False
-```
-
-`ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` exited 0 before each commit.
-
-## Round 3 — not run (2026-11-21)
-
-Round 3 was sent twice and produced no report. Both times Codex's provider ended the session with
-"This content was flagged for possible cybersecurity risk" — the first while Codex read
-`tests/test_sandbox.py`; the second, with the sandbox taken out of scope by the Owner's decision of
-2026-11-21, while it read this dossier, whose rounds 1 and 2 describe the sandbox's escape probes
-(PROTO-1-08, PROTO-2-07). Nothing was written; the corrections of round 2, answered above at
-`497e764`, are not reviewed.
-
-Stopped here, under the Owner's mandate of 2026-11-21 ("anote e, ao travar, desligue"). Open for the
-Owner:
-
-1. **How round 3 runs.** (a) A fresh dossier for round 3 with the sandbox's history moved out of it
-   — the findings table kept, the sandbox rows summarised in a line —, and the prompt with no word of
-   escape or probing; (b) close the review of step 1 here with round 2's corrections unreviewed and
-   recorded as a limit, and start step 2 (the clear mode, probes A6 and A1), the full review of the
-   implementation staying at step 7 as the plan has it; (c) ask for the provider's access the error
-   names, which is the Owner's account decision.
-2. **Recommended: (a)**, since rounds 1 and 2 found real defects every time and the corrections of
-   round 2 change the oracle's code paths.
