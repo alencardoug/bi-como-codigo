@@ -56,12 +56,13 @@ $("[data-bice=login]").addEventListener("submit", async (ev) => {
     await new Promise((r) => setTimeout(r, 300));
     await cache.delete("/q");
   }
-  if (leak === "idbtwice" || leak === "mapblob") {
+  if (leak === "idbtwice" || leak === "mapblob" || leak === "twoblobs") {
     const db = await new Promise((res) => { const r = indexedDB.open("bice-control"); r.onupgradeneeded = () => r.result.createObjectStore("q"); r.onsuccess = () => res(r.result); });
     await new Promise((res) => {
       const t = db.transaction("q", "readwrite");
       const store = t.objectStore("q");
       if (leak === "idbtwice") { store.put({ rows: totals.rows }, "r"); store.put({ rows: 0 }, "r"); }
+      else if (leak === "twoblobs") store.put({ a: new Blob([totals.sums.net_revenue_amount]), b: new Blob(["ordinary text"]) }, "r");
       else store.put({ m: new Map([["net", totals.sums.net_revenue_amount]]), b: new Blob([totals.sums.net_revenue_amount]) }, "r");
       t.oncomplete = res;
     });

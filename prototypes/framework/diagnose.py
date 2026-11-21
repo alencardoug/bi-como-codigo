@@ -19,6 +19,7 @@ import json
 import pathlib
 import re
 import sqlite3
+import struct
 import subprocess
 import tempfile
 
@@ -76,30 +77,42 @@ def journey_marks(events: list[dict], driver_marks: list[dict]) -> tuple[list[di
     """The submissions and the logout, as the page's own hooks saw them at the
     events (PROTO-1-11). Each expected boundary the page did not mark is taken
     from the driver's marks and reported as a gap: attribution around it is
-    uncertain (PROTO-2-09)."""
+    uncertain (PROTO-2-09). A page mark stands for the latest driver action of
+    its kind at or before it; the driver actions no page mark stands for are
+    the missing ones, wherever they fall in the journey (PROTO-3-10)."""
     page = sorted((e for e in events if e["kind"] == "mark" and e["targetType"] == "page"), key=lambda e: e["t"])
     marks = [{"mark": e["mark"], "t": e["t"], "doc": e["doc"], "source": "page"} for e in page]
     gaps = []
     for name, expected in EXPECTED_BOUNDARIES.items():
         have = [m for m in marks if m["mark"] == name]
-        if len(have) < expected:
-            driver = [m for m in driver_marks if m["mark"] == name]
-            marks += [{"mark": name, "t": m["t"], "doc": None, "source": "driver"} for m in driver[len(have):expected]]
-            gaps.append({"what": f"journey boundary {name}", "why": f"the page marked {len(have)} of {expected}; the driver's stand in, so attribution around it is uncertain"})
+        if len(have) >= expected:
+            continue
+        driver = sorted((m for m in driver_marks if m["mark"] == name), key=lambda m: m["t"])
+        unpaired = list(driver)
+        for m in have:
+            before = [d for d in unpaired if d["t"] <= m["t"]]
+            if before:
+                unpaired.remove(before[-1])
+        missing = expected - len(have)
+        marks += [{"mark": name, "t": m["t"], "doc": None, "source": "driver"} for m in unpaired[:missing]]
+        gaps.append({"what": f"journey boundary {name}", "why": f"the page marked {len(have)} of {expected}; the driver's stand in, so attribution around it is uncertain"})
     return sorted(marks, key=lambda m: m["t"]), gaps
 
 
-def attempts(marks: list[dict]) -> list[tuple[float, float, str]]:
-    """(opens, closes, which): an attempt opens at a submission and closes at
-    the next submission or at logout; the journey submits the wrong password,
-    then the right one."""
+def attempts(marks: list[dict]) -> list[tuple[float, float, str, bool]]:
+    """(opens, closes, which, uncertain): an attempt opens at a submission and
+    closes at the next submission or at logout; the journey submits the wrong
+    password, then the right one. It is uncertain when either of its
+    boundaries is the driver's, not the page's (PROTO-3-10)."""
     out = []
-    submits = [m["t"] for m in marks if m["mark"] == "submit"]
-    logout = next((m["t"] for m in marks if m["mark"] == "logout"), float("inf"))
-    submits = [t for t in submits if t < logout]
-    for n, t in enumerate(submits):
-        closes = submits[n + 1] if n + 1 < len(submits) else logout
-        out.append((t, closes, "wrong" if n == 0 else "right"))
+    submits = [m for m in marks if m["mark"] == "submit"]
+    logout = next((m for m in marks if m["mark"] == "logout"), None)
+    end = logout["t"] if logout else float("inf")
+    submits = [m for m in submits if m["t"] < end]
+    for n, m in enumerate(submits):
+        closing = submits[n + 1] if n + 1 < len(submits) else logout
+        uncertain = m.get("source") == "driver" or (closing is not None and closing.get("source") == "driver")
+        out.append((m["t"], closing["t"] if closing else float("inf"), "wrong" if n == 0 else "right", uncertain))
     return out
 
 
@@ -107,10 +120,12 @@ def decrypt_calls(events: list[dict], marks: list[dict]) -> list[dict]:
     """Each call attributed to the attempt open when it started — a call in
     flight at logout keeps it (FPROTO-8-05). After logout, the document a call
     ran in says where: the session's own document, a worker of the session, or
-    the new page (PROTO-1-11)."""
+    the new page (PROTO-1-11). A call placed by a boundary the driver stood in
+    for is said uncertain (PROTO-3-10)."""
     windows = attempts(marks)
     logout = next((m for m in marks if m["mark"] == "logout"), None)
     first = windows[0][0] if windows else float("inf")
+    first_uncertain = bool(windows) and next(m for m in marks if m["mark"] == "submit").get("source") == "driver"
     starts = {(e["target"], e["doc"], e["id"]): e for e in events if e["kind"] == "crypto" and e["phase"] == "start"}
     ends = {(e["target"], e["doc"], e["id"]): e["phase"] for e in events if e["kind"] == "crypto" and e["phase"] != "start"}
     out = []
@@ -121,18 +136,26 @@ def decrypt_calls(events: list[dict], marks: list[dict]) -> list[dict]:
         if attempt is None:
             if e["t"] < first:
                 when = "before any submission"
+                uncertain = first_uncertain
             elif logout is not None and e["doc"] == logout["doc"]:
                 when = "after logout in the session's own document"
+                uncertain = logout.get("source") == "driver"
             elif e["targetType"] == "page":
                 when = "on the new page before a new submission"
+                uncertain = logout is not None and logout.get("source") == "driver"
             else:
                 when = "after logout in a target of the session"
+                uncertain = logout is not None and logout.get("source") == "driver"
             rec |= {"code": PREMATURE_DECRYPT, "when": when}
         elif attempt[2] == "wrong":
             bad = (e["method"] == "unwrapKey" and outcome == "ok") or e["method"] == "decrypt"
             rec |= {"code": UNEXPECTED_DECRYPT if bad else "expected", "attempt": "wrong"}
+            uncertain = attempt[3]
         else:
             rec |= {"code": "expected", "attempt": "right"}
+            uncertain = attempt[3]
+        if uncertain:
+            rec["uncertain"] = "a boundary of this attribution is the driver's, not the page's"
         out.append(rec)
     return out
 
@@ -278,23 +301,42 @@ def _utf16(data: bytes) -> bytes | None:
 _URL = re.compile(rb"https?://[^\s\x00\"'<>]+")
 
 
+_SIMPLE_MAGIC = 0xFCFB6D1BA7725C30
+_ETAG_FIELD = rb"(?i)(?:^|\x00)etag:[ \t]*"
+
+
+def cache_key_url(data: bytes) -> str | None:
+    """The URL a Chrome simple-cache entry is keyed by: the entry's header —
+    magic, version, key length, key hash, padding — then the key, whose last
+    space-separated token is the URL (`1/0/_dk_<site> <site> <url>`; seen on
+    Chrome 156). None when the bytes are not such an entry."""
+    if len(data) < 24:
+        return None
+    magic, _version, length, _hash, _pad = struct.unpack("<QIIII", data[:24])
+    if magic != _SIMPLE_MAGIC or not 0 < length <= len(data) - 24:
+        return None
+    return data[24:24 + length].decode("latin-1").rsplit(" ", 1)[-1]
+
+
 def _cache_entry(data: bytes, bodies_by_url: dict[str, bytes], issued: set[str]) -> tuple[bytes, list[str]]:
-    """An HTTP or script cache entry holds its key — the URL —, the response
-    body and its headers. Only what is attributable is taken out
-    (PROTO-2-10): the body of a URL the entry is keyed by, when it is that
-    URL's known body — a file of the artifact at its path, or a pinned body
-    whose digest is the declared one —, and the validators our own server
-    issued. Everything else is inspected."""
+    """An HTTP cache entry holds its key — the URL —, the response body and
+    its headers. Only what is attributable is taken out (PROTO-2-10): the body
+    of the URL the entry is keyed by — read from the entry's header, never a
+    URL mentioned elsewhere in it —, when it is that URL's known body, a file of
+    the artifact at its path or a pinned body whose digest is the declared one;
+    and the validators our own server issued, only as the value of an `ETag`
+    header field (PROTO-3-09). Everything else is inspected."""
     taken = []
-    for url in sorted({m.decode("latin-1") for m in _URL.findall(data)}):
-        body = bodies_by_url.get(url)
-        if body and body in data:
-            data = data.replace(body, b"", 1)
-            taken.append(url)
-    for etag in issued:
-        if etag.encode() in data:
-            data = data.replace(etag.encode(), b"")
-            taken.append("an ETag the local server issued")
+    url = cache_key_url(data)
+    body = bodies_by_url.get(url) if url else None
+    if body and body in data:
+        data = data.replace(body, b"", 1)
+        taken.append(url)
+    for etag in sorted(issued):
+        field = re.compile(_ETAG_FIELD + re.escape(etag.encode()))
+        if field.search(data):
+            data = field.sub(lambda m: m[0][: len(m[0]) - len(etag)], data)
+            taken.append("an ETag header the local server issued")
     return data, taken
 
 
@@ -408,6 +450,20 @@ def survival(raw: dict) -> list[dict]:
     return out
 
 
+def _keep_sources(profile: pathlib.Path, disk: dict, dest: pathlib.Path) -> None:
+    """The profile files behind each on-disk finding, copied out before the
+    profile is deleted, so that a lead can be attributed afterwards
+    (PROTO-3-09)."""
+    for finding in disk.get("findings", []):
+        rel = re.split(r"[#:]", finding["file"], maxsplit=1)[0]
+        source = profile / rel
+        if source.is_file() and not source.is_symlink() and source.resolve().is_relative_to(profile.resolve()):
+            target = dest / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not target.exists():
+                target.write_bytes(source.read_bytes())
+
+
 def run(artifact: pathlib.Path, needles: io_.Needles, *, out: pathlib.Path, query: str = "", cdn: dict[str, str] | None = None,
         fulfill: dict[str, bytes] | None = None, validated: dict[str, str] | None = None, chrome: str | None = None,
         timeout: float = 600) -> Diagnosis:
@@ -427,7 +483,15 @@ def run(artifact: pathlib.Path, needles: io_.Needles, *, out: pathlib.Path, quer
         bodies_by_url = {server.url + rel: data for rel, data in trees.files(trees.real_root(artifact)).items()}
         bodies_by_url |= {url: body for url, body in (fulfill or {}).items() if (cdn or {}).get(url) == hashlib.sha256(body).hexdigest()}
         issued = {x["etag"] for x in server.log if "etag" in x}
-        disk = on_disk(profile, needles, baseline_files=baseline(chrome), bodies_by_url=bodies_by_url, issued=issued)
+        try:
+            pristine, baseline_gap = baseline(chrome), []
+        except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
+            # The journey is recorded either way: without a pristine profile,
+            # Chrome's own files are not told apart and say so (PROTO-3-09).
+            pristine = None
+            baseline_gap = [{"what": "pristine profile", "why": f"not made ({type(error).__name__}): no file is recognised as Chrome's own"}]
+        disk = on_disk(profile, needles, baseline_files=pristine, bodies_by_url=bodies_by_url, issued=issued)
+        _keep_sources(profile, disk, out / "on_disk_sources")
     marks, mark_gaps = journey_marks(raw["events"], raw["marks"])
     return Diagnosis(
         decrypt=decrypt_calls(raw["events"], marks),
@@ -437,7 +501,7 @@ def run(artifact: pathlib.Path, needles: io_.Needles, *, out: pathlib.Path, quer
         on_disk=disk,
         survives=survival(raw),
         fetches=fetched(raw, out, server.url, artifact_digests, needles, cdn=cdn or {}, validated=validated or {}),
-        unobserved=raw["unobserved"] + mark_gaps + unacknowledged(raw) + [{"what": "driver error", "why": e} for e in raw["errors"]]
+        unobserved=raw["unobserved"] + mark_gaps + baseline_gap + unacknowledged(raw) + [{"what": "driver error", "why": e} for e in raw["errors"]]
         + [{"what": "known gap", "why": g} for g in (
             "a write created and removed during the journey that no collector saw",
             "a fragment change of the URL",

@@ -15,7 +15,8 @@
         if (x instanceof ArrayBuffer) return { __b64: b64(new Uint8Array(x)) };
         if (x instanceof Map) return { __map: [...x.entries()] };
         if (x instanceof Set) return { __set: [...x.values()] };
-        if (x instanceof Blob) { blobs.push([where, x]); return { __blob: x.size }; }
+        // Each Blob under its own name: two in one record are two bodies (PROTO-3-11).
+        if (x instanceof Blob) { const n = blobs.length; blobs.push([`${where}@blob${n}`, x]); return { __blob: x.size, __n: n }; }
         return x;
       });
     } catch (e) { out.unobserved.push(`${where}: not serializable (${e && e.name})`); return ""; }

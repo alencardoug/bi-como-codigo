@@ -172,6 +172,13 @@ def test_a_map_and_a_blob_surviving_in_indexeddb_are_read_at_the_end(control, tm
     assert any(f.endswith("> blob") for f in files) and any(f.startswith("indexedDB:") and not f.endswith("> blob") for f in files)
 
 
+def test_two_blobs_of_one_record_are_two_bodies(control, tmp_path):
+    """PROTO-3-11: the first Blob, holding the fixture's net total, is read
+    even with a second Blob in the same record."""
+    r = _journey(control, tmp_path, "twoblobs")
+    assert any(x["file"].endswith("> blob") for x in r.readable["findings"])
+
+
 def test_a_cache_write_deleted_before_the_end_is_read_when_it_changes(control, tmp_path):
     r = _journey(control, tmp_path, "transientcache")
     assert any("CacheStorage" in x["file"] for x in r.written["committed"]["findings"])
@@ -192,11 +199,72 @@ def test_a_log_ending_inside_a_fragmented_record_is_unreadable():
         list(leveldb.read_log(record))
 
 
+def _simple_entry(url: str, rest: bytes) -> bytes:
+    """A Chrome simple-cache entry: its header, the key, then the rest."""
+    key = f"1/0/_dk_http://127.0.0.1 http://127.0.0.1 {url}".encode()
+    return struct.pack("<QIIII", d._SIMPLE_MAGIC, 5, len(key), 0, 0) + key + rest
+
+
 def test_only_attributable_parts_of_a_cache_entry_are_taken_out():
     body = b"export const v = 1;\n" * 8
-    entry = b"key http://127.0.0.1:5000/app.js\x00" + body + b'\x00ETag: "abc123"'
+    entry = _simple_entry("http://127.0.0.1:5000/app.js", body + b'\x00ETag: "abc123"')
+    assert d.cache_key_url(entry) == "http://127.0.0.1:5000/app.js"
     data, taken = d._cache_entry(entry, {"http://127.0.0.1:5000/app.js": body}, {'"abc123"'})
     assert body not in data and b"abc123" not in data and len(taken) == 2
-    other = b"key http://127.0.0.1:5000/other.js\x00" + body
+    other = _simple_entry("http://127.0.0.1:5000/other.js", body)
     data, taken = d._cache_entry(other, {"http://127.0.0.1:5000/app.js": body}, set())
     assert body in data and not taken
+
+
+def test_a_url_named_inside_an_entry_is_not_its_key_and_a_tag_in_data_stays():
+    """PROTO-3-09: a `Link` naming another file does not key the entry, and a
+    value equal to an issued validator outside an `ETag` field is inspected."""
+    app = b'{"total": 63191}'
+    entry = _simple_entry("http://127.0.0.1:5000/generated.json", app + b"\x00Link: <http://127.0.0.1:5000/app.json>; rel=preload")
+    data, taken = d._cache_entry(entry, {"http://127.0.0.1:5000/app.json": app}, set())
+    assert app in data and not taken
+    tag = '"' + "6" * 64 + '"'
+    entry = _simple_entry("http://127.0.0.1:5000/data.json", b'{"v": ' + tag.encode() + b"}" + b"\x00ETag: " + tag.encode())
+    data, taken = d._cache_entry(entry, {}, {tag})
+    assert data.count(tag.encode()) == 1 and data.endswith(b"ETag: ")
+    assert d.cache_key_url(b"not an entry at all, just bytes") is None
+
+
+@pytest.mark.parametrize("missing", [0, 1])
+def test_a_missing_submit_is_the_driver_action_no_page_mark_stands_for(missing):
+    """PROTO-3-10: driver submits at 10 and 20, logout at 30; the page marks
+    every boundary but one submit. The missing one is taken where the driver
+    made it, and a derivation inside the wrong attempt stays expected."""
+    page = {0: 11, 1: 21}
+    events = [{"kind": "mark", "mark": "submit", "t": t, "doc": "d1", "targetType": "page"} for n, t in page.items() if n != missing]
+    events.append({"kind": "mark", "mark": "logout", "t": 31, "doc": "d1", "targetType": "page"})
+    events += [{"kind": "crypto", "phase": "start", "target": "p", "doc": "d1", "id": 1, "method": "deriveKey", "realm": "page",
+                "targetType": "page", "t": 12 if missing == 1 else 10.5},
+               {"kind": "crypto", "phase": "ok", "target": "p", "doc": "d1", "id": 1}]
+    driver = [{"mark": "submit", "t": 10}, {"mark": "submit", "t": 20}, {"mark": "logout", "t": 30}]
+    marks, gaps = d.journey_marks(events, driver)
+    submits = [m for m in marks if m["mark"] == "submit"]
+    assert [m["t"] for m in submits] == sorted([10 if missing == 0 else 11, 20 if missing == 1 else 21])
+    assert gaps and "submit" in gaps[0]["what"]
+    calls = d.decrypt_calls(events, marks)
+    assert [c["code"] for c in calls] == ["expected"] and calls[0]["attempt"] == "wrong"
+    assert "uncertain" in calls[0]
+
+
+def test_a_failed_baseline_keeps_the_journey_and_says_so(control, tmp_path, monkeypatch):
+    """PROTO-3-09: the pristine profile not made is a gap, not a lost journey."""
+    def broken(chrome=None):
+        raise RuntimeError("injected")
+
+    monkeypatch.setattr(d, "baseline", broken)
+    r = _journey(control, tmp_path, "none")
+    assert r.journey.get("newLogin") and r.decrypt
+    assert any(x.get("what") == "pristine profile" for x in r.unobserved)
+
+
+def test_the_profile_files_behind_on_disk_findings_are_kept(control, tmp_path):
+    """PROTO-3-09: a lead on disk can be attributed after the profile is gone."""
+    r = _journey(control, tmp_path, "local")
+    assert r.on_disk["findings"]
+    kept = [p for p in (tmp_path / "out" / "on_disk_sources").rglob("*") if p.is_file()]
+    assert kept

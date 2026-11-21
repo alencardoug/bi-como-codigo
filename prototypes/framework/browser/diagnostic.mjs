@@ -28,7 +28,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const chrome = spawn(config.chrome || "google-chrome", [
   "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--disable-background-networking",
-  "--disable-component-update", "--disable-sync", `--user-data-dir=${config.profile}`, "--remote-debugging-port=0", "about:blank",
+  "--disable-component-update", "--disable-sync",
+  // Only the local server resolves: Chrome's own requests to Google (autofill,
+  // the search page's async calls) would otherwise fill the HTTP cache with
+  // bodies that are no part of the journey, read as leads (PROTO-3-09). A
+  // pinned third-party body is fulfilled by interception, before any lookup.
+  "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1", "--disable-features=AutofillServerCommunication",
+  `--user-data-dir=${config.profile}`, "--remote-debugging-port=0", "about:blank",
 ], { stdio: ["ignore", "ignore", "pipe"] });
 const wsUrl = await new Promise((resolve, reject) => {
   let err = "";
