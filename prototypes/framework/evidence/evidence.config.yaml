@@ -1,0 +1,11 @@
+# The prototype of stage 2.3, Candidate A (docs/framework_prototype.md §3): Evidence 40.1.8 with
+# its core components and its DuckDB connector only.
+appearance:
+  default: light
+  switcher: false
+
+plugins:
+  components:
+    "@evidence-dev/core-components": {}
+  datasources:
+    "@evidence-dev/duckdb": {}

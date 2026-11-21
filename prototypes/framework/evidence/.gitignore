@@ -1,0 +1,7 @@
+# What an Evidence install and build write (docs/framework_prototype.md §5); the clear mode lives
+# under prototypes/framework/clear/, ignored at the root.
+node_modules/
+.evidence/
+.svelte-kit/
+build/
+sources/p01/*.parquet

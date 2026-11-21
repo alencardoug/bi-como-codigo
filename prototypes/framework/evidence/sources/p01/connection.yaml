@@ -1,0 +1,7 @@
+# P01's rows. In the clear mode, `p01.parquet` beside this file is the clear-mode fixture, placed by
+# the harness in the clear work tree only (docs/framework_prototype.md §2.2, §3); this folder holds
+# no data in the repository.
+name: p01
+type: duckdb
+options:
+  filename: ":memory:"
