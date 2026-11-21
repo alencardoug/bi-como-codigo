@@ -89,15 +89,38 @@ def _link_target(root: pathlib.Path, path: pathlib.Path) -> str:
 def files(root: pathlib.Path, dest_prefix: str = "") -> Allowlist:
     """Every file under a host folder — an npm cache, an install's
     `node_modules/` — by its digest; a link by its relative target, which must
-    stay inside the folder."""
+    stay inside the folder. A folder the walk cannot read refuses the list,
+    naming it (PROTO-3-03)."""
+    root = _checked_root(root)
     out = []
-    for path in sorted(root.rglob("*")):
-        if path.is_symlink():
-            out.append(Entry(f"{dest_prefix}{path.relative_to(root).as_posix()}", f"symlink:{_link_target(root, path)}", ""))
-        elif path.is_file():
-            out.append(Entry(f"{dest_prefix}{path.relative_to(root).as_posix()}", hashlib.sha256(path.read_bytes()).hexdigest(),
-                             str(path), os.access(path, os.X_OK)))
+    for e in _walk(root):
+        path = root / e.rel
+        if e.kind == "symlink":
+            out.append(Entry(f"{dest_prefix}{e.rel}", f"symlink:{_link_target(root, path)}", ""))
+        elif e.kind == "file":
+            out.append(Entry(f"{dest_prefix}{e.rel}", e.digest, str(path), os.access(path, os.X_OK)))
     return Allowlist(tuple(out))
+
+
+def _checked_root(root: pathlib.Path) -> pathlib.Path:
+    import trees
+
+    try:
+        return trees.real_root(root)
+    except trees.Refused as refusal:
+        raise Refused(str(refusal)) from None
+
+
+def _walk(root: pathlib.Path) -> list:
+    """Every entry under `root` with lstat, never following a link; a folder
+    the walk cannot read refuses it, naming the folder — `Path.rglob` leaves
+    such a subtree out in silence (PROTO-3-03)."""
+    import trees
+
+    try:
+        return trees.entries(root)
+    except trees.Refused as refusal:
+        raise Refused(str(refusal)) from None
 
 
 def single(dest: str, data_path: pathlib.Path) -> Allowlist:
@@ -132,17 +155,20 @@ def assemble(allow: Allowlist, work: pathlib.Path) -> None:
 
 def check(allow: Allowlist, work: pathlib.Path) -> None:
     """Before each phase: every file in the work folder is a listed one, and
-    every listed one is there with its digest."""
+    every listed one is there with its digest. A folder the walk cannot read
+    refuses the check, naming it: a work folder is never judged on part of
+    itself (PROTO-3-03)."""
     listed = {e.dest: (e.sha256, e.executable and not e.sha256.startswith("symlink:")) for e in allow.entries}
+    work = _checked_root(work)
     found = {}
-    for path in sorted(work.rglob("*")):
-        rel = path.relative_to(work).as_posix()
-        if path.is_symlink():
-            found[rel] = (f"symlink:{_link_target(work, path)}", False)
-        elif not path.is_file() and not path.is_dir():
-            raise Refused(f"{rel} is not a plain file, a folder or a link")
-        elif path.is_file():
-            found[rel] = (hashlib.sha256(path.read_bytes()).hexdigest(), os.access(path, os.X_OK))
+    for e in _walk(work):
+        path = work / e.rel
+        if e.kind == "symlink":
+            found[e.rel] = (f"symlink:{_link_target(work, path)}", False)
+        elif e.kind == "file":
+            found[e.rel] = (e.digest, os.access(path, os.X_OK))
+        elif e.kind != "dir":
+            raise Refused(f"{e.rel} is not a plain file, a folder or a link")
     for rel in sorted(found):
         if rel not in listed:
             raise Refused(f"{rel} is not in the allowlist")

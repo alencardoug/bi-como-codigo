@@ -81,6 +81,23 @@ def test_data_planted_in_a_work_folder_refuses_the_phase_naming_it(tmp_path, pla
         al.check(allow, work)
 
 
+def test_an_unreadable_folder_refuses_the_check_and_the_listing_naming_it(tmp_path):
+    """A subtree the walk cannot read is never judged as absent (PROTO-3-03)."""
+    allow = al.tracked(_head(), "prototypes/framework/release/")
+    work = tmp_path / "work"
+    al.assemble(allow, work)
+    (work / "hidden").mkdir()
+    (work / "hidden/fixture.json").write_text('{"label": "fixture"}')
+    (work / "hidden").chmod(0)
+    try:
+        with pytest.raises(al.Refused, match="hidden"):
+            al.check(allow, work)
+        with pytest.raises(al.Refused, match="hidden"):
+            al.files(work)
+    finally:
+        (work / "hidden").chmod(0o755)
+
+
 def test_a_changed_or_missing_input_refuses_the_phase(tmp_path):
     allow = al.tracked(_head(), "prototypes/framework/release/")
     work = tmp_path / "work"
