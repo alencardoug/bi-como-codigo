@@ -142,23 +142,43 @@ def test_a_seed_gives_one_fixture_whatever_the_hash_seed(tmp_path, first):
     assert json.loads(outs.pop())[1]
 
 
-def test_the_redraw_does_not_depend_on_the_order_rejections_come_in(first):
-    """PROTO-2-11: the same rejections in reverse order give the same fixture."""
-    keys = sorted(first.cells)[:2]
-    a = f.Rejection("value", "carrier", "x.js", (keys[0],))
-    b = f.Rejection("value", "carrier", "y.js", (keys[1],))
+_REDRAW_SCRIPT = """
+import builtins, hashlib, json, sys
+sys.path.insert(0, {here!r})
+import fixture as f
+first = f.generate({seed})[0]
+keys = sorted(first.cells)[:2]
+a = f.Rejection("value", "carrier", "x.js", (keys[0],))
+b = f.Rejection("value", "carrier", "y.js", (keys[1],))
+if {mutate}:  # the draw with its sort of rejections removed, deduplication kept
+    def unsorted(src, /, **kw):
+        if isinstance(src, set) and src and all(isinstance(x, f.Rejection) for x in src):
+            return list(src)
+        return builtins.sorted(src, **kw)
+    f.sorted = unsorted
+def collides(fx):
+    same = fx.cells[keys[0]] == first.cells[keys[0]] and fx.cells[keys[1]] == first.cells[keys[1]]
+    return [a, b] if same else []
+fx, _ = f.draw({seed}, collides)
+print(hashlib.sha256(json.dumps(fx.rows(), default=str).encode()).hexdigest())
+"""
 
-    def once(order):
-        calls = []
 
-        def collides(fx):
-            calls.append(1)
-            return list(order) if len(calls) == 1 else []
+def test_the_redraw_does_not_depend_on_the_order_rejections_come_in():
+    """PROTO-2-11, PROTO-3-13: the same rejections give the same fixture under
+    every hash seed — set order changes between processes, not within one —
+    and the control is shown to fail with the draw's sort removed."""
+    import os
+    import subprocess
+    import sys
 
-        fx, _ = f.draw(SEED, collides)
-        return fx.rows()
+    def digests(mutate: bool) -> set[str]:
+        script = _REDRAW_SCRIPT.format(here=str(f.HERE), seed=SEED, mutate=mutate)
+        return {subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=True,
+                               env=os.environ | {"PYTHONHASHSEED": str(h)}).stdout for h in range(1, 9)}
 
-    assert once([a, b]) == once([b, a])
+    assert len(digests(False)) == 1
+    assert len(digests(True)) > 1, "the control cannot tell the sort from its absence"
 
 
 def test_an_integral_arrow_float_equal_to_the_row_count_changes_k(tmp_path, first):
