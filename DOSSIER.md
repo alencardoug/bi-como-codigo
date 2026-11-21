@@ -285,6 +285,20 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | PROTO-1-13 | `tests/test_controls.py:40`, `tests/test_inspect_output.py:120` | Several controls assert only isolated layers or use evidence they did not produce. | adjustment | Fixed in `9bcc3dc` and `cf9a0dd`: the varying carriers, the second manifest and the opaque carrier through every layer with stages from what ran; startup control decrypts with the real reader; a label inside a stored Parquet; removing three detectors makes their controls fail; the draw record checked for values. |
 | PROTO-1-14 | `npm_offline.py:84`, `allowlist.py:61` | A stale cache file can be listed as verified, and Git-quoted filenames fail input assembly. | adjustment | Fixed in `c04610b`: cached files read back and replaced if wrong before the listing; NUL-delimited `ls-tree`, blobs by id. Tests: corrupt file at a tarball's path; a name with a space and a tab from a pinned commit. |
 | PROTO-1-15 | `serve.py:36` | Content negotiation selects encodings the request disallows. | adjustment | Fixed in `bc4967c`: negotiation by weight, never a coding of weight zero; tests for identity, gzip, Brotli, weights and 304 per representation. |
+| PROTO-2-01 | `trees.py:38,55,147`, `inspect_output.py:171` | A linked root is read, an unreadable subtree disappears, and extraction changes stored modes. | blocking | |
+| PROTO-2-02 | `harness.py:149,226,240` | Control additions can write outside the artifact and still produce a bound pass. | blocking | |
+| PROTO-2-03 | `harness.py:289,317`, `fixture.py:441` | A wrong builder archive or a schema query I/O failure can be classified as candidate content. | blocking | |
+| PROTO-2-04 | `verdict.py:90,163,180` | Unbound findings and invalid closure evidence can determine the verdict. | blocking | |
+| PROTO-2-05 | `inspect_output.py:258,276,306` | Supported layers at the depth limit and incomplete zstd frames can appear clean. | blocking | |
+| PROTO-2-06 | `inspect_output.py:394,430,453,483` | The number scan suppresses fixture counts and reports parts of exponents as counts. | blocking | |
+| PROTO-2-07 | `sandbox_probe.py:45,50,62` | The sandbox proof rejects a valid session and misses some inherited descriptors and writes. | blocking | |
+| PROTO-2-08 | `inspect_output.py:625`, `calibrate.py:69` | An integral Arrow count can exhaust the draw as a fixed label. | adjustment | |
+| PROTO-2-09 | `diagnose.py:71`, `browser/instrument.js:76`, `browser/diagnostic.mjs:109`, `browser/enumerate.js:7`, `leveldb.py:104` | Missing journey marks and storage values can be reported as observed. | adjustment | |
+| PROTO-2-10 | `diagnose.py:264,291,335` | Global profile exclusions can hide records, and baseline collection can abort a journey. | adjustment | |
+| PROTO-2-11 | `tests/test_controls.py:41,180`, `tests/test_diagnostic.py:123` | Controls can pass without archive evidence, label detection or stable redraw ordering. | adjustment | |
+| PROTO-2-12 | `serve.py:36,63,98` | The server sends identity even when every supported representation is refused. | adjustment | |
+| PROTO-2-13 | `DOSSIER.md`, Round 1 author's answer | The 28.7 s and 8.0 s bundle timings have no reproducible command output. | adjustment | |
+| PROTO-2-14 | `trees.py:147,166` | A supplied tar with an absolute directory member can change permissions outside extraction. | observation | |
 
 ## Round 1 — PROTO
 
@@ -670,3 +684,376 @@ without remount_ro: check 'no write /bice-probe' holds=False, probe passed=False
 `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` exited 0 before each commit. The carrier
 inspection of the same 3.6 MB third-party bundle as before takes 28.7 s, against 8.0 s before the
 round, because every decoder now runs on speculative decodings and code is scanned for embedded JSON.
+
+
+## Round 2 — PROTO
+
+### 1. Conclusion
+
+**Changes required.** A linked artifact root can pass binding, an unreadable builder directory
+can lose files during archival, and a supported carrier can return clean with fixture data still
+inside. Verify can also attribute a harness fault to the candidate, and an incomplete history
+can pass. The sandbox proof rejected a correctly isolated session in this review. Keep §7 step 2
+pending until the blocking findings and their controls are closed.
+
+### 2. Reviewed scope and version
+
+- `main` at `58e6debf067a0a38dd156ae97b03efc691b97102`, 14 commits ahead of local `origin/main`.
+  Baseline `aa9e45965346784a4b4f57823b7c63fc3808abdb` is the recorded round 1 implementation.
+  The index and worktree were clean at intake, with no untracked files reported.
+- Reviewed `git diff aa9e459 58e6deb -- prototypes/framework docs/framework_prototype.md`, the
+  §9 correction in `edb1359`, and the finding statuses and author's answer in `58e6deb`.
+  The range adds `prototypes/framework/trees.py` and `prototypes/framework/tests/test_serve.py`
+  and modifies 27 files, including this dossier. `release.py`, `contract.py`, `envelope.py`
+  and the gate recipes and dependencies have no range diff.
+- Applied revision 9 §§2.1, 2.2, 2.5.1–2.5.5, 5 and 7 step 1. Reopened baseline code where a
+  correction calls it. The tip stayed at `58e6deb` throughout. Only this report and its findings
+  rows were added to the worktree.
+
+### 3. Findings
+
+Paths are relative to `prototypes/framework/` unless indicated.
+
+#### Blocking
+
+##### PROTO-2-01 — Refuse linked and unreadable tree roots and preserve archived modes
+
+**High · `blocking`** · `trees.py:38–83,86–167`, `harness.py:247–259`,
+`inspect_output.py:171–174`.
+
+**Executed.** The original `copy_out` and `keep_install` probes refused linked `dist` and
+`node_modules`. Direct `entries`, `copy` and `archive` still read a linked root's scratch
+sibling. `real_root(base)` accepted a real leaf under a linked ancestor. Replacing an assembled
+artifact with a symlink to its unchanged tree yielded bound `verify PASS`. With a builder
+subdirectory changed to mode `000`, the archive completed, omitted its file, and carrier
+inspection reported clean. The `0664` file, link and FIFO round-tripped. A `01775` directory
+came back as `0775`.
+
+**Correction and validation.** Use the same checked root and error-reporting traversal for
+collection, archival, verification and inspection. Reject directory traversal failures with the
+path. Preserve supported permission bits and give any refused mode a recorded outcome. Test a
+linked ancestor and an artifact substituted by a linked root, an unreadable populated directory,
+and the affected mode round trip. The new helper closes the original export entry points only.
+The silent incomplete walk was already possible in carrier inspection.
+
+##### PROTO-2-02 — Contain control additions and keep test-only outcomes out of judged runs
+
+**High · `blocking`** · `harness.py:131–173,226–260`, `tests/test_harness.py:56–78`.
+
+**Executed.** An absolute `control_additions` key wrote a marker to a scratch sibling. Assembly
+recorded the addition and returned `PASS`, and bound verify returned `PASS` with the file absent
+from the artifact. A relative addition under a copied directory symlink also wrote to the
+sibling and assembled with `PASS`. **Static.** A control assembly returns the same token type as
+a judged assembly. `run_gate` deliberately returns `PASS` on a valid swapped package. Its only
+direct callers other than the bound wrapper are the table controls.
+
+**Correction and validation.** Use normalized relative paths, ensure every new entry is contained
+and materialized, and reject link traversal and overwrites before writing. Make both the
+control-assembly path and unbound gate evidence explicitly test-only at the judged boundary.
+Assert that absolute and linked-parent additions leave the sibling untouched and that a judged
+path refuses control-only evidence. The addition path and unbound API were introduced in
+`533c603`.
+
+##### PROTO-2-03 — Bind refusal reproduction to the original builder and distinguish schema I/O faults
+
+**High · `blocking`** · `harness.py:283–325`, `fixture.py:425–450`.
+
+**Executed.** The gate refused the same bound artifact for a fixture count in the archived
+builder file. Reproduction returned `COLLISION` with the correct builder and `CONTENT` when
+given a different, readable builder. With a valid empty P01 Parquet, the normal class was
+`SCHEMA_ONLY`. Removing the check's temporary Parquet just before the DuckDB schema query
+raised `IOException`, which classification treated as `CONTENT`. Both cases can turn a harness
+fault into a criterion failure.
+
+**Correction and validation.** Bind the builder used for reproduction to the assembly token or
+to its checked archive identity. Distinguish a schema-query infrastructure error from a
+completed parse that establishes candidate content. Test the same refusal against the wrong
+builder and an actual query-time I/O error, and retain the real non-schema Parquet case. Both
+misattributions existed before the correction and remain reachable through the new binding and
+schema check.
+
+##### PROTO-2-04 — Use bound, ordered evidence for verdict precedence and closure
+
+**High · `blocking`** · `verdict.py:64–83,90–130,163–208`.
+
+**Executed.** Four histories exposed the remaining gaps:
+
+| History | Observed | Required by §2.5.4 |
+|---|---|---|
+| Done artifact finding or `CONTENT` with no artifact digest | `fails the criterion` | The unbound stage cannot establish a failure |
+| Tail already present in the original record with builder inspection missing, followed by only that inspection | `passes` | `not established` until the tail is completed after inspection |
+| Assembly `HARNESS_ERROR` followed by assembly `FORM` on the same inspected builder | `not established` | `a cost` after a valid form refusal, with no artifact stages required |
+| Latest run's exhausted draw followed by a clean tail resume on a different builder | `not established` | `stopped` until the relevant draw is repeated |
+
+**Correction and validation.** Apply subject validation to confirmed content, preserve the
+builder-inspection boundary for tail evidence, apply the `FORM` exception to a resumed assembly,
+and close a draw stop only with evidence of the relevant draw. Add the four histories and retain
+the plan's precedence cases, including a bound content finding that survives a later harness
+error. The first two gaps survived `96adaf3`. The latter two are in its new closure logic.
+
+##### PROTO-2-05 — Make unread supported layers inconclusive
+
+**High · `blocking`** · `inspect_output.py:258–288,294–312`.
+
+**Executed.** One layer of base64 over Brotli found a fixture label. Four base64 layers over the
+same Brotli bytes returned no finding and no inconclusive entry. Four layers over a legacy Arrow
+stream behaved the same way. Gzip at that boundary was flagged. Two complete zstd frames were
+read successfully, but a complete first frame followed by a second frame truncated by one byte
+returned clean. The second frame would otherwise contain a fixture label.
+
+**Correction and validation.** At the depth cutoff, record a supported layer left unread,
+including no-magic formats. Require complete zstd frame consumption, or record incomplete
+input alongside any findings already confirmed. Exercise the same carriers both within and
+beyond the limit and a truncated final frame. These paths defeat the depth and multi-frame
+corrections in `3c4a300`.
+
+##### PROTO-2-06 — Keep data-bearing number matches and tokenize exponents as a unit
+
+**High · `blocking`** · `inspect_output.py:394–446,449–484,565–586`.
+
+**Executed.** A gzip JSON field with a fixture count in a hex-looking string yielded assembly
+`PASS`, gate `PASS`, zero carrier findings and zero inconclusive entries. The same suppression
+applies to collected data. §2.5.2 defines count searches for these carriers and gives no
+hex-word exemption. With a synthetic `20000` needle, `20 000` was missed, while
+`orders=20000e-1` and `orders=2e-20000` both reported the count. A structured `1e309` value
+raised `OverflowError`.
+
+**Correction and validation.** Scope proven digest metadata exclusions to their fields and
+retain count searches in data values. Consume a signed scientific literal before examining
+separator windows and compare finite numeric values without converting unrelated exponents to
+huge integers. Add a literal-space grouping case and cross-layer positive and negative
+cases for compressed structured text and exponents. The global hex suppression and exponent
+interaction are regressions of this round.
+
+##### PROTO-2-07 — Prove sandbox properties in the right namespace and count live descriptors
+
+**High · `blocking`** · `sandbox.py:92–113,157–178`, `sandbox_probe.py:45–70`.
+
+**Executed.** The standalone probe exited 1 with only `a session of its own` false. Both outer
+and inner SIDs were `1`. Starting the same CLI in a fresh outer session made it exit 0 with all
+31 checks true. With that setup each of the seven variants failed its designated check.
+An inherited pipe was seen, while an inherited open `/proc/self/fd` directory descriptor was
+omitted from the check. In a writable scratch bind, writing an existing marker succeeded but
+unlinking it failed, and the probe reported `no write` as true.
+
+**Correction and validation.** Require an in-namespace session and test session separation
+without comparing PID numbers from different namespaces. Count every live descriptor and
+record a successful write before cleanup. Run the valid wrapper with overlapping IDs, repeat
+all seven negative variants, and use both inherited descriptor types and the write/unlink
+case. The SID comparison is new. The descriptor and cleanup shortcuts predate it. The
+executed defaults establish namespace isolation apart from the faulty session assertion.
+
+#### Adjustments
+
+##### PROTO-2-08 — Map typed numeric matches to their canonical redraw sources
+
+**Medium · `adjustment`** · `inspect_output.py:618–628`, `calibrate.py:65–78`, `fixture.py:557–584`.
+
+**Executed.** A readable Arrow `float64` cell equal to the fixture row count matched in the
+carrier inspection. Calibration reported `label` and raised `DrawExhausted` at draw 1.
+`_cells` records the float spelling with `.0`, while provenance indexes the integer. The
+raw gate search had no hit.
+
+**Correction and validation.** Carry the canonical matched count or amount from the detector
+into provenance and retain every applicable source. Verify that an integral Arrow float
+changes `k` and a shorter decimal representation redraws its value. This is the numeric
+counterpart of the structured string correction in this round.
+
+##### PROTO-2-09 — Account for missing browser boundaries and stored values
+
+**Medium · `adjustment`** · `diagnose.py:71–79,130–139`, `browser/instrument.js:72–93`,
+`browser/diagnostic.mjs:109–110`, `browser/enumerate.js:7–20`, `leveldb.py:104–129`.
+
+**Executed.** In a trace with two page submit marks and a missing page logout mark, the driver
+had a logout mark. The report recorded no gap and called a new-document decrypt expected in
+the right attempt. In headless Chrome, two IndexedDB puts to the same key in one transaction
+both read back the second value. The end collector serialized a surviving Map and Blob as
+`{}` with no unobserved field. A transient `Cache.add` followed by delete gave two cache
+content events and zero committed value findings. A log ending after a complete first
+fragment of a LevelDB batch received `leveldb: 1` coverage with no unobserved entry.
+
+**Correction and validation.** Reconcile each expected journey boundary and realm, and report
+a gap where attribution is uncertain. For repeated writes, recover each value if possible or
+mark the unread attempt. Enumerate CacheStorage on content events and preserve or report
+unreadable end-state fields. Flag incomplete logical LevelDB records. Retest the five cases
+alongside the passing old-document, getter and transient DOMStorage controls. These are
+remaining gaps in the collector corrections. They affect the diagnostic under N96.
+
+##### PROTO-2-10 — Scope profile exclusions to verified cache fields and wait for Chrome to finish
+
+**Medium · `adjustment`** · `diagnose.py:264–273,281–321,335–352,402–404`.
+
+**Executed with scratch profile inputs.** A known-body substring in a different cache record
+reduced three scan findings to zero. An item under `File System` with bytes matching a supplied
+baseline digest went from one finding to zero, regardless of the origin of that digest.
+**Static.** The exclusions match a byte substring or a digest anywhere in the scanned storage.
+They have no cache body boundary or baseline path check. Fulfilled response bytes are eligible
+for subtraction even when their pinned digest differs. **Executed in the full suite.** A
+baseline profile file disappeared during hashing, and cleanup failed with
+`OSError: [Errno 39] Directory not empty`. The same clean journey passed when run alone.
+
+**Correction and validation.** Exempt only a verified file at its attributable baseline path
+or a parsed response body with the expected URL and digest. Report ambiguous bytes or
+incomplete baseline coverage. Ensure the baseline browser has finished writing before
+enumeration and cleanup. Test a known substring embedded in an unrelated record, identical
+bytes under a candidate-owned path, and baseline shutdown. Both exclusions and the baseline
+lifecycle were introduced in `cf9a0dd`.
+
+##### PROTO-2-11 — Make controls fail when their promised evidence is missing
+
+**Medium · `adjustment`** · `tests/test_controls.py:41–71,164–199`,
+`tests/test_harness.py:325–340`, `tests/test_diagnostic.py:123–127`,
+`tests/test_calibrate.py:128–143`.
+
+**Static.** The cross-layer helper asserts a completed archive using literal identities and
+creates no tarball. The opaque history also fills in the second gate result without reading
+it. The link and FIFO archive test reaches the symbolic-link refusal first. **Executed.**
+Removing Arrow, gzip or escape detection made each corresponding cross-layer test fail.
+Removing detection of fixture text cells left the stored-Parquet label control passing.
+Removing redraw sorting left the hash-seed test passing, although reversing two equivalent
+rejections changed the accepted row digest with that mutation.
+
+**Correction and validation.** Build the control stage records from checked archives, actual
+digests and returned outcomes. Show a FIFO itself causing `FORM`. Require the specific
+label evidence and a redraw test sensitive to reordered rejections. Rerun the corresponding
+tests with each detector or check removed. These tests were added or strengthened in this
+round.
+
+##### PROTO-2-12 — Do not serve a representation with zero weight
+
+**Medium · `adjustment`** · `serve.py:36–74,94–111`.
+
+**Executed on localhost.** `br;q=0, gzip;q=1` selected gzip. Its ETag produced `304` for gzip
+and `200` for Brotli. With all three supported representations explicitly at zero, and
+separately with `*;q=0`, the response was `200` identity. `br;Q=0,gzip` also selected Brotli.
+
+**Correction and validation.** Represent “no acceptable coding” separately from an identity
+selection. Honor case-insensitive weight syntax and return a refusal when none is acceptable.
+Test explicit identity and wildcard exclusions, plus the per-representation validator on
+the acceptable path. The original weighted Brotli case is fixed. Identity fallback and the
+weight parser leave other zero-weight cases open.
+
+##### PROTO-2-13 — Attach the output behind the bundle timing
+
+**Medium · `adjustment`** · Root `DOSSIER.md`, “Round 1 — the author's answer.”
+
+**Static.** The answer gives 28.7 s and 8.0 s for an unnamed 3.6 MB third-party bundle. It
+contains neither the command/output nor the input and fixture identities. The reviewer could
+identify the distinct EH WASM search cited in §9 and reproduced its hit count. That evidence
+does not establish the bundle timing.
+
+**Correction and validation.** Attach the two timed commands and their observed output,
+identifying the same input body and fixture on each revision, or mark the comparison pending.
+This is a new measurement claim in `58e6deb`.
+
+#### Observation
+
+##### PROTO-2-14 — Apply extracted modes only inside the checked destination
+
+**Low · `observation`** · `trees.py:147–167`.
+
+**Executed.** A scratch tar with an absolute directory member and its supplied matching
+digest extracted the directory inside the destination. The later `chmod` used the original
+member name and changed a scratch sibling's mode from `0700` to `0755`. **Static.** The
+prototype's archiver emits relative names. This case requires replacing both the archive and
+the digest supplied by the harness, outside N95 and the ordinary generated-archive flow.
+The directory mode pass is new.
+
+**Correction and validation.** Reject absolute members or use only checked destination paths
+for all post-extraction attributes. Verify with the supplied tar and assert that the sibling
+mode stays `0700`.
+
+### 4. Status of previous findings
+
+| ID | Reassessment | Evidence at `58e6deb` |
+|---|---|---|
+| PROTO-1-01 | Partially resolved | Both linked export roots were refused and nested links were retained. Tree and control-addition boundary gaps remain in PROTO-2-01 and -02. |
+| PROTO-1-02 | Partially resolved | Bound verify refused the valid swapped package and dangling envelope. The real `schema_exact.js` extension refusal returned `FORM`. A nonexistent named file returned `HARNESS_ERROR`, and a message matching two forms with a real named path also returned `HARNESS_ERROR`. See PROTO-2-02 and -03. |
+| PROTO-1-03 | Partially resolved | The `0664` file, link and FIFO survived the round trip, and a separate FIFO-only artifact got the gate's non-plain-file `FORM`. A socket was named in both archive refusal and assembly `FORM`. Unreadable subtrees and modes remain in PROTO-2-01. |
+| PROTO-1-04 | Partially resolved | The original no-identity and out-of-order histories returned `not established`. The errored finding and unrelated resume after assembly error returned `stopped`. All supplied plan-table histories passed. See PROTO-2-04. |
+| PROTO-1-05 | Partially resolved | Base64/Brotli in JS, concatenated zstd and gzip, zlib remainder, legacy Arrow and raw text in a locked binary were found. The missing `data-b64` body was inconclusive. PROTO-2-05 exposes other unread layers. |
+| PROTO-1-06 | Partially resolved | Exponent `2e4`, narrow-space grouping, pt-BR amount before a comma, embedded JSON and uppercase JSON scripts matched. A plain negative count stayed clean. The full gate label search found the fixture year, and wrong Parquet types lost the schema-only designation. See PROTO-2-06. |
+| PROTO-1-07 | Partially resolved | Missing and linked builder roots were refused. Opaque bytes produced `DrawStopped` with file and reason at draw 1. The calibration used `open_report` and returned gate needles from the opened payload. Incomplete traversal or dispatch can still feed a clean draw. |
+| PROTO-1-08 | Partially resolved | PID namespace identities and the remount mutation behaved as intended. All seven variants failed their named checks with a fresh outer session. The SID, descriptor and write probes have the gaps in PROTO-2-07. |
+| PROTO-1-09 | Partially resolved | The fixture digest and rejection log agreed across the two hash seeds. The compressed Arrow calendar moved the window, the grouped row count changed `k`, and the ceiling was enforced. Numeric provenance and mutation coverage remain in PROTO-2-08 and -11. |
+| PROTO-1-10 | Resolved | Slashed months, fractional counts, larger partial-month amounts and invalid Z/G shapes were refused. A public fixture needle and a spelling removed from the gate both failed coverage. The throwaway seed yielded 141,733 eligible needles after deduplication. |
+| PROTO-1-11 | Partially resolved | The old document's logout decrypt was attributed to that document. An in-flight decrypt retained the right attempt after logout in a synthetic trace, and the history getter ran once with a correct read-back. A missing boundary and repeated writes still cause misattribution or false absence. See PROTO-2-09. |
+| PROTO-1-12 | Partially resolved | The transient DOMStorage write, CacheStorage event, simple truncated log and missing hook acknowledgement passed their controls. End values, cache event bodies, logical log truncation and profile exclusions remain open. See PROTO-2-09 and -10. |
+| PROTO-1-13 | Partially resolved | Cross-layer carrier controls now run verify and inspection, and the startup control calls the full reader. Three carrier controls failed their detector mutations. The archive, label and redraw proof gaps are in PROTO-2-11. |
+| PROTO-1-14 | Resolved | The corrupt cache entry was repaired before listing. A tab/Unicode Git path assembled from the pinned blob after its working-tree bytes changed. Both tests failed with their old implementations. |
+| PROTO-1-15 | Partially resolved | The original zero-weight Brotli probe chose gzip. Identity, gzip and Brotli had distinct ETags and the 304 was specific to its representation. The unacceptable-identity cases are in PROTO-2-12. |
+
+### 5. Checks executed and results
+
+The Make targets ran once each. The pinned scratch checkout for `make prototype-test` kept
+its planted `clear/` sentinel and generated files under `/tmp`. For `make check`, the Git
+shim redirected only the link checker's upstream `git cat-file` calls to a scratch Git
+directory referencing that checkout's existing object store. The original `git show` reads
+were allowed. The gate validated 101 pinned links. The repository had no local `.env`.
+
+| Executed command or probe | Exit | Observed output |
+|---|---:|---|
+| `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` | 0 | `470 passed, 1 warning in 210.30s (0:03:30)`. Node reported `pass 156`, `fail 0`, `skipped 1`. The history scan reported 15 skipped blobs. |
+| `make prototype-test` | 2 | `2 failed, 214 passed in 502.71s (0:08:22)`. Both failures were new paths, the sandbox session check and the clean Chrome journey's baseline-profile cleanup. |
+| `uv run --frozen --group prototype python -B prototypes/framework/sandbox.py` | 1 | 31 checks, only `a session of its own` false. Distinct PID namespace identities, equal numeric SIDs. |
+| Same CLI with `setsid --wait` | 0 | 31 checks passed. Removing `clearenv`, `unshare_pid`, `unshare_net`, `unshare_ipc`, `unshare_uts`, `new_session` or `remount_ro` made the designated check false in every case. |
+| Loopback install and build control with wrapper outcomes printed | 0 | `install-closed exit 1` with `ECONNREFUSED`, `build-closed exit 3` from the fetch rejection branch, both shared-network phases exit 0. `1 passed in 1.92s`. The npm input was the test's hand-made tarball. |
+| Single clean Chrome journey after the suite | 0 | `1 passed in 15.20s`. The full-suite cleanup failure remains recorded. |
+| Gate search on the existing DuckDB-WASM 1.32.0 EH WASM, seed `20261120` | 0 | Stored SRI matched. The unchanged gate returned `clear_value (in duckdb-eh.wasm)`. Enumerating the hits gave 177, comprising 176 values and one calendar year, in 2.2 s for that search in this run. |
+
+The author's answer reports `216 passed in 493.88s (0:08:13)` at `edb1359` and `make check`
+exit 0 before each commit. The results above are the independent runs at `58e6deb`.
+
+Representative single tests exited 1 under the corresponding deliberate mutation for
+PROTO-1-01 through -12, -14 and -15. The mutations covered linked-root export, verify binding,
+mode retention, verdict subjects, nested Brotli, embedded JSON, missing builder refusal, root
+remount, structured calendar provenance, shape and independent spellings, history read-back,
+committed DOMStorage, corrupt cache and quoted paths, and encoding weights. For PROTO-1-13,
+the Arrow, gzip and escape tests exited 1. The label and hash-seed tests exited 0 under the
+mutations described in PROTO-2-11. These mutations ran only in scratch processes or browser
+profiles. Further targeted output is recorded with the relevant findings.
+
+### 6. Limitations and open questions
+
+- The candidate installs and builds, their natural clear-mode carriers, A6/A7, a converged
+  draw against both final candidates, the stateful comparison runner and the §2.6 browser
+  oracle remain future work. The review uses hand-made files, synthetic histories and a
+  localhost control journey.
+- Chrome coverage here is limited to the controls and the additional IndexedDB/CacheStorage
+  journey. The profile exclusions were isolated with scratch records. Live coverage of all
+  frame and worker types and real Snappy table decoding remain unverified. The browser
+  findings inform the diagnostic under N96.
+- The existing third-party tarball and SRI sidecar were sufficient, so `make prototype-third-party`
+  and registry refresh were unnecessary. No private credential was read, and no database,
+  deployment or shared service was changed.
+
+### 7. Handoff to Claude Code
+
+- [ ] **PROTO-2-01** Refuse linked or unreadable traversal before reporting a clean tree.
+  Show complete round trips for supported modes and an explicit outcome for refused entries.
+- [ ] **PROTO-2-02** Constrain every addition to the artifact and enforce the control-only
+  boundary. Show that absolute and symlink-parent paths cannot write a scratch sibling.
+- [ ] **PROTO-2-03** Return `HARNESS_ERROR` for an unrelated builder or query-time I/O failure.
+  Keep the intended collision, schema-only and content classes on their real inputs.
+- [ ] **PROTO-2-04** Add the four closure histories and keep every plan-table result, including
+  failure precedence on bound evidence.
+- [ ] **PROTO-2-05** Show inconclusive results for unread depth-limited layers and a truncated
+  final zstd frame, with the within-limit controls still finding their values.
+- [ ] **PROTO-2-06** Find the compressed count at the required data role and exercise grouping
+  and scientific notation without partial-number matches or numeric exceptions.
+- [ ] **PROTO-2-07** Pass the sandbox proof across numeric ID overlap and demonstrate all
+  seven removals, inherited descriptors and accurate write outcomes with recorded output.
+- [ ] **PROTO-2-08** Show an Arrow count matching its canonical redraw source and changing
+  `k`. Show an amount match that retains all applicable sources and redraws from the matching cells.
+- [ ] **PROTO-2-09** Expose each missing mark or collector field, retain transient writes
+  where observable, and report incomplete logical storage records.
+- [ ] **PROTO-2-10** Attribute exemptions to checked paths or body fields and make the
+  baseline lifecycle repeatable. Keep unrelated records visible in the disk report.
+- [ ] **PROTO-2-11** Produce the recorded archive and stage evidence. Require the FIFO,
+  label and ordering tests to fail when their corresponding behavior is removed.
+- [ ] **PROTO-2-12** Refuse a request with no acceptable representation and retain validator
+  behavior for acceptable encodings.
+- [ ] **PROTO-2-13** Attach reproducible timing output or mark the bundle comparison pending.
+
+PROTO-2-14 is an observation for the archive helper. Keep its recommended containment check
+with the tree evidence if addressed.
