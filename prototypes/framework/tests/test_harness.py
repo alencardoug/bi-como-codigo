@@ -482,7 +482,7 @@ def test_an_absolute_archive_member_is_refused_and_leaves_its_sibling_alone(tmp_
     assert (sibling.stat().st_mode & 0o777) == 0o700
 
 
-@pytest.mark.parametrize("rel", ["/abs/marker", "assets/../../marker", "linked/marker"])
+@pytest.mark.parametrize("rel", ["/abs/marker", "assets/../../marker", "linked/marker", "."])
 def test_a_control_addition_stays_inside_the_artifact(tmp_path, sealed, rel):
     fx, pkg, _, _ = sealed
     sibling = tmp_path / "sibling"

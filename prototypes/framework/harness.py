@@ -150,7 +150,8 @@ def assemble(builder: pathlib.Path, package_dir: pathlib.Path, expected_rows: li
         return Outcome("assembly", HARNESS_ERROR, f"{artifact} exists: an artifact is assembled fresh"), None
     for rel in control_additions or {}:
         pure = pathlib.PurePosixPath(rel)
-        if pure.is_absolute() or ".." in pure.parts or str(pure) != rel or not rel or pure.parts[0] == PACKAGE:
+        # `.` names the artifact itself, no file in it (PROTO-3-12).
+        if not rel or not pure.parts or pure.is_absolute() or ".." in pure.parts or str(pure) != rel or pure.parts[0] == PACKAGE:
             return Outcome("assembly", HARNESS_ERROR, f"a control addition outside the artifact or under package/: {rel!r}"), None
     try:
         uncarried = trees.copy(builder, artifact)
