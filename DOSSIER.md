@@ -21,6 +21,13 @@ Do not open them; commit `a52a210`, which changes only those files, is outside t
 They stay as a recorded limit of step 1 (section 4). Code in scope that calls the wrapper
 (`npm_offline.py`, `allowlist.py`) is reviewed only for what it does with the wrapper's result.
 
+**Also out of scope from round 4, by the Owner's decision of 2026-11-21:** the scripts that run in
+the browser — `prototypes/framework/browser/diagnostic.mjs`, `prototypes/framework/browser/instrument.js`,
+`prototypes/framework/browser/enumerate.js`. Round 4's first attempt was ended by Codex's provider
+while it read them. Do not open them. `diagnose.py`, which reads what they record, stays in scope:
+its attribution is reviewed on the records it is given. Under N96 the browser is a diagnostic and
+decides no verdict.
+
 ## 1. Scope
 
 Range: `58e6deb..497e764` — read the diff, it is not repeated here. `58e6deb` is the tree round 2
@@ -144,6 +151,10 @@ Every claim with no command output in section 3 belongs here.
 - **Round 2's corrections to the isolation wrapper (PROTO-2-07, `a52a210`) are not reviewed.** By
   the Owner's decision they stay out of this review; whether the wrapper's self-check proves what
   §5 of the plan asks is, after round 2, only the author's claim. It is a limit of step 1.
+- **The browser scripts' changes of round 3 (`a5ebcce`: the test Chrome's flags, the Blob names)
+  are not reviewed from round 4 on**, by the Owner's decision; they are the author's claim, measured
+  by the diagnostic's journeys in the suite and by the cache capture of the author's answer to
+  round 3.
 - **No candidate exists.** Every control ran on hand-made outputs or on the control page of
   `controls/page/`; none on Evidence's or the own build's carriers (§7 steps 2–5). Whether the
   carrier inspection's decoders and the diagnostic's collectors see what a real framework writes is
@@ -437,3 +448,10 @@ $ make prototype-test
 
 The count includes the out-of-scope files of the opening note. `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1
 make check` exited 0 before each commit.
+
+## Round 4 — first attempt not run (2026-11-21)
+
+Sent at `5dd3dab` (gpt-6.2-sol, max). Codex's provider ended the session with "This content was
+flagged for possible cybersecurity risk" after it read `prototypes/framework/browser/diagnostic.mjs`;
+nothing was written. The Owner decided the same day to run round 4 with the browser scripts out of
+scope as well (opening note).
