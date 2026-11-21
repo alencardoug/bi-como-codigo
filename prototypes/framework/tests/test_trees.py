@@ -51,9 +51,13 @@ def test_a_relative_root_is_checked_from_the_working_folder(tmp_path, monkeypatc
     assert len(digest) == 64
 
 
-@pytest.mark.parametrize("rel", ["//sibling", "/sibling", "a/../../sibling"])
-def test_a_relative_part_that_is_absolute_or_leaves_is_refused(tmp_path, rel):
-    """PROTO-4-09: `//x` is an absolute path, not a folder under the base."""
+@pytest.mark.parametrize("form", ["//", "/", "../"])
+def test_a_relative_part_that_is_absolute_or_leaves_is_refused(tmp_path, form):
+    """PROTO-4-09: `//x` is an absolute path, not a folder under the base —
+    refused even when the folder it names exists."""
     (tmp_path / "work").mkdir()
+    (tmp_path / "sibling").mkdir()
+    (tmp_path / "sibling" / "marker").write_text("x")
+    rel = {"//": "/" + str(tmp_path / "sibling"), "/": str(tmp_path / "sibling"), "../": "../sibling"}[form]
     with pytest.raises(trees.Refused):
         trees.real_root(tmp_path / "work", rel)
