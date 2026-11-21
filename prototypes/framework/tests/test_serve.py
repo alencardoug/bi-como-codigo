@@ -90,3 +90,23 @@ def test_a_validator_on_a_second_field_line_is_read(tmp_path):
         response = conn.getresponse()
         assert response.status == 304 and response.read() == b""
         conn.close()
+
+
+def test_accept_encoding_split_over_two_field_lines_is_one_list(tmp_path):
+    """PROTO-5-10: the same list in one line or in two gives the same answer."""
+    import http.client
+
+    (tmp_path / "app.js").write_text("export const v = 1;\n" * 50)
+    with serve.Server(tmp_path) as s:
+        one = _get(s.url + "app.js", "identity;q=0, gzip")
+        host, port = s.url.split("//")[1].rstrip("/").split(":")
+        conn = http.client.HTTPConnection(host, int(port))
+        conn.putrequest("GET", "/app.js", skip_accept_encoding=True)
+        conn.putheader("Accept-Encoding", "identity;q=0")
+        conn.putheader("Accept-Encoding", "gzip")
+        conn.endheaders()
+        response = conn.getresponse()
+        body = response.read()
+        assert (response.status, response.getheader("Content-Encoding"), len(body), response.getheader("ETag")) == (
+            one[0], one[1]["Content-Encoding"], len(one[2]), one[1]["ETag"])
+        conn.close()

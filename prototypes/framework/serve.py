@@ -131,7 +131,8 @@ def handler_for(root: pathlib.Path):
                 return
             data = target.read_bytes()
             suffix = target.suffix.lower()
-            coding = negotiate(self.headers.get("Accept-Encoding", ""), compressible=suffix in TEXT)
+            accept = ", ".join(self.headers.get_all("Accept-Encoding") or [])  # every field line, in order (RFC 9110 §5.2; PROTO-5-10)
+            coding = negotiate(accept, compressible=suffix in TEXT)
             if coding is None:
                 self.send_response(406)
                 self.send_header("Content-Length", "0")
