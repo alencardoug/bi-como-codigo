@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+from decimal import Decimal
 
 import pytest
 
@@ -18,7 +19,7 @@ import verdict as v
 from bi_como_codigo import contract as c, envelope as e
 
 SEED = 20261120
-LISTS = ("site/*\n", "".join(f"{x} application/octet-stream\n" for x in (".html", ".js", ".json", ".bice", ".map", ".txt", ".arrow")))
+LISTS = ("site/*\n", "".join(f"{x} application/octet-stream\n" for x in (".html", ".js", ".json", ".bice", ".map", ".txt", ".arrow", ".bin")))
 
 
 @pytest.fixture(scope="module")
@@ -120,3 +121,95 @@ def test_a_varying_value_in_one_carrier(tmp_path, fx, carrier, verify_cls, code)
     assert result.cls == verify_cls
     assert code in inspected.codes()
     assert verdict.name == v.FAILS
+
+
+# --- the varying carriers, the second manifest, the opaque carrier (PROTO-1-13) ---------
+
+
+def _rows_json(fx, n=3) -> bytes:
+    return json.dumps([[str(x) if isinstance(x, Decimal) else x for x in r] for r in fx.rows()[:n]]).encode()
+
+
+def _arrow_counts(fx) -> bytes:
+    import io
+
+    import pyarrow as pa
+    import pyarrow.ipc as ipc
+
+    table = pa.table({"order_count": [r[7] for r in fx.rows()[:3]]})  # numbers only: no label for the gate to see
+    sink = io.BytesIO()
+    with ipc.new_file(sink, table.schema) as writer:
+        writer.write_table(table)
+    return sink.getvalue()
+
+
+def _carriers(fx):
+    import base64
+    import gzip
+
+    import brotli
+
+    rows = _rows_json(fx)
+    escaped = "".join(f"\\u{ord(ch):04x}" for ch in "fixture_canal_a")
+    return {
+        "arrow": ("assets/q.arrow", _arrow_counts(fx), io_.INSPECT_ARROW),
+        "gzip": ("assets/rows.bin", gzip.compress(rows), io_.INSPECT_TEXT),
+        "brotli": ("assets/rows2.bin", brotli.compress(rows), io_.INSPECT_TEXT),
+        "base64": ("assets/rows.txt", base64.b64encode(rows), io_.INSPECT_TEXT),
+        "escaped": ("assets/s.js", f'const s = "{escaped}";'.encode(), io_.INSPECT_TEXT),
+        "service worker": ("sw.js", b"self.data = '" + base64.b64encode(gzip.compress(rows)) + b"';", io_.INSPECT_TEXT),
+    }
+
+
+@pytest.mark.parametrize("carrier", ["arrow", "gzip", "brotli", "base64", "escaped", "service worker"])
+def test_a_varying_value_the_gate_cannot_see_is_found_by_the_inspection(tmp_path, fx, carrier):
+    rel, data, code = _carriers(fx)[carrier]
+    result, inspected, verdict = _all_layers(tmp_path, fx, artifact_extra={rel: data})
+    assert result.cls == h.PASS, result.message
+    assert code in inspected.codes() and any(x.file == rel for x in inspected.findings)
+    assert verdict.name == v.FAILS
+
+
+def test_a_label_in_a_second_manifest_of_the_builder_is_behind_form_and_fails(tmp_path, fx):
+    result, inspected, verdict = _all_layers(tmp_path, fx, builder_extra={"assets/manifest.json": b'{"name": "fixture_canal_a"}'})
+    assert result.cls == h.FORM and result.message.startswith("2 package manifests")
+    assert any(x.file == "assets/manifest.json" and x.code == io_.INSPECT_TEXT for x in inspected.findings)
+    assert verdict.name == v.FAILS
+
+
+def test_a_carrier_nobody_listed_is_not_established_even_after_a_clean_run_of_another_artifact(tmp_path, fx):
+    import os
+
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    sealed = AESGCM(AESGCM.generate_key(128)).encrypt(os.urandom(12), _rows_json(fx), None)
+    result, inspected, verdict = _all_layers(tmp_path / "a", fx, artifact_extra={"assets/cache.bin": sealed})
+    assert result.cls == h.PASS and not inspected.findings and inspected.inconclusive
+    assert verdict.name == v.NOT_ESTABLISHED
+    _, clean, _ = _all_layers(tmp_path / "b", fx)
+    assert clean.clean
+    history = [
+        v.Record("r1", build_input="in", builder_digest="b", artifact_digest="a1", stages={
+            "build": v.Stage(), "archive": v.Stage(), "inspect_builder": v.Stage(), "assembly": v.Stage(cls=h.PASS),
+            "verify": v.Stage(cls=result.cls), "inspect_artifact": v.Stage(inconclusive=len(inspected.inconclusive))}),
+        v.Record("r2", build_input="in2", builder_digest="b2", artifact_digest="a2", stages={
+            "build": v.Stage(), "archive": v.Stage(), "inspect_builder": v.Stage(), "assembly": v.Stage(cls=h.PASS),
+            "verify": v.Stage(cls=h.PASS), "inspect_artifact": v.Stage(inconclusive=len(clean.inconclusive))}),
+    ]
+    assert v.verdict(history).name == v.NOT_ESTABLISHED
+
+
+# --- each control fails without the detection it exercises ------------------------------
+
+
+@pytest.mark.parametrize("carrier, detector", [
+    ("gzip", "_decompress_by_magic"),
+    ("arrow", "_arrow"),
+    ("escaped", "_text_decoders"),
+])
+def test_removing_the_detection_makes_its_control_fail(tmp_path, fx, monkeypatch, carrier, detector):
+    rel, data, code = _carriers(fx)[carrier]
+    monkeypatch.setattr(io_, detector, {"_decompress_by_magic": lambda d: None, "_arrow": lambda *a: False,
+                                        "_text_decoders": lambda text: iter(())}[detector])
+    _, inspected, verdict = _all_layers(tmp_path, fx, artifact_extra={rel: data})
+    assert not any(x.file == rel and x.code == code for x in inspected.findings)
