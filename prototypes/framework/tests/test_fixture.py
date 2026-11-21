@@ -60,6 +60,9 @@ def test_the_draw_is_deterministic_from_its_seed(drawn):
     ("wrong_type", "wrong type"),
     ("gap_in_months", "not consecutive"),
     ("four_digit_count", "fewer than five"),
+    ("slashed_months", "not YYYY-MM"),
+    ("fractional_count", "not an integer"),
+    ("larger_partial_amount", "smaller ones"),
 ])
 def test_each_shape_property_is_checked(drawn, rows, damage, reason):
     rows = list(rows)
@@ -92,6 +95,16 @@ def test_each_shape_property_is_checked(drawn, rows, damage, reason):
         rows = [_replace(r, year_month=earlier, year_number=y - 1) if r[_col("year_month")] == first else r for r in rows]
     elif damage == "four_digit_count":
         rows[0] = _replace(rows[0], order_count=9_999)
+    elif damage == "slashed_months":
+        rows = [_replace(r, year_month=r[_col("year_month")].replace("-", "/")) for r in rows]
+    elif damage == "fractional_count":
+        rows[0] = _replace(rows[0], order_count=Decimal(rows[0][_col("order_count")]) + Decimal("0.5"))
+    elif damage == "larger_partial_amount":
+        last = drawn.year_month(f.PARTIAL)
+        n = next(i for i, r in enumerate(rows) if r[_col("year_month")] == last)
+        r = rows[n]
+        gross = r[_col("unit_count")] * Decimal("399.99")
+        rows[n] = _replace(r, gross_revenue_amount=gross, net_revenue_amount=gross - r[_col("discount_amount")])
     with pytest.raises(f.ShapeError, match=reason):
         f.check_shape(rows, k)
 
@@ -148,6 +161,18 @@ def test_the_coverage_assertion_holds_and_can_fail(drawn, payload, monkeypatch):
     assert count > 30_000
     real = c.needles
     monkeypatch.setattr(c, "needles", lambda values, public: real(values, public)[:-1])
+    with pytest.raises(f.ShapeError, match="coverage"):
+        f.coverage(drawn, *payload)
+
+
+def test_coverage_fails_when_a_public_value_excludes_a_fixture_needle(drawn, payload):
+    with pytest.raises(f.ShapeError, match="excluded by a public declaration"):
+        f.coverage(drawn, *payload, public={"fixture_canal_a"})
+
+
+def test_coverage_fails_when_a_spelling_is_missing(drawn, payload, monkeypatch):
+    real = c.spellings
+    monkeypatch.setattr(c, "spellings", lambda canonical: real(canonical)[:1])
     with pytest.raises(f.ShapeError, match="coverage"):
         f.coverage(drawn, *payload)
 

@@ -22,6 +22,7 @@ import hashlib
 import json
 import pathlib
 import random
+import re
 import sys
 import tempfile
 from collections import defaultdict
@@ -64,6 +65,12 @@ K_VALUES = tuple(range(5, 11))
 START_YEARS = range(2000, 2200)
 FILTERS = ("todos", *CHANNELS)
 DRAWS_MAX = 1000
+
+#: The partial month's smaller amounts (§2.1), as a property of its rows: at
+#: most this many orders per row and this gross revenue per unit.
+PARTIAL_ORDERS_MAX = 20_000
+PARTIAL_PRICE_MAX = Decimal("120.00")
+FULL_PRICE_MAX = Decimal("400.00")
 
 CENT = Decimal("0.01")
 ZERO = Decimal("0.00")
@@ -142,11 +149,11 @@ class _Draw:
     def measures(self, *, small: bool, zero: bool) -> Measures:
         rng = self.rng
         while True:
-            orders = rng.randint(10_000, 20_000 if small else 60_000)
+            orders = rng.randint(10_000, PARTIAL_ORDERS_MAX if small else 60_000)
             units = rng.randint(orders + orders // 5, min(999_999, orders * 3))
             if {orders, units} & self.counts:
                 continue
-            gross = Decimal(rng.randint(units * 2_000, units * (12_000 if small else 40_000))).scaleb(-2)
+            gross = Decimal(rng.randint(units * 2_000, units * int((PARTIAL_PRICE_MAX if small else FULL_PRICE_MAX) * 100))).scaleb(-2)
             if zero:
                 discount, net = gross, ZERO
                 taken = {gross}
@@ -267,6 +274,17 @@ def check_shape(rows: list[tuple], k: int, *, mutant: bool = False) -> None:
     def col(r, name):
         return r[idx[name]]
 
+    for r in rows:  # the types and forms of each column, before anything is computed from them (PROTO-1-10)
+        if len(r) != len(COLUMNS):
+            raise ShapeError("a row of the wrong width")
+        if not (isinstance(col(r, "year_month"), str) and re.fullmatch(r"[0-9]{4}-(0[1-9]|1[0-2])", col(r, "year_month"))):
+            raise ShapeError("a year_month that is not YYYY-MM")
+        if any(type(col(r, n)) is not int for n in ("year_number", "month_number", "order_count", "unit_count")):
+            raise ShapeError("a count or a calendar number that is not an integer")
+        if any(not isinstance(col(r, n), str) for n in ("sales_channel_name", "channel_type", "root_category_name", "category_name")):
+            raise ShapeError("a text column that is not text")
+        if any(not isinstance(col(r, n), Decimal) for n in ("gross_revenue_amount", "discount_amount", "net_revenue_amount")):
+            raise ShapeError("an amount that is not a decimal")
     if len(rows) != row_count(k, mutant):
         raise ShapeError(f"{len(rows)} rows, not {row_count(k, mutant)} for k={k}")
     months = sorted({col(r, "year_month") for r in rows})
@@ -296,6 +314,9 @@ def check_shape(rows: list[tuple], k: int, *, mutant: bool = False) -> None:
         raise ShapeError("the partial month is not k whole groups of the first two channels")
     if any(len([g for g in groups if g[0] == i]) != len(CHANNELS) * len(ROOTS) - (G[0] == i and not mutant) for i in range(PARTIAL)):
         raise ShapeError("a full month misses a group other than G")
+    for r in (r for g, rs in groups.items() if g[0] == PARTIAL for r in rs):  # the partial month's smaller amounts
+        if col(r, "order_count") > PARTIAL_ORDERS_MAX or col(r, "gross_revenue_amount") > col(r, "unit_count") * PARTIAL_PRICE_MAX:
+            raise ShapeError("the partial month's amounts are not the smaller ones")
     zeros = set(groups.get(Z, ())) | (set(groups.get(G, ())) if mutant else set())
     if mutant:
         if G not in groups or any(col(r, n) != 0 for r in groups[G] for n in COLUMNS[7:]):
@@ -440,25 +461,44 @@ def _eligible(canonical: str) -> bool:
     return len(whole.lstrip("0")) >= 3 or fraction.strip("0") != ""
 
 
-def coverage(fx: Fixture, totals_raw: bytes, parquet_raw: bytes) -> int:
-    """The coverage assertion (§2.1): `contract.needles` on the payload holds
-    every eligible number's spellings and every text of three characters or
-    more, with no public value excluding any, and as many needles as the
-    fixture alone gives. Returns the count."""
+def _spell(canonical: str) -> list[str]:
+    """The three spellings of package_gate §6, restated from the rule, not
+    taken from `contract.spellings`: canonical, Brazilian with `.` grouping
+    thousands and `,` before the fraction, and `,` before the fraction."""
+    whole, _, fraction = canonical.partition(".")
+    grouped = f"{int(whole):,}".replace(",", ".")
+    tail = f",{fraction}" if fraction else ""
+    return list(dict.fromkeys([canonical, grouped + tail, whole + tail]))
+
+
+def coverage(fx: Fixture, totals_raw: bytes, parquet_raw: bytes, public: set[str] | None = None) -> int:
+    """The coverage assertion (§2.1): `contract.needles` on the payload, under
+    the prototype's effective public declarations, holds every eligible
+    number's spellings and every text of three characters or more, with no
+    public value excluding any, and as many needles as the fixture alone gives
+    — the expectation computed from the fixture's rows, its own totals and its
+    own spellings (PROTO-1-10). Returns the count."""
+    if public is None:
+        public = c.load_public_values((HERE / "release" / "public_values.json").read_bytes())
     con = contract()
     values = c.check_payload(con, con.reports[REPORT], totals_raw, parquet_raw)
-    got = c.needles([values], set())
+    got = c.needles([values], public)
     rows = fx.rows()
-    texts = {r[n] for r in rows for n, name in enumerate(COLUMNS) if isinstance(r[n], str)}
+    texts = {r[n] for r in rows for n in range(len(COLUMNS)) if isinstance(r[n], str)}
     numbers = {str(r[n]) for r in rows for n in range(len(COLUMNS)) if not isinstance(r[n], str)}
     numbers.add(str(len(rows)))
-    numbers |= set(json.loads(totals_raw)["sums"].values())
-    expected = [totals_raw] + [t.encode() for t in sorted(texts) if len(t) >= 3]
-    expected += [s.encode() for n in sorted(numbers) if _eligible(n) for s in c.spellings(n)]
+    own_totals = totals(rows)
+    numbers |= set(json.loads(own_totals)["sums"].values())
+    excluded = sorted(public & (texts | numbers))
+    if excluded:
+        raise ShapeError(f"coverage: {len(excluded)} fixture values excluded by a public declaration")
+    expected = [own_totals] + [t.encode() for t in sorted(texts) if len(t) >= 3]
+    expected += [s.encode() for n in sorted(numbers) if _eligible(n) for s in _spell(n)]
     expected = list(dict.fromkeys(expected))
-    found = {needle for _, needle in got}
-    missing = [n for n in expected if n not in found]
-    if missing or len(found) != len(expected):
+    found = [needle for _, needle in got]
+    present = set(found)
+    missing = [n for n in expected if n not in present]
+    if own_totals != totals_raw or missing or sorted(found) != sorted(expected):
         raise ShapeError(f"coverage: {len(missing)} missing, {len(found)} needles against {len(expected)} expected")
     return len(found)
 
