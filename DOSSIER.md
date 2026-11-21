@@ -1102,3 +1102,24 @@ without remount_ro: check 'no write /bice-probe' holds=False, probe passed=False
 ```
 
 `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` exited 0 before each commit.
+
+## Round 3 — not run (2026-11-21)
+
+Round 3 was sent twice and produced no report. Both times Codex's provider ended the session with
+"This content was flagged for possible cybersecurity risk" — the first while Codex read
+`tests/test_sandbox.py`; the second, with the sandbox taken out of scope by the Owner's decision of
+2026-11-21, while it read this dossier, whose rounds 1 and 2 describe the sandbox's escape probes
+(PROTO-1-08, PROTO-2-07). Nothing was written; the corrections of round 2, answered above at
+`497e764`, are not reviewed.
+
+Stopped here, under the Owner's mandate of 2026-11-21 ("anote e, ao travar, desligue"). Open for the
+Owner:
+
+1. **How round 3 runs.** (a) A fresh dossier for round 3 with the sandbox's history moved out of it
+   — the findings table kept, the sandbox rows summarised in a line —, and the prompt with no word of
+   escape or probing; (b) close the review of step 1 here with round 2's corrections unreviewed and
+   recorded as a limit, and start step 2 (the clear mode, probes A6 and A1), the full review of the
+   implementation staying at step 7 as the plan has it; (c) ask for the provider's access the error
+   names, which is the Owner's account decision.
+2. **Recommended: (a)**, since rounds 1 and 2 found real defects every time and the corrections of
+   round 2 change the oracle's code paths.
