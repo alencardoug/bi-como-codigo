@@ -422,6 +422,20 @@ class SchemaFault(Exception):
     """The schema check itself could not run — not a property of the file."""
 
 
+def _another_reader_opens(data: bytes) -> bool:
+    """PyArrow reads the file's metadata and schema: the witness that bytes
+    DuckDB refused are a Parquet after all."""
+    import io
+
+    import pyarrow.parquet as pq
+
+    try:
+        pq.ParquetFile(io.BytesIO(data)).schema_arrow
+        return True
+    except Exception:  # noqa: BLE001 — any refusal of the bytes
+        return False
+
+
 def schema_only(data: bytes) -> bool | None:
     """A Parquet with P01's names and types and zero rows: True; one that parses
     otherwise: False; bytes that do not parse as a Parquet: None. A failure of
@@ -442,21 +456,23 @@ def schema_only(data: bytes) -> bool | None:
                 schema = [(r[0], r[1]) for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path.as_posix()}')").fetchall()]
                 rows = con.execute(f"SELECT count(*) FROM read_parquet('{path.as_posix()}')").fetchone()[0]
             except duckdb.Error as error:
-                # Bytes that do not parse are the file's: DuckDB reports them as
-                # invalid input (measured on 1.5.6 — no magic bytes, a footer
-                # length, a file too small, a page that fails to read). Any other
-                # error — memory, I/O, an internal fault — or a file that is no
-                # longer the one written is the check's own failure (PROTO-2-03,
-                # PROTO-3-04).
+                # Bytes that do not parse are the file's. DuckDB 1.5.6 reports most
+                # as invalid input (no magic bytes, a footer length, a file too
+                # small, a page that fails to read), but a damaged Thrift footer
+                # as its base `Error` (PROTO-4-04): then a second reader decides —
+                # bytes PyArrow refuses too are the file's; bytes it reads mean
+                # DuckDB's own failure. Memory, I/O, an internal fault, or a file
+                # that is no longer the one written are the check's own failure
+                # (PROTO-2-03, PROTO-3-04).
                 try:
                     intact = path.read_bytes() == data
                 except OSError:
                     intact = False
                 if not intact:
                     raise SchemaFault(f"the checked file changed: {type(error).__name__}") from None
-                if not isinstance(error, duckdb.InvalidInputException):
-                    raise SchemaFault(f"the schema query failed: {type(error).__name__}") from None
-                return None
+                if isinstance(error, duckdb.InvalidInputException) or not _another_reader_opens(data):
+                    return None
+                raise SchemaFault(f"the schema query failed on bytes another reader opens: {type(error).__name__}") from None
     finally:
         con.close()
     return schema == [(col.name, col.type) for col in report.columns] and rows == 0

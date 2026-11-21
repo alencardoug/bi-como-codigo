@@ -574,3 +574,32 @@ def test_an_empty_builder_output_is_a_snapshot_reproduction_is_bound_to(tmp_path
     (other / "count.js").write_bytes(literal)
     wrong = h.verify(tmp_path / "artifact", other, root, validated, label="control")
     assert wrong.cls == h.HARNESS_ERROR and "not the one assembled" in wrong.message
+
+
+# --- round 4 (PROTO-4-04) -----------------------------------------------------------
+
+
+def _damaged_parquets() -> dict[str, bytes]:
+    import io as io_mod
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    out = io_mod.BytesIO()
+    pq.write_table(pa.table({"x": pa.array([1], type=pa.int32())}), out, store_schema=False)
+    small = out.getvalue()
+    start = len(small) - 8 - int.from_bytes(small[-8:-4], "little")
+    footer = small[start:-8]
+    leaf = footer.find(b"\x15\x02\x25")
+    assert leaf != -1
+    return {"thrift": small[:start] + b"\xff" + small[start + 1:],
+            "physical type": small[:start + leaf + 1] + b"\x7e" + small[start + leaf + 2:]}
+
+
+@pytest.mark.parametrize("damage", ["thrift", "physical type"])
+def test_a_damaged_parquet_footer_in_the_builder_output_is_content(tmp_path, sealed, damage):
+    """DuckDB raises its base Error on these footers; PyArrow refuses them too,
+    so the bytes are the file's, not the harness's fault."""
+    data = _damaged_parquets()[damage]
+    assert f.schema_only(data) is None
+    assert _run(tmp_path, sealed, builder_extra={"assets/bad.parquet": data}).cls == h.CONTENT
