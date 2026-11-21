@@ -270,21 +270,20 @@ The review used revision 9 of `docs/framework_prototype.md`, §§2.1, 2.2, 2.5.1
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| PROTO-3-01 | `verdict.py:90,125,171,188` | Early and unattached stages can determine a verdict. | blocking | |
-| PROTO-3-02 | `trees.py:38,87,122` | Normalizing the source before checking its components can omit files from the archived tree. | blocking | |
-| PROTO-3-03 | `allowlist.py:89,133` | The allowlist accepts a work folder with an unreadable extra subtree. | blocking | |
-| PROTO-3-04 | `fixture.py:425`, `harness.py:311,335` | A schema query fault becomes `CONTENT`, and an empty builder tree bypasses reproduction binding. | blocking | |
-| PROTO-3-05 | `inspect_output.py:230,311` | Scanning zstd frame outputs separately misses values split across a valid stream. | blocking | |
-| PROTO-3-06 | `inspect_output.py:263,281,399` | The depth guard silently accepts some unread supported text layers. | blocking | |
-| PROTO-3-07 | `inspect_output.py:628,645,671` | Nested fixture values in Arrow and Parquet are skipped. | blocking | |
-| PROTO-3-08 | `inspect_output.py:421,447,482` | An adjacent exponent or surrounding spaces can hide a count. | blocking | |
-| PROTO-3-09 | `diagnose.py:281,343,361,427` | Cache exclusions can remove unrelated data, and the clean journey reported intermittent on-disk leads. | adjustment | |
-| PROTO-3-10 | `diagnose.py:75,92,119` | A missing first submit can make expected decryption look premature. | adjustment | |
-| PROTO-3-11 | `browser/enumerate.js:18,45` | A second Blob in the same IndexedDB record overwrites the first observation. | adjustment | |
-| PROTO-3-12 | `harness.py:151` | The control path `.` raises outside assembly's error handling. | adjustment | |
-| PROTO-3-13 | `tests/test_calibrate.py:145` | The redraw control passes when rejection sorting is removed. | adjustment | |
-| PROTO-3-14 | `serve.py:121–131` | Conditional GETs can report an incorrect representation length or resend unchanged bytes. | adjustment | |
-
+| PROTO-3-01 | `verdict.py:90,125,171,188` | Early and unattached stages can determine a verdict. | blocking | Fixed in `caa6c64`: `_attached` walks the records in order and counts a stage only after its subject was established — the builder's inspection after that archive, assembly after that inspected output, `verify` and the artifact's inspection after that assembled artifact; a resume no earlier run explains counts for nothing; closing stages are taken each after the one before. An exhausted draw closes only by `Record.draw_clean` on the same builder output. Four new histories, each failing on `0a292e8`. |
+| PROTO-3-02 | `trees.py:38,87,122` | Normalizing the source before checking its components can omit files from the archived tree. | blocking | Fixed in `043f3bd`: `real_root` checks the components as written, refuses `..` anywhere, starts a relative path at the working folder; `files`, `copy` and `archive` list and read from the one checked root. `tests/test_trees.py`, the aliased source refused by all four; fails on `0a292e8`. |
+| PROTO-3-03 | `allowlist.py:89,133` | The allowlist accepts a work folder with an unreadable extra subtree. | blocking | Fixed in `7616005`: `check` and `files` walk through `trees.entries`, which refuses a folder it cannot read and names it. Test: the mode-000 `hidden/` refuses both; fails on `0a292e8`. |
+| PROTO-3-04 | `fixture.py:425`, `harness.py:311,335` | A schema query fault becomes `CONTENT`, and an empty builder tree bypasses reproduction binding. | blocking | Fixed in `deb510a`: a DuckDB error other than `InvalidInputException` on an intact file is `SchemaFault` → `HARNESS_ERROR` (every malformed Parquet tried raises `InvalidInputException` on 1.5.6); `ValidatedPackage.builder` defaults to `None`, so `()` is compared, and no snapshot refuses. Tests: injected `OutOfMemoryException` after a real `SCHEMA_ONLY`; empty builder `CONTENT`, other builder `HARNESS_ERROR`; both fail on `0a292e8`. |
+| PROTO-3-05 | `inspect_output.py:230,311` | Scanning zstd frame outputs separately misses values split across a valid stream. | blocking | Fixed in `a1d31c2`: frame outputs joined into one stream before the search, a cut frame still reported. Tests: the split label found; split label plus a cut third frame. |
+| PROTO-3-06 | `inspect_output.py:263,281,399` | The depth guard silently accepts some unread supported text layers. | blocking | Fixed in `a1d31c2`: at the depth limit percent, escape and entity decodings are searched, and one whose output would open is a layer unread. Tests: the reviewer's nested query is not clean (fails on `0a292e8`); ordinary percent text stays clean. |
+| PROTO-3-07 | `inspect_output.py:628,645,671` | Nested fixture values in Arrow and Parquet are skipped. | blocking | Fixed in `a1d31c2`: `_cells` walks lists, structs and maps to their leaves; binary leaves searched. Test: count and label in a struct of lists, Arrow and Parquet, each with its code; fails on `0a292e8`. |
+| PROTO-3-08 | `inspect_output.py:421,447,482` | An adjacent exponent or surrounding spaces can hide a count. | blocking | Fixed in `a1d31c2`: only the literal's own span leaves a run; the literal-space lookbehind refuses a digit and a space, not a space alone. Tests: `20000,2e-1`, `orders = 20 000`; `120 000`, `1 220 000`, `120000,2e-1` not partial counts. |
+| PROTO-3-09 | `diagnose.py:281,343,361,427` | Cache exclusions can remove unrelated data, and the clean journey reported intermittent on-disk leads. | adjustment | Fixed in `a5ebcce`: the URL is read from the simple-cache header (`cache_key_url`), an issued validator only as an `ETag` field's value; a failed baseline is a gap; the files behind on-disk findings are kept under `out/on_disk_sources/`. The clean journey's cache held Google's responses (autofill, `google.com/async`) despite `--disable-background-networking`; the driver now resolves only `127.0.0.1` — a clean journey's cache then holds only the local server's six files. Tests: the misleading `Link`, the data-field token, the failed baseline, the kept sources. The two leads of the reviewer's run are not attributed (their profile is gone): Google bodies are the likely source, not proved. |
+| PROTO-3-10 | `diagnose.py:75,92,119` | A missing first submit can make expected decryption look premature. | adjustment | Fixed in `a5ebcce`: a page mark stands for the latest driver action of its kind before it; the unpaired ones are the missing; a call placed by a driver boundary carries `uncertain`. Test: each missing submit position, the derivation stays `expected`; fails on `0a292e8`. |
+| PROTO-3-11 | `browser/enumerate.js:18,45` | A second Blob in the same IndexedDB record overwrites the first observation. | adjustment | Fixed in `a5ebcce`: each Blob under its own name (`…@blobN`). Control journey `twoblobs`; fails with the old `enumerate.js`. |
+| PROTO-3-12 | `harness.py:151` | The control path `.` raises outside assembly's error handling. | adjustment | Fixed in `8346ce2`: `.` refused as `HARNESS_ERROR` with the other additions; added to the parametrized refusal cases; fails on `0a292e8`. |
+| PROTO-3-13 | `tests/test_calibrate.py:145` | The redraw control passes when rejection sorting is removed. | adjustment | Fixed in `4219dca`: the order control draws in subprocesses under hash seeds 1–8 and requires one fixture, and runs the draw with the sort removed to show more than one. |
+| PROTO-3-14 | `serve.py:121–131` | Conditional GETs can report an incorrect representation length or resend unchanged bytes. | adjustment | Fixed in `a26842d`: weak comparison, lists and `*` against the selected representation's validator; a 304 sends no length. Test: exact, `W/`, listed and `*` give 304 with no length, Brotli against gzip's tag 200; fails on `0a292e8`. |
 **PROTO-3-01 — Verdict ordering and identity. High.** Executed synthetic histories returned `fails the criterion` for `verify=CONTENT` before builder inspection and for a resume with unrelated builder and artifact digests. Artifact inspection in one resume followed by `verify=PASS` in a later resume returned `passes`. These three outcomes also occur at `58e6deb`. `_confirmed_content` checks an isolated stage and `_effective` can select the inspection from before the selected verify. An exhausted draw followed by same-builder assembly `FORM` now returns `a cost`, a regression in `59c2b1e`. A form refusal says nothing about whether a later draw succeeded.
 
 **PROTO-3-02 — Source tree identity. High, regression in `59f71c9`.** Executed with the source spelled `lexical/via/../dist`, where `via` is a link to `physical/assets`. The requested path resolves to `physical/dist`, with `index.html` and `rows.json`. `real_root` returned `lexical/dist` and the archive held only `index.html`. At baseline the archive held both. `abspath` erases the linked component before `real_root` checks it, and `archive` lists the normalized directory while reopening files from the original path. Draw, assembly and inspection can use an incomplete tree.
@@ -401,3 +400,40 @@ The Owner's scope excludes the isolation wrapper, its probe and tests, and the n
 - [ ] **PROTO-3-12** Refuse an empty path component list with `HARNESS_ERROR`. Add `.` to the existing control-addition refusal cases.
 - [ ] **PROTO-3-13** Exercise order determinism on a history that differs under at least two hash seeds when only sorting is removed. Verify that the control kills that mutation.
 - [ ] **PROTO-3-14** Apply weak and list comparison to the selected representation's validator and omit the `304` length or use the corresponding `200` length. Test unchanged gzip, a nonmatching Brotli validator and the existing `406` decisions.
+
+## Round 3 — the author's answer
+
+All fourteen findings are fixed, each in the commit its Status cell names, between `0a292e8` (the
+record of round 3) and `a5ebcce`; none is refused. Each new test was run against the code at
+`0a292e8`, the prototype extracted with `git archive` and the new test file copied in: each test
+written to reproduce a finding fails there. The guard tests that keep a correct behaviour — ordinary
+percent text stays clean, a longer grouping is no partial count — pass on both, as they should, and
+so does PROTO-3-05's cut-frame case. The two-Blob journey needs the repository around the page, so
+for it the old `enumerate.js` was swapped in place and restored.
+
+A claim to verify beyond the findings, from PROTO-3-09:
+
+- **The test Chrome talked to Google.** A clean journey's HTTP cache, kept for the purpose, held
+  entries keyed by `content-autofill.googleapis.com` and `www.google.com/async/folae` beside the six
+  files of the local server, despite `--disable-background-networking`. Their bodies are no part of
+  the journey and are the likely source of the two intermittent leads of round 3's clean run, which
+  cannot be attributed now (that profile is gone). The driver now launches Chrome with
+  `--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1` and without autofill's server calls; a
+  pinned third-party body is fulfilled by interception before any lookup. A clean journey run after
+  the change cached only `http://127.0.0.1:<port>/` and its five files, with no finding on disk.
+  Step 5's journeys on a real candidate will show whether an unlisted host the page asks for should
+  be a lead of its own; today it fails to resolve and appears among the fetches.
+
+Executed at `a5ebcce`, 2026-11-21 18:06–18:17Z:
+
+```
+$ make prototype-test
+........................................................................ [ 25%]
+........................................................................ [ 51%]
+........................................................................ [ 77%]
+...............................................................          [100%]
+279 passed in 654.32s (0:10:54)
+```
+
+The count includes the out-of-scope files of the opening note. `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1
+make check` exited 0 before each commit.
