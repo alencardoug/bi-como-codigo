@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<title>Controle do diagnóstico</title>
+<!-- The page of the browser diagnostic's own proofs (docs/framework_prototype.md §2.5.5):
+     the page contract of the journey, and one leak per mode, chosen by ?leak=. -->
+<form data-bice="login">
+  <input data-bice="password" type="password" autocomplete="off" disabled>
+  <button data-bice="submit" type="submit">Entrar</button>
+  <p data-bice="login-error" hidden>Nada foi aberto.</p>
+</form>
+<section data-bice="report" hidden>
+  <select data-bice="filter"><option value="todos">todos</option></select>
+  <select data-bice="month"><option value="m1">m1</option></select>
+  <table data-bice="detail"></table>
+  <button data-bice="logout" type="button">Sair</button>
+</section>
+<script type="module" src="page.mjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/bice-control@1.0.0/pinned.js"></script>
+</html>
