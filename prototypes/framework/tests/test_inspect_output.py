@@ -502,3 +502,78 @@ def test_a_count_before_an_adjacent_exponent_and_a_space_grouped_count_after_a_s
 def test_a_scientific_literal_and_a_longer_grouping_are_not_partial_counts(count_needles):
     for data in (b"x 120 000", b"1 220 000", b"2e-1,3e4", b"120000,2e-1"):
         assert io_.INSPECT_NUMBER not in _one(count_needles, "n.txt", data, role="data").codes(), data
+
+
+# --- round 4 (PROTO-4-05..08), the reviewer's cases ----------------------------------
+
+_R4_LABEL = "fixture_cat_1_01"
+_R4 = io_.Needles(frozenset({_R4_LABEL}), frozenset({Decimal("1234.50")}), frozenset({20000}), frozenset())
+
+
+def _r4(name, data):
+    return io_.inspect_items([io_.Item(name, data)], _R4)
+
+
+def _wrap(data, layers):
+    for _ in range(layers):
+        data = base64.b64encode(data)
+    return data
+
+
+def test_skippable_zstd_frames_are_consumed():
+    import struct as st
+
+    z = zstandard.ZstdCompressor()
+    skip = st.pack("<II", 0x184D2A50, 15) + b"stream metadata"
+    one, two = z.compress(_R4_LABEL[:8].encode()), z.compress(_R4_LABEL[8:].encode())
+    for data in (one + skip + two, skip + one + two):
+        report = _r4("data.zst", data)
+        assert report.codes() == {io_.INSPECT_TEXT} and not report.inconclusive
+
+
+def test_embedded_json_at_the_depth_limit_is_not_clean_and_an_ordinary_path_is():
+    holder = f'const cached = "{urllib.parse.quote(chr(123) + chr(34) + "n" + chr(34) + ":20000" + chr(125), safe="")}";\n'.encode()
+    for layers in (3, 4):
+        assert not _r4("app.js", _wrap(holder, layers)).clean, layers
+    assert _r4("app.js", _wrap(urllib.parse.quote("folder/registration", safe="").encode(), 4)).clean
+    assert _r4("app.js", _wrap(b"20% discount", 4)).clean
+
+
+def _arrow_file(table):
+    buf = io.BytesIO()
+    with ipc.new_file(buf, table.schema, options=ipc.IpcWriteOptions(compression="zstd")) as w:
+        w.write_table(table)
+    return buf.getvalue()
+
+
+def _parquet_file(table):
+    import pyarrow.parquet as pq
+
+    buf = io.BytesIO()
+    pq.write_table(table, buf, compression="zstd")
+    return buf.getvalue()
+
+
+def test_a_count_only_in_an_arrow_dictionary_is_found():
+    encoded = pa.array([20000, 42]).dictionary_encode()
+    remaining = pa.table({"n": encoded.filter(pa.array([False, True]))})
+    assert ipc.open_file(_arrow_file(remaining)).read_all().column(0).to_pylist() == [42]
+    assert _r4("cache.arrow", _arrow_file(remaining)).codes() == {io_.INSPECT_ARROW}
+
+
+@pytest.mark.parametrize("serialize", [_arrow_file, _parquet_file], ids=["arrow", "parquet"])
+def test_a_textual_count_and_a_compressed_binary_cell_are_found(serialize):
+    textual = pa.table({"m": pa.array([[("key", "Orders: 20000")]], type=pa.map_(pa.string(), pa.string()))})
+    assert io_.INSPECT_NUMBER in _r4("cache.bin", serialize(textual)).codes()
+    packed = gzip.compress(b'{"label":"' + _R4_LABEL.encode() + b'","filler":"' + b"x" * 200 + b'"}', mtime=0)
+    assert _R4_LABEL.encode() not in packed
+    assert io_.INSPECT_TEXT in _r4("cache.bin", serialize(pa.table({"d": [packed]}))).codes()
+
+
+@pytest.mark.parametrize("text, found", [
+    ("orders = .2e5", True), ("page 2 20 000", True), ("20000,2e-1", True), ("orders = 20 000", True),
+    ("orders = 20000.e-5", False), ("orders = 1 020 000", False), ("orders = 1.020.000", False),
+    ("orders = 1,020,000", False), ("1 220 000", False), ("120 000", False), ("5,20.000", True),
+])
+def test_numbers_are_read_as_whole_literals_and_groupings(text, found):
+    assert (io_.INSPECT_NUMBER in _r4("results.txt", text.encode()).codes()) is found

@@ -222,10 +222,10 @@ def _is_text(data: bytes) -> str | None:
 def _blob(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int, *, speculative: bool,
           digest: str | None = None) -> None:
     if data[:4] == b"PAR1" and data[-4:] == b"PAR1" and len(data) >= 12:
-        if _parquet(ctx, data, file, path):
+        if _parquet(ctx, data, file, path, depth):
             return
     if data[:6] == b"ARROW1" or data[:4] == b"\xff\xff\xff\xff":
-        if _arrow(ctx, data, file, path):
+        if _arrow(ctx, data, file, path, depth):
             return
     decompressed = _decompress_by_magic(data)
     if decompressed is not None:
@@ -250,7 +250,7 @@ def _blob(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int
         if out is not None:
             _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=speculative)
             return
-    if _arrow(ctx, data, file, path):  # a stream with no continuation marker, speculative or not (PROTO-2-05)
+    if _arrow(ctx, data, file, path, depth):  # a stream with no continuation marker, speculative or not (PROTO-2-05)
         return
     if speculative:
         return  # a speculative decoding no layer reads: an identifier, not a carrier
@@ -261,7 +261,11 @@ def _blob(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int
 
 
 def _looks_like_carrier(data: bytes) -> bool:
-    """What a layer would read, at the depth where none may run any more."""
+    """What a layer would read, at the depth where none may run any more: a
+    magic, a layer with no magic, a JSON document — whole or embedded in other
+    text, as the dispatcher reads it —, or an encoded run whose decoding is
+    itself readable (PROTO-2-05, PROTO-4-05). A base64-shaped identifier that
+    decodes to bytes nothing reads is no layer."""
     if _decompress_by_magic(data) is not None or data[:4] in (b"PAR1", b"\xff\xff\xff\xff") or data[:6] == b"ARROW1":
         return True
     text = _is_text(data)
@@ -274,8 +278,35 @@ def _looks_like_carrier(data: bytes) -> bool:
             return True
         except ValueError:
             pass
-    whole = max((len(m[0]) for p in (_B64, _B64URL, _HEX) for m in p.finditer(stripped)), default=0)
-    return len(stripped) >= 16 and whole >= 0.9 * len(stripped)
+    if _has_embedded_json(text):
+        return True
+    for alphabet, pattern in (("std", _B64), ("url", _B64URL)):
+        for m in pattern.finditer(stripped):
+            if len(m[0]) >= 0.9 * len(stripped) and len(stripped) >= 16:
+                out = _b64(m[0], alphabet)
+                if out and (_is_text(out) is not None or _decompress_by_magic(out) is not None or out[:4] == b"PAR1"
+                            or _brotli(out) is not None):
+                    return True
+    for m in _HEX.finditer(stripped):
+        if len(m[0]) >= 0.9 * len(stripped):
+            out = bytes.fromhex(m[0])
+            if _is_text(out) is not None or _decompress_by_magic(out) is not None:
+                return True
+    return False
+
+
+def _has_embedded_json(text: str) -> bool:
+    decoder = json.JSONDecoder()
+    for tries, m in enumerate(_EMBEDDED.finditer(text)):
+        if tries >= 1000:
+            return True  # as the dispatcher: more openings than it reads is no clean result
+        try:
+            parsed, _ = decoder.raw_decode(text, m.start())
+        except ValueError:
+            continue
+        if isinstance(parsed, (dict, list)) and parsed:
+            return True
+    return False
 
 
 def _search_only(ctx: Context, data: bytes, file: str, path: str, role: str) -> None:
@@ -317,6 +348,15 @@ def _descend(ctx: Context, data: bytes, file: str, path: str, role: str, depth: 
 # --- decoders ---------------------------------------------------------------------------
 
 
+def _skippable(data: bytes) -> int | None:
+    """The length of a zstd skippable frame at the start of `data` — magic
+    0x184D2A50 to 0x184D2A5F, a 4-byte size, that many bytes —, or None."""
+    if len(data) < 8 or data[1:4] != b"\x2a\x4d\x18" or data[0] & 0xF0 != 0x50:
+        return None
+    size = int.from_bytes(data[4:8], "little")
+    return 8 + size if 8 + size <= len(data) else None
+
+
 def _decompress_by_magic(data: bytes) -> list[tuple[str, bytes]] | None:
     """Every frame of a zstd stream, every member of a gzip file, and what
     follows a zlib stream, read as its own blob (PROTO-1-05)."""
@@ -329,7 +369,7 @@ def _decompress_by_magic(data: bytes) -> list[tuple[str, bytes]] | None:
             if not d.eof:
                 return None
             return [("zlib", out)] + ([("after zlib", d.unused_data)] if d.unused_data else [])
-        if data[:4] == b"\x28\xb5\x2f\xfd":
+        if data[:4] == b"\x28\xb5\x2f\xfd" or _skippable(data) is not None:
             import zstandard
 
             # Frame by frame, so that a frame not read to its end is said so
@@ -337,7 +377,11 @@ def _decompress_by_magic(data: bytes) -> list[tuple[str, bytes]] | None:
             # as one blob, so that a value split across two frames is found
             # (PROTO-3-05).
             outs, remaining, complete = [], data, True
-            while remaining[:4] == b"\x28\xb5\x2f\xfd":
+            while remaining[:4] == b"\x28\xb5\x2f\xfd" or _skippable(remaining) is not None:
+                skip = _skippable(remaining)
+                if skip is not None:  # a skippable frame carries no stream data (RFC 8878 §3.1.2; PROTO-4-08)
+                    remaining = remaining[skip:]
+                    continue
                 obj = zstandard.ZstdDecompressor().decompressobj()
                 outs.append(obj.decompress(remaining))
                 if not obj.eof:
@@ -431,7 +475,7 @@ def _text_decoders(text: str):
 
 _SEPARATORS = ".,\u00a0\u202f\u2009"
 _RUN = re.compile(r"[0-9](?:[0-9.,\u00a0\u202f\u2009]*[0-9])?")
-_EXPONENT = re.compile(r"(?<![0-9A-Za-z_.])([-\u2212]?)([0-9]+(?:\.[0-9]+)?[eE][+-]?[0-9]+)(?![0-9])")
+_EXPONENT = re.compile(r"(?<![0-9A-Za-z_.])([-\u2212]?)((?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)[eE][+-]?[0-9]+)(?![0-9])")  # `.2e5`, `20000.e-5` (PROTO-4-07)
 _PLAIN = re.compile(r"[0-9]+")
 _DOTTED = re.compile(r"[0-9]+\.[0-9]+")
 _PT_GROUPED = re.compile(r"[0-9]{1,3}(?:\.[0-9]{3})+")
@@ -440,7 +484,33 @@ _COMMA_DECIMAL = re.compile(r"[0-9]+,[0-9]+")
 _EN_GROUPED = re.compile(r"[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?")
 _SPACE_GROUPED = re.compile(r"[0-9]{1,3}(?:[\u00a0\u202f\u2009][0-9]{3})+(?:[.,][0-9]+)?")
 WINDOW = 4  # separators a token may span inside one run of digits and separators
-_LITERAL_SPACE = re.compile(r"(?<![0-9])(?<![0-9] )[0-9]{1,3}(?: [0-9]{3})+(?:,[0-9]+)?(?![0-9]| [0-9])")
+_SPACED = re.compile(r"(?<![0-9])[0-9]+(?: [0-9]+)+(?:,[0-9]+)?(?![0-9])")  # digit groups an ordinary space apart
+
+
+def _space_groupings(run: str) -> list[tuple[str, int]]:
+    """The groupings inside digit groups an ordinary space apart, read from the
+    left and each as long as it goes: a group of one to three digits followed
+    by groups of exactly three. `2 20 000` holds `20 000`; `1 220 000` holds
+    only `1 220 000` (PROTO-4-07). A decimal part after a comma stays with the
+    last group."""
+    body, _, decimals = run.partition(",")
+    groups = body.split(" ")
+    offsets, at = [], 0
+    for g in groups:
+        offsets.append(at)
+        at += len(g) + 1
+    out, i = [], 0
+    while i < len(groups) - 1:
+        if 1 <= len(groups[i]) <= 3 and len(groups[i + 1]) == 3:
+            j = i + 1
+            while j + 1 < len(groups) and len(groups[j + 1]) == 3:
+                j += 1
+            literal = " ".join(groups[i:j + 1]) + ("," + decimals if decimals and j == len(groups) - 1 else "")
+            out.append((literal, offsets[i]))
+            i = j + 1
+        else:
+            i += 1
+    return out
 
 
 def _readings(token: str):
@@ -497,10 +567,27 @@ def _windows(text: str, run: str, start: int):
     starts = [0] + [i + 1 for i in seps]
     ends = seps + [len(run)]
     for a, s0 in enumerate(starts):
+        if a > 0 and _continues_grouping(run, starts, ends, a):
+            continue
         for b in range(a, min(len(ends), a + WINDOW + 1)):
             token = run[s0:ends[b]]
             if token and token[0].isdigit() and token[-1].isdigit():
                 yield token, negative and s0 == 0
+
+
+def _continues_grouping(run: str, starts: list[int], ends: list[int], a: int) -> bool:
+    """A window starting at group *a* is no number of its own when that group is
+    the continuation of a grouping: three digits, after a group of one to three
+    digits, with the same separator before it and after it — `1 020 000` never
+    holds `020 000`, `1.220.000` never `220.000`; `5,200.000` still holds
+    `200.000` (PROTO-4-07)."""
+    group = run[starts[a]:ends[a]]
+    previous = run[starts[a - 1]:ends[a - 1]]
+    if len(group) != 3 or not group.isdigit() or not (1 <= len(previous) <= 3 and previous.isdigit()):
+        return False
+    before = run[starts[a] - 1]
+    after = run[ends[a]] if ends[a] < len(run) else None
+    return after == before
 
 
 def _numbers_in_text(ctx: Context, text: str, file: str, path: str, role: str) -> None:
@@ -518,9 +605,11 @@ def _numbers_in_text(ctx: Context, text: str, file: str, path: str, role: str) -
                 continue
             if value.is_finite() and abs(value.adjusted()) <= 30:  # an exponent never becomes a huge integer
                 _match(ctx, value, "exponent", file, path, role)
-    for m in _LITERAL_SPACE.finditer(text):  # "20 000": grouping by an ordinary space (PROTO-2-06)
-        if not (m.start() > 0 and text[m.start() - 1] in "-\u2212"):
-            _match(ctx, Decimal(m[0].replace(" ", "").replace(",", ".")), "int" if "," not in m[0] else "js", file, path, role)
+    for m in _SPACED.finditer(text):  # "20 000": grouping by an ordinary space (PROTO-2-06)
+        for literal, at in _space_groupings(m[0]):
+            start = m.start() + at
+            if not (start > 0 and text[start - 1] in "-\u2212"):
+                _match(ctx, Decimal(literal.replace(" ", "").replace(",", ".")), "int" if "," not in literal else "js", file, path, role)
 
 
 def _match(ctx: Context, value: Decimal, how: str, file: str, path: str, role: str) -> None:
@@ -664,41 +753,58 @@ def _calendar(ctx: Context, record: dict, file: str, path: str) -> None:
 # --- Arrow and Parquet ------------------------------------------------------------------
 
 
-def _leaves(value):
-    """The scalar leaves of a typed cell: lists, structs and maps are walked to
-    the end (PROTO-3-07)."""
-    stack = [value]
+def _stored(array):
+    """The values an Arrow array stores, walked through its physical children:
+    a dictionary's whole dictionary — values no row refers to included —, a
+    list's whole child array, a struct's fields, a map's keys and items
+    (PROTO-3-07, PROTO-4-06). Yields Python scalars."""
+    import pyarrow as pa
+
+    stack = [array]
     while stack:
-        v = stack.pop()
-        if isinstance(v, dict):
-            stack.extend(v.values())
-        elif isinstance(v, (list, tuple)):
-            stack.extend(v)
-        elif v is not None:
-            yield v
+        a = stack.pop()
+        if isinstance(a, pa.ChunkedArray):
+            stack.extend(a.chunks)
+        elif isinstance(a, pa.DictionaryArray):
+            stack.append(a.dictionary)
+        elif isinstance(a, pa.MapArray):
+            stack.extend((a.keys, a.items))
+        elif isinstance(a, (pa.ListArray, pa.LargeListArray, pa.FixedSizeListArray)) or (
+                hasattr(pa, "ListViewArray") and isinstance(a, getattr(pa, "ListViewArray"))):
+            stack.append(a.values)
+        elif isinstance(a, pa.StructArray):
+            stack.extend(a.field(i) for i in range(a.type.num_fields))
+        elif isinstance(a, pa.UnionArray):
+            stack.extend(a.field(i) for i in range(a.type.num_fields))
+        else:
+            yield from (v for v in a.to_pylist() if v is not None)
 
 
-def _cells(ctx: Context, table, code: str, file: str, path: str) -> None:
+def _cells(ctx: Context, table, code: str, file: str, path: str, depth: int = 0) -> None:
+    """Every stored value of a typed table: a text needle in a string, a count
+    or an amount in a typed number, the numbers of a string read as text of a
+    data carrier, and a binary value dispatched as a blob of its own, one layer
+    deeper (PROTO-4-06)."""
     n = ctx.needles
     for column in table.columns:
-        for cell in column.to_pylist():
-            for v in _leaves(cell):
-                if isinstance(v, str):
-                    for t in sorted(t for t in n.texts if t in v):  # the matched needle, not the cell (PROTO-1-09)
-                        ctx.find(code, file, path, t)
-                elif isinstance(v, (bytes, bytearray)):
-                    _search_only(ctx, bytes(v), file, f"{path} > binary cell", DATA)
-                elif isinstance(v, (int, float, Decimal)) and not isinstance(v, bool):
-                    d = Decimal(repr(v)) if isinstance(v, float) else Decimal(v)
-                    if not d.is_finite():
-                        continue
-                    if d in n.amounts:
-                        ctx.find(code, file, path, _canonical_amount(n, d))  # the canonical value the draw can move (PROTO-2-08)
-                    if d == d.to_integral_value() and int(d) in n.counts:
-                        ctx.find(code, file, path, int(d))
+        for v in _stored(column):
+            if isinstance(v, str):
+                for t in sorted(t for t in n.texts if t in v):  # the matched needle, not the cell (PROTO-1-09)
+                    ctx.find(code, file, path, t)
+                _numbers_in_text(ctx, v, file, f"{path} > string", DATA)
+            elif isinstance(v, (bytes, bytearray)):
+                _descend(ctx, bytes(v), file, f"{path} > binary cell", DATA, depth, speculative=True)
+            elif isinstance(v, (int, float, Decimal)) and not isinstance(v, bool):
+                d = Decimal(repr(v)) if isinstance(v, float) else Decimal(v)
+                if not d.is_finite():
+                    continue
+                if d in n.amounts:
+                    ctx.find(code, file, path, _canonical_amount(n, d))  # the canonical value the draw can move (PROTO-2-08)
+                if d == d.to_integral_value() and int(d) in n.counts:
+                    ctx.find(code, file, path, int(d))
 
 
-def _parquet(ctx: Context, data: bytes, file: str, path: str) -> bool:
+def _parquet(ctx: Context, data: bytes, file: str, path: str, depth: int = 0) -> bool:
     import pyarrow.parquet as pq
 
     try:
@@ -708,7 +814,7 @@ def _parquet(ctx: Context, data: bytes, file: str, path: str) -> bool:
     if table.num_rows == 0 and fx_mod.schema_only(data):
         ctx.report.recorded.append(Note(file, path, "Parquet with P01's schema and no row: schema only"))
         return True
-    _cells(ctx, table, INSPECT_PARQUET, file, path)
+    _cells(ctx, table, INSPECT_PARQUET, file, path, depth)
     return True
 
 
@@ -724,7 +830,7 @@ def _arrow_opens(data: bytes) -> bool:
     return False
 
 
-def _arrow(ctx: Context, data: bytes, file: str, path: str) -> bool:
+def _arrow(ctx: Context, data: bytes, file: str, path: str, depth: int = 0) -> bool:
     import pyarrow.ipc as ipc
 
     for opener in (ipc.open_file, ipc.open_stream):
@@ -732,7 +838,7 @@ def _arrow(ctx: Context, data: bytes, file: str, path: str) -> bool:
             table = opener(io.BytesIO(data)).read_all()
         except Exception:  # noqa: BLE001
             continue
-        _cells(ctx, table, INSPECT_ARROW, file, f"{path} > arrow")
+        _cells(ctx, table, INSPECT_ARROW, file, f"{path} > arrow", depth)
         return True
     return False
 
