@@ -603,3 +603,51 @@ def test_a_damaged_parquet_footer_in_the_builder_output_is_content(tmp_path, sea
     data = _damaged_parquets()[damage]
     assert f.schema_only(data) is None
     assert _run(tmp_path, sealed, builder_extra={"assets/bad.parquet": data}).cls == h.CONTENT
+
+
+# --- round 5 (PROTO-5-03) -----------------------------------------------------------
+
+
+def test_both_readers_failing_at_runtime_is_the_checks_failure(tmp_path, sealed, monkeypatch):
+    """A fault of the witness is no evidence about the file."""
+    import duckdb
+    import pyarrow.parquet as pq
+
+    fx, pkg, _, _ = sealed
+    builder = _builder(tmp_path, {"assets/empty.parquet": _parquet_with([])})
+    _, validated = h.assemble(builder, pkg, fx.rows(), tmp_path / "artifact")
+    root = h.write_root(tmp_path / "run", _lists(tmp_path))
+    real = duckdb.DuckDBPyConnection.execute
+
+    def out_of_memory(self, sql, *a):
+        if "/f.parquet')" in sql:
+            raise duckdb.OutOfMemoryException("injected")
+        return real(self, sql, *a)
+
+    def witness_fault(*a, **k):
+        raise MemoryError("injected")
+
+    with monkeypatch.context() as m:
+        m.setattr(duckdb.DuckDBPyConnection, "execute", out_of_memory)
+        m.setattr(pq, "ParquetFile", witness_fault)
+        outcome = h.verify(tmp_path / "artifact", builder, root, validated)
+    assert outcome.cls == h.HARNESS_ERROR and "schema check failed" in outcome.message
+
+
+def test_a_parquet_duckdb_reads_and_pyarrow_refuses_is_read_by_duckdb():
+    """The reverse disagreement: bad optional Arrow metadata."""
+    import io as io_mod
+
+    import pyarrow.parquet as pq
+
+    import inspect_output as io_
+
+    table = pq.ParquetFile(io_mod.BytesIO(f.parquet([]))).read()
+    out = io_mod.BytesIO()
+    with pq.ParquetWriter(out, table.schema, store_schema=False) as writer:
+        writer.add_key_value_metadata({"ARROW:schema": "broken metadata"})
+        writer.write_table(table)
+    data = out.getvalue()
+    assert f.schema_only(data) is True
+    report = io_.inspect_items([io_.Item("rows.parquet", data)], io_.Needles(frozenset(), frozenset(), frozenset(), frozenset()))
+    assert report.clean and any("read by DuckDB" in x.reason for x in report.recorded)

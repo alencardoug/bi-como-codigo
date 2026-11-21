@@ -424,16 +424,25 @@ class SchemaFault(Exception):
 
 def _another_reader_opens(data: bytes) -> bool:
     """PyArrow reads the file's metadata and schema: the witness that bytes
-    DuckDB refused are a Parquet after all."""
+    DuckDB refused are a Parquet after all. Only an explicit refusal of the
+    bytes — PyArrow's `ArrowInvalid`, or the `OSError` it raises for a footer
+    it cannot deserialize from memory — is evidence about the file; any other
+    failure of the witness — memory, an unsupported feature, anything else —
+    is the check's own and raises `SchemaFault` (PROTO-5-03)."""
     import io
 
+    import pyarrow as pa
     import pyarrow.parquet as pq
 
     try:
         pq.ParquetFile(io.BytesIO(data)).schema_arrow
         return True
-    except Exception:  # noqa: BLE001 — any refusal of the bytes
+    except (pa.ArrowNotImplementedError, MemoryError) as error:
+        raise SchemaFault(f"the second reader failed: {type(error).__name__}") from None
+    except (pa.ArrowInvalid, OSError):
         return False
+    except Exception as error:  # noqa: BLE001
+        raise SchemaFault(f"the second reader failed: {type(error).__name__}") from None
 
 
 def schema_only(data: bytes) -> bool | None:
