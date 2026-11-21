@@ -441,7 +441,15 @@ def schema_only(data: bytes) -> bool | None:
             try:
                 schema = [(r[0], r[1]) for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path.as_posix()}')").fetchall()]
                 rows = con.execute(f"SELECT count(*) FROM read_parquet('{path.as_posix()}')").fetchone()[0]
-            except duckdb.Error:
+            except duckdb.Error as error:
+                # A file that is no longer the one written is the check's own failure;
+                # bytes that do not parse are the file's (PROTO-2-03).
+                try:
+                    intact = path.read_bytes() == data
+                except OSError:
+                    intact = False
+                if not intact:
+                    raise SchemaFault(f"the checked file changed: {type(error).__name__}") from None
                 return None
     finally:
         con.close()

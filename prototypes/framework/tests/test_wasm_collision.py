@@ -58,7 +58,8 @@ def test_a_row_count_measured_in_the_engine_is_a_collision(tmp_path, builder, ro
     lists.mkdir()
     (lists / "include.txt").write_text("site/*\n")
     (lists / "media_types.txt").write_text(".html text/html\n.wasm application/wasm\n.json application/json\n.bice application/octet-stream\n")
-    result = h.verify(tmp_path / "artifact", builder, h.write_root(tmp_path / "run", lists), validated, role_override=role)
+    result = h.verify(tmp_path / "artifact", builder, h.write_root(tmp_path / "run", lists), validated, role_override=role,
+                      label="control" if role else "judged")
     assert result.cls == expected, result.message
     if expected == h.COLLISION:
         assert result.detail["file"] == "assets/duckdb-eh.wasm"

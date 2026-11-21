@@ -72,6 +72,8 @@ class ValidatedPackage:
     files: dict[str, str]  # name under package/ → SHA-256
     values: c.Values
     artifact: tuple = ()  # the assembled artifact's tree, which verify is bound to
+    builder: tuple = ()  # the builder output's tree it was assembled from, which reproduction is bound to
+    label: str = "judged"  # "control" when hand-made additions entered the artifact
 
 
 class PackageRefused(Exception):
@@ -146,16 +148,16 @@ def assemble(builder: pathlib.Path, package_dir: pathlib.Path, expected_rows: li
         return Outcome("assembly", HARNESS_ERROR, f"package refused by its own validation: {refusal}"), None
     if artifact.exists() or artifact.is_symlink():
         return Outcome("assembly", HARNESS_ERROR, f"{artifact} exists: an artifact is assembled fresh"), None
-    if any(rel == PACKAGE or rel.startswith(PACKAGE + "/") or ".." in rel.split("/") for rel in control_additions or {}):
-        return Outcome("assembly", HARNESS_ERROR, "a control addition under package/ or outside the artifact"), None
+    for rel in control_additions or {}:
+        pure = pathlib.PurePosixPath(rel)
+        if pure.is_absolute() or ".." in pure.parts or str(pure) != rel or not rel or pure.parts[0] == PACKAGE:
+            return Outcome("assembly", HARNESS_ERROR, f"a control addition outside the artifact or under package/: {rel!r}"), None
     try:
         uncarried = trees.copy(builder, artifact)
         if uncarried:  # a socket or a device: the gate would refuse it as not a plain file
             return Outcome("assembly", FORM, f"entries no copy can carry: {uncarried}", {"entries": uncarried}), None
         for rel, data in (control_additions or {}).items():
-            target = artifact / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(data)
+            _add_contained(artifact, rel, data)
         (artifact / PACKAGE).mkdir()
         for name in validated.files:
             (artifact / PACKAGE / name).write_bytes((package_dir / name).read_bytes())
@@ -169,8 +171,29 @@ def assemble(builder: pathlib.Path, package_dir: pathlib.Path, expected_rows: li
     package_kinds = {x[1] for x in placed if x[0].startswith(PACKAGE + "/")}
     if rest != tree(builder) or package != validated.files or package_kinds - {"file"}:
         return Outcome("assembly", HARNESS_ERROR, "the artifact is not the builder output plus the validated package"), None
-    bound = dataclasses.replace(validated, artifact=tuple(placed))
+    bound = dataclasses.replace(validated, artifact=tuple(placed), builder=tuple(tree(builder)),
+                                label="control" if added else "judged")
     return Outcome("assembly", PASS, "assembled", {"package": validated.files, "control_additions": sorted(added)}), bound
+
+
+def _add_contained(artifact: pathlib.Path, rel: str, data: bytes) -> None:
+    """One control addition, created inside the artifact through real folders
+    only, never over an existing entry (PROTO-2-02)."""
+    import os
+
+    here = artifact
+    for part in pathlib.PurePosixPath(rel).parts[:-1]:
+        here = here / part
+        if here.is_symlink():
+            raise trees.Refused(f"a control addition through a link: {rel}")
+        if not here.exists():
+            here.mkdir()
+        elif not here.is_dir():
+            raise trees.Refused(f"a control addition under a file: {rel}")
+    target = here / pathlib.PurePosixPath(rel).name
+    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(data)
 
 
 # --- verify, under a root of the harness's own (§2.5.1) ------------------------------
@@ -224,10 +247,12 @@ _TABLE: list[tuple[re.Pattern, str]] = [(re.compile(p), cls) for p, cls in [
 
 
 def run_gate(artifact: pathlib.Path, builder: pathlib.Path, root: pathlib.Path, validated: ValidatedPackage | None,
-             *, role_override: str | None = None) -> Outcome:
+             *, role_override: str | None = None, table_control: bool = False) -> Outcome:
     """`release.verify` unchanged, then the class of its outcome — with no
-    binding to the assembled tree. The rows of §2.5.1's table are proved
-    through here; a run is judged through `verify`."""
+    binding to the assembled tree. Only the controls of §2.5.1's table may use
+    it, and they say so; a run is judged through `verify` (PROTO-2-02)."""
+    if not table_control:
+        raise ValueError("run_gate is unbound: only a control of §2.5.1's table calls it, with table_control=True")
     try:
         release.verify(root, artifact, live=lambda: release.NO_LIVE)
     except release.Refused as refusal:
@@ -238,19 +263,22 @@ def run_gate(artifact: pathlib.Path, builder: pathlib.Path, root: pathlib.Path, 
 
 
 def verify(artifact: pathlib.Path, builder: pathlib.Path, root: pathlib.Path,
-           validated: ValidatedPackage | None, *, role_override: str | None = None) -> Outcome:
+           validated: ValidatedPackage | None, *, role_override: str | None = None, label: str = "judged") -> Outcome:
     """The gate on the assembled artifact. `builder` is the extracted archive of
     the builder output it was assembled from; `validated` what assembly returned.
-    `role_override` exists for the collision control alone."""
+    `label` is the run's: a judged run refuses an assembly that took a control's
+    additions. `role_override` exists for the collision control alone."""
     if validated is None or not validated.artifact:
         return Outcome("verify", HARNESS_ERROR, "no assembled artifact to verify")
+    if label == "judged" and (validated.label != "judged" or role_override is not None):
+        return Outcome("verify", HARNESS_ERROR, f"control evidence ({validated.label} assembly, role {role_override}) on a judged run")
     try:
         before = tuple(tree(artifact))
     except (OSError, trees.Refused) as error:
         return Outcome("verify", HARNESS_ERROR, f"the artifact cannot be read: {type(error).__name__}")
     if before != validated.artifact:
         return Outcome("verify", HARNESS_ERROR, "the artifact is not the one assembled with the validated package")
-    outcome = run_gate(artifact, builder, root, validated, role_override=role_override)
+    outcome = run_gate(artifact, builder, root, validated, role_override=role_override, table_control=True)
     try:
         after = tuple(tree(artifact))
     except (OSError, trees.Refused):
@@ -304,6 +332,8 @@ def _reproduce(code: str, rel: str, message: str, artifact: pathlib.Path, builde
     if validated is None:
         return Outcome("verify", HARNESS_ERROR, f"{message}: no validated package to reproduce it with")
     try:
+        if validated.builder and tuple(tree(builder)) != validated.builder:  # the builder output assembly used (PROTO-2-03)
+            return Outcome("verify", HARNESS_ERROR, f"{message}: the builder output given is not the one assembled")
         public = c.load_public_values((root / "release" / "public_values.json").read_bytes())
         data = trees.files(artifact)[rel]
         is_manifest = rel == f"{PACKAGE}/manifest.json"

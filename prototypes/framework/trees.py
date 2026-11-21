@@ -36,26 +36,31 @@ class Entry:
 
 
 def real_root(base: pathlib.Path, rel: str = "") -> pathlib.Path:
-    """`base/rel`, refused if it or any folder on the way is a link or leaves
-    `base`."""
-    path = base
+    """`base/rel`, refused if any component of its absolute path — the
+    ancestors of `base` included — is a link, or if it leaves `base`
+    (PROTO-2-01)."""
     for part in pathlib.PurePosixPath(rel).parts:
         if part in ("..", "/"):
             raise Refused(f"{rel} leaves {base}")
-        path = path / part
-        if path.is_symlink():
-            raise Refused(f"{path} is a link: a host-side read never follows one")
-    if base.is_symlink():
-        raise Refused(f"{base} is a link")
+    path = pathlib.Path(os.path.abspath(base / rel))
+    probe = pathlib.Path(path.anchor)
+    for part in path.parts[1:]:
+        probe = probe / part
+        if probe.is_symlink():
+            raise Refused(f"{probe} is a link: a host-side read never follows one")
     if not path.is_dir():
         raise Refused(f"{path} is not a folder")
     return path
 
 
 def entries(root: pathlib.Path) -> list[Entry]:
-    """Every entry under `root`, sorted, read with lstat."""
+    """Every entry under `root`, sorted, read with lstat. The root is checked
+    by `real_root`, and a folder the walk cannot read refuses the listing,
+    naming it — a tree is never listed incomplete (PROTO-2-01)."""
+    root = real_root(root)
     out = []
-    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+    failures: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False, onerror=lambda e: failures.append(str(e.filename))):
         here = pathlib.Path(dirpath)
         for name in sorted(dirnames + filenames):
             path = here / name
@@ -74,6 +79,8 @@ def entries(root: pathlib.Path) -> list[Entry]:
             else:
                 out.append(Entry(rel, "other", "", mode))
         dirnames[:] = [d for d in dirnames if not (here / d).is_symlink()]
+    if failures:
+        raise Refused(f"folders the walk cannot read: {sorted(failures)}")
     return sorted(out, key=lambda e: e.rel)
 
 
@@ -108,6 +115,8 @@ def copy(src: pathlib.Path, dst: pathlib.Path) -> list[str]:
             os.chmod(dst / e.rel, e.mode)
     os.chmod(dst, stat.S_IMODE(src.lstat().st_mode))
     return uncarried
+
+
 
 
 def archive(src: pathlib.Path, dest: pathlib.Path) -> str:
@@ -145,10 +154,11 @@ def archive(src: pathlib.Path, dest: pathlib.Path) -> str:
 
 
 def _keep_mode(member: tarfile.TarInfo, path: str) -> tarfile.TarInfo:
-    """The `tar` filter's refusals — absolute paths, links leaving the folder —
-    with the archived permission bits kept as they were."""
+    """The `tar` filter's refusals — links leaving the folder, devices — with
+    the archived permission bits kept as they were, setgid and sticky included
+    (PROTO-2-01)."""
     checked = tarfile.tar_filter(member, path)
-    return checked.replace(mode=member.mode & 0o777, deep=False) if member.isfile() or member.isdir() or member.isfifo() else checked
+    return checked.replace(mode=member.mode & 0o7777, deep=False) if member.isfile() or member.isdir() or member.isfifo() else checked
 
 
 def extract(archive_path: pathlib.Path, out: pathlib.Path, digest: str) -> None:
@@ -161,7 +171,13 @@ def extract(archive_path: pathlib.Path, out: pathlib.Path, digest: str) -> None:
     out.mkdir(parents=True)
     with tarfile.open(fileobj=io.BytesIO(raw), mode="r:gz") as tar:
         members = sorted(tar.getmembers(), key=lambda m: m.name)
+        bad = [m.name for m in members if m.name.startswith("/") or ".." in pathlib.PurePosixPath(m.name).parts]
+        if bad:  # every later attribute is applied inside `out` only (PROTO-2-14)
+            raise Refused(f"archive members outside the folder: {bad}")
         dirs = [m for m in members if m.isdir()]
         tar.extractall(out, members=[m for m in members if not m.isdir()] + dirs, filter=_keep_mode)
     for m in dirs:
-        os.chmod(out / m.name, m.mode & 0o777)
+        target = out / m.name
+        if not os.path.abspath(target).startswith(os.path.abspath(out) + os.sep) or target.is_symlink():
+            raise Refused(f"{m.name} resolves outside the folder")
+        os.chmod(target, m.mode & 0o7777)

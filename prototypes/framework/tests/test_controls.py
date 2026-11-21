@@ -60,7 +60,8 @@ def _all_layers(tmp_path, fx, *, builder_extra=None, artifact_extra=None, label=
     lists.mkdir()
     (lists / "include.txt").write_text(LISTS[0])
     (lists / "media_types.txt").write_text(LISTS[1])
-    result = h.verify(artifact, builder, h.write_root(tmp_path / "run", lists, decl), validated)
+    result = h.verify(artifact, builder, h.write_root(tmp_path / "run", lists, decl), validated,
+                      label="control" if artifact_extra else "judged")
     needles = io_.Needles.from_fixture(fx)
     built = io_.inspect_dir(builder, needles)
     inspected = io_.inspect_dir(artifact, needles, validated={f"{k}": d for k, d in validated.files.items()})

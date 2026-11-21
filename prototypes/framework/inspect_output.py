@@ -170,7 +170,9 @@ class Context:
 
 def inspect_dir(root: pathlib.Path, needles: Needles, *, validated: dict[str, str] | None = None,
                 cdn: dict[str, str] | None = None, dependencies: frozenset[str] = frozenset()) -> Report:
-    items = [Item(p.relative_to(root).as_posix(), p.read_bytes()) for p in sorted(root.rglob("*")) if p.is_file() and not p.is_symlink()]
+    import trees
+
+    items = [Item(rel, data) for rel, data in sorted(trees.files(root).items())]  # checked root, no link followed, a walk never incomplete
     return inspect_items(items, needles, validated=validated, cdn=cdn, dependencies=dependencies)
 
 

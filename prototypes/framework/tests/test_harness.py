@@ -72,10 +72,11 @@ def _run(tmp_path, sealed, *, builder_extra=None, artifact_extra=None, include=I
         after_assembly(artifact)
     root = h.write_root(tmp_path / "run", _lists(tmp_path, include, media), declarations)
     if after_assembly:
-        bound = h.verify(artifact, builder, root, validated, role_override=role_override)
+        bound = h.verify(artifact, builder, root, validated, role_override=role_override, label="control")
         assert (bound.cls, bound.message) == (h.HARNESS_ERROR, "the artifact is not the one assembled with the validated package")
-        return h.run_gate(artifact, builder, root, validated, role_override=role_override)
-    return h.verify(artifact, builder, root, validated, role_override=role_override)
+        return h.run_gate(artifact, builder, root, validated, role_override=role_override, table_control=True)
+    label = "control" if artifact_extra or role_override else "judged"
+    return h.verify(artifact, builder, root, validated, role_override=role_override, label=label)
 
 
 # --- the clean control and assembly --------------------------------------------------
@@ -337,6 +338,7 @@ def test_an_archive_keeps_modes_links_and_fifos_and_assembly_carries_them_to_the
     outcome, validated = h.assemble(tmp_path / "back", pkg, fx.rows(), tmp_path / "artifact")
     assert outcome.cls == h.PASS
     result = h.verify(tmp_path / "artifact", tmp_path / "back", h.write_root(tmp_path / "run", _lists(tmp_path)), validated)
+    assert h.tree(tmp_path / "back") == h.tree(src)
     assert (result.cls, result.message) == (h.FORM, "assets/alias.js is a symbolic link")
 
 
@@ -404,3 +406,116 @@ def test_a_zero_row_parquet_with_other_types_is_content_not_schema_only(tmp_path
         data = open(f"{d}/x.parquet", "rb").read()
     assert f.schema_only(data) is False
     assert _run(tmp_path, sealed, builder_extra={"assets/wrong.parquet": data}).cls == h.CONTENT
+
+
+# --- round 2 (PROTO-2-01 to -03, -14) ---------------------------------------------------
+
+
+def test_a_root_under_a_linked_ancestor_and_a_linked_artifact_are_refused(tmp_path, sealed):
+    fx, pkg, _, _ = sealed
+    real = tmp_path / "real"
+    _builder(real)
+    (tmp_path / "via").symlink_to(real)
+    with pytest.raises(trees.Refused, match="is a link"):
+        trees.entries(tmp_path / "via" / "builder")
+    outcome, validated = h.assemble(real / "builder", pkg, fx.rows(), tmp_path / "artifact")
+    assert outcome.cls == h.PASS
+    (tmp_path / "artifact").rename(tmp_path / "moved")
+    (tmp_path / "artifact").symlink_to(tmp_path / "moved")
+    result = h.verify(tmp_path / "artifact", real / "builder", h.write_root(tmp_path / "run", _lists(tmp_path)), validated)
+    assert result.cls == h.HARNESS_ERROR
+
+
+def test_an_unreadable_folder_refuses_the_archive_and_the_inspection(tmp_path, sealed):
+    import inspect_output as io_
+
+    src = _builder(tmp_path)
+    (src / "assets" / "hidden").mkdir()
+    (src / "assets" / "hidden" / "x.js").write_text("fixture_canal_a")
+    os.chmod(src / "assets" / "hidden", 0)
+    try:
+        with pytest.raises(trees.Refused, match="cannot read"):
+            h.archive(src, tmp_path / "b.tar.gz")
+        with pytest.raises(trees.Refused):
+            io_.inspect_dir(src, io_.Needles.from_fixture(sealed[0], gate=False))
+    finally:
+        os.chmod(src / "assets" / "hidden", 0o755)
+
+
+def test_setgid_and_sticky_bits_survive_the_archive(tmp_path):
+    src = _builder(tmp_path)
+    os.chmod(src / "assets", 0o1775)
+    digest = h.archive(src, tmp_path / "b.tar.gz")
+    h.extract(tmp_path / "b.tar.gz", tmp_path / "back", digest)
+    assert h.tree(tmp_path / "back") == h.tree(src)
+
+
+def test_an_absolute_archive_member_is_refused_and_leaves_its_sibling_alone(tmp_path):
+    import gzip as gz
+    import hashlib
+    import io as io_mod
+    import tarfile
+
+    sibling = tmp_path / "sibling"
+    sibling.mkdir(mode=0o700)
+    buf = io_mod.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as tar:
+        info = tarfile.TarInfo(str(sibling))
+        info.type, info.mode = tarfile.DIRTYPE, 0o755
+        tar.addfile(info)
+    raw = gz.compress(buf.getvalue())
+    (tmp_path / "x.tar.gz").write_bytes(raw)
+    with pytest.raises(trees.Refused, match="outside"):
+        h.extract(tmp_path / "x.tar.gz", tmp_path / "out", hashlib.sha256(raw).hexdigest())
+    assert (sibling.stat().st_mode & 0o777) == 0o700
+
+
+@pytest.mark.parametrize("rel", ["/abs/marker", "assets/../../marker", "linked/marker"])
+def test_a_control_addition_stays_inside_the_artifact(tmp_path, sealed, rel):
+    fx, pkg, _, _ = sealed
+    sibling = tmp_path / "sibling"
+    sibling.mkdir()
+    builder = _builder(tmp_path)
+    (builder / "linked").symlink_to(sibling)
+    outcome, _ = h.assemble(builder, pkg, fx.rows(), tmp_path / "artifact", control_additions={rel.replace("/abs", str(sibling)): b"x"})
+    assert outcome.cls == h.HARNESS_ERROR
+    assert list(sibling.iterdir()) == []
+
+
+def test_a_judged_run_refuses_control_evidence_and_the_unbound_gate(tmp_path, sealed):
+    fx, pkg, _, _ = sealed
+    builder = _builder(tmp_path)
+    outcome, validated = h.assemble(builder, pkg, fx.rows(), tmp_path / "artifact", control_additions={"assets/x.txt": b"1"})
+    root = h.write_root(tmp_path / "run", _lists(tmp_path))
+    assert h.verify(tmp_path / "artifact", builder, root, validated).cls == h.HARNESS_ERROR
+    with pytest.raises(ValueError):
+        h.run_gate(tmp_path / "artifact", builder, root, validated)
+
+
+def test_a_collision_reproduced_against_another_builder_is_the_harnesss(tmp_path, sealed):
+    fx, pkg, _, _ = sealed
+    builder = _builder(tmp_path, {"assets/count.js": f"n = {len(fx.cells)};".encode()})
+    outcome, validated = h.assemble(builder, pkg, fx.rows(), tmp_path / "artifact")
+    other = tmp_path / "other"
+    trees.copy(builder, other)
+    (other / "assets" / "extra.js").write_text("1")
+    root = h.write_root(tmp_path / "run", _lists(tmp_path))
+    assert h.verify(tmp_path / "artifact", builder, root, validated).cls == h.COLLISION
+    wrong = h.verify(tmp_path / "artifact", other, root, validated)
+    assert wrong.cls == h.HARNESS_ERROR and "not the one assembled" in wrong.message
+
+
+def test_a_schema_query_whose_file_vanished_is_the_checks_failure(monkeypatch):
+    import duckdb
+
+    real = duckdb.DuckDBPyConnection.execute
+
+    def vanish(self, sql, *a):
+        if "DESCRIBE" in sql:
+            path = sql.split("read_parquet('")[1].split("'")[0]
+            os.unlink(path)
+        return real(self, sql, *a)
+
+    monkeypatch.setattr(duckdb.DuckDBPyConnection, "execute", vanish)
+    with pytest.raises(f.SchemaFault):
+        f.schema_only(f.parquet([]))
