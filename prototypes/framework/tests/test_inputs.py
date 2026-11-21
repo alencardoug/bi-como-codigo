@@ -10,6 +10,7 @@ import hashlib
 import http.server
 import io
 import json
+import re
 import shutil
 import subprocess
 import tarfile
@@ -213,6 +214,11 @@ def test_package_code_cannot_reach_a_listener_on_the_hosts_loopback(tmp_path, lo
         al.assemble(allow, tmp_path / f"{name}-closed")
         closed = sb.run(tmp_path / f"{name}-closed", ["/usr/bin/sh", "-c", script], timeout=120)
         assert closed.returncode != 0, name
+        # It failed at the connection it attempted, not on anything else (PROTO-1-08).
+        if name == "install":
+            assert re.search(rb"ECONNREFUSED|ENETUNREACH|EAI_AGAIN|ENOTFOUND", closed.stderr), closed.stderr[-800:]
+        else:
+            assert closed.returncode == 3, closed.stderr[-800:]
         al.assemble(allow, tmp_path / f"{name}-open")
         shared = sb.run(tmp_path / f"{name}-open", ["/usr/bin/sh", "-c", script], options=sb.Options(unshare_net=False), timeout=120)
         assert shared.returncode == 0, (name, shared.stderr.decode()[-1500:])

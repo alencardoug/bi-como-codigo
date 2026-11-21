@@ -40,12 +40,19 @@ class Options:
     clearenv: bool = True
     unshare_pid: bool = True
     unshare_net: bool = True
+    unshare_ipc: bool = True
+    unshare_uts: bool = True
+    new_session: bool = True
+    remount_ro: bool = True
     extra_binds: tuple[str, ...] = ()  # host paths bound read-write: only a variant has any
 
 
 def command(work: pathlib.Path, argv: list[str], *, env: dict[str, str] | None = None,
             options: Options = Options()) -> list[str]:
-    cmd = ["bwrap", "--die-with-parent", "--new-session", "--unshare-ipc", "--unshare-uts"]
+    cmd = ["bwrap", "--die-with-parent"]
+    for flag, on in (("--new-session", options.new_session), ("--unshare-ipc", options.unshare_ipc), ("--unshare-uts", options.unshare_uts)):
+        if on:
+            cmd.append(flag)
     if options.unshare_pid:
         cmd.append("--unshare-pid")
     if options.unshare_net:
@@ -63,7 +70,8 @@ def command(work: pathlib.Path, argv: list[str], *, env: dict[str, str] | None =
             "--dir", HOME, "--bind", str(work.resolve()), WORK, "--chdir", WORK]
     for path in options.extra_binds:
         cmd += ["--bind", path, path]
-    cmd += ["--remount-ro", "/"]  # the sandbox's own root too: only the work folder, /tmp and HOME are writable
+    if options.remount_ro:
+        cmd += ["--remount-ro", "/"]  # the sandbox's own root too: only the work folder, /tmp and HOME are writable
     return cmd + ["--", *argv]
 
 
@@ -92,7 +100,8 @@ def prove(work: pathlib.Path, *, absent: list[str], options: Options = Options()
     listener.bind(("127.0.0.1", 0))
     listener.listen(1)
     port = listener.getsockname()[1]
-    config = {"absent": absent, "token_name": token_name, "host_pids": [os.getpid(), os.getppid()], "port": port,
+    host_ns = {kind: os.readlink(f"/proc/self/ns/{kind}") for kind in ("pid", "ipc", "uts", "net", "mnt")}
+    config = {"absent": absent, "token_name": token_name, "host_ns": host_ns, "host_sid": os.getsid(0), "port": port,
               "write": ["/usr/bice-probe", "/etc/bice-probe", "/bice-probe", *[os.path.join(p, "bice-probe") for p in absent if os.path.isdir(p)]],
               "registry": "registry.npmjs.org"}
     shutil.copyfile(PROBE, work / "sandbox_probe.py")
@@ -127,14 +136,43 @@ def host_absent(checkout: pathlib.Path, scratch_sentinel: pathlib.Path, clear_se
                              scratch_sentinel, clear_sentinel)]
 
 
+class planted:
+    """A synthetic sentinel the probe must not see, written before it runs and
+    removed after — never a real file of the host (PROTO-1-08)."""
+
+    def __init__(self, path: pathlib.Path):
+        self.path = path
+
+    def __enter__(self) -> pathlib.Path:
+        if self.path.exists():
+            raise FileExistsError(f"{self.path} exists: a sentinel is planted fresh")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(f"planted by the harness {secrets.token_hex(8)}")
+        return self.path
+
+    def __exit__(self, *exc) -> None:
+        self.path.unlink(missing_ok=True)
+
+
+VARIANTS = {"clearenv": "token not inherited", "unshare_pid": "own PID namespace", "unshare_net": "host loopback unreachable",
+            "unshare_ipc": "own IPC namespace", "unshare_uts": "own UTS namespace", "new_session": "a session of its own",
+            "remount_ro": "no write /bice-probe"}
+
+
 if __name__ == "__main__":
     import tempfile
 
-    with tempfile.TemporaryDirectory(prefix="bice-sandbox-") as tmp:
-        sentinel = pathlib.Path(tmp) / "sentinel"
-        sentinel.write_text("sentinel")
-        work = pathlib.Path(tmp) / "work"
-        work.mkdir()
-        proof = prove(work, absent=host_absent(HERE.parents[1], sentinel, HERE / "clear" / "planted"))
-        print(json.dumps({"passed": proof.passed, "checks": proof.checks}, indent=2))
-        sys.exit(0 if proof.passed else 1)
+    with tempfile.TemporaryDirectory(prefix="bice-sandbox-") as tmp, \
+            planted(pathlib.Path(tmp) / "sentinel") as sentinel, \
+            planted(HERE / "clear" / f"planted-{secrets.token_hex(4)}") as clear_sentinel:
+        out = {}
+        for variant in [None, *VARIANTS]:
+            work = pathlib.Path(tmp) / f"work-{variant}"
+            work.mkdir()
+            options = Options() if variant is None else dataclasses.replace(Options(), **{variant: False})
+            proof = prove(work, absent=host_absent(HERE.parents[1], sentinel, clear_sentinel), options=options)
+            out[variant or "the wrapper"] = ({"passed": proof.passed, "checks": proof.checks} if variant is None else
+                                             {"without": variant, "check": VARIANTS[variant], "check_holds": proof.checks.get(VARIANTS[variant]), "passed": proof.passed})
+        print(json.dumps(out, indent=2))
+        ok = out["the wrapper"]["passed"] and all(v["check_holds"] is False and not v["passed"] for k, v in out.items() if k != "the wrapper")
+        sys.exit(0 if ok else 1)

@@ -26,9 +26,26 @@ for path in config["absent"]:
 checks["token not inherited"] = config["token_name"] not in os.environ
 seen["environment"] = sorted(os.environ)
 
-pids = [int(p) for p in os.listdir("/proc") if p.isdigit()]
-seen["pids"] = pids
-checks["no host pid"] = not set(config["host_pids"]) & set(pids)
+own = {kind: os.readlink("/proc/self/ns/" + kind) for kind in ("pid", "ipc", "uts", "net", "mnt")}
+seen["namespaces"] = own
+checks["own PID namespace"] = own["pid"] != config["host_ns"]["pid"]
+checks["own IPC namespace"] = own["ipc"] != config["host_ns"]["ipc"]
+checks["own UTS namespace"] = own["uts"] != config["host_ns"]["uts"]
+checks["own network namespace"] = own["net"] != config["host_ns"]["net"]
+checks["own mount namespace"] = own["mnt"] != config["host_ns"]["mnt"]
+others = set()
+for p in os.listdir("/proc"):
+    if p.isdigit():
+        try:
+            others.add(os.readlink("/proc/" + p + "/ns/pid"))
+        except OSError:
+            others.add("unreadable")  # a process it cannot inspect is not shown to be its own
+seen["pid_namespaces_visible"] = sorted(others)
+checks["every visible process in its own PID namespace"] = others == {own["pid"]}
+# bubblewrap's setsid: the session's leader is inside the sandbox (0 when it is outside the PID namespace)
+seen["sid"] = os.getsid(0)
+checks["a session of its own"] = os.getsid(0) not in (0, config["host_sid"])
+checks["root not writable"] = not os.access("/", os.W_OK)
 
 fds = []
 for fd in os.listdir("/proc/self/fd"):
