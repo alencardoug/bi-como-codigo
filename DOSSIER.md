@@ -768,3 +768,337 @@ $ make prototype-test
 
 The count includes the out-of-scope files of the opening notes. `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1
 make check` exited 0 before each commit.
+
+## Round 5 — PROTO
+
+### 1. Conclusion
+
+**Changes required.** An archived Arrow file containing the fixture's row count gets `PASS` from
+`verify` and clean reports from both carrier inspections. A previous artifact can supply an
+ineligible verdict after an assembly refusal, and an unbound draw can close an exhausted run.
+Two reader runtime failures can also be attributed to the candidate. Step 1 remains open.
+
+### 2. Reviewed scope and version
+
+Intake was `main` at `e7129534cac91dc23daebff6478f0dc4b914dff5`, aligned with `origin/main`,
+with a clean working tree and no untracked files. The seven commits in `54385c6..e712953` modify
+ten prototype files and this dossier and add no files. The baseline `54385c6` has no prototype
+diff against `5dd3dab` (`git diff --quiet 5dd3dab 54385c6 -- prototypes/framework`, exit 0).
+The implementation stayed at the reviewed version.
+
+Reviewed against `AGENTS.md`, `CLAUDE.md`, framework prototype revision 9 §§2.1, 2.2, 2.5.1–2.5.5,
+2.7 and §7 step 1, and PLAN §6.2 and N94–N96. The review starts with
+`git diff 54385c6 e712953 -- prototypes/framework`. Paths in the findings are relative to
+`prototypes/framework/`. The Owner's 2026-11-21 exclusions apply to `sandbox.py`,
+`sandbox_probe.py`, `tests/test_sandbox.py` and the named host loopback test in `tests/test_inputs.py`.
+Calls to the wrapper are in scope for their handling of its result. The same exclusions cover
+`diagnose.py`, `leveldb.py`, `browser/`, `controls/page/` and `tests/test_diagnostic.py`.
+
+### 3. Findings
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+| PROTO-5-01 | `verdict.py:125–148` | An assembly refusal can borrow a previous artifact's eligibility. | blocking | |
+| PROTO-5-02 | `verdict.py:158–165,181–222,254–285` | Missing draw identity can close a run, and a valid redraw can leave it open. | blocking | |
+| PROTO-5-03 | `fixture.py:425–436,458–475` | Two runtime faults classify a valid empty P01 file as candidate content. | blocking | |
+| PROTO-5-04 | `inspect_output.py:756–780,807–818` | Arrow and Parquet readers skip stored fixture values. | blocking | |
+| PROTO-5-05 | `inspect_output.py:783–796,248–260` | Typed string and binary cells bypass carrier inspection. | blocking | |
+| PROTO-5-06 | `inspect_output.py:263–295,329–344` | An encoded response inside a bundle can disappear at the depth limit. | blocking | |
+| PROTO-5-07 | `inspect_output.py:487–513,562–612` | Numeric windows accept partial amounts and join independent CSV fields. | blocking | |
+| PROTO-5-08 | `inspect_output.py:230–242,351–394` | Compressed streams can hide metadata containing a fixture label or lose a truncation gap. | blocking | |
+| PROTO-5-09 | `verdict.py:124–140,254–267` | An archive attempt reporting a harness error can lose its stop. | adjustment | |
+| PROTO-5-10 | `serve.py:134–145` | Encoding negotiation ignores a second Accept-Encoding field line. | adjustment | |
+
+#### PROTO-5-01 — Assembly FORM reuses a stale artifact digest
+
+**High, blocking. Preexisting.** `_history` leaves the stage walk running after assembly `FORM`.
+Membership in the accumulated `assembled` set is then sufficient to accept `verify` on a digest
+from an earlier run. A record with assembly `FORM` produced no artifact for the rest of that record.
+
+Executed `history_probe.py` at both versions. On the tip, a `FORM` carrying an unknown artifact
+digest and `verify=CONTENT` correctly gives `a cost`. After a clean run produced that digest,
+the same `FORM` history gives `fails the criterion`. The baseline also fails with the known digest.
+The control with an actual artifact, `verify=FORM` and an inspection finding gives
+`fails the criterion`. Make assembly `FORM` terminal in its record and retain independent
+artifact-only resumes on an already bound digest.
+
+#### PROTO-5-02 — Clean draws are neither fully bound nor searched in order with their tails
+
+**High, blocking. Missing identity and orphan exhaustion are preexisting in effect. The first-draw
+selection is a regression in `016328d`.** `_clean_draw` takes the first matching builder and flag.
+`_effective` checks fixture equality only when that draw supplies a fixture. `_stop` accepts
+`draw_exhausted` without checking its prerequisites, and `_history` accepts the tail inside the
+exhausted record. The verdict can close without the identity of the fixture that authorized
+assembly, or decide on a draw record unsupported by the preceding stages.
+
+In `history_probe.py`, exhaustion → clean flag with `fixture=None` → sealed `f2` gives `passes`.
+An exhausted record with a same-record tail claiming `CONTENT` gives `fails the criterion`.
+An orphan exhaustion after a clean run gives `stopped`. Conversely, exhaustion → clean draw
+`f1` → clean draw `f2` → complete tail for `f2` gives `not established` on the tip and `passes`
+at baseline. A redraw on the same candidate builder can occur when the other candidate rebuilds
+(§2.1). The tip passes with just the bound `f2` draw and withholds closure when that draw comes
+after the tail.
+
+Make draw attempts eligible against the archived builder evidence, require the fixture identity
+for clean evidence, and match each replacement tail to an earlier eligible draw for that fixture.
+Treat exhaustion as stopping that attempt before assembly. The positive cases at
+`tests/test_verdict.py:147–149,180–184,224–229` that supply no fixture currently assert closure.
+The record writer belongs to a later step. The eventual draw record needs the identities of both
+archives checked and of the fixture; the synthetic histories can verify the individual builder,
+fixture and order rules now.
+
+#### PROTO-5-03 — The PyArrow witness treats its own failure as evidence about the file
+
+**High, blocking. Regression in `a46802a`.** `_another_reader_opens` catches every exception from
+PyArrow and returns `False`. The DuckDB error branch converts even an explicit runtime fault to
+a file refusal when the witness also faults. `harness.py:312–321` then issues `CONTENT`.
+
+Executed `parquet_probe.py` through the bound assembly and gate on a valid zero-row P01 file.
+The fault injection affects the schema-query connection and PyArrow witness only.
+
+```text
+bound valid P01 empty: SCHEMA_ONLY
+bound valid P01 empty, DuckDB OOM only: HARNESS_ERROR
+bound valid P01 empty, DuckDB OOM and PyArrow OOM: CONTENT
+```
+
+The last line is `HARNESS_ERROR` at `54385c6`. The two original malformed footers now give
+`CONTENT`. A real zero-column PyArrow Parquet reads in PyArrow and raises DuckDB's
+`InvalidInputException`, which correctly gives `CONTENT`. In the reverse direction, DuckDB reads
+an empty 12-column P01 Parquet with invalid optional `ARROW:schema` metadata. PyArrow refuses it
+with `ArrowInvalid`, the gate reports `SCHEMA_ONLY`, and the carrier inspection reports one gap.
+The readers can disagree for file-specific reasons. Distinguish explicit file refusals, unsupported
+formats and reader failures. Use a second reader as a witness for the applicable file property
+and keep explicit memory, I/O and internal failures attributed to the harness. Exercise the
+dual-fault case alongside the single-fault, lost-file, empty-schema and malformed-footer controls.
+
+#### PROTO-5-04 — Supported Arrow layouts and Parquet dictionaries lose stored values
+
+**High, blocking. The lost logical values regress in `9366edd`. Retained view buffers and
+Parquet dictionaries without Arrow schema metadata are preexisting gaps.** Replacing the recursive
+logical walk with `_stored` drops nested values when a type falls through to `to_pylist()` and
+yields a list. `_cells` has no list case. In `typed_probe.py`, PyArrow 22 wrote and reopened
+`LargeListViewArray` with a nonzero child offset (file and stream), a nested run-end encoded
+array, and a fixed-shape tensor extension (IPC and Parquet). Every case containing the count
+`20000` was clean on the tip. Baseline reported `INSPECT_ARROW` or `INSPECT_PARQUET`. The control
+for a sliced run-end array where the writer removed the needle remained clean. Sliced ordinary
+lists, both union layouts, and a child under a null struct were read on the tip.
+
+The integration probe archives an IPC file with a large list view, extracts that archive and
+assembles a package for seed `20261120`. The tip and baseline use the same fixture and file.
+
+```text
+fixture row count=10896 externally read=[[10896]] assembly=PASS verify=PASS
+builder clean=True codes=[] gaps=0
+artifact clean=True codes=[] gaps=0
+```
+
+At baseline both inspections return `INSPECT_ARROW` with zero gaps. Separately, a sliced
+`StringViewArray` still stores `fixture_canal_a` in a reopened backing buffer even though its
+only row is `other long stored data`. IPC file and stream both return clean. A sliced
+`BinaryViewArray` likewise retains a gzipped fixture label in its backing buffer and returns
+clean. The Parquet dictionary probe reopens the persisted dictionary `['fixture_canal_a', 'other']` with `read_dictionary=["d"]`.
+With `store_schema=False`, the default reader supplies only `['other']` and inspection is clean.
+With `store_schema=True`, the tip's dictionary walk finds it. The ordinary IPC dictionary fix
+also works through the bound gate. Cover the value array of both list view widths, run-end values
+and extension storage. Account for retained view buffers and Parquet dictionary pages or report
+the unread storage. Validate after serialization, including the controls for slices that remove
+the value and for mappings and unions that keep it.
+
+#### PROTO-5-05 — Data in typed string and binary cells misses dispatch
+
+**High, blocking. Preexisting.** The string branch only searches plaintext and numbers. The binary
+branch enters dispatch as a speculative decoding, so a real cell whose bytes no decoder reads
+is silently discarded. `carrier_followup.py` stored a standard `data:application/json;base64,`
+URL with a fixture label in an Arrow string and in a Parquet string. The decoded JSON contains the
+label, and both reads report `clean=True codes=- gaps=0`. The same probe encrypts the synthetic
+JSON with AES-GCM and confirms it opens to the fixture label. Raw ciphertext reports one gap and
+the same bytes in an Arrow binary cell report clean. Plain textual counts and a complete gzip in
+a binary cell are correctly found now. Apply the data-carrier dispatcher to strings that carry
+documents or supported encodings. Treat stored opaque binary as unread evidence, with one layer
+charged to enter the cell. Use actual file round trips, including the opaque-carrier control of
+§2.5.5 inside a typed cell.
+
+#### PROTO-5-06 — Depth detection misses an embedded encoded body in a bundle
+
+**High, blocking. Preexisting.** `_looks_like_carrier`
+can recognize embedded JSON but requires an encoded run to occupy at least 90% of the surrounding
+text. Full dispatch has no such restriction. In `carrier_probe.py`, a JavaScript string containing
+a base64-encoded gzip response gives `INSPECT_TEXT`. With base64 of that bundle in an Arrow
+binary cell and the Arrow bytes in a JavaScript holder, the tip gives one depth gap. Gzipping
+those same IPC bytes before placing them in the holder adds one ordinary delivery layer and
+returns `clean=True codes=- gaps=0`. Independent unwrapping reaches the label. Baseline also gives
+clean for the deeper input. The direct DuckDB-WASM JavaScript bundles have zero gaps, and the
+old embedded JSON and ordinary percent-path controls give their expected outcomes. At the depth
+limit, recognize supported embedded bodies that normal dispatch would read and record the
+unread layer. Preserve the clean controls for ordinary text and real bundles.
+
+#### PROTO-5-07 — Rendered numbers and CSV fields lose their boundaries
+
+**High, blocking. Preexisting.** `_continues_grouping` removes some suffixes, while `_windows`
+still emits prefixes. `_SPACED` consumes a decimal part only with a comma. With count `20000`
+and amount `1234.50`, `carrier_probe.py` reports `INSPECT_NUMBER` for `20 000 123`,
+`20 000.50` and JSON `{"total":20000.50}`. A CSV row `20,000,123` in a three-column
+table also reports `INSPECT_NUMBER`. Its fields are `20`, `000` and `123`. `1 234.50`
+reports clean, and `1 234,50` finds the amount. Both versions give these results. A real
+`20000` CSV field and a quoted `"20,000"` cell are found, and the original suffix-group and
+scientific controls pass on the tip. Use intact grouping and fractional boundaries in
+unstructured text and respect the field boundaries when a carrier supplies them. Retain
+the positive CSV, grouped-count and exponent controls when tightening the false positives.
+
+#### PROTO-5-08 — Compressed payload metadata and failed opens can disappear
+
+**High, blocking. Skippable-frame metadata regresses in `9366edd`. The gzip cases are
+preexisting.** `_blob` returns after successful decompression, before its byte checks.
+`_decompress_by_magic` discards the payload bytes of valid Zstd skippable frames. A fixture
+label stored there is physically part of the carrier. `carrier_probe.py` uses a reference Zstd
+reader to confirm the frame is valid and the stream body is `b'clean body'`. The scan returns
+`clean=True codes=- gaps=0` for the carrier, and `carrier_followup.py` gets the same clean
+result for that carrier wrapped in gzip. Baseline finds `INSPECT_TEXT` in both carriers
+and reports a gap. The regression is observable even with the stored label hidden from a
+raw artifact scan by the outer compression.
+
+In the same probes, a normal `gzip.GzipFile(filename=...)` stores the fixture label in its
+original filename, and the base64-wrapped file is clean. Truncating the trailer of a gzip containing
+the label also returns clean inside base64. The bare truncated gzip gives a gap and the intact
+base64-wrapped gzip gives `INSPECT_TEXT`. Check retained compression metadata as bytes alongside
+the decoded body. Once a supported encoding is established, keep an explicit gap if it fails
+to open. Preserve continuity across valid skippable and ordinary frames and the gap on a partial
+final frame.
+
+#### PROTO-5-09 — A failed archive attempt is treated as an absent stage
+
+**Medium, adjustment. Regression in `016328d`.** A successful build with a known allowlist and
+an archive attempt ending in `HARNESS_ERROR` naturally has no archive digest. `_history` demands
+the output digest before it puts the attempt in `eligible`. `_stop` then omits the failure.
+Executed `history_probe.py` produces `not established` at the tip and `stopped` at baseline.
+A full later retry of the same build input gives `passes` on both. Bind the failed archive
+attempt to the known build input after the completed build. Require the archive digest to
+complete the stage. Check the failed attempt, the missing attempt, and complete same-input
+versus different-input retries.
+
+#### PROTO-5-10 — The selected representation depends on Accept-Encoding field layout
+
+**Medium, adjustment. Preexisting.** The new `If-None-Match` join preserves field-line order.
+`negotiate` still receives only the first `Accept-Encoding` field line. In the live
+`encoding_probe.py`, one line `identity;q=0, gzip` yields `(200, 'gzip', 49)`. The two
+lines `identity;q=0` and `gzip` yield `(406, None, 0)`. Reversing those two field lines
+restores gzip. Both versions reproduce this, so a client sending an equivalent list in two
+lines can receive no body and change the measurement. Join all field lines before negotiating.
+Validate identical status, encoding, length and ETag for equivalent combined and split lists.
+
+### 4. Status of previous findings
+
+Probe commands are in §5. Where a prior example passes and the same requirement still has a
+counterexample, the new ID links to its evidence above.
+
+| # | Reassessment | Executed evidence |
+|---|---|---|
+| PROTO-4-01 | Resolved | `verdict_probe.py` gives `passes` for both single-record retries, the split retry, the same-input retry and the archive re-inspection. |
+| PROTO-4-02 | Partially resolved | `verdict_probe.py` gives `not established` for both early inspections and `passes` with each unattached content, gap and stop. The fresh `FORM` yields `a cost`. `history_probe.py` gives `fails the criterion` with a previously assembled digest (PROTO-5-01). |
+| PROTO-4-03 | Partially resolved | `verdict_probe.py` gives `stopped` for exhausted draw plus assembly `FORM` and `not established` for a later full run without a clean draw or for a tail before the draw. The scoped suite's different-fixture case passes. `history_probe.py` reproduces the missing fixture and second-draw cases (PROTO-5-02). |
+| PROTO-4-04 | Partially resolved | `schema_probe.py` classifies both damaged footers `CONTENT` and `gate_probe.py` obtains `assembly=PASS verify=CONTENT` on the bound malformed artifact. `parquet_probe.py` gives `HARNESS_ERROR` on one runtime fault and `CONTENT` on two (PROTO-5-03). |
+| PROTO-4-05 | Partially resolved | `inspection_probe.py` yields `INSPECT_NUMBER` at two outer layers, one gap at three and four, and clean for both ordinary percent inputs. `carrier_probe.py` demonstrates a remaining nested bundle read as clean (PROTO-5-06). |
+| PROTO-4-06 | Partially resolved | `inspection_probe.py` and `gate_probe.py` find the unused IPC dictionary value. The former finds the textual map count and gzip cell in Arrow and Parquet. `integration_probe.py` and `carrier_followup.py` reproduce PROTO-5-04 and PROTO-5-05. |
+| PROTO-4-07 | Partially resolved | `inspection_probe.py` finds `.2e5` and `page 2 20 000`, and keeps `20000.e-5` and `1 020 000` clean. `carrier_probe.py` demonstrates partial groupings and CSV field joining (PROTO-5-07). |
+| PROTO-4-08 | Resolved | `inspection_probe.py` finds `INSPECT_TEXT` with zero gaps for either skippable placement and for trailing text. It retains the finding and one gap with a cut frame. `skippable_probe.py` reports one gap before or after a regular frame; the latter retains `INSPECT_TEXT`. PROTO-5-08 tracks the retained metadata. |
+| PROTO-4-09 | Resolved | `tree_http_probe.py` gives `refused; read from sibling=False` for the existing double-slash source. Single slash and `..` refuse; the relative working-directory control gives `True`. |
+| PROTO-4-10 | Resolved | `tree_http_probe.py` reports `HTTP 304 length=None body=0` for the split conditional header, `200` for a different coding, and `406` for the rejected encoding. PROTO-5-10 tracks the separate encoding header. |
+| PROTO-3-01, PROTO-1-04, PROTO-2-04 | Partially resolved | The scoped suite exercises the 14 verdict histories in §2.5.5. `verdict_probe.py` and `history_probe.py` confirm the fixes and the remaining failures in PROTO-5-01, PROTO-5-02 and PROTO-5-09. |
+| PROTO-3-04, PROTO-1-02, PROTO-2-03 | Partially resolved | `gate_probe.py` gives `snapshot=() right=CONTENT other=HARNESS_ERROR default=None default_other=HARNESS_ERROR`. The scoped suite passes tree-binding, lost-file and single-runtime-fault controls. PROTO-5-03 remains. |
+| PROTO-3-05 | Resolved | `inspection_probe.py` reports `INSPECT_TEXT gaps=0` for adjacent regular frames and `INSPECT_TEXT gaps=1` with a cut final frame. |
+| PROTO-3-06, PROTO-1-05, PROTO-2-05 | Partially resolved | The scoped suite passes the nested query and unread Brotli and legacy Arrow controls. `inspection_probe.py` finds the old depth gaps. `carrier_probe.py` and `carrier_followup.py` yield clean reports for PROTO-5-05, PROTO-5-06 and PROTO-5-08. |
+| PROTO-3-07, PROTO-1-06, PROTO-2-06 | Partially resolved | Typed maps produce `INSPECT_ARROW` and `INSPECT_PARQUET` in `inspection_probe.py`. The suite passes the manifest-label and structured controls. `typed_probe.py` and `carrier_probe.py` reproduce the remaining storage and number cases in PROTO-5-04 through PROTO-5-07. |
+| PROTO-3-08 | Partially resolved | `inspection_probe.py` finds `20000,2e-1` and `orders = 20 000`. `carrier_probe.py` misreports the larger group prefix and the CSV fields (PROTO-5-07). |
+| PROTO-3-14 | Resolved | `tree_http_probe.py` gives `304 length=None body=0` for exact, weak, list and wildcard validators, and `200` for the other encoding. |
+| PROTO-1-15 | Partially resolved | The suite passes the representation weights and ETag controls. `encoding_probe.py` gives `406` where the equivalent combined list gives `200 gzip` (PROTO-5-10). |
+| PROTO-2-13 | Unverifiable | The `rg --files` search in §5 returned no matches (exit 1). The earlier bundle timings remain author-reported. |
+
+**Not assessed** — PROTO-1-08, PROTO-2-07, PROTO-1-11, PROTO-1-12, PROTO-2-09, PROTO-2-10,
+PROTO-3-09, PROTO-3-10 and PROTO-3-11.
+
+### 5. Checks executed and results
+
+Ran in this checkout with `UV_OFFLINE=1`, `UV_NO_SYNC=1` and `PYTHONDONTWRITEBYTECODE=1`,
+using the installed environment and the existing DuckDB-WASM tarball. The first invocations
+stopped before testing because uv could not lock its read-only default cache. The measured
+runs used `UV_CACHE_DIR` under `/tmp`. The gate also used `PYTEST_ADDOPTS='-p no:cacheprovider'`.
+
+```bash
+ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check
+uv run --frozen --group prototype pytest -q -p no:cacheprovider prototypes/framework/tests \
+  --ignore=prototypes/framework/tests/test_sandbox.py \
+  --ignore=prototypes/framework/tests/test_diagnostic.py \
+  --deselect=prototypes/framework/tests/test_inputs.py::test_package_code_cannot_reach_a_listener_on_the_hosts_loopback
+```
+
+```text
+make check (exit 0)
+docs-check: 31 documents, 202 file links, 69 anchors, 23 ADR citations, 101 links into mvp_eng_dados_1 — nothing broken
+470 passed, 1 warning in 208.12s (0:03:28)
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+
+Scoped prototype suite (exit 0)
+275 passed, 1 deselected in 448.37s (0:07:28)
+```
+
+The gate warning comes from the repeated-ZIP-entry control. Logs are
+`/tmp/proto5-make.gNwpvP` and `/tmp/proto5-suite.SuvbYF`. The author's full-suite
+output at `9b3ee49` is `318 passed in 587.91s (0:09:47)` and includes excluded tests.
+Candidate builds, the full prototype suite, registry fetches and warehouse operations were
+outside the executed checks.
+
+Probes used DuckDB 1.5.6, PyArrow 22.0.0 and zstandard 0.25.0. Baseline comparisons used the five
+changed runtime modules from `54385c6` under `$review_dir/baseline/prototypes/framework` ahead
+of the checkout on `PYTHONPATH`. The commands below reproduce the probe evidence.
+
+```bash
+review_dir=/tmp/bi-proto-round5.ePNxtW
+prior_dir=/tmp/bi-proto-round4.8LF0LO
+export PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/prototypes/framework"
+for probe in verdict inspection schema bundle tree_http gate; do
+  .venv/bin/python "$prior_dir/$probe"_probe.py
+done
+for probe in history typed parquet integration parquet_dictionary carrier encoding local_bundle skippable; do
+  .venv/bin/python "$review_dir/$probe"_probe.py
+done
+.venv/bin/python "$review_dir/carrier_followup.py"
+rg --files --hidden . "$prior_dir" "$HOME/.local" "$HOME/.npm" \
+  -g 'time_inspect.py' -g 'chunk-3KNX7NZM.js' \
+  -g '!**/.git/**' -g '!**/browser/**' -g '!**/controls/page/**'
+```
+
+The cached DuckDB-WASM 1.32.0 tarball spot check printed `gaps=0` for
+`duckdb-browser.cjs` (32,151 bytes), `duckdb-node.cjs` (35,336 bytes) and
+`duckdb-browser.mjs` (31,977 bytes), all with empty needles. The scoped suite exercises the original in-scope controls. The new tests for a complete gzip
+binary cell, the original numeric windows and the fresh `FORM` digest cover narrower inputs
+than the counterexamples above.
+
+### 6. Limitations and open questions
+
+The Owner's exclusions in §2 remain the recorded limits. Two dossier excerpts surfaced
+excluded diagnostic text during intake. Those findings are listed as unassessed. The suite command applied all
+three test exclusions.
+
+The histories are synthetic because there is no persisted run writer yet. The opposing Parquet
+reader cases are real files. The tested PyArrow-readable case uses DuckDB's invalid-input path,
+while the dual-runtime result is fault-injected through the bound gate. Compatibility across
+all producer combinations remains unmeasured. The carrier probes use real library-written files
+and a local bundle spot check. The candidate-specific clear builds, DOM comparison, draw
+convergence and cold/warm measures belong to later steps.
+
+### 7. Handoff to Claude Code
+
+- [ ] **PROTO-5-01** Make assembly `FORM` terminal. A stale known artifact and its purported tail leave the verdict at `a cost`. Preserve real findings after `verify=FORM`.
+- [ ] **PROTO-5-02** Require an eligible clean draw with a fixture identity before accepting its matching tail. Reject the orphan and missing-fixture histories, and close the history where the second draw is the one sealed.
+- [ ] **PROTO-5-03** Classify the dual fault `HARNESS_ERROR`. Keep `SCHEMA_ONLY` for valid empty P01 and `CONTENT` for actual malformed builder Parquet.
+- [ ] **PROTO-5-04** Find the real seeded count in the bound IPC large-list-view case and inspect the stored values in run-end, extension, sliced view and dictionary carriers. Keep legitimately removed values clean.
+- [ ] **PROTO-5-05** Find the encoded response in Arrow and Parquet strings. Make the opaque binary cell produce a gap and retain detection in supported binary cells.
+- [ ] **PROTO-5-06** Return a finding or depth gap for the nested cached response while keeping the escaped path and ordinary bundles clean.
+- [ ] **PROTO-5-07** Detect grouped amounts and genuine CSV counts. Leave larger groupings, distinct decimals and values assembled across CSV delimiters clean.
+- [ ] **PROTO-5-08** Find the label in retained metadata, report the truncated base64-wrapped gzip as unread, and keep the valid joined and partial-frame Zstd controls.
+- [ ] **PROTO-5-09** Report a failed archive as `stopped` and close it only with a complete retry of the same input. Retain `not established` for absent evidence.
+- [ ] **PROTO-5-10** Make combined and split `Accept-Encoding` lines select the same representation and validator. Keep the conditional and `406` controls.
