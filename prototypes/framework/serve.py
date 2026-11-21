@@ -33,13 +33,42 @@ def hosting_headers() -> list[tuple[str, str]]:
     return out
 
 
+def negotiate(accept: str) -> str | None:
+    """The encoding the request accepts with the highest weight — `br`, then
+    `gzip`, then identity on a tie —, honouring `q=0` and `*` (RFC 9110
+    §12.5.3; PROTO-1-15). `None` is identity."""
+    weights: dict[str, float] = {}
+    for part in accept.split(","):
+        token, *params = [x.strip() for x in part.split(";")]
+        if not token:
+            continue
+        q = 1.0
+        for param in params:
+            if param.startswith("q="):
+                try:
+                    q = float(param[2:])
+                except ValueError:
+                    q = 0.0
+        weights[token.lower()] = q
+    star = weights.get("*")
+
+    def weight(coding: str) -> float:
+        return weights.get(coding, star if star is not None else 0.0)
+
+    compressed = sorted((c for c in ("br", "gzip") if weight(c) > 0), key=lambda c: (-weight(c), c != "br"))
+    explicit_identity = weights.get("identity")
+    if compressed and not (explicit_identity is not None and explicit_identity > weight(compressed[0])):
+        return compressed[0]
+    return None  # identity: what is sent when no compressed coding is preferred
+
+
 def _encode(data: bytes, accept: str) -> tuple[bytes, str | None]:
-    accepted = {part.split(";")[0].strip() for part in accept.split(",") if part.strip()}
-    if "br" in accepted:
+    coding = negotiate(accept)
+    if coding == "br":
         import brotli
 
         return brotli.compress(data), "br"
-    if "gzip" in accepted:
+    if coding == "gzip":
         return gzip.compress(data, mtime=0), "gzip"
     return data, None
 
