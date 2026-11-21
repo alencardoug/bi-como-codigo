@@ -16,7 +16,6 @@ import hashlib
 import json
 import os
 import pathlib
-import shutil
 import subprocess
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
@@ -159,9 +158,15 @@ def archive_list(allow: Allowlist, dest: pathlib.Path) -> str:
     return allow.digest
 
 
-def copy_out(work: pathlib.Path, rel: str, out: pathlib.Path) -> None:
+def copy_out(work: pathlib.Path, rel: str, out: pathlib.Path) -> list[str]:
     """The builder output is copied out of the work folder by the harness,
-    outside the sandbox."""
-    if out.exists():
-        raise FileExistsError(f"{out} exists")
-    shutil.copytree(work / rel, out, symlinks=True)
+    outside the sandbox, without following a link — the output's root and the
+    folders on the way to it included (PROTO-1-01). Returns the entries no copy
+    can carry, for the run to record."""
+    import trees
+
+    try:
+        source = trees.real_root(work, rel)
+    except trees.Refused as refusal:
+        raise Refused(str(refusal)) from None
+    return trees.copy(source, out)

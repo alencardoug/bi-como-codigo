@@ -92,6 +92,33 @@ def test_a_changed_or_missing_input_refuses_the_phase(tmp_path):
         al.check(allow, work)
 
 
+@pytest.mark.parametrize("rel", ["dist", "node_modules"])
+def test_a_linked_output_root_is_never_followed_on_the_host(tmp_path, rel):
+    """PROTO-1-01: a build that leaves `dist` or `node_modules` as a link to a
+    sibling folder gets a refusal, and the sibling's bytes are not copied."""
+    work = tmp_path / "work"
+    work.mkdir()
+    sibling = tmp_path / "sibling"
+    sibling.mkdir()
+    (sibling / "marker").write_text("host bytes")
+    (work / rel).symlink_to(sibling)
+    with pytest.raises(al.Refused, match="is a link"):
+        al.copy_out(work, rel, tmp_path / "out")
+    assert not (tmp_path / "out").exists()
+    if rel == "node_modules":
+        with pytest.raises(al.Refused):
+            npm.keep_install(work, tmp_path / "kept")
+
+
+def test_in_folder_links_are_kept_as_links(tmp_path):
+    work = tmp_path / "work"
+    (work / "dist" / "a").mkdir(parents=True)
+    (work / "dist" / "a" / "x.js").write_text("1")
+    (work / "dist" / "y.js").symlink_to("a/x.js")
+    al.copy_out(work, "dist", tmp_path / "out")
+    assert (tmp_path / "out" / "y.js").is_symlink()
+
+
 def test_a_link_leaving_the_folder_is_refused(tmp_path):
     root = tmp_path / "nm"
     root.mkdir()

@@ -8,22 +8,24 @@ the harness's own.
 
 The classes: `HARNESS_ERROR`, `FORM`, `SCHEMA_ONLY`, `CONTENT`, `COLLISION`,
 `PASS`. A `HARNESS_ERROR` or a `COLLISION` stops the run.
+
+`verify` is bound to what assembly produced (PROTO-1-02): the artifact's tree,
+modes and links included, must be the assembled one before and after the gate
+runs, so that a package or a file changed after assembly is the harness's
+error, never a verdict. A control's hand-made addition is declared to assembly
+and enters the tree there.
 """
 
 from __future__ import annotations
 
 import dataclasses
-import gzip
 import hashlib
-import io
-import os
 import pathlib
 import re
-import shutil
-import tarfile
 import tempfile
 
 import fixture as fx_mod
+import trees
 from bi_como_codigo import contract as c, envelope as e, release
 
 HERE = fx_mod.HERE
@@ -51,57 +53,15 @@ class Outcome:
 # --- archives (§2.5.2: outputs are kept) ----------------------------------------------
 
 
-def tree(root: pathlib.Path) -> list[tuple[str, str, str]]:
-    """(path, kind, digest or link target) of every entry, sorted. Unlike
-    `release.listing`, it records what the gate refuses instead of refusing it,
-    so that assembly copies a builder output as it is and `verify` judges it."""
-    out = []
-    for path in sorted(root.rglob("*")):
-        rel = path.relative_to(root).as_posix()
-        if path.is_symlink():
-            out.append((rel, "symlink", os.readlink(path)))
-        elif path.is_file():
-            out.append((rel, "file", hashlib.sha256(path.read_bytes()).hexdigest()))
-        elif path.is_dir():
-            out.append((rel, "dir", ""))
-        else:
-            out.append((rel, "other", ""))
-    return out
+def tree(root: pathlib.Path) -> list[tuple]:
+    """(path, kind, digest or link target, mode) of every entry, sorted, read
+    without following a link. Unlike `release.listing`, it records what the gate
+    refuses instead of refusing it, so that `verify` judges it."""
+    return [entry.key() for entry in trees.entries(root)]
 
 
-def archive(src: pathlib.Path, dest: pathlib.Path) -> str:
-    """A reproducible tar.gz of `src` — sorted, no owner, no time — and its
-    SHA-256. `dest` must not exist: an archive is never overwritten."""
-    if dest.exists():
-        raise FileExistsError(f"{dest} exists: an archive is kept, never overwritten")
-    buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w", format=tarfile.PAX_FORMAT) as tar:
-        for rel, kind, _ in tree(src):
-            info = tar.gettarinfo(src / rel, arcname=rel)
-            info.uid = info.gid = 0
-            info.uname = info.gname = ""
-            info.mtime = 0
-            if kind == "file":
-                with open(src / rel, "rb") as handle:
-                    tar.addfile(info, handle)
-            elif kind in {"dir", "symlink"}:
-                tar.addfile(info)
-    raw = gzip.compress(buf.getvalue(), mtime=0)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(raw)
-    return hashlib.sha256(raw).hexdigest()
-
-
-def extract(archive_path: pathlib.Path, out: pathlib.Path, digest: str) -> None:
-    """An archive is inspected from the archive: its digest checked first."""
-    raw = archive_path.read_bytes()
-    if hashlib.sha256(raw).hexdigest() != digest:
-        raise ValueError(f"{archive_path} is not the archive of digest {digest}")
-    if out.exists():
-        raise FileExistsError(f"{out} exists")
-    out.mkdir(parents=True)
-    with tarfile.open(fileobj=io.BytesIO(raw), mode="r:gz") as tar:
-        tar.extractall(out, filter="tar")
+archive = trees.archive
+extract = trees.extract
 
 
 # --- the package, validated on its own (§2.2, assembly step 2) ------------------------
@@ -111,6 +71,11 @@ def extract(archive_path: pathlib.Path, out: pathlib.Path, digest: str) -> None:
 class ValidatedPackage:
     files: dict[str, str]  # name under package/ → SHA-256
     values: c.Values
+    artifact: tuple = ()  # the assembled artifact's tree, which verify is bound to
+
+
+class PackageRefused(Exception):
+    pass
 
 
 def _declared():
@@ -130,13 +95,18 @@ def _rows(parquet: bytes) -> list[tuple]:
 
 def validate_package(package_dir: pathlib.Path, expected_rows: list[tuple]) -> ValidatedPackage:
     """The gate's own functions, apart from `verify`, and the opened rows equal
-    to the expected ones, row for row. Raises `PackageRefused`."""
+    to the expected ones, row for row. The package folder holds plain files
+    only. Raises `PackageRefused`."""
     try:
+        listed = trees.entries(trees.real_root(package_dir))
+        if any(x.kind != "file" or "/" in x.rel for x in listed):
+            raise PackageRefused("the package folder holds something other than plain files")
+        raw = {x.rel: (package_dir / x.rel).read_bytes() for x in listed}
         contract = fx_mod.contract()
         _, declared_map, passwords = _declared()
-        manifest_raw = (package_dir / "manifest.json").read_bytes()
+        manifest_raw = raw.pop("manifest.json")
         manifest = e.validate_manifest(manifest_raw)
-        files = {p.name: p.read_bytes() for p in sorted(package_dir.iterdir()) if p.name != "manifest.json"}
+        files = raw
         e.check_package(manifest_raw, files, passwords)
         c.inventory_exact(contract, set(manifest.reports))
         c.entitlements_exact({pid: set(p.reports) for pid, p in manifest.profiles.items()}, declared_map)
@@ -155,34 +125,52 @@ def validate_package(package_dir: pathlib.Path, expected_rows: list[tuple]) -> V
     return ValidatedPackage(digests, values)
 
 
-class PackageRefused(Exception):
-    pass
-
-
 # --- assembly (§2.2) -----------------------------------------------------------------
 
 
 def assemble(builder: pathlib.Path, package_dir: pathlib.Path, expected_rows: list[tuple],
-             artifact: pathlib.Path) -> tuple[Outcome, ValidatedPackage | None]:
-    """Steps 1 to 4 of §2.2. The artifact must not exist."""
+             artifact: pathlib.Path, *, control_additions: dict[str, bytes] | None = None
+             ) -> tuple[Outcome, ValidatedPackage | None]:
+    """Steps 1 to 4 of §2.2. The artifact must not exist. `control_additions`
+    are a control's hand-made files, placed after the builder output and
+    recorded as such; a judged run has none."""
+    try:
+        trees.real_root(builder)
+    except trees.Refused as refusal:
+        return Outcome("assembly", HARNESS_ERROR, f"the builder output cannot be read: {refusal}"), None
     if (builder / PACKAGE).exists() or (builder / PACKAGE).is_symlink():
         return Outcome("assembly", FORM, "the builder output has its own package/ entry"), None
     try:
         validated = validate_package(package_dir, expected_rows)
     except PackageRefused as refusal:
         return Outcome("assembly", HARNESS_ERROR, f"package refused by its own validation: {refusal}"), None
-    if artifact.exists():
+    if artifact.exists() or artifact.is_symlink():
         return Outcome("assembly", HARNESS_ERROR, f"{artifact} exists: an artifact is assembled fresh"), None
-    shutil.copytree(builder, artifact, symlinks=True)
-    (artifact / PACKAGE).mkdir()
-    for name in validated.files:
-        shutil.copyfile(package_dir / name, artifact / PACKAGE / name)
-    placed = tree(artifact)
-    rest = [entry for entry in placed if entry[0] != PACKAGE and not entry[0].startswith(PACKAGE + "/")]
-    package = {rel[len(PACKAGE) + 1:]: digest for rel, kind, digest in placed if rel.startswith(PACKAGE + "/")}
-    if rest != tree(builder) or package != validated.files:
+    if any(rel == PACKAGE or rel.startswith(PACKAGE + "/") or ".." in rel.split("/") for rel in control_additions or {}):
+        return Outcome("assembly", HARNESS_ERROR, "a control addition under package/ or outside the artifact"), None
+    try:
+        uncarried = trees.copy(builder, artifact)
+        if uncarried:  # a socket or a device: the gate would refuse it as not a plain file
+            return Outcome("assembly", FORM, f"entries no copy can carry: {uncarried}", {"entries": uncarried}), None
+        for rel, data in (control_additions or {}).items():
+            target = artifact / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        (artifact / PACKAGE).mkdir()
+        for name in validated.files:
+            (artifact / PACKAGE / name).write_bytes((package_dir / name).read_bytes())
+        placed = tree(artifact)
+    except (OSError, trees.Refused) as error:
+        return Outcome("assembly", HARNESS_ERROR, f"the copy failed: {type(error).__name__}: {error}"), None
+    added = set(control_additions or {})
+    rest = [x for x in placed if x[0] != PACKAGE and not x[0].startswith(PACKAGE + "/") and x[0] not in added
+            and not any(a.startswith(x[0] + "/") for a in added if x[1] == "dir" and not (builder / x[0]).is_dir())]
+    package = {x[0][len(PACKAGE) + 1:]: x[2] for x in placed if x[0].startswith(PACKAGE + "/") and x[1] == "file"}
+    package_kinds = {x[1] for x in placed if x[0].startswith(PACKAGE + "/")}
+    if rest != tree(builder) or package != validated.files or package_kinds - {"file"}:
         return Outcome("assembly", HARNESS_ERROR, "the artifact is not the builder output plus the validated package"), None
-    return Outcome("assembly", PASS, "assembled", {"package": validated.files}), validated
+    bound = dataclasses.replace(validated, artifact=tuple(placed))
+    return Outcome("assembly", PASS, "assembled", {"package": validated.files, "control_additions": sorted(added)}), bound
 
 
 # --- verify, under a root of the harness's own (§2.5.1) ------------------------------
@@ -195,49 +183,51 @@ def write_root(run: pathlib.Path, lists: pathlib.Path, declarations: pathlib.Pat
     (root / "release").mkdir(parents=True)
     for name in ("contract.json", "profiles.json", "public_values.json"):
         if (declarations / name).exists():
-            shutil.copyfile(declarations / name, root / "release" / name)
+            (root / "release" / name).write_bytes((declarations / name).read_bytes())
     for name in ("include.txt", "media_types.txt"):
         if (lists / name).exists():
-            shutil.copyfile(lists / name, root / "release" / name)
+            (root / "release" / name).write_bytes((lists / name).read_bytes())
     return root
 
 
-#: §2.5.1's table, by the gate's own messages; first match wins. A message
-#: none of them matches is HARNESS_ERROR.
+_TOTALS_CODES = "totals_shape|totals_version|totals_rows|totals_sums|schema_exact|not_null|grain_unique|content_bound|parquet_unreadable"
+_REFUSAL_ARGS = r"(?: \(report [A-Z0-9_]+(?:, column [a-z][a-z0-9_]*)?\))?"
+
+#: §2.5.1's table, by the exact forms of the gate's messages (release.py,
+#: contract.py). A form with `file` names an entry of the artifact, which must
+#: exist; a message that matches no form, or forms of different classes, is
+#: HARNESS_ERROR (PROTO-1-02).
 _TABLE: list[tuple[re.Pattern, str]] = [(re.compile(p), cls) for p, cls in [
-    (r"^include\.txt: .* is not a path under site/$", HARNESS_ERROR),
-    (r"^(public_values_invalid|contract_invalid|declarations_agree)\b", HARNESS_ERROR),
-    (r"^0 package manifests in the artifact", HARNESS_ERROR),
-    (r"^[2-9][0-9]* package manifests in the artifact|^1[0-9]+ package manifests in the artifact", FORM),
-    (r"^package manifest refused: ", HARNESS_ERROR),
-    (r" is in the manifest and not in the artifact$", HARNESS_ERROR),
-    (r"^envelopes not in the manifest: ", HARNESS_ERROR),
-    (r"^(inventory_exact|entitlements_exact)\b", HARNESS_ERROR),
-    (r"^package refused: ", HARNESS_ERROR),
-    (r"^(totals_shape|totals_version|totals_rows|totals_sums|schema_exact|not_null|grain_unique|content_bound|parquet_unreadable)\b", HARNESS_ERROR),
-    (r" is not under the inclusion list$", FORM),
-    (r": extension not in media_types\.txt$", FORM),
-    (r" is a source map$", FORM),
-    (r" references a source map$", FORM),
-    (r" is under Hosting's reserved __/ URLs$", FORM),
-    (r" is a symbolic link$", FORM),
-    (r" is not a plain file$", FORM),
-    (r" holds a Parquet magic outside an envelope$", "PARQUET"),
-    (r" holds a clear payload outside an envelope$", CONTENT),
-    (r" holds a data key in the clear$", CONTENT),
-    (r"^(clear_value|clear_totals) \(in .+\)$", "REPRODUCE"),
+    (r"include\.txt: .+ is not a path under site/", HARNESS_ERROR),
+    (r"(?:public_values_invalid|contract_invalid|declarations_agree)", HARNESS_ERROR),
+    (r"0 package manifests in the artifact; exactly one is expected", HARNESS_ERROR),
+    (r"(?:[2-9]|[1-9][0-9]+) package manifests in the artifact; exactly one is expected", FORM),
+    (r"package manifest refused: .+", HARNESS_ERROR),
+    (r"(?P<entry>[^/]+) is in the manifest and not in the artifact", HARNESS_ERROR),
+    (r"envelopes not in the manifest: \[.*\]", HARNESS_ERROR),
+    (r"(?:inventory_exact|entitlements_exact)", HARNESS_ERROR),
+    (r"package refused: .+", HARNESS_ERROR),
+    (rf"(?:{_TOTALS_CODES}){_REFUSAL_ARGS}", HARNESS_ERROR),
+    (r"parquet_unreadable: a report could not be checked", HARNESS_ERROR),
+    (r"(?P<file>.+) is not under the inclusion list", FORM),
+    (r"(?P<file>.+): extension not in media_types\.txt", FORM),
+    (r"(?P<file>.+) is a source map", FORM),
+    (r"(?P<file>.+) references a source map", FORM),
+    (r"(?P<file>.+) is under Hosting's reserved __/ URLs", FORM),
+    (r"(?P<file>.+) is a symbolic link", FORM),
+    (r"(?P<file>.+) is not a plain file", FORM),
+    (r"(?P<file>.+) holds a Parquet magic outside an envelope", "PARQUET"),
+    (r"(?P<file>.+) holds a clear payload outside an envelope", CONTENT),
+    (r"(?P<file>.+) holds a data key in the clear", CONTENT),
+    (r"(?P<code>clear_value|clear_totals) \(in (?P<file>.+)\)", "REPRODUCE"),
 ]]
 
-_FILE = re.compile(r"^(?P<file>.+?) (holds a Parquet magic|holds a clear payload|holds a data key)")
-_INSPECT = re.compile(r"^(?P<code>clear_value|clear_totals) \(in (?P<file>.+)\)$")
 
-
-def verify(artifact: pathlib.Path, builder: pathlib.Path, root: pathlib.Path,
-           validated: ValidatedPackage | None, *, role_override: str | None = None) -> Outcome:
-    """`release.verify` unchanged, then the class of its outcome. `builder` is
-    the extracted archive of the builder output the artifact was assembled from;
-    `validated` the package assembly validated. `role_override` exists for the
-    collision control alone: it gives the reproduction another haystack role."""
+def run_gate(artifact: pathlib.Path, builder: pathlib.Path, root: pathlib.Path, validated: ValidatedPackage | None,
+             *, role_override: str | None = None) -> Outcome:
+    """`release.verify` unchanged, then the class of its outcome — with no
+    binding to the assembled tree. The rows of §2.5.1's table are proved
+    through here; a run is judged through `verify`."""
     try:
         release.verify(root, artifact, live=lambda: release.NO_LIVE)
     except release.Refused as refusal:
@@ -247,49 +237,75 @@ def verify(artifact: pathlib.Path, builder: pathlib.Path, root: pathlib.Path,
     return Outcome("verify", PASS, "verified")
 
 
+def verify(artifact: pathlib.Path, builder: pathlib.Path, root: pathlib.Path,
+           validated: ValidatedPackage | None, *, role_override: str | None = None) -> Outcome:
+    """The gate on the assembled artifact. `builder` is the extracted archive of
+    the builder output it was assembled from; `validated` what assembly returned.
+    `role_override` exists for the collision control alone."""
+    if validated is None or not validated.artifact:
+        return Outcome("verify", HARNESS_ERROR, "no assembled artifact to verify")
+    try:
+        before = tuple(tree(artifact))
+    except (OSError, trees.Refused) as error:
+        return Outcome("verify", HARNESS_ERROR, f"the artifact cannot be read: {type(error).__name__}")
+    if before != validated.artifact:
+        return Outcome("verify", HARNESS_ERROR, "the artifact is not the one assembled with the validated package")
+    outcome = run_gate(artifact, builder, root, validated, role_override=role_override)
+    try:
+        after = tuple(tree(artifact))
+    except (OSError, trees.Refused):
+        after = None
+    if after != validated.artifact:
+        return Outcome("verify", HARNESS_ERROR, "the artifact changed while it was verified")
+    return outcome
+
+
 def classify(message: str, artifact: pathlib.Path, builder: pathlib.Path, root: pathlib.Path,
              validated: ValidatedPackage | None, role_override: str | None = None) -> Outcome:
-    for pattern, cls in _TABLE:
-        if not pattern.search(message):
-            continue
-        if cls == "PARQUET":
-            rel = _FILE.match(message)["file"]
-            return Outcome("verify", SCHEMA_ONLY if schema_only((artifact / rel).read_bytes()) else CONTENT, message, {"file": rel})
-        if cls == "REPRODUCE":
-            return _reproduce(message, artifact, builder, root, validated, role_override)
-        return Outcome("verify", cls, message)
-    return Outcome("verify", HARNESS_ERROR, f"a refusal the table does not list: {message}")
-
-
-def schema_only(data: bytes) -> bool:
-    """A Parquet with P01's schema — names and types — and zero rows."""
-    import duckdb
-
-    report = fx_mod.contract().reports[fx_mod.REPORT]
     try:
-        with tempfile.TemporaryDirectory() as tmp:
-            path = pathlib.Path(tmp) / "f.parquet"
-            path.write_bytes(data)
-            con = duckdb.connect(":memory:")
-            schema = [(r[0], r[1]) for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path.as_posix()}')").fetchall()]
-            rows = con.execute(f"SELECT count(*) FROM read_parquet('{path.as_posix()}')").fetchone()[0]
-    except Exception:  # noqa: BLE001 — not a Parquet that parses is not schema only
-        return False
-    return schema == [(col.name, col.type) for col in report.columns] and rows == 0
+        entries = {x[0]: x[1] for x in tree(artifact)}
+    except (OSError, trees.Refused):
+        return Outcome("verify", HARNESS_ERROR, f"{message}: the artifact cannot be listed")
+    matches = []
+    for pattern, cls in _TABLE:
+        m = pattern.fullmatch(message)
+        if not m:
+            continue
+        named = m.groupdict().get("file")
+        if named is not None and named not in entries:
+            continue
+        matches.append((cls, m))
+    if not matches:
+        return Outcome("verify", HARNESS_ERROR, f"a refusal the table does not list: {message}")
+    if len({cls for cls, _ in matches}) > 1:
+        return Outcome("verify", HARNESS_ERROR, f"a refusal of more than one form: {message}")
+    cls, m = matches[0]
+    if cls == "PARQUET":
+        rel = m["file"]
+        try:
+            data = trees.files(artifact).get(rel)
+            if data is None:
+                return Outcome("verify", HARNESS_ERROR, f"{message}: the named file is not a plain file")
+            shape = fx_mod.schema_only(data)
+        except (OSError, fx_mod.SchemaFault) as error:
+            return Outcome("verify", HARNESS_ERROR, f"{message}: the schema check failed: {type(error).__name__}")
+        return Outcome("verify", SCHEMA_ONLY if shape else CONTENT, message, {"file": rel})
+    if cls == "REPRODUCE":
+        return _reproduce(m["code"], m["file"], message, artifact, builder, root, validated, role_override)
+    return Outcome("verify", cls, message, {"file": m["file"]} if m.groupdict().get("file") else {})
 
 
-def _reproduce(message: str, artifact: pathlib.Path, builder: pathlib.Path, root: pathlib.Path,
+def _reproduce(code: str, rel: str, message: str, artifact: pathlib.Path, builder: pathlib.Path, root: pathlib.Path,
                validated: ValidatedPackage | None, role_override: str | None) -> Outcome:
     """FPROTO-4-05: the gate's own search, re-run on the named file with the
     same values, public set and haystack role, must give the same code; then a
-    file identical to the builder output's is a collision, any other content."""
-    m = _INSPECT.match(message)
-    code, rel = m["code"], m["file"]
+    file identical to the builder output's is a collision, any other content.
+    Every read is inside the harness's own handling."""
     if validated is None:
         return Outcome("verify", HARNESS_ERROR, f"{message}: no validated package to reproduce it with")
     try:
         public = c.load_public_values((root / "release" / "public_values.json").read_bytes())
-        data = (artifact / rel).read_bytes()
+        data = trees.files(artifact)[rel]
         is_manifest = rel == f"{PACKAGE}/manifest.json"
         role = role_override or ("labels" if is_manifest else "file")
         haystack = c.manifest_labels(e.validate_manifest(data)) if role == "labels" else data
@@ -298,31 +314,31 @@ def _reproduce(message: str, artifact: pathlib.Path, builder: pathlib.Path, root
             reproduced = None
         except c.Refused as again:
             reproduced = (again.code, again.where)
+        original = trees.files(builder).get(rel) if not is_manifest else None
     except Exception as error:  # noqa: BLE001
         return Outcome("verify", HARNESS_ERROR, f"{message}: reproduction failed with {type(error).__name__}")
     if reproduced != (code, rel):
         return Outcome("verify", HARNESS_ERROR, f"{message}: the reproduction gave {reproduced}")
-    original = builder / rel
-    if original.is_file() and not original.is_symlink() and original.read_bytes() == (artifact / rel).read_bytes():
+    if original is not None and original == data:
         found = [(k, n) for k, n in c.needles([validated.values], public) if n in haystack]
         return Outcome("verify", COLLISION, message, {"file": rel, "classes": sorted({needle_class(k, n, validated.values) for k, n in found})})
     return Outcome("verify", CONTENT, message, {"file": rel})
 
 
 def needle_class(code: str, needle: bytes, values: c.Values) -> str:
-    """A needle's class, for the record — never its value."""
+    """A needle's class, for the record — never its value: the spelling is
+    taken back to its canonical value first (PROTO-1-09)."""
+    import json
+
     if code == c.CLEAR_TOTALS:
         return "totals"
     text = needle.decode("utf-8", "replace")
     if text in values.texts:
         return "calendar" if re.fullmatch(r"[0-9]{4}-[0-9]{2}", text) else "label"
-    rows = json_rows(values)
-    if text == rows:
+    canonical = {s: n for n in values.numbers for s in c.spellings(n)}.get(text, text)
+    if canonical == str(json.loads(values.totals_raw)["rows"]):
         return "row_count"
+    years = {t[:4] for t in values.texts if re.fullmatch(r"[0-9]{4}-[0-9]{2}", t)}
+    if canonical in years:
+        return "calendar"
     return "number"
-
-
-def json_rows(values: c.Values) -> str:
-    import json
-
-    return str(json.loads(values.totals_raw)["rows"])

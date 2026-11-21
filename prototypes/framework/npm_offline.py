@@ -17,7 +17,6 @@ import base64
 import hashlib
 import json
 import pathlib
-import shutil
 import urllib.request
 
 import allowlist as al
@@ -132,9 +131,9 @@ def install(allow: al.Allowlist, work: pathlib.Path, *, options: sb.Options = sb
 def keep_install(work: pathlib.Path, out: pathlib.Path) -> al.Allowlist:
     """The install's `node_modules/`, copied out by the harness, and its listing
     — the build phase's input beside the sources."""
-    if out.exists():
-        raise FileExistsError(f"{out} exists")
-    shutil.copytree(work / "node_modules", out, symlinks=True)
+    uncarried = al.copy_out(work, "node_modules", out)  # a linked node_modules/ is refused (PROTO-1-01)
+    if uncarried:
+        raise Refused(f"the install wrote entries no copy can carry: {uncarried}")
     return al.files(out, "node_modules/")
 
 

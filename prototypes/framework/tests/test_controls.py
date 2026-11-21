@@ -53,11 +53,8 @@ def _all_layers(tmp_path, fx, *, builder_extra=None, artifact_extra=None, label=
         (decl / "profiles.json").write_text(json.dumps(data))
     pkg = _package(tmp_path, fx, label)
     artifact = tmp_path / "artifact"
-    assembly, validated = h.assemble(builder, pkg, fx.rows(), artifact)
+    assembly, validated = h.assemble(builder, pkg, fx.rows(), artifact, control_additions=artifact_extra)
     assert assembly.cls == h.PASS, assembly.message
-    for rel, data in (artifact_extra or {}).items():
-        (artifact / rel).parent.mkdir(parents=True, exist_ok=True)
-        (artifact / rel).write_bytes(data)
     lists = tmp_path / "lists"
     lists.mkdir()
     (lists / "include.txt").write_text(LISTS[0])
@@ -68,7 +65,7 @@ def _all_layers(tmp_path, fx, *, builder_extra=None, artifact_extra=None, label=
     inspected = io_.inspect_dir(artifact, needles, validated={f"{k}": d for k, d in validated.files.items()})
     record = v.Record("r1", build_input="in", builder_digest="b", artifact_digest="a", stages={
         "build": v.Stage(), "archive": v.Stage(), "inspect_builder": v.Stage(findings=len(built.findings), inconclusive=len(built.inconclusive)),
-        "assembly": v.Stage(cls=h.PASS), "verify": v.Stage(cls=result.cls),
+        "assembly": v.Stage(cls=assembly.cls), "verify": v.Stage(cls=result.cls),
         "inspect_artifact": v.Stage(findings=len(inspected.findings), inconclusive=len(inspected.inconclusive))})
     return result, inspected, v.verdict([record])
 

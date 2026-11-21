@@ -397,6 +397,36 @@ def totals(rows: list[tuple]) -> bytes:
     return c.totals_object(con, report, len(rows), sums)
 
 
+class SchemaFault(Exception):
+    """The schema check itself could not run — not a property of the file."""
+
+
+def schema_only(data: bytes) -> bool | None:
+    """A Parquet with P01's names and types and zero rows: True; one that parses
+    otherwise: False; bytes that do not parse as a Parquet: None. A failure of
+    the check's own machinery raises `SchemaFault` (PROTO-1-02, PROTO-1-06)."""
+    try:
+        import duckdb
+
+        report = contract().reports[REPORT]
+        tmp = tempfile.TemporaryDirectory()
+        path = pathlib.Path(tmp.name) / "f.parquet"
+        path.write_bytes(data)
+        con = duckdb.connect(":memory:")
+    except Exception as error:  # noqa: BLE001
+        raise SchemaFault(f"{type(error).__name__}") from None
+    try:
+        with tmp:
+            try:
+                schema = [(r[0], r[1]) for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path.as_posix()}')").fetchall()]
+                rows = con.execute(f"SELECT count(*) FROM read_parquet('{path.as_posix()}')").fetchone()[0]
+            except duckdb.Error:
+                return None
+    finally:
+        con.close()
+    return schema == [(col.name, col.type) for col in report.columns] and rows == 0
+
+
 def payload(fx: Fixture) -> tuple[bytes, bytes]:
     rows = fx.rows()
     check_shape(rows, fx.k, mutant=fx.mutant)

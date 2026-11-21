@@ -13,6 +13,7 @@ import pytest
 
 import fixture as f
 import harness as h
+import trees
 from bi_como_codigo import contract as c, envelope as e, release
 
 SEED = 20261120
@@ -53,19 +54,27 @@ def _lists(base: pathlib.Path, include: str = INCLUDE_ALL, media: str = MEDIA_AL
 
 
 def _run(tmp_path, sealed, *, builder_extra=None, artifact_extra=None, include=INCLUDE_ALL, media=MEDIA_ALL,
-         expected=None, role_override=None, declarations=h.DECLARATIONS, after_assembly=None):
+         expected=None, role_override=None, declarations=h.DECLARATIONS, after_assembly=None, builder_hook=None):
+    """Assembly and `verify`. `artifact_extra` are a control's additions,
+    declared to assembly; `after_assembly` changes the artifact afterwards, which
+    the bound `verify` must refuse as the harness's — the row of §2.5.1's table
+    is then read through `run_gate`, unbound (PROTO-1-02)."""
     fx, pkg, _, _ = sealed
     builder = _builder(tmp_path, builder_extra)
+    if builder_hook:
+        builder_hook(builder)
     artifact = tmp_path / "artifact"
-    outcome, validated = h.assemble(builder, pkg, expected if expected is not None else fx.rows(), artifact)
+    outcome, validated = h.assemble(builder, pkg, expected if expected is not None else fx.rows(), artifact,
+                                    control_additions=artifact_extra)
     if outcome.cls != h.PASS:
         return outcome
-    for rel, data in (artifact_extra or {}).items():
-        (artifact / rel).parent.mkdir(parents=True, exist_ok=True)
-        (artifact / rel).write_bytes(data)
     if after_assembly:
         after_assembly(artifact)
     root = h.write_root(tmp_path / "run", _lists(tmp_path, include, media), declarations)
+    if after_assembly:
+        bound = h.verify(artifact, builder, root, validated, role_override=role_override)
+        assert (bound.cls, bound.message) == (h.HARNESS_ERROR, "the artifact is not the one assembled with the validated package")
+        return h.run_gate(artifact, builder, root, validated, role_override=role_override)
     return h.verify(artifact, builder, root, validated, role_override=role_override)
 
 
@@ -211,12 +220,12 @@ def test_an_unlisted_refusal_or_an_exception_is_the_harnesss(tmp_path, sealed, m
 # --- verify: the candidate's form --------------------------------------------------
 
 
-def _symlink(artifact):
-    os.symlink("index.html", artifact / "link.html")
+def _symlink(builder):
+    os.symlink("index.html", builder / "link.html")
 
 
-def _fifo(artifact):
-    os.mkfifo(artifact / "pipe.txt")
+def _fifo(builder):
+    os.mkfifo(builder / "pipe.txt")
 
 
 @pytest.mark.parametrize("kwargs, message", [
@@ -226,8 +235,10 @@ def _fifo(artifact):
     ({"builder_extra": {"assets/app.js.map": b"{}"}}, "is a source map"),
     ({"builder_extra": {"assets/b.js": b"//# sourceMappingURL=b.js.map"}}, "references a source map"),
     ({"builder_extra": {"__/firebase/init.json": b"{}"}}, "reserved __/ URLs"),
-    ({"after_assembly": _symlink}, "is a symbolic link"),
-    ({"after_assembly": _fifo}, "is not a plain file"),
+    ({"builder_hook": _symlink}, "is a symbolic link"),
+    ({"builder_hook": _fifo}, "is not a plain file"),
+    ({"builder_extra": {"assets/schema_exact.js": b"1"}, "media": ".html text/html\n.json application/json\n.bice application/octet-stream\n"},
+     "extension not in media_types.txt"),
 ])
 def test_each_form_refusal_is_form(tmp_path, sealed, kwargs, message):
     outcome = _run(tmp_path, sealed, **kwargs)
@@ -309,3 +320,87 @@ def test_an_archive_is_reproducible_checked_and_never_overwritten(tmp_path):
     assert h.tree(tmp_path / "out") == h.tree(src)
     with pytest.raises(ValueError):
         h.extract(tmp_path / "a.tar.gz", tmp_path / "out2", "0" * 64)
+
+
+def test_an_archive_keeps_modes_links_and_fifos_and_assembly_carries_them_to_the_gate(tmp_path, sealed):
+    """PROTO-1-03: a builder output with a 0664 file, a link and a FIFO comes back
+    from its archive as it was, and the FIFO reaches `verify`."""
+    fx, pkg, _, _ = sealed
+    src = _builder(tmp_path)
+    (src / "assets" / "shared.js").write_text("1")
+    os.chmod(src / "assets" / "shared.js", 0o664)
+    os.symlink("app.js", src / "assets" / "alias.js")
+    os.mkfifo(src / "pipe.txt")
+    digest = h.archive(src, tmp_path / "b.tar.gz")
+    h.extract(tmp_path / "b.tar.gz", tmp_path / "back", digest)
+    assert h.tree(tmp_path / "back") == h.tree(src)
+    outcome, validated = h.assemble(tmp_path / "back", pkg, fx.rows(), tmp_path / "artifact")
+    assert outcome.cls == h.PASS
+    result = h.verify(tmp_path / "artifact", tmp_path / "back", h.write_root(tmp_path / "run", _lists(tmp_path)), validated)
+    assert (result.cls, result.message) == (h.FORM, "assets/alias.js is a symbolic link")
+
+
+def test_an_entry_no_archive_can_carry_is_refused_and_recorded(tmp_path, sealed):
+    import socket
+
+    fx, pkg, _, _ = sealed
+    src = _builder(tmp_path)
+    sock = socket.socket(socket.AF_UNIX)
+    sock.bind(str(src / "s.sock"))
+    try:
+        with pytest.raises(trees.Refused, match="s.sock"):
+            h.archive(src, tmp_path / "b.tar.gz")
+        outcome, _ = h.assemble(src, pkg, fx.rows(), tmp_path / "artifact")
+        assert outcome.cls == h.FORM and outcome.detail == {"entries": ["s.sock"]}
+    finally:
+        sock.close()
+
+
+# --- verify is bound to what assembly produced (PROTO-1-02) ------------------------------
+
+
+def test_a_valid_package_of_another_fixture_swapped_in_after_assembly_is_the_harnesss(tmp_path, sealed):
+    other, _ = f.generate(SEED + 1)
+    totals, parquet = f.payload(other)
+    outcome = _run(tmp_path, sealed, after_assembly=lambda a: _replace_package(a, release.profiles(f.HERE), totals, parquet))
+    assert outcome.cls == h.PASS  # unbound, the gate passes it: only the binding catches the swap
+
+
+def test_a_linked_envelope_after_assembly_is_the_harnesss(tmp_path, sealed):
+    def link(artifact):
+        env = next(p for p in (artifact / "package").iterdir() if p.suffix == ".bice")
+        env.unlink()
+        os.symlink("/nonexistent", env)
+
+    _run(tmp_path, sealed, after_assembly=link)  # the bound verify's refusal is asserted in _run
+
+
+def test_a_failure_inside_classification_is_the_harnesss(tmp_path, sealed, monkeypatch):
+    def broken(data):
+        raise f.SchemaFault("duckdb")
+
+    monkeypatch.setattr(f, "schema_only", broken)
+    outcome = _run(tmp_path, sealed, builder_extra={"assets/empty.parquet": f.parquet([])})
+    assert outcome.cls == h.HARNESS_ERROR and "schema check failed" in outcome.message
+    monkeypatch.undo()
+
+    def unreadable(root):
+        raise OSError("disk")
+
+    monkeypatch.setattr(trees, "files", unreadable)
+    fx = sealed[0]
+    outcome = _run(tmp_path / "b", sealed, builder_extra={"assets/count.js": f"n = {len(fx.cells)};".encode()})
+    assert outcome.cls == h.HARNESS_ERROR and "reproduction failed" in outcome.message
+
+
+def test_a_zero_row_parquet_with_other_types_is_content_not_schema_only(tmp_path, sealed):
+    import duckdb
+    import tempfile as tf
+
+    con = duckdb.connect()
+    cols = ", ".join(f'NULL::VARCHAR AS "{n}"' for n in f.COLUMNS)
+    with tf.TemporaryDirectory() as d:
+        con.execute(f"COPY (SELECT {cols} WHERE false) TO '{d}/x.parquet' (FORMAT parquet)")
+        data = open(f"{d}/x.parquet", "rb").read()
+    assert f.schema_only(data) is False
+    assert _run(tmp_path, sealed, builder_extra={"assets/wrong.parquet": data}).cls == h.CONTENT

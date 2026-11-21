@@ -24,6 +24,7 @@ import tempfile
 import inspect_output as io_
 import leveldb
 import serve
+import trees
 
 HERE = pathlib.Path(__file__).resolve().parent
 DRIVER = HERE / "browser" / "diagnostic.mjs"
@@ -302,8 +303,7 @@ def run(artifact: pathlib.Path, needles: io_.Needles, *, out: pathlib.Path, quer
         timeout: float = 600) -> Diagnosis:
     """One journey on one fresh profile, used for this journey only."""
     out.mkdir(parents=True, exist_ok=False)
-    artifact_digests = {p.relative_to(artifact).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
-                        for p in artifact.rglob("*") if p.is_file()}
+    artifact_digests = {x.rel: x.digest for x in trees.entries(trees.real_root(artifact)) if x.kind == "file"}  # no link followed
     with tempfile.TemporaryDirectory(prefix="bice-profile-") as tmp, serve.Server(artifact, port=low_port()) as server:
         profile = pathlib.Path(tmp) / "profile"
         config = {"url": server.url + query, "out": str(out), "profile": str(profile), "password": PASSWORD, "wrong": WRONG,
