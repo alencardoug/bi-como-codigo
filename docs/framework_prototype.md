@@ -874,19 +874,30 @@ plainly cannot reach one of them is reported as such, with the observation behin
   bound (the author's answer to round 1) and hides a host sentinel; with no `--clearenv` an
   inherited token stays visible, and with no PID namespace the parent's PID does (FPROTO-2, its §5);
   a host loopback listener is reachable with the network shared and refused with `--unshare-net`
-  (FPROTO-4, its §5). **[measured]** The full wrapper of §5 passes its probe, and each check fails on a
-  wrapper with its option removed (`tests/test_sandbox.py`). Its own root is remounted read-only;
-  `HOME` and `/tmp` are tmpfs inside it, writable and gone with it — no host path but the work folder
-  is. npm 12 installs offline from the harness's tarballs once they are loaded with `npm cache add
-  --offline`, inside the sandbox (`tests/test_inputs.py`).
+  (FPROTO-4, its §5). **[measured]** The full wrapper of §5 passes its probe, which compares namespace
+  identities, never PID numbers; and for each of its options — the cleared environment, the PID,
+  network, IPC and UTS namespaces, the new session and the root remounted read-only — a wrapper
+  without it fails the check for it (`python prototypes/framework/sandbox.py` prints the wrapper's
+  checks and the seven variants; `tests/test_sandbox.py`). `HOME` and `/tmp` are tmpfs inside it,
+  writable and gone with it — no host path but the work folder is. npm 12 installs offline from the
+  harness's tarballs once they are loaded with `npm cache add --offline`, inside the sandbox, and an
+  install and a build there fail at the loopback connection they attempt (`tests/test_inputs.py`).
+  The first version's PID check failed on a namespace sharing PID numbers with the host, and it had
+  no check for the root remount (PROTO-1-08).
 - **[measured]** Against DuckDB-WASM 1.32.0's EH WASM in a builder output, one draw of the fixture of
-  §2.1 is rejected on 176 values and one calendar year by the gate's substring search alone, in 7 s:
+  §2.1 is rejected on 176 values and one calendar year by the gate's substring search alone — measured
+  by a script of the author's and reproduced by Codex in round 1 of the review of step 1, 3.5 s for
+  the search; the test exercises the exhaustion, not the count:
   if A7 fails and the engine is served from Hosting, the draw may well end exhausted, as §2.1 and
   A7 say (`tests/test_wasm_collision.py`).
 - **Settled by building the diagnostic (§2.5.3)**: a worker is held before its first script by an
   instrumentation breakpoint, where the hooks are evaluated; Chrome's own targets — extensions, its
   interface — are not attached; the local server listens on a port below 10,000, never a count
-  needle, so the origin is no lead; LevelDB's bookkeeping files are not data; integers inside
+  needle, so the origin is no lead; LevelDB's bookkeeping files are not data; what a pristine profile
+  of the same Chrome writes on its own is recognised by digest, and a cache entry's known body taken
+  out; the hooks read each value back as the browser stored it, never running a getter of the page,
+  and the protocol's DOMStorage, CacheStorage and IndexedDB events record committed writes apart
+  from the hooks' attempts (PROTO-1-11, -12); integers inside
   V8-serialized IndexedDB values on disk are a named gap. The page contract is a set of `data-bice`
   attributes, the password field enabled only once the page can take a submission — which is when
   §2.7's journey submits. The control page's stored value is a control total of the opened report,
