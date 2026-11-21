@@ -182,3 +182,55 @@ def test_an_exhausted_draw_is_not_closed_by_an_assembly_refused_by_form():
                          draw_exhausted=True)
     assert v.verdict([exhausted, resume("x1", assembly=S(cls=FORM))]).name == v.STOPPED
     assert v.verdict([exhausted, dataclasses.replace(resume("x1", assembly=S(cls=FORM)), draw_clean=True)]).name == v.COST
+
+
+# --- round 4 (PROTO-4-01..03): the reviewer's histories, as a table ------------------
+
+_BUILD = {"build": S(), "archive": S()}
+_BUILDER = _BUILD | {"inspect_builder": S()}
+_TAIL = {"assembly": S(cls=PASS), "verify": S(cls=PASS), "inspect_artifact": S()}
+
+
+def _run(stages, *, name="r1", inp="in1", b="b1", a="a1", **flags):
+    return v.Record(name, build_input=inp, builder_digest=b, artifact_digest=a, stages=stages, **flags)
+
+
+def _resume(name, stages, *, b="b1", a="a1", **flags):
+    return v.Record(name, kind="resume", builder_digest=b, artifact_digest=a, stages=stages, **flags)
+
+
+_GOOD = _run(_BUILDER | _TAIL)
+_VERIFY_ERROR = _run(_BUILDER | {"assembly": S(cls=PASS), "verify": S(cls=HARNESS_ERROR)})
+_ARCHIVED = _run(_BUILD, a=None)
+_EXHAUSTED = _run(_BUILDER, a=None, draw_exhausted=True)
+
+ROUND_4 = {
+    "same-artifact retry in one resume": ([_VERIFY_ERROR, _resume("x", {"verify": S(cls=PASS), "inspect_artifact": S()})], v.PASSES),
+    "same-artifact retry in two resumes": ([_VERIFY_ERROR, _resume("x1", {"verify": S(cls=PASS)}), _resume("x2", {"inspect_artifact": S()})], v.PASSES),
+    "archived, then inspected and finished in one resume": ([_ARCHIVED, _resume("x", {"inspect_builder": S()} | _TAIL)], v.PASSES),
+    "archived, then inspected and finished in two resumes": ([_ARCHIVED, _resume("x1", {"inspect_builder": S()}), _resume("x2", _TAIL)], v.PASSES),
+    "an inconclusive artifact re-inspected": ([_run(_BUILDER | _TAIL | {"inspect_artifact": S(inconclusive=1)}), _resume("x", {"inspect_artifact": S()})], v.PASSES),
+    "an artifact finding before the first verify": (
+        [_run(_BUILDER | {"assembly": S(cls=PASS)}), _resume("early", {"inspect_artifact": S(findings=1)}), _resume("later", {"verify": S(cls=PASS)})],
+        v.NOT_ESTABLISHED),
+    "a clean artifact inspection before verify": (
+        [_VERIFY_ERROR, _resume("early", {"inspect_artifact": S()}), _resume("later", {"verify": S(cls=PASS)})], v.NOT_ESTABLISHED),
+    "an assembly refused by form carrying an artifact digest": ([_run(_BUILDER | _TAIL | {"assembly": S(cls=FORM), "verify": S(cls=CONTENT)})], v.COST),
+    "unattached content": ([_GOOD, _resume("orphan", {"verify": S(cls=CONTENT)}, b="b9", a="a9")], v.PASSES),
+    "an unattached gap": ([_GOOD, _resume("orphan", {"inspect_artifact": S(inconclusive=1)}, b="b9", a="a9")], v.PASSES),
+    "an unattached harness error": ([_GOOD, _resume("orphan", {"verify": S(cls=HARNESS_ERROR)}, b="b9", a="a9")], v.PASSES),
+    "an exhausted draw, then an assembly refused by form": ([_EXHAUSTED, _resume("x", {"assembly": S(cls=FORM)}, a=None)], v.STOPPED),
+    "an exhausted draw, then a full run and no clean draw": ([_EXHAUSTED, dataclasses.replace(_GOOD, id="r2")], v.NOT_ESTABLISHED),
+    "a clean draw, then the tail": ([_EXHAUSTED, _resume("draw", {}, a=None, draw_clean=True), _resume("tail", _TAIL)], v.PASSES),
+    "the tail, then a clean draw": ([_EXHAUSTED, _resume("tail", _TAIL), _resume("draw", {}, a=None, draw_clean=True)], v.NOT_ESTABLISHED),
+    "a clean draw of one fixture, a tail sealed from another": (
+        [_EXHAUSTED, _resume("draw", {}, a=None, draw_clean=True, fixture="f1"), _resume("tail", _TAIL, fixture="f2")], v.NOT_ESTABLISHED),
+    "a clean draw and its fixture's tail": (
+        [_EXHAUSTED, _resume("draw", {}, a=None, draw_clean=True, fixture="f1"), _resume("tail", _TAIL, fixture="f1")], v.PASSES),
+}
+
+
+@pytest.mark.parametrize("name", ROUND_4)
+def test_each_history_of_round_4(name):
+    records, expected = ROUND_4[name]
+    assert v.verdict(records).name == expected, v.verdict(records).reason
