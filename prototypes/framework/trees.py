@@ -38,11 +38,17 @@ class Entry:
 def real_root(base: pathlib.Path, rel: str = "") -> pathlib.Path:
     """`base/rel`, refused if any component of its absolute path — the
     ancestors of `base` included — is a link, or if it leaves `base`
-    (PROTO-2-01)."""
+    (PROTO-2-01). The components are checked as written, before anything
+    normalizes them: `a/link/../b` is refused at `link`, never read as `a/b`
+    (PROTO-3-02); a `..` anywhere is refused."""
     for part in pathlib.PurePosixPath(rel).parts:
         if part in ("..", "/"):
             raise Refused(f"{rel} leaves {base}")
-    path = pathlib.Path(os.path.abspath(base / rel))
+    path = pathlib.Path(base) / rel
+    if not path.is_absolute():
+        path = pathlib.Path(os.getcwd()) / path  # the working folder as the kernel resolved it
+    if ".." in path.parts:
+        raise Refused(f"{path} has a '..' component: a host-side read is checked as written")
     probe = pathlib.Path(path.anchor)
     for part in path.parts[1:]:
         probe = probe / part
@@ -86,7 +92,8 @@ def entries(root: pathlib.Path) -> list[Entry]:
 
 def files(root: pathlib.Path) -> dict[str, bytes]:
     """The regular files under `root`, by path; links and special entries are
-    not read."""
+    not read. Listed and read from the one checked root (PROTO-3-02)."""
+    root = real_root(root)
     return {e.rel: (root / e.rel).read_bytes() for e in entries(root) if e.kind == "file"}
 
 
@@ -95,6 +102,7 @@ def copy(src: pathlib.Path, dst: pathlib.Path) -> list[str]:
     modes, links as links, FIFOs as FIFOs. Returns the entries no copy can carry."""
     if dst.exists() or dst.is_symlink():
         raise FileExistsError(f"{dst} exists")
+    src = real_root(src)  # listed and read from the one checked root (PROTO-3-02)
     dst.mkdir(parents=True)
     uncarried = []
     listed = entries(src)
@@ -117,14 +125,13 @@ def copy(src: pathlib.Path, dst: pathlib.Path) -> list[str]:
     return uncarried
 
 
-
-
 def archive(src: pathlib.Path, dest: pathlib.Path) -> str:
     """A reproducible tar.gz of `src` — sorted, no owner, no time, modes kept,
     links and FIFOs as such — and its SHA-256. `dest` must not exist. An entry
     a tar cannot carry refuses the archive, naming it."""
     if dest.exists():
         raise FileExistsError(f"{dest} exists: an archive is kept, never overwritten")
+    src = real_root(src)  # listed and read from the one checked root (PROTO-3-02)
     listed = entries(src)
     other = [e.rel for e in listed if e.kind == "other"]
     if other:
