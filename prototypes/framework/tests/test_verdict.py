@@ -145,7 +145,7 @@ def test_an_exhausted_draw_stays_stopped_after_a_resume_on_another_builder():
     records = [exhausted, resume("x1", builder="b9", artifact="a9", assembly=S(cls=PASS), verify=S(cls=PASS), inspect_artifact=S())]
     assert v.verdict(records).name == v.STOPPED
     closed = [exhausted, dataclasses.replace(resume("x1", artifact="a1", assembly=S(cls=PASS), verify=S(cls=PASS), inspect_artifact=S()),
-                                             draw_clean=True)]
+                                             draw_clean=True, fixture="f1")]
     assert v.verdict(closed).name == v.PASSES
 
 
@@ -181,7 +181,7 @@ def test_an_exhausted_draw_is_not_closed_by_an_assembly_refused_by_form():
     exhausted = v.Record("r1", build_input="in1", builder_digest="b1", stages={"build": S(), "archive": S(), "inspect_builder": S()},
                          draw_exhausted=True)
     assert v.verdict([exhausted, resume("x1", assembly=S(cls=FORM))]).name == v.STOPPED
-    assert v.verdict([exhausted, dataclasses.replace(resume("x1", assembly=S(cls=FORM)), draw_clean=True)]).name == v.COST
+    assert v.verdict([exhausted, dataclasses.replace(resume("x1", assembly=S(cls=FORM)), draw_clean=True, fixture="f1")]).name == v.COST
 
 
 # --- round 4 (PROTO-4-01..03): the reviewer's histories, as a table ------------------
@@ -221,8 +221,8 @@ ROUND_4 = {
     "an unattached harness error": ([_GOOD, _resume("orphan", {"verify": S(cls=HARNESS_ERROR)}, b="b9", a="a9")], v.PASSES),
     "an exhausted draw, then an assembly refused by form": ([_EXHAUSTED, _resume("x", {"assembly": S(cls=FORM)}, a=None)], v.STOPPED),
     "an exhausted draw, then a full run and no clean draw": ([_EXHAUSTED, dataclasses.replace(_GOOD, id="r2")], v.NOT_ESTABLISHED),
-    "a clean draw, then the tail": ([_EXHAUSTED, _resume("draw", {}, a=None, draw_clean=True), _resume("tail", _TAIL)], v.PASSES),
-    "the tail, then a clean draw": ([_EXHAUSTED, _resume("tail", _TAIL), _resume("draw", {}, a=None, draw_clean=True)], v.NOT_ESTABLISHED),
+    "a clean draw, then the tail": ([_EXHAUSTED, _resume("draw", {}, a=None, draw_clean=True, fixture="f1"), _resume("tail", _TAIL, fixture="f1")], v.PASSES),
+    "the tail, then a clean draw": ([_EXHAUSTED, _resume("tail", _TAIL, fixture="f1"), _resume("draw", {}, a=None, draw_clean=True, fixture="f1")], v.NOT_ESTABLISHED),
     "a clean draw of one fixture, a tail sealed from another": (
         [_EXHAUSTED, _resume("draw", {}, a=None, draw_clean=True, fixture="f1"), _resume("tail", _TAIL, fixture="f2")], v.NOT_ESTABLISHED),
     "a clean draw and its fixture's tail": (
@@ -233,4 +233,48 @@ ROUND_4 = {
 @pytest.mark.parametrize("name", ROUND_4)
 def test_each_history_of_round_4(name):
     records, expected = ROUND_4[name]
+    assert v.verdict(records).name == expected, v.verdict(records).reason
+
+
+# --- round 5 (PROTO-5-01, -02, -09): the reviewer's histories ------------------------
+
+
+def _staged(name, stages, *, b="b1", a="a1", kind="run", **flags):
+    return v.Record(name, kind=kind, build_input="input" if kind == "run" else None, builder_digest=b, artifact_digest=a,
+                    stages=stages, **flags)
+
+
+_R5_GOOD = _staged("good", _BUILDER | _TAIL)
+_R5_EXHAUSTED = _staged("exhausted", _BUILDER, a=None, draw_exhausted=True)
+_R5_DRAW1 = _staged("draw1", {}, kind="resume", a=None, draw_clean=True, fixture="f1")
+_R5_DRAW2 = _staged("draw2", {}, kind="resume", a=None, draw_clean=True, fixture="f2")
+_R5_TAIL2 = _staged("sealed2", _TAIL, kind="resume", fixture="f2")
+
+ROUND_5 = {
+    "a fresh form refusal": ([_staged("form", _BUILDER | {"assembly": S(cls=FORM), "verify": S(cls=CONTENT)}, b="b2")], v.COST),
+    "a form refusal carrying an earlier artifact's digest, verify content": (
+        [_R5_GOOD, _staged("form", _BUILDER | {"assembly": S(cls=FORM), "verify": S(cls=CONTENT)}, b="b2")], v.COST),
+    "a form refusal carrying an earlier artifact's digest, a finding": (
+        [_R5_GOOD, _staged("form", _BUILDER | {"assembly": S(cls=FORM), "inspect_artifact": S(findings=1)}, b="b2")], v.COST),
+    "verify refused by form on a real artifact keeps its finding": (
+        [_staged("gate-form", _BUILDER | _TAIL | {"verify": S(cls=FORM), "inspect_artifact": S(findings=1)})], v.FAILS),
+    "an archive attempt ending in a harness error": ([_staged("x", {"build": S(), "archive": S(cls=HARNESS_ERROR)}, b=None, a=None)], v.STOPPED),
+    "that archive failure retried in full on the same input": (
+        [_staged("x", {"build": S(), "archive": S(cls=HARNESS_ERROR)}, b=None, a=None), _R5_GOOD], v.PASSES),
+    "a clean draw with no fixture": ([_R5_EXHAUSTED, _staged("unbound", {}, kind="resume", a=None, draw_clean=True), _R5_TAIL2], v.STOPPED),
+    "two draws, the second sealed and verified": ([_R5_EXHAUSTED, _R5_DRAW1, _R5_DRAW2, _R5_TAIL2], v.PASSES),
+    "the second draw alone": ([_R5_EXHAUSTED, _R5_DRAW2, _R5_TAIL2], v.PASSES),
+    "a draw after the tail": ([_R5_EXHAUSTED, _R5_TAIL2, _R5_DRAW2], v.NOT_ESTABLISHED),
+    "an exhausted record carrying a tail with content": (
+        [dataclasses.replace(_R5_EXHAUSTED, artifact_digest="a1", stages=_BUILDER | _TAIL | {"verify": S(cls=CONTENT)})], v.STOPPED),
+    "an exhausted flag on a resume no run explains": ([_R5_GOOD, _staged("orphan", {}, kind="resume", b="b9", a=None, draw_exhausted=True)], v.PASSES),
+    # §2.5.4 item 3: a latest run whose build was interrupted is stopped, whatever its draw flag says.
+    "a draw flag on a run whose build was interrupted": (
+        [_R5_EXHAUSTED, _staged("interrupted", {"build": S(status="interrupted")}, a=None, draw_clean=True, fixture="f2"), _R5_TAIL2], v.STOPPED),
+}
+
+
+@pytest.mark.parametrize("name", ROUND_5)
+def test_each_history_of_round_5(name):
+    records, expected = ROUND_5[name]
     assert v.verdict(records).name == expected, v.verdict(records).reason

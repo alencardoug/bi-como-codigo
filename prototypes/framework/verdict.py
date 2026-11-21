@@ -94,36 +94,59 @@ class _History:
     """Every stage attempt that counts, complete or not: `eligible` holds
     (record, stage) for an attempt made after what it is about was established
     before it — its run's own stages before it, or an earlier record on the
-    same digest —, `complete` those of them that completed. One rule for
-    findings, gaps, stops and closures (PROTO-4-02)."""
+    same digest —, `complete` those of them that completed. A draw is an
+    attempt too, between the builder's inspection and assembly: `draws` lists
+    (record, exhausted, fixture) of those that count. One rule for findings,
+    gaps, stops and closures (PROTO-4-02, PROTO-5-01, PROTO-5-02)."""
     eligible: frozenset
     complete: frozenset
+    draws: tuple
+
+
+_WALK = STAGES[:3] + ("draw",) + STAGES[3:]
 
 
 def _history(records: list[Record]) -> _History:
     """The prerequisites, in the order the records were made: the builder's
-    inspection needs that archive; assembly that inspected builder output;
-    `verify` an artifact assembled (a refusal by form assembles none); the
-    artifact's inspection that artifact verified. A resume archives nothing —
-    a run that failed before its archive is closed by a later run (§2.5.4) —
-    and a resume no earlier record explains counts for nothing (PROTO-3-01).
-    In a record, a stage that is missing in a run, or that did not complete,
-    ends what counts of it."""
+    inspection needs that archive; a draw that inspected builder output, and a
+    clean one the fixture it drew; assembly that inspected builder output;
+    `verify` an artifact assembled; the artifact's inspection that artifact
+    verified. A resume archives nothing — a run that failed before its archive
+    is closed by a later run (§2.5.4) —, an archive attempt is bound to the
+    build input it follows (PROTO-5-09), and a resume no earlier record
+    explains counts for nothing (PROTO-3-01). In a record, a stage that is
+    missing in a run, or that did not complete, ends what counts of it; so do
+    an exhausted draw and an assembly refused by form, which leave nothing to
+    assemble or to verify in that record (PROTO-5-01, PROTO-5-02)."""
     archived: set[str] = set()
     inspected: set[str] = set()
     assembled: set[str] = set()
     verified: set[str] = set()
     eligible: set[tuple[int, str]] = set()
     complete: set[tuple[int, str]] = set()
+    draws: list[tuple[int, bool, str | None]] = []
     for n, r in enumerate(records):
-        for name in STAGES:
+        built = False
+        for name in _WALK:
+            if name == "draw":
+                if not (r.draw_exhausted or r.draw_clean):
+                    continue
+                if r.builder_digest not in inspected or (r.draw_clean and not r.draw_exhausted and r.fixture is None):
+                    break  # a draw nothing inspected, or a clean one with no fixture, explains nothing
+                draws.append((n, r.draw_exhausted, r.fixture))
+                if r.draw_exhausted:
+                    break  # no fixture to seal: nothing after it in this record counts
+                continue
             if name not in r.stages:
                 if r.kind == "run":
                     break
                 continue
             subject = getattr(r, SUBJECT[name])
-            if name in ("build", "archive"):
+            if name == "build":
                 good = r.kind == "run"
+            elif name == "archive":
+                good = r.kind == "run" and built
+                subject = r.build_input if subject is None else subject  # a failed attempt has no digest yet
             elif name == "inspect_builder":
                 good = subject in archived
             elif name == "assembly":
@@ -138,15 +161,19 @@ def _history(records: list[Record]) -> _History:
             if not _complete(r, name):
                 break
             complete.add((n, name))
-            if name == "archive":
-                archived.add(subject)
+            if name == "build":
+                built = True
+            elif name == "archive":
+                archived.add(r.builder_digest)
             elif name == "inspect_builder":
                 inspected.add(subject)
-            elif name == "assembly" and r.stages[name].cls == PASS:
+            elif name == "assembly":
+                if r.stages[name].cls != PASS:
+                    break  # a refusal by form assembled nothing: no later stage of this record counts
                 assembled.add(r.artifact_digest)
             elif name == "verify":
                 verified.add(subject)
-    return _History(frozenset(eligible), frozenset(complete))
+    return _History(frozenset(eligible), frozenset(complete), tuple(draws))
 
 
 def _after(position: tuple[int, int], m: int, name: str) -> bool:
@@ -155,15 +182,11 @@ def _after(position: tuple[int, int], m: int, name: str) -> bool:
     return (m, STAGES.index(name)) > position
 
 
-def _clean_draw(n: int, records: list[Record]) -> int | None:
-    """The first record after *n* that recorded a clean draw against run *n*'s
-    builder output."""
-    r = records[n]
-    for m in range(n + 1, len(records)):
-        s = records[m]
-        if r.builder_digest is not None and s.builder_digest == r.builder_digest and s.draw_clean:
-            return m
-    return None
+def _clean_draws(n: int, records: list[Record], h: _History) -> list[tuple[int, str]]:
+    """(record, fixture) of every clean draw that counts after *n*, against
+    run *n*'s builder output."""
+    b = records[n].builder_digest
+    return [(m, fx) for m, exhausted, fx in h.draws if m > n and not exhausted and b is not None and records[m].builder_digest == b]
 
 
 def _effective(n: int, records: list[Record], h: _History) -> tuple[dict[str, Stage], list[str]]:
@@ -198,23 +221,21 @@ def _effective(n: int, records: list[Record], h: _History) -> tuple[dict[str, St
             return stages, [s for s in _mandatory(form) if s not in stages]
         stages["inspect_builder"] = records[found].stages["inspect_builder"]
         position = (found, STAGES.index("inspect_builder"))
-    fixture = None
-    if r.draw_exhausted:
-        # The draw of this run found no clean fixture: what replaces its tail
-        # comes after a clean draw against the same builder output, with the
-        # fixture that draw gave (PROTO-4-03).
-        drawn = _clean_draw(n, records)
-        if drawn is None:
-            return stages, [s for s in _mandatory(form) if s not in stages]
-        position = max(position, (drawn, STAGES.index("inspect_builder")))  # in a record, the draw comes before assembly
-        fixture = records[drawn].fixture
+    exhausted = any(m == n and e for m, e, _ in h.draws)
+    draws = _clean_draws(n, records, h) if exhausted else []
+    if exhausted and not draws:
+        return stages, [s for s in _mandatory(form) if s not in stages]
     artifact = r.artifact_digest if "assembly" in stages else None
     if "assembly" not in stages:
         for m in range(len(records)):
             s = records[m]
             if not _after(position, m, "assembly") or s.builder_digest != r.builder_digest or (m, "assembly") not in h.complete:
                 continue
-            if fixture is not None and s.fixture != fixture:
+            if exhausted and not any(d <= m and fx == s.fixture for d, fx in draws):
+                # After an exhausted draw, a tail counts only when sealed from
+                # the fixture of a clean draw made before it — any of them, so
+                # that a redraw after the other candidate's rebuild closes too
+                # (§2.1; PROTO-4-03, PROTO-5-02).
                 continue
             stages["assembly"] = s.stages["assembly"]
             position = (m, STAGES.index("assembly"))
@@ -253,32 +274,47 @@ def _unresolved_inconclusive(records: list[Record], h: _History) -> list[str]:
 
 def _stop(n: int, r: Record, h: _History) -> tuple[str, str] | None:
     """(the stage, why) of a record's stop: an attempt that counts and failed,
-    or a draw exhausted. An attempt no earlier record explains stops nothing
-    (PROTO-4-02)."""
-    if r.draw_exhausted:
-        return "draw", "the draw exhausted"
-    for name in STAGES:
+    or a draw that counts and exhausted. An attempt no earlier record explains
+    stops nothing (PROTO-4-02, PROTO-5-02)."""
+    for name in STAGES[:3]:
         st = r.stages.get(name)
-        if st is None or (n, name) not in h.eligible:
-            continue
-        if st.status == "interrupted":
-            return name, f"{name} interrupted"
-        if st.status == "error" or st.cls in {HARNESS_ERROR, COLLISION}:
-            return name, f"{name} ended in {st.cls or 'an error'}"
+        if st is not None and (n, name) in h.eligible and _failed(st):
+            return name, _why(name, st)
+    if any(m == n and e for m, e, _ in h.draws):
+        return "draw", "the draw exhausted"
+    for name in STAGES[3:]:
+        st = r.stages.get(name)
+        if st is not None and (n, name) in h.eligible and _failed(st):
+            return name, _why(name, st)
     return None
+
+
+def _failed(st: Stage) -> bool:
+    return st.status in ("interrupted", "error") or st.cls in {HARNESS_ERROR, COLLISION}
+
+
+def _why(name: str, st: Stage) -> str:
+    return f"{name} interrupted" if st.status == "interrupted" else f"{name} ended in {st.cls or 'an error'}"
 
 
 def _open_stop(n: int, records: list[Record], h: _History) -> str | None:
     """A stop stays until a later record completes that stage on the same
-    subject — an unrelated resume does not close it (PROTO-1-04) —; a draw,
-    until a clean draw is recorded against the same builder output."""
+    subject — an unrelated resume does not close it (PROTO-1-04) —; a build or
+    an archive, until a later run of the same build input archives
+    (PROTO-5-09); a draw, until a clean draw counts against the same builder
+    output."""
     stop = _stop(n, records[n], h)
     if stop is None:
         return None
     stage, why = stop
     r = records[n]
     if stage == "draw":
-        return None if _clean_draw(n, records) is not None else f"{r.id}: {why}"
+        return None if _clean_draws(n, records, h) else f"{r.id}: {why}"
+    if stage in ("build", "archive"):
+        if r.build_input is not None and any(records[m].build_input == r.build_input and (m, "archive") in h.complete
+                                             for m in range(n + 1, len(records))):
+            return None
+        return f"{r.id}: {why}"
     subject = getattr(r, SUBJECT[stage])
     if subject is not None and any(getattr(records[m], SUBJECT[stage]) == subject and (m, stage) in h.complete
                                    for m in range(n + 1, len(records))):
