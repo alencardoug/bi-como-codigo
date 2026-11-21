@@ -41,9 +41,9 @@ def real_root(base: pathlib.Path, rel: str = "") -> pathlib.Path:
     (PROTO-2-01). The components are checked as written, before anything
     normalizes them: `a/link/../b` is refused at `link`, never read as `a/b`
     (PROTO-3-02); a `..` anywhere is refused."""
-    for part in pathlib.PurePosixPath(rel).parts:
-        if part in ("..", "/"):
-            raise Refused(f"{rel} leaves {base}")
+    pure = pathlib.PurePosixPath(rel)
+    if pure.is_absolute() or str(rel).startswith("/") or ".." in pure.parts:  # `//x` is absolute too (PROTO-4-09)
+        raise Refused(f"{rel} leaves {base}")
     path = pathlib.Path(base) / rel
     if not path.is_absolute():
         path = pathlib.Path(os.getcwd()) / path  # the working folder as the kernel resolved it

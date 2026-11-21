@@ -49,3 +49,11 @@ def test_a_relative_root_is_checked_from_the_working_folder(tmp_path, monkeypatc
     with tarfile.open(fileobj=io.BytesIO(gzip.decompress((tmp_path / "a.tar.gz").read_bytes()))) as tar:
         assert tar.getnames() == ["a.txt"]
     assert len(digest) == 64
+
+
+@pytest.mark.parametrize("rel", ["//sibling", "/sibling", "a/../../sibling"])
+def test_a_relative_part_that_is_absolute_or_leaves_is_refused(tmp_path, rel):
+    """PROTO-4-09: `//x` is an absolute path, not a folder under the base."""
+    (tmp_path / "work").mkdir()
+    with pytest.raises(trees.Refused):
+        trees.real_root(tmp_path / "work", rel)
