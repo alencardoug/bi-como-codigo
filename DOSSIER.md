@@ -486,17 +486,16 @@ and §7 step 1, and PLAN §6.2 and N94–N96. Paths in the findings are relative
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| PROTO-4-01 | `verdict.py:155–190` | A single valid resume can leave completed stages open. | blocking | |
-| PROTO-4-02 | `verdict.py:110–128,195–221,247–277` | The verdict accepts early findings and unattached gaps or stops. | blocking | |
-| PROTO-4-03 | `verdict.py:48–49,226–244,268–279` | An exhausted draw can be cleared without an earlier, bound clean draw. | blocking | |
-| PROTO-4-04 | `fixture.py:442–459`, `harness.py:312–321` | Malformed builder Parquet can become `HARNESS_ERROR`. | blocking | |
-| PROTO-4-05 | `inspect_output.py:263–312,538–578` | The depth guard misses embedded JSON and reports an ordinary escaped path as unread. | blocking | |
-| PROTO-4-06 | `inspect_output.py:667–736` | Arrow and Parquet can be read as clean while storing fixture data. | blocking | |
-| PROTO-4-07 | `inspect_output.py:432–443,469–523` | Number boundaries can miss a count or report part of a different value. | blocking | |
-| PROTO-4-08 | `inspect_output.py:230–237,332–350` | Zstd skippable frames leave valid streams inconclusive. | adjustment | |
-| PROTO-4-09 | `trees.py:44–59`, `allowlist.py:190–201` | A path starting with `//` can send an output copy to a different source tree. | adjustment | |
-| PROTO-4-10 | `serve.py:81–96,144` | Revalidation ignores a matching validator on a second field line. | adjustment | |
-
+| PROTO-4-01 | `verdict.py:155–190` | A single valid resume can leave completed stages open. | blocking | Fixed in `016328d`: closures search by (record, stage), so later stages of the same record count; the reviewer's single-resume artifact retry and builder-inspection-plus-tail histories pass. In the table `test_each_history_of_round_4`. |
+| PROTO-4-02 | `verdict.py:110–128,195–221,247–277` | The verdict accepts early findings and unattached gaps or stops. | blocking | Fixed in `016328d`: one walk (`_history`) says which attempts count — an artifact's inspection only after that artifact's verify, verify only after an assembly `PASS` (a refusal by form assembles nothing) —, and only counted attempts give content, gaps and stops. The reviewer's early-finding, form-with-digest and three unattached histories in the table. |
+| PROTO-4-03 | `verdict.py:48–49,226–244,268–279` | An exhausted draw can be cleared without an earlier, bound clean draw. | blocking | Fixed in `016328d`: an exhausted run's tail is taken only after a record with `draw_clean` on the same builder output, from an assembly sealed from that draw's fixture (`Record.fixture`); the stop scan is unchanged for the latest run, and an earlier exhausted run stays open. Table: full later run without a clean draw, tail before the draw, other fixture. Nothing writes `draw_clean` yet: the run writer is a later step. |
+| PROTO-4-04 | `fixture.py:442–459`, `harness.py:312–321` | Malformed builder Parquet can become `HARNESS_ERROR`. | blocking | Fixed in `a46802a`: a DuckDB error other than invalid input is the file's when PyArrow refuses the bytes too, the check's own failure when PyArrow reads them. Both of the reviewer's footers go through the real gate as `CONTENT` (fail on `54385c6`); the out-of-memory control stays `HARNESS_ERROR`. |
+| PROTO-4-05 | `inspect_output.py:263–312,538–578` | The depth guard misses embedded JSON and reports an ordinary escaped path as unread. | blocking | Fixed in `9366edd`: at the depth limit an embedded JSON document is a layer unread; an encoded run counts only when its decoding is readable (text, a magic, Brotli). The reviewer's 3- and 4-layer holders are gaps, the escaped path and the percentage stay clean; `duckdb-browser.mjs` still gives zero gaps. |
+| PROTO-4-06 | `inspect_output.py:667–736` | Arrow and Parquet can be read as clean while storing fixture data. | blocking | Fixed in `9366edd`: `_stored` walks the physical children — a dictionary's whole dictionary, list children, map keys and items, struct fields —; string cells' numbers read as data, binary cells dispatched one layer deeper. Tests: the unreferenced dictionary value, the textual count and the gzipped binary cell, Arrow and Parquet. |
+| PROTO-4-07 | `inspect_output.py:432–443,469–523` | Number boundaries can miss a count or report part of a different value. | blocking | Fixed in `9366edd`: `.2e5` and `20000.e-5` read whole; ordinary-space groupings read from the left as long as they go; a window never starts inside a grouping continued by the same separator. Parametrized test of the reviewer's cases plus `1.020.000`, `1,020,000` and `5,20.000`. |
+| PROTO-4-08 | `inspect_output.py:230–237,332–350` | Zstd skippable frames leave valid streams inconclusive. | adjustment | Fixed in `9366edd`: skippable frames consumed anywhere in the stream, including first. Test: between and before the frames, label found and no gap. |
+| PROTO-4-09 | `trees.py:44–59`, `allowlist.py:190–201` | A path starting with `//` can send an output copy to a different source tree. | adjustment | Fixed in `074c7fd`: `real_root` refuses an absolute `rel` (`//x` included), a leading slash or `..`. Parametrized test; `//sibling` fails on `54385c6`. |
+| PROTO-4-10 | `serve.py:81–96,144` | Revalidation ignores a matching validator on a second field line. | adjustment | Fixed in `9b3ee49`: every `If-None-Match` field line joined in order. Test: `"old"` and the weak tag on two lines give 304 with no body; fails on `54385c6`. |
 #### PROTO-4-01 — A complete resume stays open
 
 **High, blocking.** `_effective` starts the next search at `position + 1` after a resumed stage.
@@ -738,3 +737,34 @@ carrier timings.
   directory. Preserve the working-directory and normal relative-path cases.
 - [ ] **PROTO-4-10** Return a bodyless `304` for a weak matching validator split across field
   lines. Keep the mismatched encoding at `200` and the unacceptable encoding at `406`.
+
+## Round 4 — the author's answer
+
+All ten findings are fixed, each in the commit its Status cell names, between `54385c6` (the record
+of round 4) and `9b3ee49`, with the `//` control made to name an existing folder in the commit after
+it; none is refused. The reviewer's probes, kept from `/tmp/bi-proto-round4.8LF0LO/`, were rerun on
+the new code: `verdict_probe.py` gives the expected verdict for all seventeen histories,
+`inspection_probe.py` gives the expected result for every case, `schema_probe.py` classifies both
+damaged footers `CONTENT`, and `bundle_probe.py` still reports zero gaps on DuckDB-WASM's
+`duckdb-browser.mjs`. The new tests were run against the code at `54385c6`, extracted with
+`git archive`: each test written to reproduce a finding fails there, and the guard cases that keep a
+correct behaviour pass on both.
+
+A claim to verify beyond the findings: `_history` in `verdict.py` replaces the attachment rules of
+rounds 2 and 3 with one walk, and the reasons the verdict gives for an open run now name only
+attempts that count.
+
+Executed at `9b3ee49`, 2026-11-21 19:44–19:54Z:
+
+```
+$ make prototype-test
+........................................................................ [ 22%]
+........................................................................ [ 45%]
+........................................................................ [ 67%]
+........................................................................ [ 90%]
+..............................                                           [100%]
+318 passed in 587.91s (0:09:47)
+```
+
+The count includes the out-of-scope files of the opening notes. `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1
+make check` exited 0 before each commit.
