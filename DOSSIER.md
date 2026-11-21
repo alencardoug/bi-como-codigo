@@ -21,12 +21,13 @@ Do not open them; commit `a52a210`, which changes only those files, is outside t
 They stay as a recorded limit of step 1 (section 4). Code in scope that calls the wrapper
 (`npm_offline.py`, `allowlist.py`) is reviewed only for what it does with the wrapper's result.
 
-**Also out of scope from round 4, by the Owner's decision of 2026-11-21:** the scripts that run in
-the browser — `prototypes/framework/browser/diagnostic.mjs`, `prototypes/framework/browser/instrument.js`,
-`prototypes/framework/browser/enumerate.js`. Round 4's first attempt was ended by Codex's provider
-while it read them. Do not open them. `diagnose.py`, which reads what they record, stays in scope:
-its attribution is reviewed on the records it is given. Under N96 the browser is a diagnostic and
-decides no verdict.
+**Also out of scope from round 4, by the Owner's decisions of 2026-11-21:** the whole browser
+diagnostic of §2.5.3 — `prototypes/framework/diagnose.py`, `prototypes/framework/leveldb.py`,
+everything under `prototypes/framework/browser/` and `prototypes/framework/controls/page/`, and
+`prototypes/framework/tests/test_diagnostic.py`. Both attempts of round 4 on a narrower exclusion were
+ended by Codex's provider. Do not open them, and leave the diagnostic's findings (PROTO-1-11, -12,
+PROTO-2-09, -10, PROTO-3-09, -10, -11) unassessed. Under N96 the browser is a diagnostic and decides
+no verdict; its full oracle belongs to stage 2.5.
 
 ## 1. Scope
 
@@ -151,10 +152,9 @@ Every claim with no command output in section 3 belongs here.
 - **Round 2's corrections to the isolation wrapper (PROTO-2-07, `a52a210`) are not reviewed.** By
   the Owner's decision they stay out of this review; whether the wrapper's self-check proves what
   §5 of the plan asks is, after round 2, only the author's claim. It is a limit of step 1.
-- **The browser scripts' changes of round 3 (`a5ebcce`: the test Chrome's flags, the Blob names)
-  are not reviewed from round 4 on**, by the Owner's decision; they are the author's claim, measured
-  by the diagnostic's journeys in the suite and by the cache capture of the author's answer to
-  round 3.
+- **The browser diagnostic's changes of rounds 2 and 3 (`8dfb902`, `a5ebcce`) are not reviewed
+  from round 4 on**, by the Owner's decisions; they are the author's claim, measured by the
+  diagnostic's journeys in the suite and by the cache capture of the author's answer to round 3.
 - **No candidate exists.** Every control ran on hand-made outputs or on the control page of
   `controls/page/`; none on Evidence's or the own build's carriers (§7 steps 2–5). Whether the
   carrier inspection's decoders and the diagnostic's collectors see what a real framework writes is
@@ -209,7 +209,8 @@ since 2026-11-13 no `make` target of eng_dados runs from here (CLAUDE.md §5).
 The prototype's tests write only under pytest's temporary folders and `prototypes/framework/runs/`
 (ignored by Git); Chrome runs on throwaway profiles under the system's temporary folder. To run
 the suite without the out-of-scope files:
-`uv run --frozen --group prototype pytest -q -p no:cacheprovider prototypes/framework/tests --ignore=prototypes/framework/tests/test_sandbox.py`.
+`uv run --frozen --group prototype pytest -q -p no:cacheprovider prototypes/framework/tests --ignore=prototypes/framework/tests/test_sandbox.py --ignore=prototypes/framework/tests/test_diagnostic.py`,
+with the loopback test of `test_inputs.py` deselected.
 
 ## 7. Where I hesitated
 
@@ -455,3 +456,7 @@ Sent at `5dd3dab` (gpt-6.2-sol, max). Codex's provider ended the session with "T
 flagged for possible cybersecurity risk" after it read `prototypes/framework/browser/diagnostic.mjs`;
 nothing was written. The Owner decided the same day to run round 4 with the browser scripts out of
 scope as well (opening note).
+
+A second attempt, at `6742bf7` with those scripts out, was ended the same way after Codex had read
+`diagnose.py`, during a web search; nothing was written. The Owner then took the whole browser
+diagnostic out of the review's scope (opening note).
