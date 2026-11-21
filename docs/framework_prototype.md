@@ -20,7 +20,7 @@
 |---|---|
 | Date | 2026-11-20 — revision 9, with the five adjustments of round 8 of Codex's review (FPROTO-8-01 to -05), which found no blocking finding and closed the review. Revision 8 answered round 7 (FPROTO-7-01 to -06) with the Owner's N96, revision 7 answered round 6 (FPROTO-6-01 to -08), revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. Nothing of it is built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
+| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 143 passing), and is not yet reviewed; no candidate is built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool that the stage proves or refutes (§9).
@@ -796,11 +796,16 @@ plainly cannot reach one of them is reported as such, with the observation behin
 
 ## 7. The order of the work
 
-1. **The ground, before either candidate [planned]**: the sandbox and its probe (§5); the fetcher;
+1. **The ground, before either candidate [built, 2026-11-20 — not yet reviewed]**: the sandbox and its probe (§5); the fetcher;
    the allowlist and its check (§2.2); the fixture's shape and generator, with its shape checks and
    the coverage assertion, on a throwaway seed, and the G mutant's own check; assembly with its own
    validation; the harness and its classification (§2.5.1); the inspection, the browser collection
    and the verdict function; every control of §2.5.5 that needs no candidate, on hand-made outputs.
+   Where each lives: `fixture.py`, `harness.py` (assembly, `verify`, the classes), `inspect_output.py`,
+   `verdict.py`, `sandbox.py` with `sandbox_probe.py`, `allowlist.py`, `npm_offline.py`, `calibrate.py`
+   (the draw against builder outputs), `serve.py`, `diagnose.py` with `leveldb.py` and `browser/`, and
+   the control page `controls/page/`, all under `prototypes/framework/`, their controls in its
+   `tests/`. What the building settled is in §9.
 2. **The clear mode, first**: the clear-mode fixture, then each candidate's clear build in its own
    sandbox — A6 and A1 for Evidence —, and the controls built from its carriers.
 3. **The encrypted route**: Candidate B's builder output, archived; Candidate A's, through probes
@@ -869,7 +874,23 @@ plainly cannot reach one of them is reported as such, with the observation behin
   bound (the author's answer to round 1) and hides a host sentinel; with no `--clearenv` an
   inherited token stays visible, and with no PID namespace the parent's PID does (FPROTO-2, its §5);
   a host loopback listener is reachable with the network shared and refused with `--unshare-net`
-  (FPROTO-4, its §5). The full wrapper of §5 is not yet run.
+  (FPROTO-4, its §5). **[measured]** The full wrapper of §5 passes its probe, and each check fails on a
+  wrapper with its option removed (`tests/test_sandbox.py`). Its own root is remounted read-only;
+  `HOME` and `/tmp` are tmpfs inside it, writable and gone with it — no host path but the work folder
+  is. npm 12 installs offline from the harness's tarballs once they are loaded with `npm cache add
+  --offline`, inside the sandbox (`tests/test_inputs.py`).
+- **[measured]** Against DuckDB-WASM 1.32.0's EH WASM in a builder output, one draw of the fixture of
+  §2.1 is rejected on 176 values and one calendar year by the gate's substring search alone, in 7 s:
+  if A7 fails and the engine is served from Hosting, the draw may well end exhausted, as §2.1 and
+  A7 say (`tests/test_wasm_collision.py`).
+- **Settled by building the diagnostic (§2.5.3)**: a worker is held before its first script by an
+  instrumentation breakpoint, where the hooks are evaluated; Chrome's own targets — extensions, its
+  interface — are not attached; the local server listens on a port below 10,000, never a count
+  needle, so the origin is no lead; LevelDB's bookkeeping files are not data; integers inside
+  V8-serialized IndexedDB values on disk are a named gap. The page contract is a set of `data-bice`
+  attributes, the password field enabled only once the page can take a submission — which is when
+  §2.7's journey submits. The control page's stored value is a control total of the opened report,
+  not a label: it parses no Parquet.
 - **[measured, by the reviewer]** each of the row counts 220 to 226 occurs in each of DuckDB-WASM
   1.32.0's EH and MVP WASM files, and `contract.inspect` refuses them there (FPROTO-3, its §5); none
   of the six counts of §2.1 does, in either file or either pinned worker (FPROTO-4, its §5).
