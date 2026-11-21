@@ -83,3 +83,35 @@ def test_the_encrypted_route_not_possible_is_not_run():
 def test_no_control_or_probe_record_enters_a_history():
     with pytest.raises(v.NotJudged):
         v.verdict([run("r1"), v.Record("c1", label="control")])
+
+
+# --- identities, order and stops (PROTO-1-04) ---------------------------------------
+
+
+def test_done_stages_with_no_identities_do_not_pass():
+    stages = {n: S(cls=PASS) if n in ("assembly", "verify") else S() for n in v.STAGES}
+    assert v.verdict([v.Record("r1", stages=stages)]).name == v.NOT_ESTABLISHED
+
+
+def test_tail_evidence_before_the_builders_inspection_does_not_close_it():
+    records = [run("r1", inspect_builder=None, **TAIL_NONE),
+               resume("x1", artifact="a1", assembly=S(cls=PASS), verify=S(cls=PASS), inspect_artifact=S()),
+               resume("x2", inspect_builder=S())]
+    assert v.verdict(records).name == v.NOT_ESTABLISHED
+
+
+def test_a_finding_of_an_errored_inspection_is_not_confirmed_content():
+    records = [run("r1", inspect_artifact=S(status="error", findings=1))]
+    assert v.verdict(records).name == v.STOPPED
+
+
+def test_a_stop_stays_after_an_unrelated_resume():
+    records = [run("r1", assembly=S(cls=HARNESS_ERROR), verify=None, inspect_artifact=None),
+               resume("x1", builder="b9", inspect_builder=S())]
+    assert v.verdict(records).name == v.STOPPED
+
+
+def test_a_full_retry_of_the_same_input_after_an_interruption_passes_and_another_input_does_not_close_it():
+    interrupted = run("r1", build=INTERRUPTED, archive=None, inspect_builder=None, **TAIL_NONE)
+    assert v.verdict([interrupted, run("r2", builder="b2", artifact="a2")]).name == v.PASSES
+    assert v.verdict([interrupted, run("r2", inp="in9", builder="b2", artifact="a2")]).name == v.NOT_ESTABLISHED
