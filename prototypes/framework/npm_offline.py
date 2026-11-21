@@ -82,23 +82,37 @@ def _https_get(url: str) -> bytes:
 
 def fetch(lockfile: pathlib.Path, cache: pathlib.Path, get=_https_get) -> dict:
     """Every tarball of the lockfile into `cache/`, named by the SHA-256 of its
-    bytes, and `cache/listing.json`. A tarball already there is checked again,
-    never trusted."""
+    bytes, and `cache/listing.json` — written only once every listed file on
+    disk has been read back and checked (PROTO-1-14). A file already at a
+    tarball's path is checked, never trusted: one with other bytes is replaced
+    by the checked ones."""
     lock = json.loads(lockfile.read_text(encoding="utf-8"))
     cache.mkdir(parents=True, exist_ok=True)
     listing = []
     for name, resolved, integrity in entries(lock):
-        known = [p for p in cache.glob("*.tgz") if (cache / f"{p.name}.integrity").is_file()
-                 and (cache / f"{p.name}.integrity").read_text() == integrity]
-        data = known[0].read_bytes() if known else get(resolved)
+        data = None
+        for p in sorted(cache.glob("*.tgz")):
+            side = cache / f"{p.name}.integrity"
+            if side.is_file() and side.read_text() == integrity and not p.is_symlink():
+                candidate = p.read_bytes()
+                if verify_integrity(candidate, integrity) and hashlib.sha256(candidate).hexdigest() == p.name[:-4]:
+                    data = candidate
+                    break
+        if data is None:
+            data = get(resolved)
         if not verify_integrity(data, integrity):
             raise Refused(f"{name}: the tarball does not match the lockfile's integrity")
         sha = hashlib.sha256(data).hexdigest()
         path = cache / f"{sha}.tgz"
-        if not path.exists():
+        if path.is_symlink() or not path.is_file() or path.read_bytes() != data:
+            path.unlink(missing_ok=True)
             path.write_bytes(data)
-            (cache / f"{sha}.tgz.integrity").write_text(integrity)
+        (cache / f"{sha}.tgz.integrity").write_text(integrity)
         listing.append({"package": name, "resolved": resolved, "integrity": integrity, "file": path.name, "sha256": sha})
+    for t in listing:  # what the listing names is what is on disk
+        on_disk = (cache / t["file"]).read_bytes()
+        if hashlib.sha256(on_disk).hexdigest() != t["sha256"] or not verify_integrity(on_disk, t["integrity"]):
+            raise Refused(f"{t['package']}: the cached file is not the checked tarball")
     record = {"lockfile_sha256": hashlib.sha256(lockfile.read_bytes()).hexdigest(), "tarballs": listing}
     (cache / "listing.json").write_text(json.dumps(record, indent=1) + "\n", encoding="utf-8")
     return record

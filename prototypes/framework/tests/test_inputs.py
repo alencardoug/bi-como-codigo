@@ -222,3 +222,38 @@ def test_package_code_cannot_reach_a_listener_on_the_hosts_loopback(tmp_path, lo
         al.assemble(allow, tmp_path / f"{name}-open")
         shared = sb.run(tmp_path / f"{name}-open", ["/usr/bin/sh", "-c", script], options=sb.Options(unshare_net=False), timeout=120)
         assert shared.returncode == 0, (name, shared.stderr.decode()[-1500:])
+
+
+# --- the cache and the Git paths (PROTO-1-14) ----------------------------------------
+
+
+def test_a_corrupt_file_at_a_tarballs_path_is_replaced_before_the_listing(tmp_path):
+    data = _tarball()
+    project = _project(tmp_path, data)
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / f"{hashlib.sha256(data).hexdigest()}.tgz").write_bytes(b"corrupt")
+    record = npm.fetch(project / "package-lock.json", cache, get=lambda url: data)
+    assert (cache / record["tarballs"][0]["file"]).read_bytes() == data
+
+
+def test_a_name_git_would_quote_is_read_from_its_pinned_blob(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run = lambda *a: subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True)
+    run("init", "-q")
+    name = "src/com espaço\tand tab.js"
+    (repo / "src").mkdir()
+    (repo / name).write_text("export default 1;\n")
+    run("add", ".")
+    run("-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", "x")
+    commit = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+    saved = al.REPO
+    al.REPO = repo
+    try:
+        allow = al.tracked(commit, "src/")
+        (repo / name).write_text("changed in the working tree\n")
+        al.assemble(allow, tmp_path / "work")
+    finally:
+        al.REPO = saved
+    assert (tmp_path / "work" / "com espaço\tand tab.js").read_text() == "export default 1;\n"

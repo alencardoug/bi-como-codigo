@@ -58,20 +58,23 @@ def _git(*args: str) -> bytes:
 
 
 def tracked(commit: str, prefix: str, dest_prefix: str = "") -> Allowlist:
-    """`git ls-files` of `prefix` at `commit`, each file read from its blob.
-    `dest_prefix` replaces `prefix` in the work folder."""
-    lines = _git("ls-tree", "-r", commit, "--", prefix).decode().splitlines()
-    if not lines:
+    """The files tracked under `prefix` at `commit`, from NUL-delimited
+    `git ls-tree` output — a name Git would quote is read as it is — each read
+    from its own blob id (PROTO-1-14). `dest_prefix` replaces `prefix` in the
+    work folder."""
+    records = [r for r in _git("ls-tree", "-r", "-z", "--full-tree", commit, "--", prefix).split(b"\0") if r]
+    if not records:
         raise Refused(f"nothing is tracked under {prefix} at {commit}")
     out = []
-    for line in lines:
-        meta, name = line.split("\t", 1)
-        mode = meta.split()[0]
-        if mode not in ("100644", "100755"):
+    for record in records:
+        meta, raw_name = record.split(b"\t", 1)
+        mode, kind, oid = meta.decode().split()
+        name = raw_name.decode("utf-8", "surrogateescape")
+        if kind != "blob" or mode not in ("100644", "100755"):
             raise Refused(f"{name} is not a plain tracked file")
-        blob = _git("show", f"{commit}:{name}")
+        blob = _git("cat-file", "blob", oid)
         rel = name[len(prefix):].lstrip("/") if name.startswith(prefix) and name != prefix else pathlib.PurePosixPath(name).name
-        out.append(Entry(f"{dest_prefix}{rel}", hashlib.sha256(blob).hexdigest(), f"git:{commit}:{name}", mode == "100755"))
+        out.append(Entry(f"{dest_prefix}{rel}", hashlib.sha256(blob).hexdigest(), f"git:{oid}:{name}", mode == "100755"))
     return Allowlist(tuple(out))
 
 
@@ -103,8 +106,8 @@ def single(dest: str, data_path: pathlib.Path) -> Allowlist:
 
 def _content(entry: Entry) -> bytes:
     if entry.source.startswith("git:"):
-        _, commit, name = entry.source.split(":", 2)
-        return _git("show", f"{commit}:{name}")
+        _, oid, _name = entry.source.split(":", 2)
+        return _git("cat-file", "blob", oid)
     return pathlib.Path(entry.source).read_bytes()
 
 
