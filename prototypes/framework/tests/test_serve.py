@@ -54,3 +54,20 @@ def test_a_request_that_accepts_no_representation_is_refused(tmp_path):
             assert _get(s.url + "app.js", accept)[0] == 406
         assert _get(s.url + "x.bice", "identity;q=0")[0] == 406
         assert _get(s.url + "x.bice", "gzip")[0] == 200  # a binary is sent as it is, which identity allows
+
+
+def test_a_conditional_get_matches_weakly_and_lists_and_sends_no_length(tmp_path):
+    """PROTO-3-14: weak comparison, a list of validators and `*`; a 304 never
+    carries a length that is not the 200's."""
+    (tmp_path / "app.js").write_text("export const v = 1;\n" * 50)
+    with serve.Server(tmp_path) as s:
+        url = s.url + "app.js"
+        zipped = _get(url, "br;q=0, gzip")
+        tag = zipped[1]["ETag"]
+        for header in (tag, "W/" + tag, f'"other", {tag}', f'W/"x",W/{tag}', "*"):
+            status, headers, body = _get(url, "br;q=0, gzip", header)
+            assert status == 304 and body == b"", header
+            assert headers.get("Content-Length") in (None, zipped[1]["Content-Length"]), header
+        assert _get(url, "br", tag)[0] == 200  # Brotli's representation does not match gzip's validator
+        assert _get(url, "br;q=0, gzip", '"other"')[0] == 200
+        assert serve.none_match(None, tag) is False

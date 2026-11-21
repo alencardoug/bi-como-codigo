@@ -15,6 +15,7 @@ import http.server
 import json
 import mimetypes
 import pathlib
+import re
 import threading
 import urllib.parse
 
@@ -77,6 +78,24 @@ def negotiate(accept: str, *, compressible: bool = True) -> str | None:
     return "identity" if identity > 0 else None
 
 
+def none_match(header: str | None, etag: str) -> bool:
+    """`If-None-Match` against the selected representation's validator: `*`,
+    or a list of entity tags compared weakly — a `W/` prefix ignored on either
+    side (RFC 9110 §13.1.2, §8.8.3.2; PROTO-3-14)."""
+    if header is None:
+        return False
+    if header.strip() == "*":
+        return True
+    opaque = etag[2:] if etag.startswith("W/") else etag
+    for tag in _ETAG_LIST.findall(header):
+        if (tag[2:] if tag.startswith("W/") else tag) == opaque:
+            return True
+    return False
+
+
+_ETAG_LIST = re.compile(r'(?:W/)?"[^"]*"')
+
+
 def _encode(data: bytes, coding: str) -> tuple[bytes, str | None]:
     if coding == "br":
         import brotli
@@ -122,10 +141,12 @@ def handler_for(root: pathlib.Path):
                 return
             data, encoding = _encode(data, coding)
             etag = '"' + hashlib.sha256(data + b"\0" + (encoding or "identity").encode()).hexdigest() + '"'
-            if self.headers.get("If-None-Match") == etag:
+            if none_match(self.headers.get("If-None-Match"), etag):
+                # No Content-Length: on a 304 it would describe the 200 it
+                # stands for, and a body is never sent (RFC 9110 §8.6, §15.4.5;
+                # PROTO-3-14).
                 self.send_response(304)
                 self._common(etag, encoding, suffix)
-                self.send_header("Content-Length", "0")
                 self.end_headers()
                 log.append({"path": path, "status": 304, "encoding": encoding, "etag": etag})
                 return
