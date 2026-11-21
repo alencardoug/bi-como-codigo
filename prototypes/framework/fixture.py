@@ -514,11 +514,12 @@ class DrawExhausted(Exception):
         super().__init__(f"draw exhausted after {record['draws']} draws; last: {last}")
 
 
-def provenance(fx: Fixture) -> dict[str, tuple[str, tuple[Key, ...]]]:
-    """Each canonical value the needles come from → (class, the cells to redraw).
-    Texts that are fixed labels have no cell; the calendar and the row count
-    are classes of their own."""
-    out: dict[str, tuple[str, tuple[Key, ...]]] = {}
+def provenance(fx: Fixture) -> dict[str, list[tuple[str, tuple[Key, ...]]]]:
+    """Each canonical value the needles come from → every (class, cells to
+    redraw) it is: a value can be a count and the row count at once
+    (PROTO-1-09). Texts that are fixed labels have no cell; the calendar and
+    the row count are classes of their own."""
+    out: dict[str, list[tuple[str, tuple[Key, ...]]]] = defaultdict(list)
     by_value: dict[str, list[Key]] = defaultdict(list)
     for key, m in fx.cells.items():
         for v in (m.order_count, m.unit_count, m.gross, m.discount, m.net):
@@ -531,15 +532,25 @@ def provenance(fx: Fixture) -> dict[str, tuple[str, tuple[Key, ...]]]:
     for name in contract().reports[REPORT].sums:
         by_value[str(sum((r[COLUMNS.index(name)] for r in rows), ZERO if "amount" in name else 0))].extend(fx.cells)
     for value, keys in by_value.items():
-        out[value] = ("value", tuple(dict.fromkeys(keys)))
+        out[value].append(("value", tuple(sorted(dict.fromkeys(keys)))))
     for i in range(MONTHS):
         y, _ = fx.month(i)
-        out[fx.year_month(i)] = ("calendar", ())
-        out[str(y)] = ("calendar", ())
-    out[str(len(fx.cells))] = ("row_count", ())
+        for text in (fx.year_month(i), str(y)):
+            if ("calendar", ()) not in out[text]:
+                out[text].append(("calendar", ()))
+    out[str(len(fx.cells))].append(("row_count", ()))
     for label in (*CHANNELS, *CHANNELS.values(), *ROOTS, *ROOT_OF):
-        out[label] = ("label", ())
-    return out
+        out[label].append(("label", ()))
+    return dict(out)
+
+
+class DrawStopped(Exception):
+    """The collision search could not read a builder output: the draw stops
+    with the file and the reason, a harness limitation (PROTO-1-07)."""
+
+    def __init__(self, reasons: list[dict], record: dict | None = None):
+        self.reasons, self.record = reasons, record
+        super().__init__(f"the draw stopped: {reasons[:3]}")
 
 
 def draw(seed: int, collides, limit: int = DRAWS_MAX) -> tuple[Fixture, dict]:
@@ -548,12 +559,20 @@ def draw(seed: int, collides, limit: int = DRAWS_MAX) -> tuple[Fixture, dict]:
     a colliding row count changes *k*, a colliding calendar moves the window.
     Raises `DrawExhausted` with the record when no draw within `limit` is
     clean."""
+    if not 1 <= limit <= DRAWS_MAX:
+        raise ValueError(f"a draw takes at most {DRAWS_MAX} draws (§2.1)")
     fx, d = generate(seed)
     record: dict = {"seed": seed, "draws": 0, "rejections": []}
     tried_k = {fx.k}
     while record["draws"] < limit:
         record["draws"] += 1
-        found = collides(fx)
+        try:
+            found = collides(fx)
+        except DrawStopped as stopped:
+            record["stopped"] = stopped.reasons
+            raise DrawStopped(stopped.reasons, record) from None
+        # One order whatever the process's hashing, so that a seed gives one fixture (PROTO-1-09).
+        found = sorted(set(found), key=lambda r: (r.needle_class, r.inspection, r.file, r.keys))
         if not found:
             record["fixture"] = fx.describe()
             return fx, record

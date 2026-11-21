@@ -15,49 +15,69 @@ import pathlib
 
 import fixture as fx_mod
 import inspect_output as io_
-from bi_como_codigo import contract as c
+import trees
+from bi_como_codigo import contract as c, envelope as e, release
 
 GATE = "contract.inspect"
 CARRIER = "carrier inspection"
 
 
 def _items(root: pathlib.Path) -> list[io_.Item]:
-    return [io_.Item(p.relative_to(root).as_posix(), p.read_bytes()) for p in sorted(root.rglob("*")) if p.is_file() and not p.is_symlink()]
+    """Every regular file of a builder output, read without following a link;
+    a missing or linked root refuses the draw (PROTO-1-07)."""
+    real = trees.real_root(root)
+    return [io_.Item(rel, data) for rel, data in sorted(trees.files(real).items())]
+
+
+def _opened(fx: fx_mod.Fixture) -> c.Values:
+    """§2.1, step 2: the fixture sealed, opened with the reader, and checked as
+    the gate checks it."""
+    totals, parquet = fx_mod.payload(fx)
+    manifest_raw, files = fx_mod.seal(totals, parquet)
+    manifest = e.validate_manifest(manifest_raw)
+    declared = {p.id: p.password for p in release.profiles(fx_mod.HERE)}
+    key = e.login(manifest, "diretoria", declared["diretoria"])
+    entry = manifest.reports[fx_mod.REPORT]
+    opened_totals, opened_parquet = e.open_report(manifest, files[entry.file], fx_mod.REPORT, key)
+    contract = fx_mod.contract()
+    return c.check_payload(contract, contract.reports[fx_mod.REPORT], opened_totals, opened_parquet)
 
 
 def collision_search(builders: dict[str, pathlib.Path], *, dependencies: dict[str, frozenset[str]] | None = None,
                      public: set[str] | None = None):
     """`collides(fx)` for `fixture.draw`, over the named builder outputs."""
+    if not builders:
+        raise ValueError("the draw needs the builder outputs it is drawn against")
     loaded = {name: _items(root) for name, root in builders.items()}
-    public = public or set()
-    contract = fx_mod.contract()
+    if public is None:
+        public = c.load_public_values((fx_mod.HERE / "release" / "public_values.json").read_bytes())
 
     def collides(fx: fx_mod.Fixture) -> list[fx_mod.Rejection]:
-        totals, parquet = fx_mod.payload(fx)
-        values = c.check_payload(contract, contract.reports[fx_mod.REPORT], totals, parquet)
+        values = _opened(fx)
         needles = c.needles([values], public)
         spelled = {s.encode(): n for n in values.numbers if c.eligible_number(n) for s in c.spellings(n)}
         spelled |= {t.encode(): t for t in values.texts}
         known = fx_mod.provenance(fx)
-        carrier_needles = io_.Needles.from_fixture(fx)
+        carrier_needles = io_.Needles.from_fixture(fx, gate=False)
         out: list[fx_mod.Rejection] = []
+        stopped: list[dict] = []
 
         def reject(value: str | None, inspection: str, file: str) -> None:
             if value is None:
-                out.append(fx_mod.Rejection("value", inspection, file, tuple(fx.cells)))  # the totals object
+                out.append(fx_mod.Rejection("value", inspection, file, tuple(sorted(fx.cells))))  # the totals object
                 return
-            cls, keys = known.get(value, ("label", ()))
-            out.append(fx_mod.Rejection(cls, inspection, file, keys))
+            for cls, keys in known.get(value, [("label", ())]):
+                out.append(fx_mod.Rejection(cls, inspection, file, keys))
 
         for name, items in loaded.items():
             for code, needle, rel in io_.gate_hits({i.name: i.data for i in items}, needles):
                 reject(None if code == c.CLEAR_TOTALS else spelled.get(needle), GATE, f"{name}:{rel}")
             report = io_.inspect_items(items, carrier_needles, dependencies=(dependencies or {}).get(name, frozenset()))
+            stopped += [{"file": f"{name}:{x.file}", "path": x.path, "reason": x.reason} for x in report.inconclusive]
             for finding in report.findings:
-                value = finding.value
-                if finding.code == io_.INSPECT_CALENDAR:
-                    value = str(value)  # a year of the window: the calendar moves
-                reject(value, CARRIER, f"{name}:{finding.file}")
+                reject(str(finding.value), CARRIER, f"{name}:{finding.file}")
+        if stopped:  # an output the inspection cannot read calibrates nothing
+            raise fx_mod.DrawStopped(sorted(stopped, key=lambda x: (x["file"], x["path"])))
         return out
 
     return collides

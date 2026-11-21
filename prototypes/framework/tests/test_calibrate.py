@@ -5,6 +5,8 @@ accepted fixture's artifact, with the same literal, has no finding."""
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 import calibrate as cal
@@ -62,7 +64,8 @@ def test_a_row_count_in_a_builder_output_changes_k(tmp_path, first):
     fx, record = cal.draw_against(SEED, {"own": own})
     assert fx.k != first.k
     assert {r["class"] for r in record["rejections"]} >= {"row_count"}
-    assert all("value" not in r for r in record["rejections"])
+    shown = json.dumps(record["rejections"])  # classes, inspections and files — never a fixture value
+    assert str(len(first.cells)) not in shown and not any(label in shown for label in f.CHANNELS)
 
 
 def test_a_year_of_the_window_in_a_builder_output_moves_the_calendar(tmp_path, first):
@@ -70,3 +73,70 @@ def test_a_year_of_the_window_in_a_builder_output_moves_the_calendar(tmp_path, f
     fx, record = cal.draw_against(SEED, {"own": own})
     assert fx.start != first.start
     assert any(r["class"] == "calendar" for r in record["rejections"])
+
+
+# --- what the draw refuses to calibrate on, and its determinism (PROTO-1-07, -09) -------
+
+
+def test_a_missing_builder_output_refuses_the_draw(tmp_path):
+    import trees
+
+    with pytest.raises(trees.Refused):
+        cal.draw_against(SEED, {"own": tmp_path / "absent"})
+
+
+def test_an_output_the_inspection_cannot_read_stops_the_draw(tmp_path):
+    import os
+
+    own = _builder(tmp_path, "own", "export const v = 1;\n")
+    (own / "assets" / "blob.bin").write_bytes(os.urandom(512))
+    with pytest.raises(f.DrawStopped) as raised:
+        cal.draw_against(SEED, {"own": own})
+    assert raised.value.reasons[0]["file"] == "own:assets/blob.bin"
+    assert raised.value.record["draws"] == 1
+
+
+def test_a_calendar_inside_a_compressed_structured_cell_moves_the_window(tmp_path, first):
+    import gzip
+    import io as io_mod
+
+    import pyarrow as pa
+    import pyarrow.ipc as ipc
+
+    table = pa.table({"period": [f"period={first.year_month(2)}"]})
+    sink = io_mod.BytesIO()
+    with ipc.new_file(sink, table.schema) as writer:
+        writer.write_table(table)
+    own = _builder(tmp_path, "own", "export const v = 1;\n")
+    (own / "assets" / "q.bin").write_bytes(gzip.compress(sink.getvalue()))
+    fx, record = cal.draw_against(SEED, {"own": own})
+    assert fx.start != first.start and any(r["class"] == "calendar" for r in record["rejections"])
+
+
+def test_a_grouped_row_count_is_named_as_the_row_count(tmp_path, first):
+    grouped = f"{len(first.cells):,}".replace(",", ".")
+    own = _builder(tmp_path, "own", f'export const n = "{grouped}";\n')
+    fx, record = cal.draw_against(SEED, {"own": own})
+    assert "row_count" in {r["class"] for r in record["rejections"]} and fx.k != first.k
+
+
+def test_the_draw_refuses_more_than_its_ceiling():
+    with pytest.raises(ValueError):
+        f.draw(SEED, lambda fx: [], limit=f.DRAWS_MAX + 1)
+
+
+def test_a_seed_gives_one_fixture_whatever_the_hash_seed(tmp_path, first):
+    import json
+    import os
+    import subprocess
+    import sys
+
+    amounts = [m.net for m in first.cells.values() if m.net.as_tuple().digits[-1] == 0][:2]
+    own = _builder(tmp_path, "own", "".join(f"export const a{n} = {format(a.normalize(), 'f')};\n" for n, a in enumerate(amounts)))
+    script = (f"import sys, json, hashlib; sys.path.insert(0, {str(f.HERE)!r}); import calibrate as cal, pathlib; "
+              f"fx, rec = cal.draw_against({SEED}, {{'own': pathlib.Path({str(own)!r})}}); "
+              "print(json.dumps([hashlib.sha256(repr(fx.rows()).encode()).hexdigest(), rec['rejections']]))")
+    outs = {subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=True,
+                           env=os.environ | {"PYTHONHASHSEED": seed}).stdout for seed in ("1", "2")}
+    assert len(outs) == 1
+    assert json.loads(outs.pop())[1]

@@ -13,6 +13,7 @@ against the registry's integrity:
 
 from __future__ import annotations
 
+import hashlib
 import pathlib
 import tarfile
 
@@ -66,7 +67,8 @@ def test_a_row_count_measured_in_the_engine_is_a_collision(tmp_path, builder, ro
 
 def test_a_draw_with_no_clean_fixture_against_that_output_is_exhausted(builder):
     with pytest.raises(f.DrawExhausted) as raised:
-        cal.draw_against(20261120, {"engine": builder}, limit=2)
+        wasm = hashlib.sha256((builder / "assets" / "duckdb-eh.wasm").read_bytes()).hexdigest()
+        cal.draw_against(20261120, {"engine": builder}, limit=2, dependencies={"engine": frozenset({wasm})})
     record = raised.value.record
     assert record["draws"] == 2 and record["rejections"]
-    assert all(r["file"] == "engine:assets/duckdb-eh.wasm" for r in record["rejections"])
+    assert {r["file"] for r in record["rejections"]} <= {"engine:assets/duckdb-eh.wasm", "engine:index.html"}
