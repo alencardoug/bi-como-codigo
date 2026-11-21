@@ -342,6 +342,18 @@ def test_an_archive_keeps_modes_links_and_fifos_and_assembly_carries_them_to_the
     assert (result.cls, result.message) == (h.FORM, "assets/alias.js is a symbolic link")
 
 
+def test_a_fifo_alone_reaches_the_gate_through_the_archive(tmp_path, sealed):
+    """PROTO-2-11: the FIFO itself causes the form refusal, with no link before it."""
+    fx, pkg, _, _ = sealed
+    src = _builder(tmp_path)
+    os.mkfifo(src / "pipe.txt")
+    digest = h.archive(src, tmp_path / "b.tar.gz")
+    h.extract(tmp_path / "b.tar.gz", tmp_path / "back", digest)
+    outcome, validated = h.assemble(tmp_path / "back", pkg, fx.rows(), tmp_path / "artifact")
+    result = h.verify(tmp_path / "artifact", tmp_path / "back", h.write_root(tmp_path / "run", _lists(tmp_path)), validated)
+    assert (result.cls, result.message) == (h.FORM, "pipe.txt is not a plain file")
+
+
 def test_an_entry_no_archive_can_carry_is_refused_and_recorded(tmp_path, sealed):
     import socket
 

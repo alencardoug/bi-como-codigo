@@ -122,6 +122,11 @@ def test_the_hooks_record_what_the_browser_stored_without_running_the_pages_gett
 
 def test_a_label_inside_a_stored_parquet_is_found_written_committed_and_readable(control, tmp_path):
     r = _journey(control, tmp_path, "label")
+    raw = json.loads((tmp_path / "out" / "raw.json").read_text())
+    stored = next(e["value"]["text"] for e in raw["events"] if e["kind"] == "store" and e["store"] == "localStorage")
+    found = io_.inspect_items([io_.Item("stored", stored.encode(), role=io_.COLLECTED)], control[1])
+    labels = {x.value for x in found.findings if x.code == io_.INSPECT_PARQUET}
+    assert labels & set(f.CHANNELS), "the Parquet's text cells, not only its numbers"  # PROTO-2-11
     assert io_.INSPECT_PARQUET in {x["code"] for x in r.written["findings"]}
     assert io_.INSPECT_PARQUET in {x["code"] for x in r.written["committed"]["findings"]}
     assert io_.INSPECT_PARQUET in {x["code"] for x in r.readable["findings"]}

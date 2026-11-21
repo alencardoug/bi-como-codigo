@@ -5,6 +5,7 @@ layers are recorded beside it."""
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import shutil
@@ -38,13 +39,29 @@ def _package(tmp_path, fx, label="Diretoria"):
     return pkg
 
 
-def _all_layers(tmp_path, fx, *, builder_extra=None, artifact_extra=None, label="Diretoria", relabel_declarations=False):
-    builder = tmp_path / "builder"
-    (builder / "assets").mkdir(parents=True)
-    (builder / "index.html").write_text("<!doctype html><title>P01</title>")
+def _record(id, archive_digest, artifact, assembly, result, built, inspected, build_input="in"):
+    """A verdict record from what the control actually ran: the archive's
+    digest, the assembled artifact's tree digest, and each stage's outcome
+    (PROTO-2-11)."""
+    artifact_digest = hashlib.sha256(json.dumps(h.tree(artifact)).encode()).hexdigest() if assembly.cls == h.PASS else None
+    return v.Record(id, build_input=build_input, builder_digest=archive_digest, artifact_digest=artifact_digest, stages={
+        "build": v.Stage(), "archive": v.Stage(),
+        "inspect_builder": v.Stage(findings=len(built.findings), inconclusive=len(built.inconclusive)),
+        "assembly": v.Stage(cls=assembly.cls), "verify": v.Stage(cls=result.cls),
+        "inspect_artifact": v.Stage(findings=len(inspected.findings), inconclusive=len(inspected.inconclusive))})
+
+
+def _all_layers(tmp_path, fx, *, builder_extra=None, artifact_extra=None, label="Diretoria", relabel_declarations=False,
+                with_record=False):
+    made = tmp_path / "made"
+    (made / "assets").mkdir(parents=True)
+    (made / "index.html").write_text("<!doctype html><title>P01</title>")
     for rel, data in (builder_extra or {}).items():
-        (builder / rel).parent.mkdir(parents=True, exist_ok=True)
-        (builder / rel).write_bytes(data)
+        (made / rel).parent.mkdir(parents=True, exist_ok=True)
+        (made / rel).write_bytes(data)
+    archive_digest = h.archive(made, tmp_path / "builder.tar.gz")  # archived, then inspected from the archive
+    builder = tmp_path / "builder"
+    h.extract(tmp_path / "builder.tar.gz", builder, archive_digest)
     decl = h.DECLARATIONS
     if relabel_declarations:  # the package's label is the declared one, so that assembly validates it
         decl = tmp_path / "decl"
@@ -65,11 +82,9 @@ def _all_layers(tmp_path, fx, *, builder_extra=None, artifact_extra=None, label=
     needles = io_.Needles.from_fixture(fx)
     built = io_.inspect_dir(builder, needles)
     inspected = io_.inspect_dir(artifact, needles, validated={f"{k}": d for k, d in validated.files.items()})
-    record = v.Record("r1", build_input="in", builder_digest="b", artifact_digest="a", stages={
-        "build": v.Stage(), "archive": v.Stage(), "inspect_builder": v.Stage(findings=len(built.findings), inconclusive=len(built.inconclusive)),
-        "assembly": v.Stage(cls=assembly.cls), "verify": v.Stage(cls=result.cls),
-        "inspect_artifact": v.Stage(findings=len(inspected.findings), inconclusive=len(inspected.inconclusive))})
-    return result, inspected, v.verdict([record])
+    record = _record("r1", archive_digest, artifact, assembly, result, built, inspected)
+    out = (result, inspected, v.verdict([record]))
+    return out + (record,) if with_record else out
 
 
 def _js(amount):
@@ -184,20 +199,14 @@ def test_a_carrier_nobody_listed_is_not_established_even_after_a_clean_run_of_an
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
     sealed = AESGCM(AESGCM.generate_key(128)).encrypt(os.urandom(12), _rows_json(fx), None)
-    result, inspected, verdict = _all_layers(tmp_path / "a", fx, artifact_extra={"assets/cache.bin": sealed})
+    result, inspected, verdict, first = _all_layers(tmp_path / "a", fx, artifact_extra={"assets/cache.bin": sealed}, with_record=True)
     assert result.cls == h.PASS and not inspected.findings and inspected.inconclusive
     assert verdict.name == v.NOT_ESTABLISHED
-    _, clean, _ = _all_layers(tmp_path / "b", fx)
-    assert clean.clean
-    history = [
-        v.Record("r1", build_input="in", builder_digest="b", artifact_digest="a1", stages={
-            "build": v.Stage(), "archive": v.Stage(), "inspect_builder": v.Stage(), "assembly": v.Stage(cls=h.PASS),
-            "verify": v.Stage(cls=result.cls), "inspect_artifact": v.Stage(inconclusive=len(inspected.inconclusive))}),
-        v.Record("r2", build_input="in2", builder_digest="b2", artifact_digest="a2", stages={
-            "build": v.Stage(), "archive": v.Stage(), "inspect_builder": v.Stage(), "assembly": v.Stage(cls=h.PASS),
-            "verify": v.Stage(cls=h.PASS), "inspect_artifact": v.Stage(inconclusive=len(clean.inconclusive))}),
-    ]
-    assert v.verdict(history).name == v.NOT_ESTABLISHED
+    clean_result, clean, clean_verdict, second = _all_layers(tmp_path / "b", fx, builder_extra={"assets/other.js": b"1"}, with_record=True)
+    assert clean.clean and clean_verdict.name == v.PASSES
+    second = dataclasses.replace(second, id="r2", build_input="in2")
+    assert first.artifact_digest != second.artifact_digest
+    assert v.verdict([first, second]).name == v.NOT_ESTABLISHED
 
 
 # --- each control fails without the detection it exercises ------------------------------

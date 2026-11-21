@@ -140,3 +140,39 @@ def test_a_seed_gives_one_fixture_whatever_the_hash_seed(tmp_path, first):
                            env=os.environ | {"PYTHONHASHSEED": seed}).stdout for seed in ("1", "2")}
     assert len(outs) == 1
     assert json.loads(outs.pop())[1]
+
+
+def test_the_redraw_does_not_depend_on_the_order_rejections_come_in(first):
+    """PROTO-2-11: the same rejections in reverse order give the same fixture."""
+    keys = sorted(first.cells)[:2]
+    a = f.Rejection("value", "carrier", "x.js", (keys[0],))
+    b = f.Rejection("value", "carrier", "y.js", (keys[1],))
+
+    def once(order):
+        calls = []
+
+        def collides(fx):
+            calls.append(1)
+            return list(order) if len(calls) == 1 else []
+
+        fx, _ = f.draw(SEED, collides)
+        return fx.rows()
+
+    assert once([a, b]) == once([b, a])
+
+
+def test_an_integral_arrow_float_equal_to_the_row_count_changes_k(tmp_path, first):
+    """PROTO-2-08: a typed cell maps to its canonical source, not to a label."""
+    import io as io_mod
+
+    import pyarrow as pa
+    import pyarrow.ipc as ipc
+
+    table = pa.table({"n": [float(len(first.cells))]})
+    sink = io_mod.BytesIO()
+    with ipc.new_file(sink, table.schema) as writer:
+        writer.write_table(table)
+    own = _builder(tmp_path, "own", "export const v = 1;\n")
+    (own / "assets" / "q.arrow").write_bytes(sink.getvalue())
+    fx, record = cal.draw_against(SEED, {"own": own})
+    assert fx.k != first.k and "row_count" in {r["class"] for r in record["rejections"]}
