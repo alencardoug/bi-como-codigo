@@ -3,6 +3,8 @@ kept apart from any candidate's history."""
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 import verdict as v
@@ -142,10 +144,41 @@ def test_an_exhausted_draw_stays_stopped_after_a_resume_on_another_builder():
                          draw_exhausted=True)
     records = [exhausted, resume("x1", builder="b9", artifact="a9", assembly=S(cls=PASS), verify=S(cls=PASS), inspect_artifact=S())]
     assert v.verdict(records).name == v.STOPPED
-    closed = [exhausted, resume("x1", artifact="a1", assembly=S(cls=PASS), verify=S(cls=PASS), inspect_artifact=S())]
+    closed = [exhausted, dataclasses.replace(resume("x1", artifact="a1", assembly=S(cls=PASS), verify=S(cls=PASS), inspect_artifact=S()),
+                                             draw_clean=True)]
     assert v.verdict(closed).name == v.PASSES
 
 
 def test_a_bound_content_finding_survives_a_later_harness_error():
     records = [run("r1", inspect_artifact=S(findings=1)), run("r2", builder="b2", verify=S(cls=HARNESS_ERROR), inspect_artifact=None)]
     assert v.verdict(records).name == v.FAILS
+
+
+# --- round 3 (PROTO-3-01) -----------------------------------------------------------
+
+
+def test_content_recorded_before_the_builders_inspection_does_not_fail():
+    records = [run("r1", inspect_builder=None, verify=S(cls=CONTENT))]
+    assert v.verdict(records).name == v.NOT_ESTABLISHED
+
+
+def test_content_in_a_resume_no_earlier_run_explains_does_not_fail():
+    records = [run("r1"), resume("x1", builder="b9", artifact="a9", verify=S(cls=CONTENT), inspect_artifact=S(findings=1))]
+    assert v.verdict(records).name == v.PASSES
+    attached = [run("r1"), resume("x1", artifact="a1", inspect_artifact=S(findings=1))]
+    assert v.verdict(attached).name == v.FAILS
+
+
+def test_the_artifacts_inspection_before_its_verify_does_not_pass():
+    records = [run("r1", verify=S(cls=HARNESS_ERROR), inspect_artifact=None),
+               resume("x1", artifact="a1", inspect_artifact=S()), resume("x2", artifact="a1", verify=S(cls=PASS))]
+    assert v.verdict(records).name == v.NOT_ESTABLISHED
+    in_order = records[:1] + [resume("x2", artifact="a1", verify=S(cls=PASS)), resume("x1", artifact="a1", inspect_artifact=S())]
+    assert v.verdict(in_order).name == v.PASSES
+
+
+def test_an_exhausted_draw_is_not_closed_by_an_assembly_refused_by_form():
+    exhausted = v.Record("r1", build_input="in1", builder_digest="b1", stages={"build": S(), "archive": S(), "inspect_builder": S()},
+                         draw_exhausted=True)
+    assert v.verdict([exhausted, resume("x1", assembly=S(cls=FORM))]).name == v.STOPPED
+    assert v.verdict([exhausted, dataclasses.replace(resume("x1", assembly=S(cls=FORM)), draw_clean=True)]).name == v.COST
