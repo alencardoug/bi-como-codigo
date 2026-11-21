@@ -151,3 +151,47 @@ def test_a_realm_whose_hooks_never_answered_is_unobserved():
     raw = {"events": [{"kind": "installed", "target": "p1"}], "targets": {"p1": {"type": "page", "url": "http://x/"},
                                                                          "w1": {"type": "worker", "url": "blob:http://x/1"}}}
     assert d.unacknowledged(raw) == [{"what": "hooks", "target": "worker", "url": "blob:http://x/1", "why": "no acknowledgement from this realm"}]
+
+
+# --- round 2 (PROTO-2-09, -10) --------------------------------------------------------
+
+
+def test_two_writes_to_one_store_are_not_read_back_as_one(control, tmp_path):
+    r = _journey(control, tmp_path, "idbtwice")
+    assert any("later write" in x["why"] for x in r.written["unobserved"])
+
+
+def test_a_map_and_a_blob_surviving_in_indexeddb_are_read_at_the_end(control, tmp_path):
+    r = _journey(control, tmp_path, "mapblob")
+    files = {x["file"] for x in r.readable["findings"]}
+    assert any(f.endswith("> blob") for f in files) and any(f.startswith("indexedDB:") and not f.endswith("> blob") for f in files)
+
+
+def test_a_cache_write_deleted_before_the_end_is_read_when_it_changes(control, tmp_path):
+    r = _journey(control, tmp_path, "transientcache")
+    assert any("CacheStorage" in x["file"] for x in r.written["committed"]["findings"])
+    assert not r.readable["findings"]
+
+
+def test_a_missing_page_boundary_is_taken_from_the_driver_and_reported():
+    events = [{"kind": "mark", "mark": "submit", "t": 1, "doc": "d1", "targetType": "page"},
+              {"kind": "mark", "mark": "submit", "t": 2, "doc": "d1", "targetType": "page"}]
+    marks, gaps = d.journey_marks(events, [{"mark": "logout", "t": 3}])
+    assert [m["mark"] for m in marks] == ["submit", "submit", "logout"]
+    assert gaps and "logout" in gaps[0]["what"]
+
+
+def test_a_log_ending_inside_a_fragmented_record_is_unreadable():
+    record = struct.pack("<IHB", 0, 4, 2) + b"abcd"
+    with pytest.raises(leveldb.Unreadable, match="fragmented"):
+        list(leveldb.read_log(record))
+
+
+def test_only_attributable_parts_of_a_cache_entry_are_taken_out():
+    body = b"export const v = 1;\n" * 8
+    entry = b"key http://127.0.0.1:5000/app.js\x00" + body + b'\x00ETag: "abc123"'
+    data, taken = d._cache_entry(entry, {"http://127.0.0.1:5000/app.js": body}, {'"abc123"'})
+    assert body not in data and b"abc123" not in data and len(taken) == 2
+    other = b"key http://127.0.0.1:5000/other.js\x00" + body
+    data, taken = d._cache_entry(other, {"http://127.0.0.1:5000/app.js": body}, set())
+    assert body in data and not taken

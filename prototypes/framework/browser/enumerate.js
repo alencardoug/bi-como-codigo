@@ -4,8 +4,22 @@
 // visible to the page. Bytes come back as base64.
 (async () => {
   const b64 = (bytes) => { let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); };
-  const ser = (v) => { try { return JSON.stringify(v, (k, x) => (typeof x === "bigint" ? x.toString() : ArrayBuffer.isView(x) ? { __b64: b64(new Uint8Array(x.buffer, x.byteOffset, x.byteLength)) } : x instanceof ArrayBuffer ? { __b64: b64(new Uint8Array(x)) } : x)); } catch { return String(v); } };
   const out = { localStorage: {}, sessionStorage: {}, indexedDB: {}, caches: {}, opfs: {}, serviceWorkers: [], cookie: document.cookie, unobserved: [] };
+  // Maps and Sets kept, a Blob read, anything else JSON cannot hold said so (PROTO-2-09).
+  const blobs = [];
+  const ser = (v, where) => {
+    try {
+      return JSON.stringify(v, (k, x) => {
+        if (typeof x === "bigint") return x.toString();
+        if (ArrayBuffer.isView(x)) return { __b64: b64(new Uint8Array(x.buffer, x.byteOffset, x.byteLength)) };
+        if (x instanceof ArrayBuffer) return { __b64: b64(new Uint8Array(x)) };
+        if (x instanceof Map) return { __map: [...x.entries()] };
+        if (x instanceof Set) return { __set: [...x.values()] };
+        if (x instanceof Blob) { blobs.push([where, x]); return { __blob: x.size }; }
+        return x;
+      });
+    } catch (e) { out.unobserved.push(`${where}: not serializable (${e && e.name})`); return ""; }
+  };
   for (const area of ["localStorage", "sessionStorage"]) for (let i = 0; i < window[area].length; i++) { const k = window[area].key(i); out[area][k] = window[area].getItem(k); }
   try {
     for (const { name } of await indexedDB.databases()) {
@@ -13,7 +27,7 @@
       out.indexedDB[name] = {};
       for (const store of db.objectStoreNames) {
         const values = await new Promise((res, rej) => { const r = db.transaction(store).objectStore(store).getAll(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
-        out.indexedDB[name][store] = values.map(ser);
+        out.indexedDB[name][store] = values.map((v, n) => ser(v, `indexedDB:${name}/${store}#${n}`));
       }
       db.close();
     }
@@ -30,5 +44,9 @@
     await walk(await navigator.storage.getDirectory(), "");
   } catch (e) { out.unobserved.push("opfs: " + e); }
   try { out.serviceWorkers = (await navigator.serviceWorker.getRegistrations()).map((r) => r.scope); } catch (e) { out.unobserved.push("serviceWorker: " + e); }
+  out.blobs = {};
+  for (const [where, blob] of blobs) {
+    try { out.blobs[where] = b64(new Uint8Array(await blob.arrayBuffer())); } catch (e) { out.unobserved.push(`${where}: a Blob not read (${e && e.name})`); }
+  }
   return out;
 })()

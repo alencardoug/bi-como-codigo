@@ -108,6 +108,21 @@ handlers.push(async (msg) => {
     raw.committed.push({ store: params.storageId.isLocalStorage ? "localStorage" : "sessionStorage", op: method.split(".")[1], key: params.key ?? null, t: wall() });
   } else if (method === "Storage.cacheStorageContentUpdated" || method === "Storage.cacheStorageListUpdated" || method === "Storage.indexedDBContentUpdated" || method === "Storage.indexedDBListUpdated") {
     raw.committed.push({ store: method.includes("cache") ? "CacheStorage" : "indexedDB", op: method.split(".")[1], key: params.cacheName ?? params.databaseName ?? null, t: wall() });
+    if (method === "Storage.cacheStorageContentUpdated") {
+      // Read the cache's content when it changes, so a write deleted before the end is still seen (PROTO-2-09).
+      try {
+        const names = await call("CacheStorage.requestCacheNames", { securityOrigin: params.origin }, sessionId);
+        for (const cache of names.caches.filter((x) => x.cacheName === params.cacheName)) {
+          const entries = await call("CacheStorage.requestEntries", { cacheId: cache.cacheId, skipCount: 0, pageSize: 100 }, sessionId);
+          for (const entry of entries.cacheDataEntries) {
+            const res = await call("CacheStorage.requestCachedResponse", { cacheId: cache.cacheId, requestURL: entry.requestURL, requestHeaders: entry.requestHeaders }, sessionId);
+            raw.committed.push({ store: "CacheStorage", op: "content read", key: entry.requestURL, value_b64: res.response.body, t: wall() });
+          }
+        }
+      } catch (e) {
+        raw.unobserved.push({ what: `CacheStorage content of ${params.cacheName}`, why: String(e) });
+      }
+    }
   } else if (method === "Runtime.consoleAPICalled") {
     const a = params.args || [];
     if (a[0] && a[0].value === "__bice__" && a[1]) {
@@ -143,6 +158,14 @@ await call("Target.setAutoAttach", autoAttach);
 const { targetId } = await call("Target.createTarget", { url: "about:blank" });
 for (let i = 0; i < 100 && !pageSession; i++) await sleep(50);
 if (!pageSession) throw new Error("the page target was not attached");
+
+if (config.baseline) {  // a pristine profile: Chrome on about:blank, closed through the protocol
+  await sleep(2000);
+  await send("Browser.close").catch(() => {});
+  await new Promise((r) => { chrome.on("exit", r); setTimeout(r, 10000); });
+  writeFileSync(path.join(config.out, "raw.json"), JSON.stringify({ baseline: true }));
+  process.exit(0);
+}
 
 const evaluate = async (expression) => {
   const r = await call("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }, pageSession);

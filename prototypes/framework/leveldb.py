@@ -128,6 +128,8 @@ def read_log(data: bytes):
             pending += payload
             yield from _batch(bytes(pending))
             pending = bytearray()
+    if pending:  # a first fragment with no last one: an incomplete logical record (PROTO-2-09)
+        raise Unreadable("the log ends inside a fragmented record")
 
 
 def _block(data: bytes, offset: int, size: int) -> bytes:

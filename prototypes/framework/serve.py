@@ -107,7 +107,7 @@ def handler_for(root: pathlib.Path):
                 self._common(etag, encoding, suffix)
                 self.send_header("Content-Length", "0")
                 self.end_headers()
-                log.append({"path": path, "status": 304, "encoding": encoding})
+                log.append({"path": path, "status": 304, "encoding": encoding, "etag": etag})
                 return
             self.send_response(200)
             self._common(etag, encoding, suffix)
@@ -115,7 +115,7 @@ def handler_for(root: pathlib.Path):
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
-            log.append({"path": path, "status": 200, "encoding": encoding, "bytes": len(data)})
+            log.append({"path": path, "status": 200, "encoding": encoding, "bytes": len(data), "etag": etag})
 
         def _common(self, etag, encoding, suffix):
             for key, value in headers:

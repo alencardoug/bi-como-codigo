@@ -50,6 +50,23 @@ $("[data-bice=login]").addEventListener("submit", async (ev) => {
   if (leak === "label") localStorage.setItem("p01", b64(opened.parquet));  // the report's labels, inside its Parquet
   if (leak === "transient") { localStorage.p01 = totals.sums.net_revenue_amount; delete localStorage.p01; }  // no setItem to hook
   if (leak === "cache") await (await caches.open("bice-control")).put("/q", new Response(totals.sums.net_revenue_amount));
+  if (leak === "transientcache") {  // written, then deleted before the end
+    const cache = await caches.open("bice-control");
+    await cache.put("/q", new Response(totals.sums.net_revenue_amount));
+    await new Promise((r) => setTimeout(r, 300));
+    await cache.delete("/q");
+  }
+  if (leak === "idbtwice" || leak === "mapblob") {
+    const db = await new Promise((res) => { const r = indexedDB.open("bice-control"); r.onupgradeneeded = () => r.result.createObjectStore("q"); r.onsuccess = () => res(r.result); });
+    await new Promise((res) => {
+      const t = db.transaction("q", "readwrite");
+      const store = t.objectStore("q");
+      if (leak === "idbtwice") { store.put({ rows: totals.rows }, "r"); store.put({ rows: 0 }, "r"); }
+      else store.put({ m: new Map([["net", totals.sums.net_revenue_amount]]), b: new Blob([totals.sums.net_revenue_amount]) }, "r");
+      t.oncomplete = res;
+    });
+    db.close();
+  }
   if (leak === "getter") {  // a state whose getter counts its reads: the hooks must not add one
     let reads = 0;
     history.replaceState({ get v() { reads += 1; return reads; } }, "");

@@ -17,6 +17,7 @@ import dataclasses
 import hashlib
 import json
 import pathlib
+import re
 import sqlite3
 import subprocess
 import tempfile
@@ -68,15 +69,24 @@ class Diagnosis:
 # --- when it decrypts -------------------------------------------------------------------
 
 
+EXPECTED_BOUNDARIES = {"submit": 2, "logout": 1}  # the wrong password, the right one, then logout
+
+
 def journey_marks(events: list[dict], driver_marks: list[dict]) -> tuple[list[dict], list[dict]]:
     """The submissions and the logout, as the page's own hooks saw them at the
-    events (PROTO-1-11); the driver's marks only where the page's are missing,
-    said so."""
+    events (PROTO-1-11). Each expected boundary the page did not mark is taken
+    from the driver's marks and reported as a gap: attribution around it is
+    uncertain (PROTO-2-09)."""
     page = sorted((e for e in events if e["kind"] == "mark" and e["targetType"] == "page"), key=lambda e: e["t"])
-    if page:
-        return [{"mark": e["mark"], "t": e["t"], "doc": e["doc"]} for e in page], []
-    return ([{"mark": m["mark"], "t": m["t"], "doc": None} for m in driver_marks if m["mark"] in ("submit", "logout")],
-            [{"what": "journey marks", "why": "the page's hooks marked no submission or logout; the driver's marks stand in"}])
+    marks = [{"mark": e["mark"], "t": e["t"], "doc": e["doc"], "source": "page"} for e in page]
+    gaps = []
+    for name, expected in EXPECTED_BOUNDARIES.items():
+        have = [m for m in marks if m["mark"] == name]
+        if len(have) < expected:
+            driver = [m for m in driver_marks if m["mark"] == name]
+            marks += [{"mark": name, "t": m["t"], "doc": None, "source": "driver"} for m in driver[len(have):expected]]
+            gaps.append({"what": f"journey boundary {name}", "why": f"the page marked {len(have)} of {expected}; the driver's stand in, so attribution around it is uncertain"})
+    return sorted(marks, key=lambda m: m["t"]), gaps
 
 
 def attempts(marks: list[dict]) -> list[tuple[float, float, str]]:
@@ -177,7 +187,9 @@ def written(events: list[dict], marks: list[dict], committed: list[dict], needle
     attempts_report = _inspect(items, needles)
     done, changes = [], []
     for n, w in enumerate(x for x in committed if until_wall is None or x["t"] < until_wall):
-        if w.get("value") is not None:
+        if w.get("value_b64") is not None:
+            done.append(io_.Item(f"committed#{n}:{w['store']}.{w['key']}", base64.b64decode(w["value_b64"]), role=io_.COLLECTED))
+        elif w.get("value") is not None:
             done.append(io_.Item(f"committed#{n}:{w['store']}.{w['key']}", f"{w['key']}={w['value']}".encode(), role=io_.COLLECTED))
         else:
             changes.append({"store": w["store"], "op": w["op"], "name": w.get("key")})
@@ -188,6 +200,8 @@ def written(events: list[dict], marks: list[dict], committed: list[dict], needle
 def readable(end: dict, needles) -> dict:
     r = end.get("readable") or {}
     items = []
+    for where, b64 in (r.get("blobs") or {}).items():
+        items.append(io_.Item(f"{where} > blob", base64.b64decode(b64), role=io_.COLLECTED))
     for area in ("localStorage", "sessionStorage"):
         for k, v in (r.get(area) or {}).items():
             items.append(io_.Item(f"{area}:{k}", f"{k}={v}".encode(), role=io_.COLLECTED))
@@ -261,19 +275,31 @@ def _utf16(data: bytes) -> bytes | None:
     return data.decode("utf-16-le", "ignore").encode("utf-8")
 
 
-def _without_known_bodies(data: bytes, bodies: list[bytes]) -> tuple[bytes, int]:
-    """An HTTP or script cache entry holds a response body beside its key and
-    headers: a body that is a file of the artifact or a pinned third-party body
-    is recognised and taken out, and the rest is inspected."""
-    found = 0
-    for body in bodies:
-        if len(body) >= 64 and body in data:
-            data = data.replace(body, b"")
-            found += 1
-    return data, found
+_URL = re.compile(rb"https?://[^\s\x00\"'<>]+")
 
 
-def on_disk(profile: pathlib.Path, needles, *, known: set[str], bodies: list[bytes] = ()) -> dict:
+def _cache_entry(data: bytes, bodies_by_url: dict[str, bytes], issued: set[str]) -> tuple[bytes, list[str]]:
+    """An HTTP or script cache entry holds its key — the URL —, the response
+    body and its headers. Only what is attributable is taken out
+    (PROTO-2-10): the body of a URL the entry is keyed by, when it is that
+    URL's known body — a file of the artifact at its path, or a pinned body
+    whose digest is the declared one —, and the validators our own server
+    issued. Everything else is inspected."""
+    taken = []
+    for url in sorted({m.decode("latin-1") for m in _URL.findall(data)}):
+        body = bodies_by_url.get(url)
+        if body and body in data:
+            data = data.replace(body, b"", 1)
+            taken.append(url)
+    for etag in issued:
+        if etag.encode() in data:
+            data = data.replace(etag.encode(), b"")
+            taken.append("an ETag the local server issued")
+    return data, taken
+
+
+def on_disk(profile: pathlib.Path, needles, *, baseline_files: dict[str, str] | None = None,
+            bodies_by_url: dict[str, bytes] | None = None, issued: set[str] = frozenset()) -> dict:
     """The profile directory, read by format: LevelDB with its Snappy blocks,
     SQLite, and the rest as bytes; files recognised by digest are recorded.
     Coverage is per format and per field."""
@@ -288,8 +314,8 @@ def on_disk(profile: pathlib.Path, needles, *, known: set[str], bodies: list[byt
             continue
         data = path.read_bytes()
         files_by_format.setdefault("all", []).append(rel)
-        if hashlib.sha256(data).hexdigest() in known:
-            coverage["recognised by digest"] = coverage.get("recognised by digest", 0) + 1
+        if (baseline_files or {}).get(rel) == hashlib.sha256(data).hexdigest():  # the same file at the same path (PROTO-2-10)
+            coverage["a pristine profile's file at its path"] = coverage.get("a pristine profile's file at its path", 0) + 1
             continue
         if path.suffix in (".log", ".ldb") and "leveldb" in rel.lower() or path.parent.name.endswith(".leveldb"):
             try:
@@ -314,10 +340,10 @@ def on_disk(profile: pathlib.Path, needles, *, known: set[str], bodies: list[byt
             except sqlite3.Error as error:
                 unobserved.append({"file": rel, "why": f"SQLite unreadable: {error}"})
             continue
-        if "Cache_Data" in rel or "ScriptCache" in rel or "Code Cache" in rel:
-            data, recognised = _without_known_bodies(data, list(bodies))
-            if recognised:
-                coverage["cache entries with a known body taken out"] = coverage.get("cache entries with a known body taken out", 0) + 1
+        if "Cache_Data" in rel or "ScriptCache" in rel:
+            data, taken = _cache_entry(data, bodies_by_url or {}, set(issued))
+            if taken:
+                coverage["cache entries with attributable parts taken out"] = coverage.get("cache entries with attributable parts taken out", 0) + 1
         items.append(io_.Item(rel, data, role=io_.COLLECTED))
         coverage["bytes"] = coverage.get("bytes", 0) + 1
     report = io_.inspect_items(items, needles)
@@ -329,26 +355,25 @@ def on_disk(profile: pathlib.Path, needles, *, known: set[str], bodies: list[byt
 # --- the whole diagnostic -----------------------------------------------------------------
 
 
-_BASELINE: dict[str, frozenset[str]] = {}
+_BASELINE: dict[str, dict[str, str]] = {}
 
 
-def baseline(chrome: str | None = None, seconds: float = 6) -> frozenset[str]:
-    """The digests of every file of a pristine profile of the same Chrome, on
-    `about:blank` with no page of ours: what Chrome writes on its own — its
-    built-in extensions' scripts among them — is recognised in a journey's
-    profile, so that it is never read as the candidate's."""
+def baseline(chrome: str | None = None) -> dict[str, str]:
+    """Path → digest of every file of a pristine profile of the same Chrome,
+    driven like a journey but on `about:blank` with no page of ours and closed
+    through the protocol, so that Chrome has finished writing before the
+    profile is read (PROTO-2-10). A journey's file is recognised only at the
+    same path with the same digest."""
     binary = chrome or "google-chrome"
     if binary not in _BASELINE:
-        with tempfile.TemporaryDirectory(prefix="bice-baseline-") as tmp:
-            proc = subprocess.Popen([binary, "--headless=new", "--no-first-run", "--no-default-browser-check",
-                                     "--disable-background-networking", "--disable-component-update", "--disable-sync",
-                                     f"--user-data-dir={tmp}", "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            try:
-                proc.wait(timeout=seconds)
-            except subprocess.TimeoutExpired:
-                proc.terminate()
-                proc.wait(timeout=10)
-            _BASELINE[binary] = frozenset(x.digest for x in trees.entries(pathlib.Path(tmp)) if x.kind == "file")
+        with tempfile.TemporaryDirectory(prefix="bice-baseline-", ignore_cleanup_errors=True) as tmp:
+            out = pathlib.Path(tmp) / "out"
+            config = {"baseline": True, "out": str(out), "profile": str(pathlib.Path(tmp) / "profile"), **({"chrome": chrome} if chrome else {})}
+            (pathlib.Path(tmp) / "config.json").write_text(json.dumps(config))
+            result = subprocess.run(["node", str(DRIVER), str(pathlib.Path(tmp) / "config.json")], capture_output=True, timeout=120)
+            if result.returncode != 0:
+                raise RuntimeError(f"the baseline profile could not be made: {result.stderr.decode(errors='replace')[-1500:]}")
+            _BASELINE[binary] = {x.rel: x.digest for x in trees.entries(pathlib.Path(tmp) / "profile") if x.kind == "file"}
     return _BASELINE[binary]
 
 
@@ -399,9 +424,10 @@ def run(artifact: pathlib.Path, needles: io_.Needles, *, out: pathlib.Path, quer
         if result.returncode != 0 or not (out / "raw.json").exists():
             raise RuntimeError(f"the driver failed: {result.stderr.decode(errors='replace')[-3000:]}")
         raw = json.loads((out / "raw.json").read_text())
-        known = set(artifact_digests.values()) | set((cdn or {}).values()) | set(baseline(chrome))
-        bodies = [x for x in trees.files(trees.real_root(artifact)).values()] + list((fulfill or {}).values())
-        disk = on_disk(profile, needles, known=known, bodies=bodies)
+        bodies_by_url = {server.url + rel: data for rel, data in trees.files(trees.real_root(artifact)).items()}
+        bodies_by_url |= {url: body for url, body in (fulfill or {}).items() if (cdn or {}).get(url) == hashlib.sha256(body).hexdigest()}
+        issued = {x["etag"] for x in server.log if "etag" in x}
+        disk = on_disk(profile, needles, baseline_files=baseline(chrome), bodies_by_url=bodies_by_url, issued=issued)
     marks, mark_gaps = journey_marks(raw["events"], raw["marks"])
     return Diagnosis(
         decrypt=decrypt_calls(raw["events"], marks),

@@ -70,10 +70,16 @@
   if (g.Storage) after(Storage.prototype, "setItem", function ([k]) { send("store", { store: this === g.sessionStorage ? "sessionStorage" : "localStorage", op: "setItem", key: String(k), value: ser(this.getItem(k)) }); });
   if (g.IDBFactory) wrap(IDBFactory.prototype, "open", function ([name]) { send("store", { store: "indexedDB", op: "open", key: String(name) }); });
   if (g.IDBObjectStore) {
+    // A read-back after a later write to the same store may read that later
+    // value: such an attempt is said unreadable, not reported as read (PROTO-2-09).
+    const writes = new WeakMap();
     for (const op of ["put", "add"]) {
       after(IDBObjectStore.prototype, op, function (args, req) {
         const store = this;
+        const seq = (writes.get(store) || 0) + 1;
+        writes.set(store, seq);
         req.addEventListener("success", () => {
+          if (writes.get(store) !== seq) { send("store", { store: "indexedDB", op, key: String(store.name), value: { unreadable: "a later write in the same store came before the read-back" } }); return; }
           try { const back = store.get(req.result); back.onsuccess = () => send("store", { store: "indexedDB", op, key: String(store.name), value: ser(back.result) }); }
           catch (e) { send("store", { store: "indexedDB", op, key: String(store.name), value: { unreadable: `not read back: ${e && e.name}` } }); }
         });
