@@ -136,3 +136,28 @@ def keep_install(work: pathlib.Path, out: pathlib.Path) -> al.Allowlist:
         raise FileExistsError(f"{out} exists")
     shutil.copytree(work / "node_modules", out, symlinks=True)
     return al.files(out, "node_modules/")
+
+
+def third_party(name: str, version: str, out: pathlib.Path, get=_https_get) -> pathlib.Path:
+    """One published tarball — DuckDB-WASM's, for the collision control —, by
+    the registry's own record of its URL and integrity, checked, kept in `out`."""
+    meta = json.loads(get(f"{REGISTRY}{name}/{version}"))
+    url, integrity = meta["dist"]["tarball"], meta["dist"]["integrity"]
+    dest = out / f"{name.split('/')[-1]}-{version}.tgz"
+    if dest.exists() and verify_integrity(dest.read_bytes(), integrity):
+        return dest
+    data = get(url)
+    if not verify_integrity(data, integrity):
+        raise Refused(f"{name}@{version}: the tarball does not match the registry's integrity")
+    out.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(data)
+    (out / f"{dest.name}.integrity").write_text(integrity)
+    return dest
+
+
+if __name__ == "__main__":
+    import sys
+
+    if sys.argv[1:2] != ["third-party"] or len(sys.argv) != 5:
+        raise SystemExit("usage: npm_offline.py third-party <name> <version> <out>")
+    print(third_party(sys.argv[2], sys.argv[3], pathlib.Path(sys.argv[4])))

@@ -2,7 +2,7 @@
 # commit only when it exits 0, read from its own exit code — never through a pipe.
 
 .DEFAULT_GOAL := help
-.PHONY: help sync docs-check adr-check secrets secrets-history test test-js check prototype-test
+.PHONY: help sync docs-check adr-check secrets secrets-history test test-js check prototype-test prototype-third-party
 
 UV_RUN := uv run --frozen
 
@@ -53,3 +53,6 @@ check: ## The gate: secrets, history, documents, decision record and both test s
 # stay as they are. Its inspection libraries are the `prototype` group.
 prototype-test: ## The framework prototype's own tests, with its dependency group; not part of check
 	@$(UV_RUN) --group prototype pytest -q -p no:cacheprovider prototypes/framework/tests
+
+prototype-third-party: ## Fetch DuckDB-WASM 1.32.0's tarball for the prototype's collision control, checked against the registry
+	@$(UV_RUN) --group prototype python prototypes/framework/npm_offline.py third-party @duckdb/duckdb-wasm 1.32.0 prototypes/framework/runs/third_party
