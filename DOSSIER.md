@@ -253,3 +253,151 @@ Rounds 1 and 2, with the author's status. Round 3 reassesses each row in scope.
 | PROTO-2-12 | `serve.py:36,63,98` | The server sends identity even when every supported representation is refused. | adjustment | Fixed in `ae3c26d`: no acceptable representation → 406; case-insensitive weights; identity only when acceptable. Tests including `br;Q=0`, all-zero, `*;q=0`. |
 | PROTO-2-13 | `DOSSIER.md`, Round 1 author's answer | The 28.7 s and 8.0 s bundle timings have no reproducible command output. | adjustment | Answered with output (section 3): the 8.0 and 28.7 s of round 1 reproduce as 8.0 and 28.9 s, and the code at `ae3c26d` takes 41.5 s. The script is not in the repository (section 4). |
 | PROTO-2-14 | `trees.py:147,166` | A supplied tar with an absolute directory member can change permissions outside extraction. | observation | Fixed in `59f71c9`: extraction refuses absolute or `..` members before writing and applies modes only inside the folder. Test: the reviewer's tar leaves the sibling at `0700`. |
+
+## Round 3 — PROTO
+
+### 1. Conclusion
+
+**Changes required.** A verdict can pass with the artifact inspection recorded before `verify`, or fail on an unattached resume. The allowlist can pass over an unreadable subtree, supported carriers can appear clean while holding fixture data, and a schema query failure can be attributed to the candidate. The clean browser control also failed in the scoped suite. Step 1 remains open.
+
+### 2. Reviewed scope and version
+
+Intake was `main` at `8bd115d`, one commit ahead of `origin/main`, with a clean working tree and no untracked files. The comparison was `58e6deb..497e764`, excluding `a52a210` and the files and test named in the dossier's opening scope note. The two commits from `497e764` to intake changed only `DOSSIER.md`. The in-scope implementation stayed at that version throughout the review.
+
+The review used revision 9 of `docs/framework_prototype.md`, §§2.1, 2.2, 2.5.1–2.5.5 and §7 step 1, with PLAN §6.2 and N94–N96. Paths in the findings are relative to `prototypes/framework/`.
+
+### 3. Findings
+
+| # | Where | Finding | Verdict | Status |
+|---|---|---|---|---|
+| PROTO-3-01 | `verdict.py:90,125,171,188` | Early and unattached stages can determine a verdict. | blocking | |
+| PROTO-3-02 | `trees.py:38,87,122` | Normalizing the source before checking its components can omit files from the archived tree. | blocking | |
+| PROTO-3-03 | `allowlist.py:89,133` | The allowlist accepts a work folder with an unreadable extra subtree. | blocking | |
+| PROTO-3-04 | `fixture.py:425`, `harness.py:311,335` | A schema query fault becomes `CONTENT`, and an empty builder tree bypasses reproduction binding. | blocking | |
+| PROTO-3-05 | `inspect_output.py:230,311` | Scanning zstd frame outputs separately misses values split across a valid stream. | blocking | |
+| PROTO-3-06 | `inspect_output.py:263,281,399` | The depth guard silently accepts some unread supported text layers. | blocking | |
+| PROTO-3-07 | `inspect_output.py:628,645,671` | Nested fixture values in Arrow and Parquet are skipped. | blocking | |
+| PROTO-3-08 | `inspect_output.py:421,447,482` | An adjacent exponent or surrounding spaces can hide a count. | blocking | |
+| PROTO-3-09 | `diagnose.py:281,343,361,427` | Cache exclusions can remove unrelated data, and the clean journey reported intermittent on-disk leads. | adjustment | |
+| PROTO-3-10 | `diagnose.py:75,92,119` | A missing first submit can make expected decryption look premature. | adjustment | |
+| PROTO-3-11 | `browser/enumerate.js:18,45` | A second Blob in the same IndexedDB record overwrites the first observation. | adjustment | |
+| PROTO-3-12 | `harness.py:151` | The control path `.` raises outside assembly's error handling. | adjustment | |
+| PROTO-3-13 | `tests/test_calibrate.py:145` | The redraw control passes when rejection sorting is removed. | adjustment | |
+| PROTO-3-14 | `serve.py:121–131` | Conditional GETs can report an incorrect representation length or resend unchanged bytes. | adjustment | |
+
+**PROTO-3-01 — Verdict ordering and identity. High.** Executed synthetic histories returned `fails the criterion` for `verify=CONTENT` before builder inspection and for a resume with unrelated builder and artifact digests. Artifact inspection in one resume followed by `verify=PASS` in a later resume returned `passes`. These three outcomes also occur at `58e6deb`. `_confirmed_content` checks an isolated stage and `_effective` can select the inspection from before the selected verify. An exhausted draw followed by same-builder assembly `FORM` now returns `a cost`, a regression in `59c2b1e`. A form refusal says nothing about whether a later draw succeeded.
+
+**PROTO-3-02 — Source tree identity. High, regression in `59f71c9`.** Executed with the source spelled `lexical/via/../dist`, where `via` is a link to `physical/assets`. The requested path resolves to `physical/dist`, with `index.html` and `rows.json`. `real_root` returned `lexical/dist` and the archive held only `index.html`. At baseline the archive held both. `abspath` erases the linked component before `real_root` checks it, and `archive` lists the normalized directory while reopening files from the original path. Draw, assembly and inspection can use an incomplete tree.
+
+**PROTO-3-03 — Allowlist completeness. High, preexisting.** Executed on both versions with one correctly declared `input.js` and one extra `hidden/fixture.json` under a directory of mode `000`. `os.listdir(hidden)` raised `PermissionError` and `allowlist.check` returned successfully. `Path.rglob` omits the unreadable subtree. This leaves the pre-phase check unable to establish that the work folder contains only listed input. The allowlist generator uses the same walk.
+
+**PROTO-3-04 — Harness classification. High, preexisting cases.** Executed `harness.verify` with a valid zero-row P01 Parquet. It returned `SCHEMA_ONLY`. With `duckdb.OutOfMemoryException` injected into the schema query and the file left intact, both versions returned `CONTENT`. The missing-file fix treats all remaining query exceptions as parse failures. Separately, an executed empty-builder control bound `builder=()`. The original empty builder gave `CONTENT` for a literal in the control addition, while a different builder containing that file gave `COLLISION`. The truthiness guard skips the comparison for this valid empty snapshot.
+
+**PROTO-3-05 — Zstandard continuity. High, regression in `80d2cc1`.** Executed two complete frames whose decoded bytes were `{"label":"fixture_` and `canal_a"}`. The reference stream reader returned `b'{"label":"fixture_canal_a"}'`. Baseline reported `INSPECT_TEXT`. The reviewed reader returned `clean=True`, zero findings and zero inconclusive entries. Concatenated frames represent a single byte stream. [RFC 8878 §3.1](https://www.rfc-editor.org/rfc/rfc8878.html#section-3.1)
+
+**PROTO-3-06 — Depth guard. High, preexisting.** Executed with the seed `20261120` row count of `10896`, rendered as `orders=10%E2%80%AF896`. The direct carrier reported `INSPECT_NUMBER`. The same query inside `base64(base64(gzip(base64(query))))` returned `clean=True` on both versions. The speculative depth check recognizes whole JSON and long encoded runs, but misses the percent layer in this query. A separate probe with four base64 layers over Brotli returned `deeper than 3 layers` at the reviewed version and was clean at baseline.
+
+**PROTO-3-07 — Nested typed cells. High, preexisting.** Executed PyArrow writes of a column of structs containing a list with the seed `20261120` row count `10896`, then inspected the Arrow stream and the Parquet. Both returned `clean=True`, with no findings or gaps. `_cells` handles scalar strings and numbers, then the reader returns success with the list and struct values unvisited. Baseline also returned clean on the same nested shape.
+
+**PROTO-3-08 — Text number boundaries. High.** Executed data carriers with a `20000` count needle. `20000,2e-1` in CSV returned `INSPECT_NUMBER` at baseline and was clean after `80d2cc1`. The new exponent check drops the entire digit and separator run that overlaps its mantissa. `orders = 20 000` was clean on both versions. The new grouping expression tests the spelling at the start of a string and rejects a space immediately before the first digit in this ordinary rendering.
+
+**PROTO-3-09 — Browser cache attribution. Medium.** Executed `on_disk` with a cache record for `generated.json` that mentions `app.json` in `Link`. Registering `app.json`'s matching body changed one observed count to zero. The `Link` URL is treated as the key, so the preexisting body-exclusion defect remains. The new validator removal also removed a JSON application value equal to an actual 64-hex tag issued for `script.js`. The field contained the seeded fixture needle `63191`, and `INSPECT_NUMBER` disappeared after the exclusion. The full scoped suite's clean control produced two on-disk `INSPECT_NUMBER` leads. Four focused clean runs passed. The failed run's profile was temporary, and the source fields of those two leads remain undetermined. Static review also found that failure to collect the pristine baseline still raises out of `run` after the journey has been recorded.
+
+**PROTO-3-10 — Submission attribution. Medium.** Executed driver submits at `10` and `20`, the only page submit at `21`, and the page logout at `30`. `journey_marks` paired the missing first submit with driver time `20`, so a derivation at `11` became `PREMATURE_DECRYPT` despite the reported gap. Baseline also misclassified that derivation and omitted the gap. The partial fallback introduced in `8dfb902` still leaves this case open.
+
+**PROTO-3-11 — Retained Blob values. Medium, preexisting coverage gap narrowed by `8dfb902`.** Executed a Chrome control with two Blobs in one retained IndexedDB record. The first held the fixture's net total and the second held ordinary text. Enumeration returned two Blob size placeholders, one body, zero readable findings and zero readable gaps. Both bodies are stored under the same record key and the second replaces the first.
+
+**PROTO-3-12 — Control path error. Medium, regression in `59f71c9`.** Executed `assemble(..., control_additions={".": b"test"})`. The reviewed version raised `IndexError` from `pure.parts[0]`. Baseline returned `HARNESS_ERROR`. This is a directory designator rather than a usable file path, so the control should produce an assembly outcome with a refusal.
+
+**PROTO-3-13 — Redraw test sensitivity. Medium, preexisting test gap.** Executed the new order-reversal control with just the sort removed and `set(found)` retained. It passed under `PYTHONHASHSEED=3` and `5`, while the mutated fixture digests differed (`3238d55d…` and `c3001543…`). Reversing the input list can leave the set iteration order identical within a process. The production sort remains present.
+
+**PROTO-3-14 — Conditional HTTP responses. Medium, preexisting.** An executed gzip GET returned 40 bytes. Its exact validator returned `304` with `Content-Length: 0`, and its weak equivalent returned `200` and transferred 40 bytes. Both occurred at baseline too. A `304` length, if present, must describe the selected `200` representation. `If-None-Match` uses weak comparison, including for lists of validators. These responses can distort the warm revalidation and byte measurements. The gzip validator correctly gave `200` against Brotli, and the reviewed server returned `406` when all representations were excluded. [RFC 9110 §8.6](https://www.rfc-editor.org/rfc/rfc9110.html#section-8.6), [RFC 9110 §13.1.2](https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.2)
+
+### 4. Previous findings
+
+| # | Reassessment | Evidence |
+|---|---|---|
+| PROTO-1-01 | Partially resolved | Direct linked roots were refused in the scoped suite. The aliased source in PROTO-3-02 still omits files. |
+| PROTO-1-02 | Partially resolved | Package substitution, named refusal and schema controls passed. PROTO-3-04 reproduces residual misclassification. |
+| PROTO-1-03 | Partially resolved | Mode, link and FIFO round trips and the socket refusal passed. Directory mode `03775` survived extraction. PROTO-3-02 shows a different way to drop an entry. |
+| PROTO-1-04 | Partially resolved | The new binding and closure cases passed. PROTO-3-01 reproduces early and unattached evidence. |
+| PROTO-1-05 | Partially resolved | The scoped format controls passed. PROTO-3-05 through PROTO-3-07 show remaining clean results for supported carriers. |
+| PROTO-1-06 | Partially resolved | The scoped JSON, numeric and manifest-label controls passed. PROTO-3-07 and PROTO-3-08 cover missed nested and text values. |
+| PROTO-1-07 | Partially resolved | Missing and inconclusive builder checks passed. The draw shares the source walker in PROTO-3-02. |
+| PROTO-1-08 | Not assessed | |
+| PROTO-1-09 | Resolved | Calendar, grouped row count, provenance and draw-ceiling controls passed. The remaining control sensitivity gap is PROTO-3-13. |
+| PROTO-1-10 | Resolved | The scoped fixture shape, partial month and coverage tests passed. |
+| PROTO-1-11 | Partially resolved | Old-document logout attribution and the getter control passed. PROTO-3-10 reproduces a partial-submission error. |
+| PROTO-1-12 | Partially resolved | Transient Web Storage, truncated log and unacknowledged-realm tests passed. See PROTO-3-09 and PROTO-3-11. |
+| PROTO-1-13 | Partially resolved | The carrier controls produced real builder archive and inspection evidence. The scoped clean diagnostic failed and the redraw proof misses the mutation in PROTO-3-13. |
+| PROTO-1-14 | Resolved | The scoped corrupt-cache and Git-quoted filename controls passed. |
+| PROTO-1-15 | Partially resolved | Encoding weights and the selected representation's strong validator passed. PROTO-3-14 covers conditional response semantics. |
+| PROTO-2-01 | Partially resolved | The ancestor, permission and mode tests failed on baseline and passed in scope. PROTO-3-02 and PROTO-3-03 show remaining completeness defects. |
+| PROTO-2-02 | Partially resolved | Baseline returned `PASS` for the absolute and linked-parent additions and accepted ordinary control evidence. The `..` case already passed. The scoped tests refused all of them. The single-dot path still raises (PROTO-3-12). |
+| PROTO-2-03 | Partially resolved | Baseline returned `COLLISION` for the substituted nonempty builder and failed to raise `SchemaFault` for the vanished file. Both scoped tests passed. PROTO-3-04 reproduces the empty builder and intact-file query failures. |
+| PROTO-2-04 | Partially resolved | All four new histories failed on baseline and passed in scope. The additional test for a bound finding surviving a later error passed on both. PROTO-3-01 shows the remaining invalid verdicts. |
+| PROTO-2-05 | Partially resolved | The legacy Arrow and truncated zstd tests failed on baseline and passed in scope. The new Brotli test passed on both. The separate deeper Brotli probe discriminated. See PROTO-3-05 and PROTO-3-06. |
+| PROTO-2-06 | Partially resolved | Hex-looking count and exponent tests failed on baseline and passed in scope. The adjacent exponent still hides a count and the clean browser control is intermittent (PROTO-3-08 and PROTO-3-09). |
+| PROTO-2-07 | Not assessed | |
+| PROTO-2-08 | Resolved | Baseline reported `10896.0` and exhausted the draw after a `label` rejection. Both typed-count tests passed in scope. |
+| PROTO-2-09 | Partially resolved | Missing logout, fragmented log, repeated IDB put, retained Map and Blob, and transient CacheStorage tests failed on baseline and passed in scope. See PROTO-3-10 and PROTO-3-11. |
+| PROTO-2-10 | Partially resolved | Both disk scanners dropped a count from an unrelated body. The new cache helper control completed. The scoped clean control failed and baseline collection failure can still abort a diagnosis (PROTO-3-09). |
+| PROTO-2-11 | Partially resolved | The FIFO-only, stored-Parquet label and redraw-order tests passed on both versions. The helper now archives the builder before inspection. PROTO-3-13 shows a loss of determinism that the new order test misses. |
+| PROTO-2-12 | Resolved | The new refusal test failed on baseline (`200`) and passed in scope (`406`). The live server confirmed `406` with a validator and for rejected binary identity. `br;Q=0,gzip` selected `br` on baseline and `gzip` in scope. [RFC 9110 §12.5.3](https://www.rfc-editor.org/rfc/rfc9110.html#section-12.5.3) |
+| PROTO-2-13 | Unverifiable independently | §3 supplies the author's 8.0 s, 28.9 s and 41.5 s outputs. `rg --files` found neither the named script nor the exact bundle filename in the checkout or local Gemini CLI installation. |
+| PROTO-2-14 | Resolved | The absolute directory member test failed to raise at baseline. In the scoped suite it refused the archive and left the outside directory at `0700`. |
+
+### 5. Checks and results
+
+`ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` exited 0 after redirecting the read-only default uv cache to `/tmp` and reusing the installed environment offline. The command ran in this checkout.
+
+```text
+470 passed, 1 warning in 273.48s (0:04:33)
+ℹ tests 157
+ℹ pass 156
+ℹ fail 0
+ℹ skipped 1
+```
+
+Executed the §6 prototype command offline, with both scope exclusions applied.
+
+```bash
+uv run --frozen --group prototype pytest -q -p no:cacheprovider prototypes/framework/tests \
+  --ignore=prototypes/framework/tests/test_sandbox.py \
+  --deselect=prototypes/framework/tests/test_inputs.py::test_package_code_cannot_reach_a_listener_on_the_hosts_loopback
+```
+
+```text
+FAILED prototypes/framework/tests/test_diagnostic.py::test_a_clean_journey_reports_nothing_and_decrypts_only_when_expected
+1 failed, 239 passed, 1 deselected in 639.02s (0:10:39)
+```
+
+The full suite at `97538c1` was run by the author. Its reported result in §3 is `255 passed in 516.39s (0:08:36)`. The reviewer used the cached DuckDB-WASM tarball and Chrome 156.0.8078.79.
+
+Baseline checks ran with `.venv/bin/python -m pytest -q -p no:cacheprovider --tb=short` on a temporary copy of the `58e6deb` implementation with the selected current tests. The browser cases used the current control page as stimulus. The failures matched the assertions described in §4. The run selected the new tree, harness, verdict, carrier, draw, HTTP and diagnostic cases. Independent probes in §3 used `PYTHONPATH=prototypes/framework .venv/bin/python` and then the baseline module path for the version comparisons. The scripts and logs are under `/tmp/bi-proto-round3.YcZfaz/`.
+
+```text
+Baseline targeted tests    22 failed, 5 passed, 199 deselected in 50.65s
+Baseline browser tests      3 failed, 2 passed, 17 deselected in 79.78s (0:01:19)
+```
+
+### 6. Limitations and open questions
+
+The Owner's scope excludes the isolation wrapper, its probe and tests, and the named loopback control. Registry fetches and warehouse operations were outside the review. Candidate builds, the DOM comparator, and the measured cold and warm series belong to later steps. To attribute the two individual clean-control leads, retain their profile records on failure. The historical bundle timing remains author-reported.
+
+### 7. Handoff to Claude Code
+
+- [ ] **PROTO-3-01** Validate stage identity and chronological prerequisites before applying precedence. Exercise all four histories in §3 and keep the earlier valid content finding when a later harness error occurs.
+- [ ] **PROTO-3-02** Reject linked components before normalizing `..` and use the same checked root for listing and reads. The aliased-source probe must refuse before a partial archive is accepted.
+- [ ] **PROTO-3-03** Make allowlist listing and verification refuse an unreadable directory and name it. Use the extra mode-`000` subtree control.
+- [ ] **PROTO-3-04** Distinguish a schema-reader fault from invalid Parquet and bind an empty builder snapshot. Check `SCHEMA_ONLY` for valid schema, `CONTENT` for actual non-schema content and `HARNESS_ERROR` for the injected runtime fault and wrong builder.
+- [ ] **PROTO-3-05** Inspect the concatenated decompressed stream while tracking frame completeness. The split label must be found, and the truncated final frame must still be reported.
+- [ ] **PROTO-3-06** Identify supported text decoders at the depth boundary. The nested query must yield a finding or a depth gap while ordinary noncarriers remain clean.
+- [ ] **PROTO-3-07** Inspect nested Arrow and Parquet leaves and retain canonical needle values. Assert both carrier codes with the seeded count in a nested column.
+- [ ] **PROTO-3-08** Exclude only the exponent's own span from number scanning and accept literal-space grouping in context. Both positive count cases and the standalone scientific negative cases must pass.
+- [ ] **PROTO-3-09** Bind exemptions to the cache key and the actual body or validator field. Preserve the other journey evidence if baseline collection fails. Test the misleading `Link`, the data-field token and a clean journey, with the source cache record retained on failure.
+- [ ] **PROTO-3-10** Match fallback submissions to their corresponding driver actions and record uncertainty in crypto attribution. Test each missing submit position and keep the existing logout control.
+- [ ] **PROTO-3-11** Give each retained Blob its own record path or report which field could not be read. The two-Blob control must expose the first Blob's total.
+- [ ] **PROTO-3-12** Refuse an empty path component list with `HARNESS_ERROR`. Add `.` to the existing control-addition refusal cases.
+- [ ] **PROTO-3-13** Exercise order determinism on a history that differs under at least two hash seeds when only sorting is removed. Verify that the control kills that mutation.
+- [ ] **PROTO-3-14** Apply weak and list comparison to the selected representation's validator and omit the `304` length or use the corresponding `200` length. Test unchanged gzip, a nonmatching Brotli validator and the existing `406` decisions.
