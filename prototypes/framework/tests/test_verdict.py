@@ -115,3 +115,37 @@ def test_a_full_retry_of_the_same_input_after_an_interruption_passes_and_another
     interrupted = run("r1", build=INTERRUPTED, archive=None, inspect_builder=None, **TAIL_NONE)
     assert v.verdict([interrupted, run("r2", builder="b2", artifact="a2")]).name == v.PASSES
     assert v.verdict([interrupted, run("r2", inp="in9", builder="b2", artifact="a2")]).name == v.NOT_ESTABLISHED
+
+
+# --- round 2 (PROTO-2-04) -----------------------------------------------------------
+
+
+def test_content_with_no_artifact_digest_does_not_fail():
+    stages = {n: S() for n in v.STAGES} | {"assembly": S(cls=PASS), "verify": S(cls=CONTENT)}
+    record = v.Record("r1", build_input="in1", builder_digest="b1", artifact_digest=None, stages=stages)
+    assert v.verdict([record]).name != v.FAILS
+
+
+def test_a_tail_recorded_before_the_builders_inspection_does_not_close_it():
+    records = [run("r1", inspect_builder=None), resume("x1", inspect_builder=S())]
+    assert v.verdict(records).name == v.NOT_ESTABLISHED
+
+
+def test_a_resumed_assembly_refused_by_form_is_a_cost():
+    records = [run("r1", assembly=S(cls=HARNESS_ERROR), verify=None, inspect_artifact=None),
+               resume("x1", assembly=S(cls=FORM))]
+    assert v.verdict(records).name == v.COST
+
+
+def test_an_exhausted_draw_stays_stopped_after_a_resume_on_another_builder():
+    exhausted = v.Record("r1", build_input="in1", builder_digest="b1", stages={"build": S(), "archive": S(), "inspect_builder": S()},
+                         draw_exhausted=True)
+    records = [exhausted, resume("x1", builder="b9", artifact="a9", assembly=S(cls=PASS), verify=S(cls=PASS), inspect_artifact=S())]
+    assert v.verdict(records).name == v.STOPPED
+    closed = [exhausted, resume("x1", artifact="a1", assembly=S(cls=PASS), verify=S(cls=PASS), inspect_artifact=S())]
+    assert v.verdict(closed).name == v.PASSES
+
+
+def test_a_bound_content_finding_survives_a_later_harness_error():
+    records = [run("r1", inspect_artifact=S(findings=1)), run("r2", builder="b2", verify=S(cls=HARNESS_ERROR), inspect_artifact=None)]
+    assert v.verdict(records).name == v.FAILS

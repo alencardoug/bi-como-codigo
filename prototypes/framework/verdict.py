@@ -91,6 +91,9 @@ def _effective(r: Record, later: list[Record]) -> tuple[dict[str, Stage], list[s
     """The run's stages with what later records completed on the same subjects,
     in order, and the mandatory stages still open."""
     stages = {name: r.stages[name] for name in STAGES if name in r.stages and _complete(r, name)}
+    if "inspect_builder" not in stages:  # a tail recorded before the builder's inspection does not count (PROTO-2-04)
+        for t in TAIL:
+            stages.pop(t, None)
     form = "assembly" in stages and stages["assembly"].cls == FORM
     missing = [s for s in _mandatory(form) if s not in stages]
     if not missing:
@@ -112,6 +115,11 @@ def _effective(r: Record, later: list[Record]) -> tuple[dict[str, Stage], list[s
                 break
         else:
             return stages, [m for m in _mandatory(form) if m not in stages]
+    if "assembly" not in stages:  # a resumed assembly refused by form needs nothing after it (PROTO-2-04)
+        for n, s in enumerate(later):
+            if n > position and s.builder_digest == r.builder_digest and _complete(s, "assembly") and s.stages["assembly"].cls == FORM:
+                stages["assembly"] = s.stages["assembly"]
+                return stages, [m for m in _mandatory(True) if m not in stages]
     tail = [t for t in TAIL if t not in stages]
     if tail:
         artifact = r.artifact_digest if "assembly" in stages else None
@@ -169,8 +177,8 @@ def _open_stop(n: int, records: list[Record]) -> str | None:
     stage, why = stop
     r = records[n]
     for s in records[n + 1:]:
-        if stage == "draw":
-            if _complete(s, "assembly"):
+        if stage == "draw":  # a draw is repeated only by an assembly on the same builder output
+            if r.builder_digest is not None and s.builder_digest == r.builder_digest and _complete(s, "assembly"):
                 return None
         elif getattr(s, SUBJECT[stage]) == getattr(r, SUBJECT[stage]) and getattr(r, SUBJECT[stage]) is not None and _complete(s, stage):
             return None
@@ -180,10 +188,9 @@ def _open_stop(n: int, records: list[Record]) -> str | None:
 def _confirmed_content(r: Record) -> bool:
     """Content counts only from a stage that completed: a finding recorded by an
     errored inspection is not confirmed (PROTO-1-04)."""
-    verify = r.stages.get("verify")
-    if verify is not None and verify.status == "done" and verify.cls == CONTENT:
+    if _complete(r, "verify") and r.stages["verify"].cls == CONTENT:
         return True
-    return any(r.stages.get(s) is not None and r.stages[s].status == "done" and r.stages[s].findings for s in INSPECTIONS)
+    return any(_complete(r, s) and r.stages[s].findings for s in INSPECTIONS)  # bound to its subject (PROTO-2-04)
 
 
 def verdict(records: list[Record]) -> Verdict:
