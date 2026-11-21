@@ -141,7 +141,8 @@ def handler_for(root: pathlib.Path):
                 return
             data, encoding = _encode(data, coding)
             etag = '"' + hashlib.sha256(data + b"\0" + (encoding or "identity").encode()).hexdigest() + '"'
-            if none_match(self.headers.get("If-None-Match"), etag):
+            lines = self.headers.get_all("If-None-Match")  # every field line, in order (RFC 9110 §5.2; PROTO-4-10)
+            if none_match(", ".join(lines) if lines else None, etag):
                 # No Content-Length: on a 304 it would describe the 200 it
                 # stands for, and a body is never sent (RFC 9110 §8.6, §15.4.5;
                 # PROTO-3-14).

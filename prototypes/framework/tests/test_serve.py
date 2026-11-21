@@ -71,3 +71,22 @@ def test_a_conditional_get_matches_weakly_and_lists_and_sends_no_length(tmp_path
         assert _get(url, "br", tag)[0] == 200  # Brotli's representation does not match gzip's validator
         assert _get(url, "br;q=0, gzip", '"other"')[0] == 200
         assert serve.none_match(None, tag) is False
+
+
+def test_a_validator_on_a_second_field_line_is_read(tmp_path):
+    """PROTO-4-10: If-None-Match split over two field lines is one list."""
+    import http.client
+
+    (tmp_path / "app.js").write_text("export const v = 1;\n" * 50)
+    with serve.Server(tmp_path) as s:
+        tag = _get(s.url + "app.js", "br;q=0, gzip")[1]["ETag"]
+        host, port = s.url.split("//")[1].rstrip("/").split(":")
+        conn = http.client.HTTPConnection(host, int(port))
+        conn.putrequest("GET", "/app.js", skip_accept_encoding=True)
+        conn.putheader("Accept-Encoding", "br;q=0, gzip")
+        conn.putheader("If-None-Match", '"old"')
+        conn.putheader("If-None-Match", "W/" + tag)
+        conn.endheaders()
+        response = conn.getresponse()
+        assert response.status == 304 and response.read() == b""
+        conn.close()
