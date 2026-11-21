@@ -278,16 +278,37 @@ def _looks_like_carrier(data: bytes) -> bool:
     return len(stripped) >= 16 and whole >= 0.9 * len(stripped)
 
 
+def _search_only(ctx: Context, data: bytes, file: str, path: str, role: str) -> None:
+    """The byte and number searches of a blob, with no layer opened."""
+    for needle in ctx.needles.texts:
+        if needle.encode("utf-8") in data:
+            ctx.find(INSPECT_TEXT, file, path, needle)
+    _binary_numbers(ctx, data, file, path)
+    text = _is_text(data)
+    _numbers_in_text(ctx, text if text is not None else data.decode("latin-1"), file, path, role)
+
+
+def _flat_text_decoders(text: str):
+    """The decoders of `_text_decoders` whose output is the same text unescaped."""
+    for name, out in _text_decoders(text):
+        if name in ("percent", "escapes", "entities") and out != text.encode("utf-8", "surrogatepass"):
+            yield name, out
+
+
 def _descend(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int, *, speculative: bool) -> None:
     if depth + 1 > DEPTH:
         # Past the depth, the bytes are still searched; only no further layer is opened.
-        for needle in ctx.needles.texts:
-            if needle.encode("utf-8") in data:
-                ctx.find(INSPECT_TEXT, file, path, needle)
-        _binary_numbers(ctx, data, file, path)
+        _search_only(ctx, data, file, path, role)
         text = _is_text(data)
-        _numbers_in_text(ctx, text if text is not None else data.decode("latin-1"), file, path, role)
-        if not speculative or _looks_like_carrier(data):
+        unread = not speculative or _looks_like_carrier(data)
+        if text is not None:
+            # The text decoders that open no further layer — percent, escapes,
+            # entities — are read here, searched only; one whose output would
+            # itself open is a layer unread (PROTO-3-06).
+            for name, out in _flat_text_decoders(text):
+                _search_only(ctx, out, file, f"{path} > {name}", role)
+                unread = unread or _looks_like_carrier(out)
+        if unread:
             ctx.report.inconclusive.append(Note(file, path, f"deeper than {DEPTH} layers"))
         return
     _blob(ctx, data, file, path, role, depth + 1, speculative=speculative)
@@ -311,19 +332,20 @@ def _decompress_by_magic(data: bytes) -> list[tuple[str, bytes]] | None:
         if data[:4] == b"\x28\xb5\x2f\xfd":
             import zstandard
 
-            parts, remaining = [], data
-            while remaining:  # frame by frame: a frame not read to its end is said so (PROTO-2-05)
-                if remaining[:4] != b"\x28\xb5\x2f\xfd":
-                    parts.append(("after zstd", remaining))
-                    break
+            # Frame by frame, so that a frame not read to its end is said so
+            # (PROTO-2-05); the frames are one byte stream (RFC 8878 §3.1), read
+            # as one blob, so that a value split across two frames is found
+            # (PROTO-3-05).
+            outs, remaining, complete = [], data, True
+            while remaining[:4] == b"\x28\xb5\x2f\xfd":
                 obj = zstandard.ZstdDecompressor().decompressobj()
-                out = obj.decompress(remaining)
+                outs.append(obj.decompress(remaining))
                 if not obj.eof:
-                    parts.append(("zstd, incomplete frame", out))
+                    complete, remaining = False, b""
                     break
-                parts.append(("zstd", out))
                 remaining = obj.unused_data
-            return parts
+            parts = [("zstd" if complete else "zstd, incomplete frame", b"".join(outs))]
+            return parts + ([("after zstd", remaining)] if remaining else [])
     except Exception:  # noqa: BLE001 — a magic that does not decode is no carrier
         return None
     return None
@@ -418,7 +440,7 @@ _COMMA_DECIMAL = re.compile(r"[0-9]+,[0-9]+")
 _EN_GROUPED = re.compile(r"[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?")
 _SPACE_GROUPED = re.compile(r"[0-9]{1,3}(?:[\u00a0\u202f\u2009][0-9]{3})+(?:[.,][0-9]+)?")
 WINDOW = 4  # separators a token may span inside one run of digits and separators
-_LITERAL_SPACE = re.compile(r"(?<![0-9 ])[0-9]{1,3}(?: [0-9]{3})+(?:,[0-9]+)?(?![0-9]| [0-9])")
+_LITERAL_SPACE = re.compile(r"(?<![0-9])(?<![0-9] )[0-9]{1,3}(?: [0-9]{3})+(?:,[0-9]+)?(?![0-9]| [0-9])")
 
 
 def _readings(token: str):
@@ -448,20 +470,37 @@ def _tokens(text: str):
     """Every window of a run of digits and separators that starts and ends on a
     digit and spans at most `WINDOW` separators — so that `1.234,50` is read
     inside `1.234,50,7` (PROTO-1-06) —, with whether a minus sign precedes it."""
-    exponents = [(m.start(), m.end()) for m in _EXPONENT.finditer(text)]
+    exponents = [(m.start(2), m.end(2)) for m in _EXPONENT.finditer(text)]
     for m in _RUN.finditer(text):
-        run, start = m[0], m.start()
-        if any(a <= start < b or a < m.end() <= b for a, b in exponents):
-            continue  # part of a scientific literal, read as one number below (PROTO-2-06)
-        negative = start > 0 and text[start - 1] in "-\u2212" and not (start > 1 and text[start - 2].isalnum())
-        seps = [i for i, ch in enumerate(run) if ch in _SEPARATORS]
-        starts = [0] + [i + 1 for i in seps]
-        ends = seps + [len(run)]
-        for a, s0 in enumerate(starts):
-            for b in range(a, min(len(ends), a + WINDOW + 1)):
-                token = run[s0:ends[b]]
-                if token and token[0].isdigit() and token[-1].isdigit():
-                    yield token, negative and s0 == 0
+        # A scientific literal is read as one number below (PROTO-2-06); only
+        # its own span leaves the run — `20000,2e-1` still reads 20000
+        # (PROTO-3-08).
+        pieces, cursor = [], m.start()
+        for a, b in exponents:
+            if b <= cursor or a >= m.end():
+                continue
+            pieces.append((cursor, max(cursor, a)))
+            cursor = max(cursor, b)
+        pieces.append((cursor, m.end()))
+        for lo, hi in pieces:
+            sub = _RUN.search(text, lo, hi)
+            while sub is not None and sub.end() <= hi:
+                yield from _windows(text, sub[0], sub.start())
+                sub = _RUN.search(text, sub.end(), hi)
+
+
+def _windows(text: str, run: str, start: int):
+    """The windows of one run of digits and separators, with whether a minus
+    sign precedes the run."""
+    negative = start > 0 and text[start - 1] in "-\u2212" and not (start > 1 and text[start - 2].isalnum())
+    seps = [i for i, ch in enumerate(run) if ch in _SEPARATORS]
+    starts = [0] + [i + 1 for i in seps]
+    ends = seps + [len(run)]
+    for a, s0 in enumerate(starts):
+        for b in range(a, min(len(ends), a + WINDOW + 1)):
+            token = run[s0:ends[b]]
+            if token and token[0].isdigit() and token[-1].isdigit():
+                yield token, negative and s0 == 0
 
 
 def _numbers_in_text(ctx: Context, text: str, file: str, path: str, role: str) -> None:
@@ -625,21 +664,38 @@ def _calendar(ctx: Context, record: dict, file: str, path: str) -> None:
 # --- Arrow and Parquet ------------------------------------------------------------------
 
 
+def _leaves(value):
+    """The scalar leaves of a typed cell: lists, structs and maps are walked to
+    the end (PROTO-3-07)."""
+    stack = [value]
+    while stack:
+        v = stack.pop()
+        if isinstance(v, dict):
+            stack.extend(v.values())
+        elif isinstance(v, (list, tuple)):
+            stack.extend(v)
+        elif v is not None:
+            yield v
+
+
 def _cells(ctx: Context, table, code: str, file: str, path: str) -> None:
     n = ctx.needles
     for column in table.columns:
-        for v in column.to_pylist():
-            if isinstance(v, str):
-                for t in sorted(t for t in n.texts if t in v):  # the matched needle, not the cell (PROTO-1-09)
-                    ctx.find(code, file, path, t)
-            elif isinstance(v, (int, float, Decimal)) and not isinstance(v, bool):
-                d = Decimal(repr(v)) if isinstance(v, float) else Decimal(v)
-                if not d.is_finite():
-                    continue
-                if d in n.amounts:
-                    ctx.find(code, file, path, _canonical_amount(n, d))  # the canonical value the draw can move (PROTO-2-08)
-                if d == d.to_integral_value() and int(d) in n.counts:
-                    ctx.find(code, file, path, int(d))
+        for cell in column.to_pylist():
+            for v in _leaves(cell):
+                if isinstance(v, str):
+                    for t in sorted(t for t in n.texts if t in v):  # the matched needle, not the cell (PROTO-1-09)
+                        ctx.find(code, file, path, t)
+                elif isinstance(v, (bytes, bytearray)):
+                    _search_only(ctx, bytes(v), file, f"{path} > binary cell", DATA)
+                elif isinstance(v, (int, float, Decimal)) and not isinstance(v, bool):
+                    d = Decimal(repr(v)) if isinstance(v, float) else Decimal(v)
+                    if not d.is_finite():
+                        continue
+                    if d in n.amounts:
+                        ctx.find(code, file, path, _canonical_amount(n, d))  # the canonical value the draw can move (PROTO-2-08)
+                    if d == d.to_integral_value() and int(d) in n.counts:
+                        ctx.find(code, file, path, int(d))
 
 
 def _parquet(ctx: Context, data: bytes, file: str, path: str) -> bool:

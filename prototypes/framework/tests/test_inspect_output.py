@@ -429,3 +429,76 @@ def test_an_integral_arrow_float_names_its_canonical_count(fx, needles):
         w.write_table(table)
     report = _one(needles, "q.arrow", sink.getvalue())
     assert {x.value for x in report.findings} == {str(len(fx.cells))}
+
+
+# --- round 3 (PROTO-3-05, PROTO-3-06) ------------------------------------------------
+
+
+def test_a_label_split_across_two_zstd_frames_is_found(needles, samples):
+    z = zstandard.ZstdCompressor()
+    label = samples["label"].encode()
+    data = z.compress(b'{"label":"' + label[:8]) + z.compress(label[8:] + b'"}')
+    assert _one(needles, "x.bin", data).codes() == {io_.INSPECT_TEXT}
+
+
+def test_a_split_label_in_a_truncated_stream_is_found_and_the_cut_reported(needles, samples):
+    z = zstandard.ZstdCompressor()
+    label = samples["label"].encode()
+    data = z.compress(label[:8]) + z.compress(label[8:]) + z.compress(b"," * 200)[:-1]
+    report = _one(needles, "x.bin", data)
+    assert io_.INSPECT_TEXT in report.codes() and any("ends before its end" in x.reason for x in report.inconclusive)
+
+
+def _nested_query(query: bytes) -> bytes:
+    return base64.b64encode(base64.b64encode(gzip.compress(base64.b64encode(query), mtime=0)))
+
+
+def test_a_percent_encoded_count_at_the_depth_limit_is_not_clean(fx, needles):
+    count = len(fx.cells)
+    query = urllib.parse.urlencode({"orders": f"{count:,}".replace(",", "\u202f")}).encode()
+    assert io_.INSPECT_NUMBER in _one(needles, "query.txt", query).codes()
+    report = _one(needles, "nested-export.txt", _nested_query(query))
+    assert report.findings or any("deeper" in x.reason for x in report.inconclusive)
+
+
+def test_ordinary_percent_text_at_the_depth_limit_stays_clean(needles):
+    assert _one(needles, "nested-export.txt", _nested_query(b"lang=pt%2DBR&page=index")).clean
+
+
+# --- round 3 (PROTO-3-07) -----------------------------------------------------------
+
+
+def test_a_count_and_a_label_nested_in_arrow_and_parquet_cells_are_found(fx, needles, samples):
+    import pyarrow.parquet as pq
+
+    count = len(fx.cells)
+    table = pa.table({"result": pa.array([{"orders": [count], "meta": {"tags": [samples["label"]]}}])})
+    stream = io.BytesIO()
+    with ipc.new_stream(stream, table.schema) as w:
+        w.write_table(table)
+    parquet = io.BytesIO()
+    pq.write_table(table, parquet)
+    for name, data, code in (("nested.arrow", stream.getvalue(), io_.INSPECT_ARROW), ("nested.parquet", parquet.getvalue(), io_.INSPECT_PARQUET)):
+        report = _one(needles, name, data)
+        assert report.codes() == {code}, name
+        assert {str(x.value) for x in report.findings} == {str(count), samples["label"]}, name
+
+
+# --- round 3 (PROTO-3-08) -----------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def count_needles(needles):
+    import dataclasses
+
+    return dataclasses.replace(needles, counts=frozenset({20000}))
+
+
+def test_a_count_before_an_adjacent_exponent_and_a_space_grouped_count_after_a_space_are_found(count_needles):
+    for name, data in (("c.csv", b"20000,2e-1"), ("s.txt", b"orders = 20 000"), ("t.txt", b"total 20 000 pedidos")):
+        assert io_.INSPECT_NUMBER in _one(count_needles, name, data, role="data").codes(), name
+
+
+def test_a_scientific_literal_and_a_longer_grouping_are_not_partial_counts(count_needles):
+    for data in (b"x 120 000", b"1 220 000", b"2e-1,3e4", b"120000,2e-1"):
+        assert io_.INSPECT_NUMBER not in _one(count_needles, "n.txt", data, role="data").codes(), data
