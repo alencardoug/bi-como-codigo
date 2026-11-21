@@ -577,3 +577,109 @@ def test_a_textual_count_and_a_compressed_binary_cell_are_found(serialize):
 ])
 def test_numbers_are_read_as_whole_literals_and_groupings(text, found):
     assert (io_.INSPECT_NUMBER in _r4("results.txt", text.encode()).codes()) is found
+
+
+# --- round 5 (PROTO-5-04..08), the reviewer's cases ----------------------------------
+
+_R5_LABEL = "fixture_canal_a"
+_R5 = io_.Needles(frozenset({_R5_LABEL}), frozenset({Decimal("1234.50")}), frozenset({20000}), frozenset())
+
+
+def _r5(name, data):
+    return io_.inspect_items([io_.Item(name, data)], _R5)
+
+
+def _serialized(table, kind):
+    import pyarrow.parquet as pq
+
+    out = io.BytesIO()
+    if kind == "parquet":
+        pq.write_table(table, out, compression="zstd")
+        return out.getvalue()
+    opener = ipc.new_file if kind == "file" else ipc.new_stream
+    with opener(out, table.schema, options=ipc.IpcWriteOptions(compression="zstd")) as w:
+        w.write_table(table)
+    return out.getvalue()
+
+
+def _layouts():
+    n, values = 20000, pa.array([42, 20000, 43])
+    tensor_type = pa.fixed_shape_tensor(pa.int64(), [2])
+    return {
+        "large list view": (pa.LargeListViewArray.from_arrays([1], [1], values), ("file", "stream")),
+        "list view": (pa.ListViewArray.from_arrays([1], [1], values), ("file",)),
+        "run-end": (pa.RunEndEncodedArray.from_arrays(pa.array([2, 4], type=pa.int16()), pa.array([[n], [42]])), ("file",)),
+        "tensor extension": (pa.ExtensionArray.from_storage(tensor_type, pa.array([[n, 42]], type=pa.list_(pa.int64(), 2))), ("file", "parquet")),
+        "string view slice after the label": (pa.array([_R5_LABEL, "other long stored data"], type=pa.string_view()).slice(1, 1), ("file", "stream")),
+        "binary view slice after a gzipped label": (
+            pa.array([gzip.compress(_R5_LABEL.encode(), mtime=0), b"other long stored data"], type=pa.binary_view()).slice(1, 1), ("file",)),
+        "escaped label in a JSON string": (pa.array(['{"data":"' + _R5_LABEL.replace("_", "\\u005f") + '"}']), ("file", "parquet")),
+        "data URL in a string": (pa.array(["data:application/json;base64," + base64.b64encode(json.dumps({"l": _R5_LABEL}).encode()).decode()]),
+                                 ("file", "parquet")),
+    }
+
+
+@pytest.mark.parametrize("name", sorted(_layouts()))
+def test_stored_values_of_every_arrow_layout_are_found(name):
+    array, kinds = _layouts()[name]
+    for kind in kinds:
+        assert not _r5(f"cache.{kind}", _serialized(pa.table({"c": array}), kind)).clean, (name, kind)
+
+
+def test_a_run_end_slice_that_dropped_the_count_stays_clean():
+    runs = pa.RunEndEncodedArray.from_arrays(pa.array([2, 4], type=pa.int16()), pa.array([[20000], [42]]))
+    assert _r5("cache.file", _serialized(pa.table({"c": runs.slice(2, 1)}), "file")).clean
+
+
+def test_a_parquet_dictionary_page_without_arrow_metadata_is_read_as_stored():
+    import pyarrow.parquet as pq
+
+    table = pa.table({"d": pa.array([_R5_LABEL, "other"]).dictionary_encode().filter(pa.array([False, True]))})
+    out = io.BytesIO()
+    pq.write_table(table, out, store_schema=False)
+    assert pq.read_table(io.BytesIO(out.getvalue())).column("d").to_pylist() == ["other"]
+    assert io_.INSPECT_PARQUET in _r5("cache.parquet", out.getvalue()).codes()
+
+
+def test_opaque_bytes_in_a_binary_cell_are_inconclusive():
+    report = _r5("cache.arrow", _serialized(pa.table({"d": [os.urandom(64)]}), "file"))
+    assert any("binary cell" in x.path for x in report.inconclusive)
+
+
+def test_a_gzipped_body_in_a_bundle_at_the_depth_limit_is_not_clean():
+    worker = b"const r = " + json.dumps(base64.b64encode(gzip.compress(json.dumps({"l": _R5_LABEL}).encode(), mtime=0)).decode()).encode() + b";"
+    assert io_.INSPECT_TEXT in _r5("worker.js", worker).codes()
+    cell = _serialized(pa.table({"b": [base64.b64encode(worker)]}), "file")
+    holder = b"const cache = " + json.dumps(base64.b64encode(gzip.compress(cell, mtime=0)).decode()).encode() + b";"
+    assert not _r5("app.js", holder).clean
+
+
+def test_compressed_metadata_and_a_cut_gzip_are_never_clean():
+    import struct as st
+
+    named = io.BytesIO()
+    with gzip.GzipFile(filename=_R5_LABEL + ".json", mode="wb", fileobj=named, mtime=0) as g:
+        g.write(b"clean body")
+    assert io_.INSPECT_TEXT in _r5("app.js", base64.b64encode(named.getvalue())).codes()
+    skip = st.pack("<II", 0x184D2A50, len(_R5_LABEL)) + _R5_LABEL.encode()
+    assert io_.INSPECT_TEXT in _r5("data.zst", skip + zstandard.ZstdCompressor().compress(b"clean body")).codes()
+    cut = gzip.compress(b'{"l": "' + _R5_LABEL.encode() + b'"}' + b" " * 200, mtime=0)[:-4]
+    report = _r5("app.js", base64.b64encode(cut))
+    assert any("ends before its end" in x.reason for x in report.inconclusive)
+
+
+@pytest.mark.parametrize("name, text, found", [
+    ("t.txt", "total = 20 000 123", False), ("t.txt", "total = 20 000.50", False), ("t.txt", "total = 20000.50", False),
+    ("t.json", '{"total":20000.50}', False), ("t.txt", "total = 20 000", True), ("t.txt", "1.234,50,7", True),
+    ("r.csv", "a,b,c\r\n20,000,123\r\n", False), ("r.csv", "a,b,c\r\n20,0,20000\r\n", True), ("r.csv", 'a,b\r\n5,"20,000"\r\n', True),
+])
+def test_rendered_numbers_keep_their_boundaries(name, text, found):
+    codes = _r5(name, text.encode()).codes()
+    if text == "1.234,50,7":
+        assert io_.INSPECT_TEXT in codes or io_.INSPECT_NUMBER in codes  # the amount 1234.50 inside a longer run
+    else:
+        assert (io_.INSPECT_NUMBER in codes) is found, text
+
+
+def test_a_spaced_amount_with_a_dot_decimal_is_found():
+    assert not _r5("t.txt", b"amount = 1 234.50").clean

@@ -229,6 +229,12 @@ def _blob(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int
             return
     decompressed = _decompress_by_magic(data)
     if decompressed is not None:
+        # The compressed bytes keep what their format stores in the clear — a
+        # gzip header's file name, comment and extra field — and are searched
+        # as bytes beside what they decode to (PROTO-5-08).
+        for needle in ctx.needles.texts:
+            if needle.encode("utf-8") in data:
+                ctx.find(INSPECT_TEXT, file, f"{path} > compressed bytes", needle)
         for name, out in decompressed:
             if "incomplete" in name:
                 ctx.report.inconclusive.append(Note(file, f"{path} > {name}", "a compressed frame that ends before its end"))
@@ -280,19 +286,26 @@ def _looks_like_carrier(data: bytes) -> bool:
             pass
     if _has_embedded_json(text):
         return True
-    for alphabet, pattern in (("std", _B64), ("url", _B64URL)):
-        for m in pattern.finditer(stripped):
-            if len(m[0]) >= 0.9 * len(stripped) and len(stripped) >= 16:
-                out = _b64(m[0], alphabet)
-                if out and (_is_text(out) is not None or _decompress_by_magic(out) is not None or out[:4] == b"PAR1"
-                            or _brotli(out) is not None):
-                    return True
-    for m in _HEX.finditer(stripped):
-        if len(m[0]) >= 0.9 * len(stripped):
-            out = bytes.fromhex(m[0])
-            if _is_text(out) is not None or _decompress_by_magic(out) is not None:
-                return True
+    # Every encoded run the dispatcher would decode, wherever it sits in the
+    # text — a body inside a bundle too (PROTO-5-06) —, counts when what it
+    # decodes to is itself readable; an identifier decoding to bytes nothing
+    # reads does not (PROTO-4-05).
+    for name, out in _text_decoders(text):
+        if name.startswith(("base64", "hex")) and _readable(out):
+            return True
     return False
+
+
+def _readable(out: bytes) -> bool:
+    """Bytes a layer of the dispatcher would open, or text."""
+    if _decompress_by_magic(out) is not None or out[:4] == b"PAR1" or out[:6] == b"ARROW1" or out[:4] == b"\xff\xff\xff\xff":
+        return True
+    text = _is_text(out)
+    if text is None:  # Brotli has no magic: it counts only when it opens to text
+        opened = _brotli(out) if len(out) >= 16 else None
+        return opened is not None and _is_text(opened) is not None and len(opened) >= 16
+    printable = sum(ch.isprintable() or ch in "\n\r\t" for ch in text)
+    return len(text) >= 16 and printable >= 0.95 * len(text)
 
 
 def _has_embedded_json(text: str) -> bool:
@@ -362,7 +375,17 @@ def _decompress_by_magic(data: bytes) -> list[tuple[str, bytes]] | None:
     follows a zlib stream, read as its own blob (PROTO-1-05)."""
     try:
         if data[:2] == b"\x1f\x8b":
-            return [("gzip", gzip.decompress(data))]
+            # Member by member; a member that ends before its end gives what it
+            # holds and is said so — the encoding is established by its header
+            # (PROTO-5-08).
+            outs, rest = [], data
+            while rest[:2] == b"\x1f\x8b":
+                d = zlib.decompressobj(31)
+                outs.append(d.decompress(rest))
+                if not d.eof:
+                    return [("gzip, incomplete member", b"".join(outs))]
+                rest = d.unused_data
+            return [("gzip", b"".join(outs))] + ([("after gzip", rest)] if rest else [])
         if len(data) >= 2 and data[0] == 0x78 and (data[0] * 256 + data[1]) % 31 == 0:
             d = zlib.decompressobj()
             out = d.decompress(data) + d.flush()
@@ -376,10 +399,11 @@ def _decompress_by_magic(data: bytes) -> list[tuple[str, bytes]] | None:
             # (PROTO-2-05); the frames are one byte stream (RFC 8878 §3.1), read
             # as one blob, so that a value split across two frames is found
             # (PROTO-3-05).
-            outs, remaining, complete = [], data, True
+            outs, remaining, complete, skipped = [], data, True, []
             while remaining[:4] == b"\x28\xb5\x2f\xfd" or _skippable(remaining) is not None:
                 skip = _skippable(remaining)
-                if skip is not None:  # a skippable frame carries no stream data (RFC 8878 §3.1.2; PROTO-4-08)
+                if skip is not None:  # no stream data (RFC 8878 §3.1.2; PROTO-4-08), but bytes it keeps (PROTO-5-08)
+                    skipped.append(remaining[8:skip])
                     remaining = remaining[skip:]
                     continue
                 obj = zstandard.ZstdDecompressor().decompressobj()
@@ -389,6 +413,7 @@ def _decompress_by_magic(data: bytes) -> list[tuple[str, bytes]] | None:
                     break
                 remaining = obj.unused_data
             parts = [("zstd" if complete else "zstd, incomplete frame", b"".join(outs))]
+            parts += [(f"zstd skippable#{i}", payload) for i, payload in enumerate(skipped) if payload]
             return parts + ([("after zstd", remaining)] if remaining else [])
     except Exception:  # noqa: BLE001 — a magic that does not decode is no carrier
         return None
@@ -484,7 +509,7 @@ _COMMA_DECIMAL = re.compile(r"[0-9]+,[0-9]+")
 _EN_GROUPED = re.compile(r"[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?")
 _SPACE_GROUPED = re.compile(r"[0-9]{1,3}(?:[\u00a0\u202f\u2009][0-9]{3})+(?:[.,][0-9]+)?")
 WINDOW = 4  # separators a token may span inside one run of digits and separators
-_SPACED = re.compile(r"(?<![0-9])[0-9]+(?: [0-9]+)+(?:,[0-9]+)?(?![0-9])")  # digit groups an ordinary space apart
+_SPACED = re.compile(r"(?<![0-9])[0-9]+(?: [0-9]+)+(?:[.,][0-9]+)?(?![0-9])")  # digit groups an ordinary space apart
 
 
 def _space_groupings(run: str) -> list[tuple[str, int]]:
@@ -493,7 +518,8 @@ def _space_groupings(run: str) -> list[tuple[str, int]]:
     by groups of exactly three. `2 20 000` holds `20 000`; `1 220 000` holds
     only `1 220 000` (PROTO-4-07). A decimal part after a comma stays with the
     last group."""
-    body, _, decimals = run.partition(",")
+    mark = next((c for c in run if c in ".,"), ",")
+    body, _, decimals = run.partition(mark)
     groups = body.split(" ")
     offsets, at = [], 0
     for g in groups:
@@ -505,7 +531,7 @@ def _space_groupings(run: str) -> list[tuple[str, int]]:
             j = i + 1
             while j + 1 < len(groups) and len(groups[j + 1]) == 3:
                 j += 1
-            literal = " ".join(groups[i:j + 1]) + ("," + decimals if decimals and j == len(groups) - 1 else "")
+            literal = " ".join(groups[i:j + 1]) + ("," + decimals if decimals and j == len(groups) - 1 else "")  # one decimal mark, read as a comma below
             out.append((literal, offsets[i]))
             i = j + 1
         else:
@@ -571,8 +597,28 @@ def _windows(text: str, run: str, start: int):
             continue
         for b in range(a, min(len(ends), a + WINDOW + 1)):
             token = run[s0:ends[b]]
-            if token and token[0].isdigit() and token[-1].isdigit():
+            if token and token[0].isdigit() and token[-1].isdigit() and not _stops_short(run, starts, ends, a, b):
                 yield token, negative and s0 == 0
+
+
+def _stops_short(run: str, starts: list[int], ends: list[int], a: int, b: int) -> bool:
+    """A window ending at group *b* stops short of its number when what
+    follows completes it (PROTO-5-07): the next group continues a grouping —
+    three digits after the same separator the window already groups with
+    (`20 000 123` never holds `20 000`) —, or the window holds no decimal part
+    and the next group, one or two digits after `.` or `,`, is one
+    (`20000.50` never holds `20000`; `1.234,50,7` still holds `1.234,50`)."""
+    if b + 1 >= len(starts):
+        return False
+    sep = run[ends[b]]
+    following = run[starts[b + 1]:ends[b + 1]]
+    if not following.isdigit():
+        return False
+    inner = [run[ends[k]] for k in range(a, b)]
+    if len(following) == 3 and inner and sep == inner[-1]:
+        return True
+    decimal = bool(inner) and inner[-1] in ".," and len(run[starts[b]:ends[b]]) != 3  # `1.234,50` has one; `1.234` does not
+    return sep in ".," and 1 <= len(following) <= 2 and not decimal
 
 
 def _continues_grouping(run: str, starts: list[int], ends: list[int], a: int) -> bool:
@@ -648,8 +694,31 @@ def _canonical_amount(n: Needles, value: Decimal) -> str:
     return f"{value.quantize(Decimal('0.01'))}"
 
 
+_DELIMITED = {".csv": ",", ".tsv": "\t"}
+
+
+def _csv_fields(text: str, path: str) -> list[str] | None:
+    """The fields of a file named as CSV or TSV, as the csv module reads them;
+    None for any other text, or one that does not parse."""
+    import csv
+    import io as io_mod
+
+    delimiter = next((d for ext, d in _DELIMITED.items() if path.lower().endswith(ext)), None)
+    if delimiter is None:
+        return None
+    try:
+        return [field for row in csv.reader(io_mod.StringIO(text), delimiter=delimiter) for field in row]
+    except csv.Error:
+        return None
+
+
 def _text(ctx: Context, text: str, file: str, path: str, role: str, depth: int) -> None:
-    _numbers_in_text(ctx, text, file, path, role)
+    fields = _csv_fields(text, path)
+    if fields is None:
+        _numbers_in_text(ctx, text, file, path, role)
+    else:  # a CSV gives its fields' boundaries: `20,000,123` is three numbers (PROTO-5-07)
+        for n, field in enumerate(fields):
+            _numbers_in_text(ctx, field, file, f"{path} > field#{n}", role)
     stripped = text.strip()
     parsed = None
     if stripped[:1] in "{[":
@@ -755,45 +824,77 @@ def _calendar(ctx: Context, record: dict, file: str, path: str) -> None:
 
 def _stored(array):
     """The values an Arrow array stores, walked through its physical children:
-    a dictionary's whole dictionary — values no row refers to included —, a
-    list's whole child array, a struct's fields, a map's keys and items
-    (PROTO-3-07, PROTO-4-06). Yields Python scalars."""
+    a dictionary's whole dictionary — values no row refers to included —, the
+    whole child of a list, a list view or a fixed-size list, a struct's fields,
+    a map's keys and items, a union's children, a run-end array's values, an
+    extension array's storage (PROTO-3-07, PROTO-4-06, PROTO-5-04). A view
+    array's data buffers keep bytes no row refers to: they are yielded whole,
+    as one bytes value of the kind `("buffer", bytes)`. Yields Python values;
+    what still comes back nested is walked to its leaves."""
     import pyarrow as pa
+    import pyarrow.types as t
 
     stack = [array]
     while stack:
         a = stack.pop()
         if isinstance(a, pa.ChunkedArray):
             stack.extend(a.chunks)
-        elif isinstance(a, pa.DictionaryArray):
+            continue
+        ty = a.type
+        if isinstance(ty, pa.ExtensionType):
+            stack.append(a.storage)
+        elif t.is_dictionary(ty):
             stack.append(a.dictionary)
-        elif isinstance(a, pa.MapArray):
+        elif t.is_map(ty):
             stack.extend((a.keys, a.items))
-        elif isinstance(a, (pa.ListArray, pa.LargeListArray, pa.FixedSizeListArray)) or (
-                hasattr(pa, "ListViewArray") and isinstance(a, getattr(pa, "ListViewArray"))):
+        elif t.is_list(ty) or t.is_large_list(ty) or t.is_fixed_size_list(ty) or t.is_list_view(ty) or t.is_large_list_view(ty):
             stack.append(a.values)
-        elif isinstance(a, pa.StructArray):
-            stack.extend(a.field(i) for i in range(a.type.num_fields))
-        elif isinstance(a, pa.UnionArray):
-            stack.extend(a.field(i) for i in range(a.type.num_fields))
+        elif t.is_struct(ty) or t.is_union(ty):
+            stack.extend(a.field(i) for i in range(ty.num_fields))
+        elif t.is_run_end_encoded(ty):
+            stack.append(a.values)
         else:
-            yield from (v for v in a.to_pylist() if v is not None)
+            if t.is_string_view(ty) or t.is_binary_view(ty):
+                for buffer in a.buffers()[2:]:  # the variadic data buffers, kept whole by a slice
+                    if buffer is not None and buffer.size:
+                        yield ("buffer", buffer.to_pybytes())
+            for v in a.to_pylist():
+                if v is not None:
+                    yield from _leaves(v)
+
+
+def _leaves(value):
+    """The scalar leaves of a Python value: lists, tuples and dicts walked to
+    the end."""
+    stack = [value]
+    while stack:
+        v = stack.pop()
+        if isinstance(v, dict):
+            stack.extend(v.values())
+        elif isinstance(v, (list, tuple)):
+            stack.extend(v)
+        elif v is not None:
+            yield v
 
 
 def _cells(ctx: Context, table, code: str, file: str, path: str, depth: int = 0) -> None:
     """Every stored value of a typed table: a text needle in a string, a count
-    or an amount in a typed number, the numbers of a string read as text of a
-    data carrier, and a binary value dispatched as a blob of its own, one layer
-    deeper (PROTO-4-06)."""
+    or an amount in a typed number. A string is also read as a data carrier's
+    text — numbers, and the documents and encodings it may carry —, and a
+    binary value as a blob of its own, one layer deeper, where bytes no layer
+    reads are inconclusive (PROTO-4-06, PROTO-5-05)."""
     n = ctx.needles
     for column in table.columns:
         for v in _stored(column):
-            if isinstance(v, str):
+            if isinstance(v, tuple) and len(v) == 2 and v[0] == "buffer":
+                _descend(ctx, v[1], file, f"{path} > view buffer", DATA, depth, speculative=True)
+            elif isinstance(v, str):
                 for t in sorted(t for t in n.texts if t in v):  # the matched needle, not the cell (PROTO-1-09)
                     ctx.find(code, file, path, t)
                 _numbers_in_text(ctx, v, file, f"{path} > string", DATA)
+                _string_layers(ctx, v, file, f"{path} > string", depth)
             elif isinstance(v, (bytes, bytearray)):
-                _descend(ctx, bytes(v), file, f"{path} > binary cell", DATA, depth, speculative=True)
+                _descend(ctx, bytes(v), file, f"{path} > binary cell", DATA, depth, speculative=False)
             elif isinstance(v, (int, float, Decimal)) and not isinstance(v, bool):
                 d = Decimal(repr(v)) if isinstance(v, float) else Decimal(v)
                 if not d.is_finite():
@@ -804,18 +905,71 @@ def _cells(ctx: Context, table, code: str, file: str, path: str, depth: int = 0)
                     ctx.find(code, file, path, int(d))
 
 
+def _string_layers(ctx: Context, v: str, file: str, path: str, depth: int) -> None:
+    """What a typed string cell carries beyond its own text, which `_cells`
+    searched: a JSON document, parsed, and what the text decoders open — a
+    data URL's base64, a percent or escape encoding —, each one layer deeper
+    (PROTO-5-05)."""
+    stripped = v.strip()
+    if stripped[:1] in "{[":
+        try:
+            _structured(ctx, json.loads(stripped), file, f"{path} > json", DATA, depth + 1)
+        except ValueError:
+            pass
+    for name, out in _text_decoders(v):
+        _descend(ctx, out, file, f"{path} > {name}", DATA, depth, speculative=True)
+
+
 def _parquet(ctx: Context, data: bytes, file: str, path: str, depth: int = 0) -> bool:
+    """A Parquet read by PyArrow — or, when PyArrow refuses it and DuckDB reads
+    it, by DuckDB, said so (PROTO-5-03) —, then its top-level string and binary
+    columns read again as dictionaries, so that a dictionary page keeps values
+    no row refers to even with no Arrow schema stored (PROTO-5-04)."""
     import pyarrow.parquet as pq
+    import pyarrow.types as t
 
     try:
         table = pq.read_table(io.BytesIO(data))
     except Exception:  # noqa: BLE001
-        return False
+        table = _duckdb_parquet(data)
+        if table is None:
+            return False
+        ctx.report.recorded.append(Note(file, path, "a Parquet PyArrow refuses, read by DuckDB"))
+        _cells(ctx, table, INSPECT_PARQUET, file, path, depth)
+        return True
     if table.num_rows == 0 and fx_mod.schema_only(data):
         ctx.report.recorded.append(Note(file, path, "Parquet with P01's schema and no row: schema only"))
         return True
     _cells(ctx, table, INSPECT_PARQUET, file, path, depth)
+    names = [f.name for f in table.schema if t.is_string(f.type) or t.is_large_string(f.type) or t.is_binary(f.type)
+             or t.is_large_binary(f.type)]
+    if names:
+        try:
+            stored = pq.read_table(io.BytesIO(data), read_dictionary=names)
+        except Exception:  # noqa: BLE001
+            ctx.report.inconclusive.append(Note(file, path, "the dictionary pages could not be read as stored"))
+            return True
+        _cells(ctx, stored.select(names), INSPECT_PARQUET, file, f"{path} > dictionary pages", depth)
     return True
+
+
+def _duckdb_parquet(data: bytes):
+    """The table DuckDB reads from Parquet bytes, or None."""
+    import tempfile
+
+    import duckdb
+
+    with tempfile.TemporaryDirectory() as tmp:
+        target = pathlib.Path(tmp) / "f.parquet"
+        target.write_bytes(data)
+        try:
+            con = duckdb.connect(":memory:")
+            try:
+                return con.execute("SELECT * FROM read_parquet(?)", [str(target)]).to_arrow_table()
+            finally:
+                con.close()
+        except Exception:  # noqa: BLE001
+            return None
 
 
 def _arrow_opens(data: bytes) -> bool:
