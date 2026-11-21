@@ -270,21 +270,21 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
 | | | | `blocking` · `adjustment` · `observation` | |
-| PROTO-1-01 | `allowlist.py:162`, `npm_offline.py:132` | Host-side output copies follow a symlink at the output root. | blocking | |
-| PROTO-1-02 | `harness.py:207`, `harness.py:235` | Verify can pass a substituted package and misattribute refusals. | blocking | |
-| PROTO-1-03 | `harness.py:54`, `harness.py:72`, `harness.py:165` | Archiving drops entries and changes modes that assembly never compares. | blocking | |
-| PROTO-1-04 | `verdict.py:62`, `verdict.py:73`, `verdict.py:135` | Missing identities, out-of-order resumes and error stages can decide the verdict. | blocking | |
-| PROTO-1-05 | `inspect_output.py:210`, `inspect_output.py:240`, `inspect_output.py:420` | Supported or explicitly identified carriers can disappear during dispatch. | blocking | |
-| PROTO-1-06 | `inspect_output.py:190`, `inspect_output.py:344`, `inspect_output.py:397` | Numeric matching misses structured and rendered values and omits gate needles in manifest labels. | blocking | |
-| PROTO-1-07 | `calibrate.py:24`, `calibrate.py:35` | The draw accepts missing and inconclusive builder inputs. | blocking | |
-| PROTO-1-08 | `sandbox.py:84`, `sandbox_probe.py:29`, `tests/test_sandbox.py:66` | The sandbox proof can fail on an isolated PID and pass with the root remount removed. | blocking | |
-| PROTO-1-09 | `fixture.py:515`, `inspect_output.py:373`, `inspect_output.py:498` | Redraw order varies across processes and a movable calendar can cause immediate exhaustion. | adjustment | |
-| PROTO-1-10 | `fixture.py:262`, `fixture.py:413` | Shape and coverage checks omit required properties. | adjustment | |
-| PROTO-1-11 | `diagnose.py:82`, `browser/diagnostic.mjs:153`, `browser/instrument.js:20` | Attempt and document attribution can be wrong, and hooks can change stored values. | adjustment | |
-| PROTO-1-12 | `browser/diagnostic.mjs:77`, `diagnose.py:126`, `leveldb.py:94` | Missing browser observations and incomplete disk records can look complete. | adjustment | |
-| PROTO-1-13 | `tests/test_controls.py:40`, `tests/test_inspect_output.py:120` | Several controls assert only isolated layers or use evidence they did not produce. | adjustment | |
-| PROTO-1-14 | `npm_offline.py:84`, `allowlist.py:61` | A stale cache file can be listed as verified, and Git-quoted filenames fail input assembly. | adjustment | |
-| PROTO-1-15 | `serve.py:36` | Content negotiation selects encodings the request disallows. | adjustment | |
+| PROTO-1-01 | `allowlist.py:162`, `npm_offline.py:132` | Host-side output copies follow a symlink at the output root. | blocking | Fixed in `533c603`: `trees.py` refuses a linked root or folder on the way to it and never follows a link; `copy_out`, `keep_install` and the diagnostic's hashing go through it. `tests/test_inputs.py::test_a_linked_output_root_is_never_followed_on_the_host` (dist and node_modules, sibling marker not copied), in-folder links kept. |
+| PROTO-1-02 | `harness.py:207`, `harness.py:235` | Verify can pass a substituted package and misattribute refusals. | blocking | Fixed in `533c603`: assembly binds the artifact's tree (modes and links included) and `verify` refuses any other tree before and after the gate; exact message forms, the named file required, two forms → `HARNESS_ERROR`; I/O and schema-check failures are `HARNESS_ERROR`. Tests: swapped valid package, linked envelope, `schema_exact.js` → `FORM`, injected faults. |
+| PROTO-1-03 | `harness.py:54`, `harness.py:72`, `harness.py:165` | Archiving drops entries and changes modes that assembly never compares. | blocking | Fixed in `533c603`: archives keep modes, links and FIFOs; an entry no tar can carry refuses the archive and is assembly `FORM`; assembly copies the FIFO so `verify` judges it. Tests: 0664 file, link and FIFO round trip to the gate; a socket. |
+| PROTO-1-04 | `verdict.py:62`, `verdict.py:73`, `verdict.py:135` | Missing identities, out-of-order resumes and error stages can decide the verdict. | blocking | Fixed in `96adaf3`: a stage counts only bound to its subject; tail evidence only after the builder's inspection; findings only from completed stages; a stop stays until that stage completes on the same subject. Five new synthetic histories. |
+| PROTO-1-05 | `inspect_output.py:210`, `inspect_output.py:240`, `inspect_output.py:420` | Supported or explicitly identified carriers can disappear during dispatch. | blocking | Fixed in `3c4a300`: byte checks on every blob before any exemption; every decoder whatever the speculation; all zstd frames, gzip members, the remainder of a zlib stream; legacy Arrow streams; past the depth the bytes are still searched and a layer that would open is inconclusive; `data-b64` with no body inconclusive. One test per case Codex executed. |
+| PROTO-1-06 | `inspect_output.py:190`, `inspect_output.py:344`, `inspect_output.py:397` | Numeric matching misses structured and rendered values and omits gate needles in manifest labels. | blocking | Fixed in `3c4a300`: windows across separators, exponents, spaced grouping, no positive match after a minus sign, JSON embedded in code as a structured carrier, case-insensitive JSON scripts, the gate's own needles on validated manifest labels, schema only by types. Tests per case. |
+| PROTO-1-07 | `calibrate.py:24`, `calibrate.py:35` | The draw accepts missing and inconclusive builder inputs. | blocking | Fixed in `534263a`: a missing or linked builder output refuses the draw; an inconclusive one stops it with file and reason (`DrawStopped`); needles from the fixture sealed and opened. Tests. |
+| PROTO-1-08 | `sandbox.py:84`, `sandbox_probe.py:29`, `tests/test_sandbox.py:66` | The sandbox proof can fail on an isolated PID and pass with the root remount removed. | blocking | Fixed in `80f1bd9`: namespace identities instead of PID numbers; own PID, IPC, UTS, network and mount namespaces, a session led inside, a root it cannot write; seven variants each failing its check (CLI output in the answer below); sentinels planted and removed; network phases shown to fail at the connection attempted. §9 corrected in the docs commit. |
+| PROTO-1-09 | `fixture.py:515`, `inspect_output.py:373`, `inspect_output.py:498` | Redraw order varies across processes and a movable calendar can cause immediate exhaustion. | adjustment | Fixed in `534263a`: rejections sorted before redraw (same fixture under `PYTHONHASHSEED` 1 and 2, tested in subprocesses); every source of a value; matched needles from structured cells; grouped row count named; limit above 1,000 refused. |
+| PROTO-1-10 | `fixture.py:262`, `fixture.py:413` | Shape and coverage checks omit required properties. | adjustment | Fixed in `5e88630`: types and YYYY-MM checked; the partial month's smaller amounts as constants and a row property; coverage under the effective public declarations with an independent expectation (own totals, own spellings). Tests for each. |
+| PROTO-1-11 | `diagnose.py:82`, `browser/diagnostic.mjs:153`, `browser/instrument.js:20` | Attempt and document attribution can be wrong, and hooks can change stored values. | adjustment | Fixed in `cf9a0dd`: marks at the submit and logout events from the page's hooks; post-logout calls placed by document; values read back from the browser's own copies. Tests: decryption in the old document's logout handler; a getter read once. |
+| PROTO-1-12 | `browser/diagnostic.mjs:77`, `diagnose.py:126`, `leveldb.py:94` | Missing browser observations and incomplete disk records can look complete. | adjustment | Fixed in `cf9a0dd`: DOMStorage and Storage events as committed writes; setup errors and unacknowledged realms listed; Map, Set and Blob kept or said unreadable; truncated LevelDB log unreadable; pristine-profile baseline and cache-entry known bodies on disk. Tests: transient write, CacheStorage, truncated log, unacknowledged realm. |
+| PROTO-1-13 | `tests/test_controls.py:40`, `tests/test_inspect_output.py:120` | Several controls assert only isolated layers or use evidence they did not produce. | adjustment | Fixed in `9bcc3dc` and `cf9a0dd`: the varying carriers, the second manifest and the opaque carrier through every layer with stages from what ran; startup control decrypts with the real reader; a label inside a stored Parquet; removing three detectors makes their controls fail; the draw record checked for values. |
+| PROTO-1-14 | `npm_offline.py:84`, `allowlist.py:61` | A stale cache file can be listed as verified, and Git-quoted filenames fail input assembly. | adjustment | Fixed in `c04610b`: cached files read back and replaced if wrong before the listing; NUL-delimited `ls-tree`, blobs by id. Tests: corrupt file at a tarball's path; a name with a space and a tab from a pinned commit. |
+| PROTO-1-15 | `serve.py:36` | Content negotiation selects encodings the request disallows. | adjustment | Fixed in `bc4967c`: negotiation by weight, never a coding of weight zero; tests for identity, gzip, Brotli, weights and 304 per representation. |
 
 ## Round 1 — PROTO
 
@@ -631,3 +631,42 @@ with the tarball present. Registry metadata was not refreshed.
 - [ ] **PROTO-1-15** Exercise identity, gzip and Brotli, including an explicit zero quality weight.
   A validator should yield 304 only for the negotiated representation it identifies.
 
+
+## Round 1 — the author's answer
+
+All fifteen findings are fixed, each in its own commit (the Status column names it), between
+`aa9e459` (the record of round 1) and `edb1359`; none is refused. Two of the corrections went beyond
+the letter of the finding, and are claims to verify:
+
+- **The diagnostic's false leads in a clean journey.** The broader number search of PROTO-1-06 made a
+  clean journey report counts found in Chrome's HTTP cache and in its built-in speech extension's
+  script cache. A journey's profile is now read against a pristine profile of the same Chrome (its
+  files recognised by digest), a cache entry's body that is a file of the artifact or a pinned body is
+  taken out before the rest is inspected, and a digit run inside a hexadecimal word of 16 characters
+  or more (a digest) is not read as a number (`inspect_output._in_digest`). The last rule applies to
+  every carrier, not only the profile.
+- **The verdict's stop.** PROTO-1-04 asked to retain a stop until the relevant evidence closes it; the
+  verdict now treats any record from the latest run onwards whose stop no later record has closed on
+  the same subject as stopping — a resume of another subject leaves it stopped —, while an earlier
+  run superseded by a later run is judged through its missing stages, as §2.5.4 says.
+
+Executed at `edb1359`, 2026-11-21:
+
+```
+$ make prototype-test
+216 passed in 493.88s (0:08:13)
+
+$ uv run --frozen --group prototype python prototypes/framework/sandbox.py   # exit 0; summarised from its JSON
+the wrapper: passed True - 31 checks, failing: []
+without clearenv: check 'token not inherited' holds=False, probe passed=False
+without unshare_pid: check 'own PID namespace' holds=False, probe passed=False
+without unshare_net: check 'host loopback unreachable' holds=False, probe passed=False
+without unshare_ipc: check 'own IPC namespace' holds=False, probe passed=False
+without unshare_uts: check 'own UTS namespace' holds=False, probe passed=False
+without new_session: check 'a session of its own' holds=False, probe passed=False
+without remount_ro: check 'no write /bice-probe' holds=False, probe passed=False
+```
+
+`ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` exited 0 before each commit. The carrier
+inspection of the same 3.6 MB third-party bundle as before takes 28.7 s, against 8.0 s before the
+round, because every decoder now runs on speculative decodings and code is scanned for embedded JSON.
