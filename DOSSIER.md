@@ -285,20 +285,20 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | PROTO-1-13 | `tests/test_controls.py:40`, `tests/test_inspect_output.py:120` | Several controls assert only isolated layers or use evidence they did not produce. | adjustment | Fixed in `9bcc3dc` and `cf9a0dd`: the varying carriers, the second manifest and the opaque carrier through every layer with stages from what ran; startup control decrypts with the real reader; a label inside a stored Parquet; removing three detectors makes their controls fail; the draw record checked for values. |
 | PROTO-1-14 | `npm_offline.py:84`, `allowlist.py:61` | A stale cache file can be listed as verified, and Git-quoted filenames fail input assembly. | adjustment | Fixed in `c04610b`: cached files read back and replaced if wrong before the listing; NUL-delimited `ls-tree`, blobs by id. Tests: corrupt file at a tarball's path; a name with a space and a tab from a pinned commit. |
 | PROTO-1-15 | `serve.py:36` | Content negotiation selects encodings the request disallows. | adjustment | Fixed in `bc4967c`: negotiation by weight, never a coding of weight zero; tests for identity, gzip, Brotli, weights and 304 per representation. |
-| PROTO-2-01 | `trees.py:38,55,147`, `inspect_output.py:171` | A linked root is read, an unreadable subtree disappears, and extraction changes stored modes. | blocking | |
-| PROTO-2-02 | `harness.py:149,226,240` | Control additions can write outside the artifact and still produce a bound pass. | blocking | |
-| PROTO-2-03 | `harness.py:289,317`, `fixture.py:441` | A wrong builder archive or a schema query I/O failure can be classified as candidate content. | blocking | |
-| PROTO-2-04 | `verdict.py:90,163,180` | Unbound findings and invalid closure evidence can determine the verdict. | blocking | |
-| PROTO-2-05 | `inspect_output.py:258,276,306` | Supported layers at the depth limit and incomplete zstd frames can appear clean. | blocking | |
-| PROTO-2-06 | `inspect_output.py:394,430,453,483` | The number scan suppresses fixture counts and reports parts of exponents as counts. | blocking | |
-| PROTO-2-07 | `sandbox_probe.py:45,50,62` | The sandbox proof rejects a valid session and misses some inherited descriptors and writes. | blocking | |
-| PROTO-2-08 | `inspect_output.py:625`, `calibrate.py:69` | An integral Arrow count can exhaust the draw as a fixed label. | adjustment | |
-| PROTO-2-09 | `diagnose.py:71`, `browser/instrument.js:76`, `browser/diagnostic.mjs:109`, `browser/enumerate.js:7`, `leveldb.py:104` | Missing journey marks and storage values can be reported as observed. | adjustment | |
-| PROTO-2-10 | `diagnose.py:264,291,335` | Global profile exclusions can hide records, and baseline collection can abort a journey. | adjustment | |
-| PROTO-2-11 | `tests/test_controls.py:41,180`, `tests/test_diagnostic.py:123` | Controls can pass without archive evidence, label detection or stable redraw ordering. | adjustment | |
-| PROTO-2-12 | `serve.py:36,63,98` | The server sends identity even when every supported representation is refused. | adjustment | |
-| PROTO-2-13 | `DOSSIER.md`, Round 1 author's answer | The 28.7 s and 8.0 s bundle timings have no reproducible command output. | adjustment | |
-| PROTO-2-14 | `trees.py:147,166` | A supplied tar with an absolute directory member can change permissions outside extraction. | observation | |
+| PROTO-2-01 | `trees.py:38,55,147`, `inspect_output.py:171` | A linked root is read, an unreadable subtree disappears, and extraction changes stored modes. | blocking | Fixed in `59f71c9`: `real_root` checks every component of the absolute path; `entries` refuses a folder the walk cannot read; archives keep setgid and sticky bits; carrier inspection walks through `trees`. Tests: linked ancestor, artifact substituted by a link, unreadable folder (archive and inspection), `01775` round trip. |
+| PROTO-2-02 | `harness.py:149,226,240` | Control additions can write outside the artifact and still produce a bound pass. | blocking | Fixed in `59f71c9`: additions are normalized relative paths created through real folders with `O_EXCL|O_NOFOLLOW`; an assembly with additions is labelled `control` and a judged `verify` refuses it; `run_gate` needs `table_control=True`. Tests: absolute, `..` and linked-parent additions leave the sibling empty; a judged verify refuses control evidence. |
+| PROTO-2-03 | `harness.py:289,317`, `fixture.py:441` | A wrong builder archive or a schema query I/O failure can be classified as candidate content. | blocking | Fixed in `59f71c9`: assembly records the builder's tree and reproduction refuses another; a schema query whose file changed is `SchemaFault`. Tests: wrong builder → `HARNESS_ERROR`, vanished file → fault, real non-schema Parquet still `CONTENT`. |
+| PROTO-2-04 | `verdict.py:90,163,180` | Unbound findings and invalid closure evidence can determine the verdict. | blocking | Fixed in `59c2b1e`: content only from bound stages; a tail before the builder's inspection does not count; a resumed assembly `FORM` closes as a cost; an exhausted draw closes only by an assembly on the same builder. The four histories plus a bound finding surviving a later harness error. |
+| PROTO-2-05 | `inspect_output.py:258,276,306` | Supported layers at the depth limit and incomplete zstd frames can appear clean. | blocking | Fixed in `80d2cc1`: no-magic layers count at the depth limit; legacy Arrow opens from speculative decodings; zstd frame by frame, an incomplete frame inconclusive beside what was read. Tests: base64 ×3 over Brotli and over legacy Arrow, a truncated final frame. |
+| PROTO-2-06 | `inspect_output.py:394,430,453,483` | The number scan suppresses fixture counts and reports parts of exponents as counts. | blocking | Fixed in `80d2cc1`: the global hex-word rule is removed — the profile's false leads it masked are now handled where attributable (`8dfb902`, PROTO-2-10); scientific literals read as one number, bounded; literal-space grouping; non-finite values skipped. Tests per case. |
+| PROTO-2-07 | `sandbox_probe.py:45,50,62` | The sandbox proof rejects a valid session and misses some inherited descriptors and writes. | blocking | Fixed in `a52a210`: session = leader inside the PID namespace (SID ≠ 0), no host number compared; every live descriptor counted; a write recorded before cleanup. The CLI exits 0 run directly and under `setsid`; tests for the shared-number session, a directory descriptor and a write whose unlink fails. |
+| PROTO-2-08 | `inspect_output.py:625`, `calibrate.py:69` | An integral Arrow count can exhaust the draw as a fixed label. | adjustment | Fixed in `80d2cc1` (canonical values from typed cells) and tested in `a32e3b9`: an integral Arrow float equal to the row count changes *k*. |
+| PROTO-2-09 | `diagnose.py:71`, `browser/instrument.js:76`, `browser/diagnostic.mjs:109`, `browser/enumerate.js:7`, `leveldb.py:104` | Missing journey marks and storage values can be reported as observed. | adjustment | Fixed in `8dfb902`: missing page boundaries taken from the driver and reported as gaps; repeated IndexedDB writes said unreadable; Maps, Sets and Blobs at the end; CacheStorage read on content events; LevelDB fragmented record unreadable. Tests for each. |
+| PROTO-2-10 | `diagnose.py:264,291,335` | Global profile exclusions can hide records, and baseline collection can abort a journey. | adjustment | Fixed in `8dfb902`: baseline by path and digest, made by the driver and closed through the protocol; cache entries give up only the body of the URL they are keyed by (artifact file, or pinned body of the declared digest) and the ETags the local server recorded issuing. Tests: unrelated record keeps its body; the clean journey stays clean. |
+| PROTO-2-11 | `tests/test_controls.py:41,180`, `tests/test_diagnostic.py:123` | Controls can pass without archive evidence, label detection or stable redraw ordering. | adjustment | Fixed in `a32e3b9`: the helper archives and extracts the builder and builds records from real digests and outcomes; a FIFO alone reaches `FORM`; the stored-Parquet control needs a label from text cells; the order test fails with the sort removed (checked by mutation). |
+| PROTO-2-12 | `serve.py:36,63,98` | The server sends identity even when every supported representation is refused. | adjustment | Fixed in `ae3c26d`: no acceptable representation → 406; case-insensitive weights; identity only when acceptable. Tests including `br;Q=0`, all-zero, `*;q=0`. |
+| PROTO-2-13 | `DOSSIER.md`, Round 1 author's answer | The 28.7 s and 8.0 s bundle timings have no reproducible command output. | adjustment | Answered with output: `time_inspect.py` and its runs at three revisions on the same bundle and seed, in the answer below; the 8.0 and 28.7 s of round 1 reproduce as 8.0 and 28.9 s, and the current code takes 41.5 s. |
+| PROTO-2-14 | `trees.py:147,166` | A supplied tar with an absolute directory member can change permissions outside extraction. | observation | Fixed in `59f71c9`: extraction refuses absolute or `..` members before writing and applies modes only inside the folder. Test: the reviewer's tar leaves the sibling at `0700`. |
 
 ## Round 1 — PROTO
 
@@ -1057,3 +1057,48 @@ profiles. Further targeted output is recorded with the relevant findings.
 
 PROTO-2-14 is an observation for the archive helper. Keep its recommended containment check
 with the tree evidence if addressed.
+
+## Round 2 — the author's answer
+
+All fourteen findings are fixed, each in the commit its Status cell names, between `6836307` (the
+record of round 2) and `ae3c26d`; none is refused. A claim to verify beyond the findings:
+
+- **The hexadecimal-word rule is gone (PROTO-2-06)**, and the false leads it had masked in a clean
+  journey's profile — digits inside the `ETag` values of Chrome's HTTP cache entries, which are the
+  local server's own SHA-256 validators — are now taken out only where attributable (PROTO-2-10): the
+  server records every `ETag` it issues and only those exact strings are removed from cache entries,
+  beside the body of the URL an entry is keyed by. A clean journey of the control page reports no
+  lead, executed while fixing it.
+
+The timing claim of round 1 (PROTO-2-13), reproduced with a script and the same input on three
+revisions of `prototypes/framework/`, each extracted with `git archive`:
+
+```
+$ for rev in 3447cd7 3c4a300 ae3c26d; do uv run --frozen --group prototype python time_inspect.py rev-$rev <bundle> 20261120; done
+rev=rev-3447cd7 bundle_sha256=341b762ed592171859978ff6f0ca19142854bda3b2df6d9c54b0abdae8e98c8a bytes=3635597 seed=20261120 seconds=8.0 findings=0 inconclusive=0
+rev=rev-3c4a300 bundle_sha256=341b762ed592171859978ff6f0ca19142854bda3b2df6d9c54b0abdae8e98c8a bytes=3635597 seed=20261120 seconds=28.9 findings=5 inconclusive=0
+rev=rev-ae3c26d bundle_sha256=341b762ed592171859978ff6f0ca19142854bda3b2df6d9c54b0abdae8e98c8a bytes=3635597 seed=20261120 seconds=41.5 findings=5 inconclusive=0
+```
+
+The bundle is `@google/gemini-cli`'s `bundle/chunk-3KNX7NZM.js`, a third-party file of this machine,
+by its digest above; `time_inspect.py` times one `inspect_items` call with the fixture of seed
+20261120. The carrier inspection is now about five times slower than its first version on that file.
+
+Executed at `ae3c26d`, 2026-11-21:
+
+```
+$ make prototype-test
+255 passed in 534.32s (0:08:54)
+
+$ uv run --frozen --group prototype python prototypes/framework/sandbox.py   # exit 0; summarised from its JSON
+the wrapper: passed True - 31 checks, failing: []
+without clearenv: check 'token not inherited' holds=False, probe passed=False
+without unshare_pid: check 'own PID namespace' holds=False, probe passed=False
+without unshare_net: check 'host loopback unreachable' holds=False, probe passed=False
+without unshare_ipc: check 'own IPC namespace' holds=False, probe passed=False
+without unshare_uts: check 'own UTS namespace' holds=False, probe passed=False
+without new_session: check 'a session of its own' holds=False, probe passed=False
+without remount_ro: check 'no write /bice-probe' holds=False, probe passed=False
+```
+
+`ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` exited 0 before each commit.
