@@ -798,17 +798,16 @@ Calls to the wrapper are in scope for their handling of its result. The same exc
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| PROTO-5-01 | `verdict.py:125–148` | An assembly refusal can borrow a previous artifact's eligibility. | blocking | |
-| PROTO-5-02 | `verdict.py:158–165,181–222,254–285` | Missing draw identity can close a run, and a valid redraw can leave it open. | blocking | |
-| PROTO-5-03 | `fixture.py:425–436,458–475` | Two runtime faults classify a valid empty P01 file as candidate content. | blocking | |
-| PROTO-5-04 | `inspect_output.py:756–780,807–818` | Arrow and Parquet readers skip stored fixture values. | blocking | |
-| PROTO-5-05 | `inspect_output.py:783–796,248–260` | Typed string and binary cells bypass carrier inspection. | blocking | |
-| PROTO-5-06 | `inspect_output.py:263–295,329–344` | An encoded response inside a bundle can disappear at the depth limit. | blocking | |
-| PROTO-5-07 | `inspect_output.py:487–513,562–612` | Numeric windows accept partial amounts and join independent CSV fields. | blocking | |
-| PROTO-5-08 | `inspect_output.py:230–242,351–394` | Compressed streams can hide metadata containing a fixture label or lose a truncation gap. | blocking | |
-| PROTO-5-09 | `verdict.py:124–140,254–267` | An archive attempt reporting a harness error can lose its stop. | adjustment | |
-| PROTO-5-10 | `serve.py:134–145` | Encoding negotiation ignores a second Accept-Encoding field line. | adjustment | |
-
+| PROTO-5-01 | `verdict.py:125–148` | An assembly refusal can borrow a previous artifact's eligibility. | blocking | Fixed in `8391ae5`: an assembly that is not `PASS` ends what counts of its record, so a later `verify` or inspection there never borrows an earlier artifact's digest. Table `test_each_history_of_round_5`. |
+| PROTO-5-02 | `verdict.py:158–165,181–222,254–285` | Missing draw identity can close a run, and a valid redraw can leave it open. | blocking | Fixed in `8391ae5`: a draw is an attempt of the walk, after the builder's inspection — eligible only on an inspected builder output, a clean one only with its fixture —; an exhausted draw ends its record; an exhausted run is closed by a tail sealed from the fixture of any earlier clean draw. Not changed: a latest run whose build was interrupted is `stopped` (§2.5.4 item 3), whatever its draw flag says — the reviewer expected `not established`; the case is in the table with its reason. The old positive cases now carry fixtures. |
+| PROTO-5-03 | `fixture.py:425–436,458–475` | Two runtime faults classify a valid empty P01 file as candidate content. | blocking | Fixed in `43a6cc6`: only `ArrowInvalid` or the `OSError` of an undeserializable footer is a refusal; a memory, unsupported or other fault of PyArrow raises `SchemaFault`. Test: both readers faulting → `HARNESS_ERROR`. The reverse disagreement (bad optional `ARROW:schema`) is read by DuckDB in the inspection, recorded, no gap. |
+| PROTO-5-04 | `inspect_output.py:756–780,807–818` | Arrow and Parquet readers skip stored fixture values. | blocking | Fixed in `dcd865b`: `_stored` uses PyArrow's type predicates — both list-view widths, run-end values, extension storage —; view arrays' data buffers searched whole; anything still nested walked to its leaves; Parquet string and binary columns read again with `read_dictionary`. The reviewer's typed and integration probes are all found, the run-end slice that dropped the count stays clean. Parametrized test over the layouts. |
+| PROTO-5-05 | `inspect_output.py:783–796,248–260` | Typed string and binary cells bypass carrier inspection. | blocking | Fixed in `dcd865b`: a string cell opens what it encodes — JSON, and the text decoders' outputs — one layer deeper; a binary cell is dispatched non-speculatively, so opaque bytes are inconclusive. Tests: data URL in Arrow and Parquet strings, random bytes in a binary cell. |
+| PROTO-5-06 | `inspect_output.py:263–295,329–344` | An encoded response inside a bundle can disappear at the depth limit. | blocking | Fixed in `dcd865b`: at the depth limit every base64 or hex run the decoders find counts when its decoding is readable — a magic, Arrow, Parquet, printable text, Brotli opening to text. The reviewer's gzipped holder is a gap; every script of DuckDB-WASM 1.32.0's tarball keeps zero gaps (measured, new and old code). |
+| PROTO-5-07 | `inspect_output.py:487–513,562–612` | Numeric windows accept partial amounts and join independent CSV fields. | blocking | Fixed in `dcd865b`: a window never stops before a grouping continued by its separator nor before a one- or two-digit decimal part; ordinary-space groupings take a `.` or `,` decimal; a `.csv`/`.tsv` file is read field by field. Parametrized test of the reviewer's cases. |
+| PROTO-5-08 | `inspect_output.py:230–242,351–394` | Compressed streams can hide metadata containing a fixture label or lose a truncation gap. | blocking | Fixed in `dcd865b`: a recognised compressed blob is also searched as bytes (a gzip header's name); skippable frames' payloads are dispatched; gzip is read member by member and a cut member is a gap with what it held. Test: gzip file name, skippable payload, cut gzip in base64. |
+| PROTO-5-09 | `verdict.py:124–140,254–267` | An archive attempt reporting a harness error can lose its stop. | adjustment | Fixed in `8391ae5`: an archive attempt is bound to the build input it follows, so its `HARNESS_ERROR` stops the run, closed by a later run of that input that archives. In the table. |
+| PROTO-5-10 | `serve.py:134–145` | Encoding negotiation ignores a second Accept-Encoding field line. | adjustment | Fixed in `d44931b`: every `Accept-Encoding` line joined in order before negotiating. Test: one line and two lines give the same status, encoding, length and ETag. |
 #### PROTO-5-01 — Assembly FORM reuses a stale artifact digest
 
 **High, blocking. Preexisting.** `_history` leaves the stage walk running after assembly `FORM`.
@@ -1102,3 +1101,36 @@ convergence and cold/warm measures belong to later steps.
 - [ ] **PROTO-5-08** Find the label in retained metadata, report the truncated base64-wrapped gzip as unread, and keep the valid joined and partial-frame Zstd controls.
 - [ ] **PROTO-5-09** Report a failed archive as `stopped` and close it only with a complete retry of the same input. Retain `not established` for absent evidence.
 - [ ] **PROTO-5-10** Make combined and split `Accept-Encoding` lines select the same representation and validator. Keep the conditional and `406` controls.
+
+## Round 5 — the author's answer
+
+All ten findings are fixed, each in the commit its Status cell names, between `d8948ec` (the record
+of round 5) and `d44931b`; none is refused, and one history is kept as §2.5.4 has it (PROTO-5-02's
+Status). The reviewer's probes, kept from `/tmp/bi-proto-round5.ePNxtW/`, were rerun on the new
+code: `history_probe.py` gives the expected verdict for twelve of its thirteen histories, the
+thirteenth `stopped` by §2.5.4 item 3; `typed_probe.py`, `integration_probe.py`, `carrier_probe.py`,
+`carrier_followup.py`, `parquet_dictionary_probe.py`, `parquet_probe.py`, `skippable_probe.py` and
+`encoding_probe.py` give the results the findings ask for, the large-list-view archive found by both
+inspections (`INSPECT_ARROW`) and the dual reader fault `HARNESS_ERROR`. Every `.js`, `.mjs` and `.cjs`
+file of DuckDB-WASM 1.32.0's tarball keeps zero gaps with empty needles, on the new code as on the
+old. The new tests were run against the code at `d8948ec`: each test written to reproduce a finding
+fails there; the guards pass on both, and so does the list-view layout, which the old code read.
+
+An observation of the environment: on this machine a bare PyArrow 22.0.0 write and read of a
+Parquet hangs at interpreter exit, with or without this repository's code; `typed_probe.py` prints
+all its cases and then hangs there. The suite exits normally.
+
+Executed on the working tree that became `8391ae5`..`d44931b`, with every change of the four
+commits in place except the one-line rename below, 2026-11-21 22:17–22:27Z:
+
+```
+$ make prototype-test
+357 passed, 1 warning in 601.61s (0:10:01)
+```
+
+The warning was DuckDB's deprecation of `fetch_arrow_table`, replaced by `to_arrow_table` in
+`dcd865b`; the four touched test files passed again after it, 238 passed. `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1
+make check` exited 0 before each commit.
+
+**The review of step 1 closes here, by the Owner's decision of 2026-11-21 (N97)**: round 5's
+corrections are not reviewed, a recorded limit with the isolation wrapper and the browser diagnostic.
