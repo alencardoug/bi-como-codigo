@@ -62,9 +62,10 @@ class Needles:
     amounts: frozenset[Decimal]
     counts: frozenset[int]
     window: frozenset[tuple[int, int]]
+    gate: tuple[tuple[str, bytes], ...] = ()  # `contract.needles` of the opened payload, for the manifest's labels
 
     @classmethod
-    def from_fixture(cls, fx: fx_mod.Fixture) -> "Needles":
+    def from_fixture(cls, fx: fx_mod.Fixture, *, gate: bool = True) -> "Needles":
         """The fixture's values and the results of the page's queries — every
         summary cell under every filter — since a cache of a query holds results,
         not rows. Small integers are never integer needles (FPROTO-4-03)."""
@@ -86,7 +87,13 @@ class Needles:
         amounts.discard(fx_mod.ZERO)
         counts = {n for n in counts if n >= 10_000}
         window = {fx.month(i) for i in range(fx_mod.MONTHS)}
-        return cls(frozenset(texts), frozenset(amounts), frozenset(counts), frozenset(window))
+        gate_needles: tuple = ()
+        if gate:
+            contract = fx_mod.contract()
+            values = c.check_payload(contract, contract.reports[fx_mod.REPORT], *fx_mod.payload(fx))
+            public = c.load_public_values((fx_mod.HERE / "release" / "public_values.json").read_bytes())
+            gate_needles = tuple(c.needles([values], public))
+        return cls(frozenset(texts), frozenset(amounts), frozenset(counts), frozenset(window), gate_needles)
 
     def canonical(self, value) -> str:
         return str(value)
@@ -190,6 +197,9 @@ def _item(ctx: Context, item: Item) -> None:
     if item.name.startswith("package/") and ctx.validated.get(item.name[len("package/"):]) == digest:
         if item.name == "package/manifest.json":
             labels = c.manifest_labels(e.validate_manifest(item.data))
+            for code, needle in ctx.needles.gate:  # the gate's own search, as N83 has it, behind any form refusal
+                if needle in labels:
+                    ctx.find(INSPECT_TEXT, item.name, "manifest labels > the gate's needles", needle.decode("utf-8", "replace"))
             _blob(ctx, labels, item.name, "manifest labels", DATA, 0, speculative=False)
             ctx.report.recorded.append(Note(item.name, "", "validated manifest: labels searched, typed fields validated"))
         else:
@@ -217,29 +227,62 @@ def _blob(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int
             return
     decompressed = _decompress_by_magic(data)
     if decompressed is not None:
-        name, out = decompressed
-        _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=False)
+        for name, out in decompressed:
+            _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=False)
         return
+    # The byte checks run on every blob, binary included, before any exemption (PROTO-1-05).
+    for needle in ctx.needles.texts:
+        if needle.encode("utf-8") in data:
+            ctx.find(INSPECT_TEXT, file, path, needle)
     _binary_numbers(ctx, data, file, path)
     text = _is_text(data)
     if text is not None:
-        _text(ctx, data, text, file, path, role, depth)
+        _text(ctx, text, file, path, role, depth)
         return
-    if not speculative:
-        for name, attempt in (("brotli", _brotli), ("deflate", _raw_deflate)):
-            out = attempt(data)
-            if out is not None:
-                _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=False)
-                return
-        if (digest or hashlib.sha256(data).hexdigest()) in ctx.dependencies:
-            ctx.report.recorded.append(Note(file, path, "binary identical to a file of the locked dependency tree"))
-        else:
-            ctx.report.inconclusive.append(Note(file, path, "a binary no layer decodes"))
+    _numbers_in_text(ctx, data.decode("latin-1"), file, path, role)
+    for name, attempt in (("brotli", _brotli), ("deflate", _raw_deflate)):
+        out = attempt(data)
+        if out is not None:
+            _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=speculative)
+            return
+    if not speculative and _arrow(ctx, data, file, path):  # a stream with no continuation marker
+        return
+    if speculative:
+        return  # a speculative decoding no layer reads: an identifier, not a carrier
+    if (digest or hashlib.sha256(data).hexdigest()) in ctx.dependencies:
+        ctx.report.recorded.append(Note(file, path, "binary identical to a file of the locked dependency tree"))
+    else:
+        ctx.report.inconclusive.append(Note(file, path, "a binary no layer decodes"))
+
+
+def _looks_like_carrier(data: bytes) -> bool:
+    """What a layer would read, at the depth where none may run any more."""
+    if _decompress_by_magic(data) is not None or data[:4] in (b"PAR1", b"\xff\xff\xff\xff") or data[:6] == b"ARROW1":
+        return True
+    text = _is_text(data)
+    if text is None:
+        return False
+    stripped = text.strip()
+    if stripped[:1] in "{[":
+        try:
+            json.loads(stripped)
+            return True
+        except ValueError:
+            pass
+    whole = max((len(m[0]) for p in (_B64, _B64URL, _HEX) for m in p.finditer(stripped)), default=0)
+    return len(stripped) >= 16 and whole >= 0.9 * len(stripped)
 
 
 def _descend(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int, *, speculative: bool) -> None:
     if depth + 1 > DEPTH:
-        if not speculative:
+        # Past the depth, the bytes are still searched; only no further layer is opened.
+        for needle in ctx.needles.texts:
+            if needle.encode("utf-8") in data:
+                ctx.find(INSPECT_TEXT, file, path, needle)
+        _binary_numbers(ctx, data, file, path)
+        text = _is_text(data)
+        _numbers_in_text(ctx, text if text is not None else data.decode("latin-1"), file, path, role)
+        if not speculative or _looks_like_carrier(data):
             ctx.report.inconclusive.append(Note(file, path, f"deeper than {DEPTH} layers"))
         return
     _blob(ctx, data, file, path, role, depth + 1, speculative=speculative)
@@ -248,16 +291,23 @@ def _descend(ctx: Context, data: bytes, file: str, path: str, role: str, depth: 
 # --- decoders ---------------------------------------------------------------------------
 
 
-def _decompress_by_magic(data: bytes) -> tuple[str, bytes] | None:
+def _decompress_by_magic(data: bytes) -> list[tuple[str, bytes]] | None:
+    """Every frame of a zstd stream, every member of a gzip file, and what
+    follows a zlib stream, read as its own blob (PROTO-1-05)."""
     try:
         if data[:2] == b"\x1f\x8b":
-            return "gzip", gzip.decompress(data)
+            return [("gzip", gzip.decompress(data))]
         if len(data) >= 2 and data[0] == 0x78 and (data[0] * 256 + data[1]) % 31 == 0:
-            return "zlib", zlib.decompress(data)
+            d = zlib.decompressobj()
+            out = d.decompress(data) + d.flush()
+            if not d.eof:
+                return None
+            return [("zlib", out)] + ([("after zlib", d.unused_data)] if d.unused_data else [])
         if data[:4] == b"\x28\xb5\x2f\xfd":
             import zstandard
 
-            return "zstd", zstandard.ZstdDecompressor().decompressobj().decompress(data)
+            with zstandard.ZstdDecompressor().stream_reader(io.BytesIO(data), read_across_frames=True) as reader:
+                return [("zstd", reader.read())]
     except Exception:  # noqa: BLE001 — a magic that does not decode is no carrier
         return None
     return None
@@ -341,13 +391,17 @@ def _text_decoders(text: str):
 # --- text and numbers -----------------------------------------------------------------
 
 
-_NUMBER = re.compile(r"(?<![0-9])[0-9](?:[0-9.,]*[0-9])?(?![0-9])")
+_SEPARATORS = ".,\u00a0\u202f\u2009"
+_RUN = re.compile(r"[0-9](?:[0-9.,\u00a0\u202f\u2009]*[0-9])?")
+_EXPONENT = re.compile(r"(?<![0-9A-Za-z_.])([-\u2212]?)([0-9]+(?:\.[0-9]+)?[eE][+-]?[0-9]+)(?![0-9])")
 _PLAIN = re.compile(r"[0-9]+")
 _DOTTED = re.compile(r"[0-9]+\.[0-9]+")
 _PT_GROUPED = re.compile(r"[0-9]{1,3}(?:\.[0-9]{3})+")
 _PT_DECIMAL = re.compile(r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]+")
 _COMMA_DECIMAL = re.compile(r"[0-9]+,[0-9]+")
 _EN_GROUPED = re.compile(r"[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?")
+_SPACE_GROUPED = re.compile(r"[0-9]{1,3}(?:[\u00a0\u202f\u2009][0-9]{3})+(?:[.,][0-9]+)?")
+WINDOW = 4  # separators a token may span inside one run of digits and separators
 
 
 def _readings(token: str):
@@ -367,39 +421,84 @@ def _readings(token: str):
         out.append((Decimal(token.replace(",", ".")), "gate" if len(token.split(",")[1]) == 2 else "js"))
     if _EN_GROUPED.fullmatch(token):
         out.append((Decimal(token.replace(",", "")), "int"))
+    if _SPACE_GROUPED.fullmatch(token):
+        plain = re.sub("[\u00a0\u202f\u2009]", "", token).replace(",", ".")
+        out.append((Decimal(plain), "int" if "." not in plain else "js"))
     return out
 
 
 def _tokens(text: str):
-    for m in _NUMBER.finditer(text):
-        token = m[0]
-        parts = {token, *token.split(","), *token.split(".")}
-        yield from (p for p in parts if p)
+    """Every window of a run of digits and separators that starts and ends on a
+    digit and spans at most `WINDOW` separators — so that `1.234,50` is read
+    inside `1.234,50,7` (PROTO-1-06) —, with whether a minus sign precedes it."""
+    for m in _RUN.finditer(text):
+        run, start = m[0], m.start()
+        negative = start > 0 and text[start - 1] in "-\u2212" and not (start > 1 and text[start - 2].isalnum())
+        seps = [i for i, ch in enumerate(run) if ch in _SEPARATORS]
+        starts = [0] + [i + 1 for i in seps]
+        ends = seps + [len(run)]
+        for a, s0 in enumerate(starts):
+            for b in range(a, min(len(ends), a + WINDOW + 1)):
+                token = run[s0:ends[b]]
+                if token and token[0].isdigit() and token[-1].isdigit():
+                    yield token, negative and s0 == 0
 
 
 def _numbers_in_text(ctx: Context, text: str, file: str, path: str, role: str) -> None:
     n = ctx.needles
-    for token in _tokens(text):
+    for token, negative in _tokens(text):
+        if negative:
+            continue  # every needle is positive: -20000 is not 20000
         for value, how in _readings(token):
-            if value in n.amounts:
-                if how == "gate":
-                    ctx.find(INSPECT_TEXT, file, path, _canonical_amount(n, value))
-                else:
-                    ctx.find(INSPECT_NUMBER, file, path, _canonical_amount(n, value))
-            if how == "int" and role != CODE and value == value.to_integral_value() and int(value) in n.counts:
-                ctx.find(INSPECT_NUMBER, file, path, int(value))
+            _match(ctx, value, how, file, path, role)
+    for m in _EXPONENT.finditer(text):
+        if not m[1]:
+            try:
+                _match(ctx, Decimal(m[2]), "exponent", file, path, role)
+            except InvalidOperation:
+                pass
+
+
+def _match(ctx: Context, value: Decimal, how: str, file: str, path: str, role: str) -> None:
+    n = ctx.needles
+    if value in n.amounts:
+        ctx.find(INSPECT_TEXT if how == "gate" else INSPECT_NUMBER, file, path, _canonical_amount(n, value))
+    if how in ("int", "exponent") and role != CODE and value == value.to_integral_value() and int(value) in n.counts:
+        ctx.find(INSPECT_NUMBER, file, path, int(value))
+
+
+_EMBEDDED = re.compile(r'\{\s*"|\[\s*[-0-9"\[{]')
+EMBEDDED_MAX = 100_000
+
+
+def _embedded_json(ctx: Context, text: str, file: str, path: str, depth: int) -> None:
+    """A strict JSON document inside other text — an object in a bundle —,
+    parsed and walked as a structured carrier, counts included (PROTO-1-06)."""
+    decoder = json.JSONDecoder()
+    end_of_last = -1
+    for tries, m in enumerate(_EMBEDDED.finditer(text)):
+        if tries >= EMBEDDED_MAX:
+            ctx.report.inconclusive.append(Note(file, path, f"more than {EMBEDDED_MAX} JSON-like openings"))
+            return
+        if m.start() < end_of_last:
+            continue
+        try:
+            parsed, end = decoder.raw_decode(text, m.start())
+        except ValueError:
+            continue
+        if isinstance(parsed, (dict, list)) and parsed:
+            _structured(ctx, parsed, file, f"{path} > embedded json@{m.start()}", DATA, depth)
+            end_of_last = end
 
 
 def _canonical_amount(n: Needles, value: Decimal) -> str:
     return f"{value.quantize(Decimal('0.01'))}"
 
 
-def _text(ctx: Context, data: bytes, text: str, file: str, path: str, role: str, depth: int) -> None:
-    for needle in ctx.needles.texts:
-        if needle.encode("utf-8") in data:
-            ctx.find(INSPECT_TEXT, file, path, needle)
+def _text(ctx: Context, text: str, file: str, path: str, role: str, depth: int) -> None:
     _numbers_in_text(ctx, text, file, path, role)
     stripped = text.strip()
+    parsed = None
     if stripped[:1] in "{[":
         try:
             parsed = json.loads(stripped)
@@ -407,7 +506,9 @@ def _text(ctx: Context, data: bytes, text: str, file: str, path: str, role: str,
             parsed = None
         if parsed is not None:
             _structured(ctx, parsed, file, f"{path} > json", role, depth)
-    if "<script" in text:
+    if parsed is None:
+        _embedded_json(ctx, text, file, path, depth)
+    if "<script" in text.lower():
         _scripts(ctx, text, file, path, role, depth)
     for name, out in _text_decoders(text):
         _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=True)
@@ -422,7 +523,7 @@ def _scripts(ctx: Context, text: str, file: str, path: str, role: str, depth: in
     scripts parsed as JSON — with `data-b64`, their body base64 —; SvelteKit's
     devalue data read as JSON-like text, every number compared as a number."""
     for n, m in enumerate(_SCRIPT.finditer(text)):
-        attrs, body = m[1], m[2]
+        attrs, body = m[1].lower(), m[2]
         where = f"{path} > script#{n}"
         if "data-sveltekit-fetched" in attrs or "application/json" in attrs:
             try:
@@ -430,7 +531,9 @@ def _scripts(ctx: Context, text: str, file: str, path: str, role: str, depth: in
             except ValueError:
                 ctx.report.inconclusive.append(Note(file, where, "a JSON script that does not parse"))
                 continue
-            if "data-b64" in attrs and isinstance(parsed, dict) and isinstance(parsed.get("body"), str):
+            if "data-b64" in attrs and not (isinstance(parsed, dict) and isinstance(parsed.get("body"), str)):
+                ctx.report.inconclusive.append(Note(file, where, "a data-b64 script with no body to decode"))
+            elif "data-b64" in attrs:
                 raw = _b64(parsed["body"], "std")
                 if raw is None:
                     ctx.report.inconclusive.append(Note(file, where, "a data-b64 body that does not decode"))
@@ -500,8 +603,8 @@ def _cells(ctx: Context, table, code: str, file: str, path: str) -> None:
     for column in table.columns:
         for v in column.to_pylist():
             if isinstance(v, str):
-                if v in n.texts or any(t in v for t in n.texts):
-                    ctx.find(code, file, path, v)
+                for t in sorted(t for t in n.texts if t in v):  # the matched needle, not the cell (PROTO-1-09)
+                    ctx.find(code, file, path, t)
             elif isinstance(v, (int, float, Decimal)) and not isinstance(v, bool):
                 d = Decimal(repr(v)) if isinstance(v, float) else Decimal(v)
                 if d in n.amounts or (d == d.to_integral_value() and int(d) in n.counts):
@@ -515,7 +618,7 @@ def _parquet(ctx: Context, data: bytes, file: str, path: str) -> bool:
         table = pq.read_table(io.BytesIO(data))
     except Exception:  # noqa: BLE001
         return False
-    if table.num_rows == 0 and table.column_names == list(fx_mod.COLUMNS):
+    if table.num_rows == 0 and fx_mod.schema_only(data):
         ctx.report.recorded.append(Note(file, path, "Parquet with P01's schema and no row: schema only"))
         return True
     _cells(ctx, table, INSPECT_PARQUET, file, path)

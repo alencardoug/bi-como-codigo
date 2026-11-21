@@ -281,3 +281,100 @@ def test_gate_hits_agrees_with_the_gates_inspect(gate):
     clean = {"a.js": b"const a = 1, b = [2, 3, 4.5];"}
     c.inspect(clean, [values], set())
     assert io_.gate_hits(clean, needles) == []
+
+
+# --- carriers the dispatch must not drop (PROTO-1-05) -----------------------------------
+
+
+def test_a_label_in_base64_wrapped_brotli_inside_code_is_found(needles, samples):
+    blob = base64.b64encode(brotli.compress(json.dumps({"c": samples["label"]}).encode())).decode()
+    report = _one(needles, "app.js", f'const z = "{blob}";'.encode())
+    assert any("brotli" in x.path for x in report.findings)
+
+
+def test_every_zstd_frame_is_read(needles, samples):
+    z = zstandard.ZstdCompressor()
+    data = z.compress(b"nothing here") + z.compress(samples["label"].encode())
+    assert _one(needles, "x.bin", data).codes() == {io_.INSPECT_TEXT}
+
+
+def test_layers_beyond_the_depth_in_a_base64_file_are_never_clean(needles, samples):
+    """Past the depth the bytes are still searched; a layer that would still
+    open is inconclusive."""
+    data = samples["label"].encode()
+    for _ in range(io_.DEPTH + 1):
+        data = base64.b64encode(data)
+    assert _one(needles, "blob.txt", data).codes() == {io_.INSPECT_TEXT}
+    data = base64.b64encode(gzip.compress(samples["label"].encode()))
+    for _ in range(io_.DEPTH):
+        data = base64.b64encode(data)
+    deep = _one(needles, "deep.txt", data)
+    assert not deep.clean and any("deeper" in x.reason for x in deep.inconclusive)
+
+
+def test_a_data_b64_script_with_no_body_is_inconclusive(needles):
+    page = '<script type="application/json" data-sveltekit-fetched data-b64>{"status": 200}</script>'
+    assert _one(needles, "index.html", page.encode()).inconclusive
+
+
+def test_a_legacy_arrow_stream_is_read(fx, needles):
+    rows = fx.rows()[:2]
+    table = pa.table({"order_count": [r[7] for r in rows]})
+    sink = io.BytesIO()
+    with ipc.new_stream(sink, table.schema, options=ipc.IpcWriteOptions(use_legacy_format=True)) as writer:
+        writer.write_table(table)
+    data = sink.getvalue()
+    assert data[:4] != b"\xff\xff\xff\xff"
+    assert io_.INSPECT_ARROW in _one(needles, "q.bin", data).codes()
+
+
+def test_text_bytes_in_a_binary_are_found_before_a_dependency_exemption(needles, samples):
+    blob = os.urandom(64) + samples["label"].encode() + os.urandom(64)
+    report = _one(needles, "engine.wasm", blob, dependencies=frozenset({hashlib.sha256(blob).hexdigest()}))
+    assert report.codes() == {io_.INSPECT_TEXT}
+
+
+# --- numbers by role (PROTO-1-06) -----------------------------------------------------
+
+
+def test_counts_in_exponent_narrow_space_grouping_and_amounts_before_a_comma_are_found(needles, samples):
+    n = samples["count"]
+    exponent = f"{Decimal(n).scaleb(-4).normalize()}e4"
+    for text in (f"orders={exponent}", f"{n:,}".replace(",", " "), f"{n:,}".replace(",", " ")):
+        assert io_.INSPECT_NUMBER in _one(needles, "store.txt", text.encode()).codes(), text
+    spelled = c.spellings(str(samples["amount"]))[1]
+    assert io_.INSPECT_TEXT in _one(needles, "a.html", f"<td>{spelled},7</td>".encode()).codes()
+
+
+def test_a_negative_number_is_not_a_positive_needle(needles, samples):
+    assert _one(needles, "store.txt", f"orders=-{samples['count']}".encode()).clean
+
+
+def test_a_json_object_inside_code_is_a_structured_carrier(needles, samples):
+    exponent = f"{Decimal(samples['count']).scaleb(-4).normalize()}e4"
+    report = _one(needles, "app.js", f'const q = {{"orders": {exponent}}};'.encode())
+    assert any("embedded json" in x.path and x.code == io_.INSPECT_NUMBER for x in report.findings)
+
+
+def test_an_uppercase_json_script_is_parsed(needles, samples):
+    page = f'<SCRIPT TYPE="APPLICATION/JSON">{{"n": {samples["count"]}}}</SCRIPT>'
+    assert io_.INSPECT_NUMBER in _one(needles, "index.html", page.encode()).codes()
+
+
+def test_the_manifest_labels_get_the_gates_full_search(fx, needles):
+    year = str(fx.month(0)[0])
+    items, digests = _package([f"Diretoria {year}"], fx)
+    report = io_.inspect_items(items, needles, validated=digests)
+    assert any(x.path == "manifest labels > the gate's needles" for x in report.findings)
+
+
+def test_a_zero_row_parquet_with_other_types_is_not_schema_only(needles):
+    import duckdb
+    import tempfile
+
+    cols = ", ".join(f'NULL::VARCHAR AS "{n}"' for n in f.COLUMNS)
+    with tempfile.TemporaryDirectory() as d:
+        duckdb.connect().execute(f"COPY (SELECT {cols} WHERE false) TO '{d}/x.parquet' (FORMAT parquet)")
+        data = open(f"{d}/x.parquet", "rb").read()
+    report = _one(needles, "wrong.parquet", data)
+    assert not any("schema only" in x.reason for x in report.recorded)
