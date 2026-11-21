@@ -442,14 +442,20 @@ def schema_only(data: bytes) -> bool | None:
                 schema = [(r[0], r[1]) for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path.as_posix()}')").fetchall()]
                 rows = con.execute(f"SELECT count(*) FROM read_parquet('{path.as_posix()}')").fetchone()[0]
             except duckdb.Error as error:
-                # A file that is no longer the one written is the check's own failure;
-                # bytes that do not parse are the file's (PROTO-2-03).
+                # Bytes that do not parse are the file's: DuckDB reports them as
+                # invalid input (measured on 1.5.6 — no magic bytes, a footer
+                # length, a file too small, a page that fails to read). Any other
+                # error — memory, I/O, an internal fault — or a file that is no
+                # longer the one written is the check's own failure (PROTO-2-03,
+                # PROTO-3-04).
                 try:
                     intact = path.read_bytes() == data
                 except OSError:
                     intact = False
                 if not intact:
                     raise SchemaFault(f"the checked file changed: {type(error).__name__}") from None
+                if not isinstance(error, duckdb.InvalidInputException):
+                    raise SchemaFault(f"the schema query failed: {type(error).__name__}") from None
                 return None
     finally:
         con.close()

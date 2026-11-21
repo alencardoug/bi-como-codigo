@@ -72,7 +72,7 @@ class ValidatedPackage:
     files: dict[str, str]  # name under package/ → SHA-256
     values: c.Values
     artifact: tuple = ()  # the assembled artifact's tree, which verify is bound to
-    builder: tuple = ()  # the builder output's tree it was assembled from, which reproduction is bound to
+    builder: tuple | None = None  # the builder output's tree it was assembled from, which reproduction is bound to; () is an empty one
     label: str = "judged"  # "control" when hand-made additions entered the artifact
 
 
@@ -332,7 +332,11 @@ def _reproduce(code: str, rel: str, message: str, artifact: pathlib.Path, builde
     if validated is None:
         return Outcome("verify", HARNESS_ERROR, f"{message}: no validated package to reproduce it with")
     try:
-        if validated.builder and tuple(tree(builder)) != validated.builder:  # the builder output assembly used (PROTO-2-03)
+        # The builder output assembly used (PROTO-2-03); an empty one is a
+        # snapshot like any other, and no snapshot is no assembly (PROTO-3-04).
+        if validated.builder is None:
+            return Outcome("verify", HARNESS_ERROR, f"{message}: the package was never assembled with a builder output")
+        if tuple(tree(builder)) != validated.builder:
             return Outcome("verify", HARNESS_ERROR, f"{message}: the builder output given is not the one assembled")
         public = c.load_public_values((root / "release" / "public_values.json").read_bytes())
         data = trees.files(artifact)[rel]

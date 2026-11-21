@@ -531,3 +531,46 @@ def test_a_schema_query_whose_file_vanished_is_the_checks_failure(monkeypatch):
     monkeypatch.setattr(duckdb.DuckDBPyConnection, "execute", vanish)
     with pytest.raises(f.SchemaFault):
         f.schema_only(f.parquet([]))
+
+
+# --- round 3 (PROTO-3-04) -----------------------------------------------------------
+
+
+def test_a_schema_query_runtime_fault_on_an_intact_file_is_the_checks_failure(tmp_path, sealed, monkeypatch):
+    import duckdb
+
+    real = duckdb.DuckDBPyConnection.execute
+
+    def out_of_memory(self, sql, *a):
+        if "/f.parquet')" in sql:  # the schema check's own copy, not the gate's reads
+            raise duckdb.OutOfMemoryException("injected")
+        return real(self, sql, *a)
+
+    fx, pkg, _, _ = sealed
+    builder = _builder(tmp_path, {"assets/empty.parquet": _parquet_with([])})
+    _, validated = h.assemble(builder, pkg, fx.rows(), tmp_path / "artifact")
+    root = h.write_root(tmp_path / "run", _lists(tmp_path))
+    assert h.verify(tmp_path / "artifact", builder, root, validated).cls == h.SCHEMA_ONLY
+    with monkeypatch.context() as m:
+        m.setattr(duckdb.DuckDBPyConnection, "execute", out_of_memory)
+        with pytest.raises(f.SchemaFault):
+            f.schema_only(f.parquet([]))
+        outcome = h.verify(tmp_path / "artifact", builder, root, validated)
+    assert outcome.cls == h.HARNESS_ERROR and "schema check failed" in outcome.message
+    assert f.schema_only(b"PAR1" + b"\0" * 40 + b"PAR1") is None  # bytes that do not parse stay the file's
+
+
+def test_an_empty_builder_output_is_a_snapshot_reproduction_is_bound_to(tmp_path, sealed):
+    fx, pkg, _, _ = sealed
+    builder = tmp_path / "builder"
+    builder.mkdir()
+    literal = f"n = {len(fx.cells)};".encode()
+    outcome, validated = h.assemble(builder, pkg, fx.rows(), tmp_path / "artifact", control_additions={"count.js": literal})
+    assert outcome.cls == h.PASS and validated.builder == ()
+    root = h.write_root(tmp_path / "run", _lists(tmp_path))
+    assert h.verify(tmp_path / "artifact", builder, root, validated, label="control").cls == h.CONTENT
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "count.js").write_bytes(literal)
+    wrong = h.verify(tmp_path / "artifact", other, root, validated, label="control")
+    assert wrong.cls == h.HARNESS_ERROR and "not the one assembled" in wrong.message
