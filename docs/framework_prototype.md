@@ -20,7 +20,7 @@
 |---|---|
 | Date | 2026-11-20 — revision 9, with the five adjustments of round 8 of Codex's review (FPROTO-8-01 to -05), which found no blocking finding and closed the review. Revision 8 answered round 7 (FPROTO-7-01 to -06) with the Owner's N96, revision 7 answered round 6 (FPROTO-6-01 to -08), revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 143 passing), and is not yet reviewed; no candidate is built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
+| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). No candidate is built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool that the stage proves or refutes (§9).
@@ -841,6 +841,13 @@ plainly cannot reach one of them is reported as such, with the observation behin
 
 ## 9. Not verified, and assumptions
 
+- **Outside the review of step 1, by N97**: round 5's corrections (`8391ae5` to `d44931b`); the
+  isolation wrapper and its self-check (`sandbox.py`, `sandbox_probe.py`) from round 3, whose
+  corrections of round 2 are unreviewed; the browser diagnostic of §2.5.3 (`diagnose.py`,
+  `leveldb.py`, `browser/`, `controls/page/`) from round 4, whose corrections of rounds 2 and 3 —
+  among them the test Chrome resolving only `127.0.0.1`, after its own requests to Google filled the
+  profile's cache — are unreviewed. Each is the author's claim, measured by the suite. Nothing yet
+  writes `Record.draw_clean` or `Record.fixture`: the run writer is a later step.
 - **Outside the oracle, by N95**: page code of ours written to deceive it, and a compromised
   dependency. Our page code is reviewed by Codex with the implementation; the dependencies are
   pinned by lockfile and digest and run with no network.
