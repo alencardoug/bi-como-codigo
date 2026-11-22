@@ -8,7 +8,10 @@ from __future__ import annotations
 import measure
 
 
-def _raw(*, wasm="wasm.StartStreamingCompilation", lost=False, cache=None):
+GOOD_PRIMER = {"settled": {"summary": True, "quiet": True, "logout": True}, "quiescence": {"reached": True}}
+
+
+def _raw(*, wasm="wasm.StartStreamingCompilation", lost=False, cache=None, primed=None):
     """A page that requests a page and a worker's WASM, the WASM spanning the summary's cutoff."""
     t = 1000.0  # monotonic seconds; wall = t * 1000 + 5_000_000
     wall = lambda s: (s * 1000 + 5_000_000) / 1000  # noqa: E731 — the protocol's wallTime is seconds
@@ -20,9 +23,10 @@ def _raw(*, wasm="wasm.StartStreamingCompilation", lost=False, cache=None):
         {"e": "data", "ts": t + 2.5, "encoded": 6000}], "finished": {"ts": t + 2.5, "encoded": 10000}}
     marks = [{"mark": "navigation", "t": t * 1000 + 5_000_000}, {"mark": "login_box", "t": t * 1000 + 5_000_300},
              {"mark": "submit", "t": t * 1000 + 5_000_301}, {"mark": "summary", "t": t * 1000 + 5_001_000}]
-    return {"origin": "http://127.0.0.1:1", "measured": {
+    return {"origin": "http://127.0.0.1:1", "primed": [GOOD_PRIMER, GOOD_PRIMER] if primed is None else primed, "measured": {
         "page": "P", "marks": marks, "requests": {"P:1": page, "W:1": engine},
-        "sessions": {"P": [[t, wall(t)]], "W": [[t + 0.2, wall(t + 0.2)]]}, "trace": [{"name": wasm}], "trace_lost": lost}}
+        "sessions": {"P": [[t, wall(t)]], "W": [[t + 0.2, wall(t + 0.2)]]}, "trace": [{"name": w} for w in ([wasm] if isinstance(wasm, str) else wasm)],
+        "trace_lost": lost}}
 
 
 def test_marks_bytes_and_partial_transfers_by_cutoff():
@@ -56,3 +60,18 @@ def test_samples_served_on_different_ports_share_a_series():
         raw["origin"] = f"http://127.0.0.1:{port}"
         raw["measured"]["requests"]["P:1"]["url"] = f"http://127.0.0.1:{port}/"
     assert [g["samples"] for g in measure.series([measure.sample(a), measure.sample(b)])["series"]] == [[0, 1]]
+
+
+def test_incomplete_priming_or_an_unclassifiable_engine_enters_no_series():
+    """CMP-1-10: a failed primer — no summary, requests in flight, logout unconfirmed,
+    no quiescence, or one primer only — and a trace with both a compiled and a
+    deserialized module, which names neither, leave the sample apart."""
+    failed = [{**GOOD_PRIMER, "settled": {**GOOD_PRIMER["settled"], k: False}} for k in ("summary", "quiet", "logout")]
+    samples = [measure.sample(_raw())]
+    samples += [measure.sample(_raw(primed=[GOOD_PRIMER, f])) for f in failed]
+    samples += [measure.sample(_raw(primed=[GOOD_PRIMER, {**GOOD_PRIMER, "quiescence": {"reached": False}}])),
+                measure.sample(_raw(primed=[GOOD_PRIMER])),
+                measure.sample(_raw(wasm=["wasm.StartStreamingCompilation", "wasm.DeserializeNativeModule"]))]
+    out = measure.series(samples)
+    assert [g["samples"] for g in out["series"]] == [[0]] and out["apart"] == [1, 2, 3, 4, 5, 6]
+    assert samples[6]["cache_evidence"]["wasm"] == "unclassified"

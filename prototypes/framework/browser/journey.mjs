@@ -94,7 +94,7 @@ async function journey(measured) {
   const on = (msg) => {
     if (!msg.sessionId || !sessions.has(msg.sessionId)) return;
     if (msg.method === "Target.attachedToTarget") { attach(msg); return; }  // a worker waits for us, measured or not
-    if (!measured || !msg.method?.startsWith("Network.")) return;
+    if (!msg.method?.startsWith("Network.")) return;  // every journey's, the priming ones' too: their requests must finish (CMP-1-10)
     const p = msg.params;
     const r = (record.requests[`${msg.sessionId}:${p.requestId}`] ??= { session: msg.sessionId, events: [] });
     switch (msg.method) {
@@ -152,12 +152,16 @@ async function journey(measured) {
   // blob: and data: URLs are no network: a worker started from a blob gets no loadingFinished.
   const inflight = () => Object.values(record.requests).filter((r) => r.url && /^https?:/.test(r.url) && !r.finished && !r.failed).length;
   let quiet = Date.now();
-  while (Date.now() - t0 < 360000 && Date.now() - quiet < 2000) { if (measured && inflight()) quiet = Date.now(); await sleep(100); }
+  while (Date.now() - t0 < 360000 && Date.now() - quiet < 2000) { if (inflight()) quiet = Date.now(); await sleep(100); }
+  const settled = { summary: marks.some((m) => m.mark === "summary"), quiet: !inflight() };
   if (measured) { await send("Tracing.end"); await traceDone; }
   if (!measured) {  // the priming journey ends with logout, as a visitor's does — and the new login page is not submitted
     await send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script }, sessionId);
+    const loggedOut = await ev(`!!document.querySelector('[data-bice=logout]')`);
     await ev(`document.querySelector('[data-bice=logout]')?.click()`);
     await sleep(3000);
+    // logout confirmed: the login box back and no summary on the page (CMP-1-10)
+    settled.logout = loggedOut && !!(await ev(`!!document.querySelector('[data-bice=password]') && !document.querySelector('[data-bice=summary] td')`));
   }
   handlers.splice(handlers.indexOf(on), 1);
   await send("Target.closeTarget", { targetId });
@@ -176,14 +180,15 @@ async function journey(measured) {
     }
     quiescence = { seconds: (Date.now() - q0) / 1000, reached: !left.length, left: left.map((t) => t.type) };
   }
-  return { marks, ...record, quiescence, seconds: (Date.now() - t0) / 1000 };
+  if (!measured) record.requests = {};  // a priming journey is evidence of its completion, not measured
+  return { marks, ...record, settled, quiescence, seconds: (Date.now() - t0) / 1000 };
 }
 
 const out = { url: config.url, priming: config.priming, primed: [] };
 try {
   for (let i = 0; i < config.priming; i++) {
     const p = await journey(false);
-    out.primed.push({ marks: p.marks, seconds: p.seconds, quiescence: p.quiescence });
+    out.primed.push({ marks: p.marks, seconds: p.seconds, settled: p.settled, quiescence: p.quiescence });
   }
   out.measured = await journey(true);
 } catch (error) {

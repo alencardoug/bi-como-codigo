@@ -97,10 +97,12 @@ def trace_evidence(events: list[dict]) -> dict:
             wasm.append(name)
     # A module from Chromium's compiled-WASM cache is deserialized; one compiled streams through baseline
     # compilation (FPROTO-8-04). Both DuckDB-WASM loaders reach instantiateStreaming.
+    # The engine is not the only module — DuckDB's parquet extension is another —, and these events name
+    # none: a trace with both kinds cannot say which the engine was, and is unclassified (CMP-1-10).
     cached = any(n in ("v8.wasm.cachedModule", "v8.wasm.moduleCacheHit") or ("wasm" in n.lower() and "deserial" in n.lower()) for n in wasm)
     compiled = any(n in ("wasm.StartStreamingCompilation", "wasm.BaselineFinished", "v8.wasm.compiledModule") for n in wasm)
-    return {"code_cache_consumed": sorted(consumed), "wasm_events": sorted(set(wasm)),
-            "wasm": "cached" if cached else "compiled" if compiled else "unobserved"}
+    kind = "unclassified" if cached and compiled else "cached" if cached else "compiled" if compiled else "unobserved"
+    return {"code_cache_consumed": sorted(consumed), "wasm_events": sorted(set(wasm)), "wasm": kind}
 
 
 def sample(raw: dict) -> dict:
@@ -162,11 +164,15 @@ def sample(raw: dict) -> dict:
 
 def series(samples: list[dict]) -> dict:
     """Warm samples grouped by their cache evidence; a sample whose trace lost
-    data, or whose journey failed, enters none (FPROTO-6-06, FPROTO-7-06)."""
+    data, or whose journey failed, enters none (FPROTO-6-06, FPROTO-7-06); nor
+    one whose priming was not complete — every priming journey with its summary,
+    its requests finished, its logout confirmed and quiescence reached — or
+    whose engine's WASM the trace cannot classify (CMP-1-10)."""
     groups: list[dict] = []
     apart = []
     for i, s in enumerate(samples):
-        if s["trace_lost"] or s["trace_lost"] is None or s["error"] or s["nav_to_summary_ms"] is None:
+        if (s["trace_lost"] or s["trace_lost"] is None or s["error"] or s["nav_to_summary_ms"] is None or not primed_complete(s)
+                or s["signature"]["wasm"] in ("unclassified", "unobserved")):
             apart.append(i)
             continue
         for g in groups:
@@ -179,6 +185,12 @@ def series(samples: list[dict]) -> dict:
                         "wasm": g["signature"]["wasm"], "code_cache": g["signature"]["code_cache"],
                         "caches": sorted({c for _, c in g["signature"]["requests"]})} for g in groups],
             "apart": apart}
+
+
+def primed_complete(s: dict, priming: int = PRIMING) -> bool:
+    p = s.get("primed") or []
+    return len(p) == priming and all((x.get("settled") or {}).get(k) for x in p for k in ("summary", "quiet", "logout")) \
+        and all((x.get("quiescence") or {}).get("reached") for x in p)
 
 
 def stats(samples: list[dict]) -> dict:
