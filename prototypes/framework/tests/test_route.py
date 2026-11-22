@@ -102,3 +102,15 @@ def test_data_planted_in_the_allowlist_is_refused_before_the_phase(tmp_path):
     (work / "data" / "p01.parquet").write_bytes(b"PAR1")
     with pytest.raises(al.Refused, match="data/p01.parquet is not in the allowlist"):
         al.check(allow, work)
+
+
+def test_evidence_encrypted_sources_have_no_source_and_the_encrypted_page():
+    if not route._git("ls-tree", "-r", "--name-only", HEAD, "--", "prototypes/framework/evidence/encrypted/"):
+        pytest.skip("the encrypted page is not committed yet")
+    dests = sorted(e.dest for e in route.evidence_sources(HEAD).entries)
+    assert "pages/index.md" in dests and "components/Login.svelte" in dests and "components/envelope.mjs" in dests
+    assert not any(d.startswith(("sources/", "encrypted/")) or d.endswith((".parquet", ".bice")) for d in dests)
+    page = next(e for e in route.evidence_sources(HEAD).entries if e.dest == "pages/index.md")
+    assert page.source.endswith(":prototypes/framework/evidence/encrypted/pages/index.md")
+    envelope = next(e for e in route.evidence_sources(HEAD).entries if e.dest == "components/envelope.mjs")
+    assert envelope.source.endswith(":web/envelope.mjs")

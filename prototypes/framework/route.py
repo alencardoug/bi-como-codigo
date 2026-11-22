@@ -20,6 +20,7 @@ bytes; so does a change of the harness inputs. Every stage run is appended as
 a `verdict.Record`.
 
     uv run --frozen --group prototype python prototypes/framework/route.py own --commit <sha>
+    uv run --frozen --group prototype python prototypes/framework/route.py evidence --commit <sha>
 """
 
 from __future__ import annotations
@@ -35,6 +36,7 @@ import tempfile
 import time
 
 import allowlist as al
+import npm_offline as npm
 import sandbox as sb
 import trees
 import verdict as v
@@ -45,6 +47,9 @@ RUNS = HERE / "runs"
 #: What the harness is made of, by path in the repository, at a commit (§5).
 HARNESS_PATHS = ("prototypes/framework", "src/bi_como_codigo", "web/envelope.mjs")
 OWN_BUILD = ["/usr/bin/python3", "-I", "build.py", "package"]
+#: Evidence's encrypted build: A7's configuration, and no `evidence sources` — there is no source (§3, A3).
+EVIDENCE_BUILD = ["/usr/bin/sh", "-c", "npm run build:pinned"]
+EVIDENCE_ENV = {"HOME": f"{sb.WORK}/.home", "EVIDENCE_TELEMETRY_DISABLED": "1", "DO_NOT_TRACK": "1", "NODE_OPTIONS": "--max-old-space-size=4096"}
 
 
 class Refused(Exception):
@@ -124,7 +129,8 @@ def own_allowlist(commit: str) -> al.Allowlist:
 
 
 def build(candidate: str, commit: str, allow: al.Allowlist, argv: list[str], output: str, *, runs: pathlib.Path = RUNS,
-          require_clean: bool = True, prove=prove_sandbox, timeout: float = 3600) -> dict:
+          require_clean: bool = True, prove=prove_sandbox, timeout: float = 3600, env: dict[str, str] | None = None,
+          install=None) -> dict:
     """One build invocation: recorded first — so that an interrupted one still
     discards what came before —, then the sandbox's proof, the work folder from
     the allowlist and its check, the build with no network, the copy-out and
@@ -153,11 +159,18 @@ def build(candidate: str, commit: str, allow: al.Allowlist, argv: list[str], out
     entry["sandbox_proof"] = {"passed": proof.passed, "checks": proof.checks}
     if not proof.passed:
         return finish({"build": v.Stage(status="error")}, status="sandbox probe failed")
+    if install is not None:  # a phase of its own before the build, also offline: its output joins the build's inputs
+        installed = install(folder, entry)
+        save(state, runs)
+        if installed is None:
+            return finish({"build": v.Stage(status="error")}, status="install failed")
+        allow = allow + installed
+        al.archive_list(allow, folder / "build-allowlist.json")
     work = folder / "work"
     al.assemble(allow, work)
     al.check(allow, work)
     t0 = time.time()
-    done = sb.run(work, argv, timeout=timeout)
+    done = sb.run(work, argv, timeout=timeout, env=env)
     seconds = round(time.time() - t0, 2)
     (folder / "build.log").write_bytes(b"$ " + " ".join(argv).encode() + b"\n" + done.stdout + b"\n--- stderr\n" + done.stderr)
     if done.returncode != 0:
@@ -178,13 +191,66 @@ def build_own(commit: str, **kwargs) -> dict:
     return build("own", commit, own_allowlist(commit), OWN_BUILD, "build", **kwargs)
 
 
+def evidence_sources(commit: str) -> al.Allowlist:
+    """Evidence's encrypted route's sources (§3): the project's tracked files
+    with no source — `sources/` left out — and the encrypted page in place of
+    the clear one: `encrypted/pages/` as `pages/`, `encrypted/components/` as
+    `components/`, and the envelope's reader as `components/envelope.mjs`."""
+    out = []
+    for e in al.tracked(commit, "prototypes/framework/evidence/").entries:
+        if e.dest.startswith(("sources/", "pages/")):
+            continue
+        if e.dest.startswith("encrypted/"):
+            rest = e.dest[len("encrypted/"):]
+            if not rest.startswith(("pages/", "components/")):
+                continue
+            e = dataclasses.replace(e, dest=rest)
+        out.append(e)
+    envelope = al.tracked(commit, "web/envelope.mjs").entries[0]
+    out.append(dataclasses.replace(envelope, dest="components/envelope.mjs"))
+    return al.Allowlist(tuple(out))
+
+
+def evidence_install(commit: str, runs: pathlib.Path):
+    """The install phase of Evidence's encrypted route: the lockfile's tarballs
+    fetched by the harness into this route's own cache — never the clear
+    mode's (§2.2) —, `npm ci --offline --ignore-scripts` in the sandbox, and the
+    kept `node_modules/` as the build's input."""
+    def install(folder: pathlib.Path, entry: dict) -> al.Allowlist | None:
+        lock = folder / "package-lock.json"
+        lock.write_bytes(subprocess.run(["git", "-C", str(REPO), "show", f"{commit}:prototypes/framework/evidence/package-lock.json"],
+                                        check=True, capture_output=True).stdout)
+        t0 = time.time()
+        fetched = npm.fetch(lock, runs / "evidence-npm")
+        entry["fetch"] = {"tarballs": len(fetched["tarballs"]), "seconds": round(time.time() - t0, 1), "lockfile_sha256": fetched["lockfile_sha256"]}
+        sources = al.Allowlist(tuple(e for e in al.tracked(commit, "prototypes/framework/evidence/").entries
+                                     if e.dest in ("package.json", "package-lock.json", ".npmrc")))
+        work = folder / "install-work"
+        t0 = time.time()
+        done = npm.install(sources + npm.cache_allowlist(runs / "evidence-npm", fetched), work, timeout=3600)
+        entry["install"] = {"exit": done.returncode, "seconds": round(time.time() - t0, 1)}
+        (folder / "install.log").write_bytes(done.stdout + b"\n--- stderr\n" + done.stderr)
+        if done.returncode != 0:
+            return None
+        kept = npm.keep_install(work, folder / "node_modules")
+        shutil.rmtree(work)
+        entry["install"]["node_modules_entries"] = len(kept.entries)
+        return kept
+    return install
+
+
+def build_evidence(commit: str, *, runs: pathlib.Path = RUNS, **kwargs) -> dict:
+    return build("evidence", commit, evidence_sources(commit), EVIDENCE_BUILD, "build", runs=runs, env=EVIDENCE_ENV,
+                 install=evidence_install(commit, runs), **kwargs)
+
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("candidate", choices=["own"])
+    parser.add_argument("candidate", choices=["own", "evidence"])
     parser.add_argument("--commit", required=True, help="the commit whose tracked sources are built, and whose harness runs")
     args = parser.parse_args()
-    result = build_own(args.commit)
+    result = (build_own if args.candidate == "own" else build_evidence)(args.commit)
     print(json.dumps(result, indent=1))
     raise SystemExit(0 if result["status"] == "archived" else 1)

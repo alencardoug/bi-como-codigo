@@ -3,7 +3,8 @@
 // client-duckdb/browser.js) brings DuckDB-WASM's worker and WASM into the build
 // with modules of a line each — the WASM's jsDelivr URL, and a Worker started
 // from a blob that imports the worker's jsDelivr URL —, both pinned by cdn.json.
-// Nothing of the engine's worker or WASM is then written into the build.
+// Nothing of the engine's worker or WASM is then written into the build. It
+// also serves `bice:pins`, the pinned extensions the encrypted route's login loads.
 import { readFileSync } from "node:fs";
 
 const cdn = JSON.parse(readFileSync(new URL("./cdn.json", import.meta.url), "utf8"));
@@ -18,8 +19,16 @@ function body(file) {
 
 // By the file's name, with no query: an id ending in ?worker or ?url would be
 // taken up again by Vite's own worker and asset plugins.
-const names = Object.fromEntries(cdn.files.map((f) => [f.import, f.name]));
-const modules = Object.fromEntries(cdn.files.map((f) => [f.name, body(f)]));
+const engine = cdn.files.filter((f) => f.role !== "extension");
+const names = Object.fromEntries(engine.map((f) => [f.import, f.name]));
+const modules = Object.fromEntries(engine.map((f) => [f.name, body(f)]));
+// bice:pins — the extensions the page loads itself, by URL and integrity (N98).
+const extensions = cdn.files.filter((f) => f.role === "extension");
+for (const f of extensions) {
+  if (!f.integrity || !f.url.startsWith("https://extensions.duckdb.org/")) throw new Error(`cdn.json: ${f.name} is not pinned`);
+}
+names["bice:pins"] = "pins";
+modules.pins = `export default ${JSON.stringify(Object.fromEntries(extensions.map((f) => [f.name, { url: f.url, integrity: f.integrity }])))};\n`;
 
 export default function pinnedEngine() {
   return {

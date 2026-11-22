@@ -1,5 +1,5 @@
 {
- "about": "What Evidence's page loads from jsDelivr once probe A7's configuration is used (docs/framework_prototype.md §2.4, §3): DuckDB-WASM's worker and WASM, of the version the lockfile resolves, in place of the copies Vite would bundle into the build. Taken by cdn.py from the npm tarball and checked against jsDelivr's body. role: 'worker' is started from a blob that imports it, 'wasm' is handed to DuckDB by URL.",
+ "about": "What Evidence's page loads from jsDelivr once probe A7's configuration is used (docs/framework_prototype.md §2.4, §3): DuckDB-WASM's worker and WASM, of the version the lockfile resolves, in place of the copies Vite would bundle into the build. Taken by cdn.py from the npm tarball and checked against jsDelivr's body. The parquet extension, from extensions.duckdb.org (N98), is loaded by the encrypted route's login with its integrity. role: 'worker' is started from a blob that imports it, 'wasm' is handed to DuckDB by URL, 'extension' is exported to the page by the module bice:pins.",
  "files": [
   {
    "name": "duckdb_worker_eh",
@@ -48,6 +48,15 @@
    "bytes": 39362651,
    "sha256": "45d72a81fba8e57693d890da837c7041310e385e75619a8559839b15388dfe97",
    "integrity": "sha384-aPxDmtovNQyMTy8S7zolNUiHoQNvtkLGOWJdPtQpW1T52DQuqeGutmEdb0ycBoNs"
+  },
+  {
+   "name": "parquet",
+   "role": "extension",
+   "extension": "parquet",
+   "url": "https://extensions.duckdb.org/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+   "bytes": 3045039,
+   "sha256": "22765c8f7dc741cda2b571a66ac7bb355295d7d69a6c37e5315b265672984f55",
+   "integrity": "sha384-BOQzRRlWIlBsguRiM4lH3NvA+Gl1aCfYJ1IjOjyaUD0566SD7N6Jo4TnT0LmKVvs"
   }
  ]
 }
