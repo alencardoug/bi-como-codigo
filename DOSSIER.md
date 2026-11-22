@@ -507,6 +507,16 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | CMP-1-10 | `measure.py`, `browser/journey.mjs` | Warm series accept incomplete priming and misattribute cache evidence | adjustment | Fixed, `5a3fb95`: priming journeys wait for their requests and record summary, quiet network and confirmed logout; a warm sample enters a series only with two complete primers that reached quiescence and a classifiable engine WASM (a trace with both compiled and deserialized modules is unclassified). Counter-proof fails on the old `measure.py`; a real cold and warm journey on B gives complete priming. |
 | CMP-1-11 | `measure.py`, `browser/journey.mjs` | Navigation timing starts late and the byte check can miss transfers | adjustment | Fixed, `676fc2f`: navigation is the document's `performance.timeOrigin`; redirect hops are kept with status and bytes; each sample's totals are reconciled (origins vs totals, observed and completed, cutoff vs cutoff, whole journey), failures named; `accounting_check` reports a redirect and the unreconciled. A spanning worker transfer stays unobserved until a run shows one. |
 | CMP-1-12 | Plan §10, `route.py`, `measure.py` | Some published costs and diagnostic details exceed the recorded evidence | adjustment | Fixed, `e6b1a3a` and the docs commit: §10 says four brotli and two raw cache bodies, both candidates' engine worker replaced at logout, the fetch from a filled cache (cold fetch pending), `1.33.1-dev57.0`, the gate times read from folder times; the harness now times each verify and counts downloaded tarballs. |
+| CMP-2-01 | `measured.py:117–169` | An interruption loses completed judged evidence | blocking | |
+| CMP-2-02 | `route.py:67–75`, `measured.py:71–169` | Live declaration changes can be judged under the old harness | blocking | |
+| CMP-2-03 | `inspect_output.py:155–187,765–792` | An unrelated JSON script can clear an unread carrier | blocking | |
+| CMP-2-04 | `browser/check.mjs:87–153`, `check.py:149–197` | Visible sums and retained logout state pass while a blank footer fails | blocking | |
+| CMP-2-05 | `compare.py:79–150` | Comparison recovery can suppress results or reuse evidence with the wrong identity | adjustment | |
+| CMP-2-06 | `browser/check.mjs:43–50,156–167` | An undeclared WebSocket handshake is omitted | adjustment | |
+| CMP-2-07 | `browser/journey.mjs:96–168`, `measure.py:115–199` | A served worker bootstrap is counted as neither complete nor unobserved | adjustment | |
+| CMP-2-08 | `measure.py:87–105,119–165` | Warm grouping drops cache keys and accepts unattributed WASM | adjustment | |
+| CMP-2-09 | `route.py:85–125` | Same-process callers bypass the state lock | adjustment | |
+| CMP-2-10 | `docs/framework_prototype.md` §7 and §10, `PLAN.md` | The write-up exceeds the retained run evidence | adjustment | |
 
 ### Round 1 — batch CMP
 
@@ -595,3 +605,282 @@ None for batch CMP. The step 1 review is closed under N97.
 - [ ] CMP-1-11 — Validate the clock and the byte totals against a real spanning transfer, a revalidation and a redirect.
 - [ ] CMP-1-12 — Align §10 with reproducible archive evidence and label any unmeasured cost as pending.
 
+### Round 2 — batch CMP
+
+#### 1. Conclusion
+
+**Changes required.** A later failure can erase a completed judged finding, and a change to a live
+harness declaration can be recorded under the previous harness identity. I also reproduced a
+carrier inspection and a browser check that pass without satisfying their conditions. The saved
+run is attributable to the declared commit, and its two copied artifacts inspect clean with the
+reviewed code. Batch CMP remains open.
+
+#### 2. Reviewed scope and version
+
+- Branch `main`, 44 commits ahead of `origin/main`, at
+  `17c77479911dd6973f85202f38c073e4ef8fe68b`. The fixed baseline is
+  `a704e42b0fba1f912f8422c8877201590bdff86c`. The range contains 17 commits: 12 change
+  prototype code and tests, two change plan documents, and three change only the dossier.
+  `DOSSIER.md` and `prototypes/framework/tests/test_compare.py` are new tracked files relative
+  to the baseline. There were no tracked edits or untracked non-ignored files at entry.
+- Stage 2.3, §7 steps 2–6, against §2.5–§2.7, §5 and N94–N102. N101 leaves the framework choice
+  and ADR with the Owner. The browser check and diagnostic are separate from the build verdict
+  under N96.
+- `git diff 356bec1 17c7747 -- prototypes src web pyproject.toml uv.lock` was empty.
+  All five Git objects in the draw's harness matched `356bec1`, `4a32977` and `17c7747`.
+  The reviewed draw is `draw-20261122T173353Z-f4f26398`.
+
+#### 3. Findings by severity
+
+Paths below are relative to `prototypes/framework/` unless otherwise indicated.
+
+**CMP-2-01 · Interruption loses a completed judged finding · High / blocking.**
+`measured.py:117–169`. The draw, assembly identities, stage results and records stay in memory
+until both candidates and the mutant finish. In a scratch run using the copied B builder archive
+and real assembly, I injected a B carrier finding at the inspection boundary and an `OSError`
+at the second candidate's inspection. B's artifact archive existed, but state held no draw, no
+artifact and only the two original build records. B reported `not established` with every stage
+after archive missing. A new invocation can draw again and never judge the first finding, contrary
+to §2.5.4. Persist the draw and completed stages as they occur, including the artifact identity and
+the interrupted stage. Resume the same sealed inputs. Validate with an interruption after B's
+finding, during Evidence's inspection and during the mutant. Preexisting in the round 1 baseline.
+
+**CMP-2-02 · A verdict can use declarations from a different harness · High / blocking.**
+`route.py:67–75`, `measured.py:71–74,98,141,169`, `harness.py:203–213`,
+`compare.py:57–70,95–105`. The entry check records the committed inputs. Later stages read lists,
+declarations and scripts from the live checkout without checking that they still match. In a
+temporary worktree, I removed the tracked `index.html` inclusion line after the draw's entry
+check. The real gate returned `FORM`, “index.html is not under the inclusion list”, and the
+record published `a cost` under the original harness hash. An ordinary edit during a long run
+can change a candidate's outcome or measurements. Read from a pinned snapshot or enforce input
+identity through stage execution and publication. Validate that a mid-run declaration edit
+cannot be recorded under the starting hash. Preexisting in the round 1 baseline.
+
+**CMP-2-03 · An unrelated script can clear an unread carrier · High / blocking.**
+`inspect_output.py:155–187,765–792`. The set of explained scripts is shared across all items
+and keyed by body alone. A valid plain JSON script can therefore vouch for a different file with
+the same unescaped malformed body and a data-bearing attribute that the first script never had.
+I inspected a plain `a.html` followed by an entity-escaped `data-b64` script in `b.html`.
+The latter alone was inconclusive, its valid data-b64 form yielded `INSPECT_NUMBER`, and the two
+items in that order yielded `clean=True` with zero findings and zero inconclusive notes.
+Reversing them restored the inconclusive note. Bind the explanation to the same script's
+ancestry and decoding semantics. Validate both orders, a same-file sibling, and the real
+benign Evidence scripts. The cross-item shortcut was introduced by `74031d9`.
+
+**CMP-2-04 · The browser check passes with a visible sum and a retained session · High / blocking.**
+`browser/check.mjs:87–107,142–153`, `check.py:149–164,193–197`. The driver reads the first table
+and selected notices. It misses ordinary summary markup beside the table, and its logout
+observations cannot tell a same-document login screen from a fresh execution context.
+A local Chrome page with oracle-equal cells rendered `Total de pedidos: 1.075.965` in a paragraph
+inside the summary and kept that value in the session's JavaScript object after logout.
+`check.run` returned `passed=True`, `refusals=[]` and back returned `about:blank`.
+The proof aggregator at `check.py:295–307` also returned `(True, [])` with just one successful
+proof entry, while §2.6 calls for four named cases. A separate page with oracle-equal cells, a
+full replacement at logout and a blank footer cell failed on four instances of “other text in
+a table”. Check visible summary content across the wrapper, require the full proof set, and
+exercise the after-logout context and session targets required by §2.3 item 7 and §2.6. Validate
+both pages and a benign framework footer. The missed
+summary content and same-context logout predate the round. The partial-proof acceptance and
+blank-footer refusal were introduced in `f16bc2d`. Keep the check separate from the build verdict
+under N96.
+
+**CMP-2-05 · Comparison recovery can suppress or misattribute results · Medium / adjustment.**
+`compare.py:79–94,110–150`. A refused B mutant raises before B's otherwise usable results or
+Evidence can be reported. A scratch state with both real candidate archives and a mutant
+assembly `FORM` raised `Refused` and wrote no `report.json`. Separately, the control runner
+uses the expanded `clear/` package, while the result declares the archived artifact's package.
+In the scratch probe a fresh seal of the same fixture reached the actual control assembly,
+which returned `PASS` with package digests different from the reported ones.
+The cache also accepts a readable result carrying the correct artifact digest but a different
+fixture and package, as the scratch probe demonstrated. A malformed result JSON raises on
+every retry. Publish candidate results and explicit missing proofs independently, take the
+controls' package from the bound artifact or verify all its file digests, and validate a
+reused result against the complete draw and harness identities. Exercise a refused mutant,
+a resealed package and a missing, malformed or mismatched result in the comparison entry point.
+The refusal path was introduced by `fd46cc4`. The incomplete result binding predates it.
+
+**CMP-2-06 · The network check omits a page's WebSocket handshake · Medium / adjustment.**
+`browser/check.mjs:43–50,156–167`, `check.py:198–211`. The driver records HTTP request events
+and filters both collections to HTTP(S). A loopback server on a different port received
+`GET /session` with `Upgrade: websocket` from the page. The check passed and listed only the
+page's own HTTP URLs. A framework or dependency can use the same network path in ordinary
+operation. Capture page and worker connection events as well as HTTP requests, and compare each
+against the allowed origin and URL policy. Validate a rejected cross-origin handshake and retain
+the browser-background and declared fetch controls. Preexisting coverage gap despite the HTTP
+attribution correction in `ff16268`.
+
+**CMP-2-07 · A real worker download can leave byte accounting falsely reconciled · Medium / adjustment.**
+`browser/journey.mjs:96–123,156–168`, `measure.py:115–174,179–199`. A page's HTTP worker
+bootstrap can arrive as a request and wire status with no matching completion event. The driver
+treats it as permanently in flight, and the byte reconciliation accepts the missing response.
+In a loopback Chrome probe the server served `/worker.js` with status 200, the worker fetched and
+finished `/stream`, and the summary appeared. A logging-only copy of the driver showed that
+`/worker.js` was the only request still marked in flight after 7.5 s. The unmodified driver
+exceeded the probe's 35 s timeout. Replaying the captured events yielded no accounting mismatch
+or unreconciled entry. A second probe with the unchanged driver and a blob worker did complete.
+It counted the 138-byte redirect and 65,536 partial bytes by summary from a worker response
+that completed at 196,765 encoded bytes. Attribute worker bootstrap completions where possible,
+and report missing attribution or bytes as unknown. Validate both worker types and distinguish
+legitimate quiescence from an incomplete capture. The missing HTTP worker completion predates
+the round. `5a3fb95` extends its effect to priming and `676fc2f` leaves the reconciliation blind
+to it.
+
+**CMP-2-08 · Warm grouping drops cache keys and accepts unattributed WASM · Medium / adjustment.**
+`measure.py:87–105,119–120,162–165,209–228`. The signature removes query strings from HTTP and
+code-cache evidence. It also treats one kind of WASM event as evidence for the engine without
+attributing it to a module. In a replay of a saved warm sample, changing only the document's
+query string put both samples in one series `[[0, 1]]`. Replacing the trace with a compile event
+for an unrelated module produced `wasm='compiled'` and a series `[[0]]`. Preserve cache-relevant
+URL identity while normalising the sample's loopback port. Establish the engine's class from
+attributed evidence and keep other samples apart. Validate distinct queries and a single-kind
+trace from another module. Both gaps predate the round. `5a3fb95` correctly excludes mixed traces
+but leaves single-kind traces under-attributed.
+
+**CMP-2-09 · Same-process callers bypass the state lock · Medium / adjustment.**
+`route.py:85–125`. Reentrancy is keyed by path for the entire process. An executed two-thread
+probe showed “second thread entered” while the first held the lock. Concurrent callers of the
+public Python entry points can therefore recreate the original write race. Bind reentrancy to
+the owning invocation and retain the nested compare/build/draw call. Validate contention through
+two entry points in the same process and through separate processes. The CLI process lock works
+as tested. The same-process bypass was introduced by `22ba227`.
+
+**CMP-2-10 · The write-up exceeds the saved run in several places · Medium / adjustment.**
+`docs/framework_prototype.md:969–980,1086–1100,1117–1127,1162–1178`, `PLAN.md:19,22,853–856`.
+Evidence's result and the comparison report have mtimes of 21:10:16 UTC, while §10 gives
+21:09 as run end.
+The history has four groups of records and verdicts. It does not hold the old draw counts of
+14, 4 and 10. Those are historical claims from Git and the round 1 dossier, with the old draw
+reports unavailable. The warm traces show one streaming compilation per sample and an empty
+`wasm.SetUrl`. In every sample compilation started after the EH WASM request started and 959–1,466 ms
+before the Parquet request. This supports attributing the streaming compilation to DuckDB for this
+run. The report should record the basis for that inference, since the classifier just counts event kinds.
+The controls include clean and form-only cases, and the assembly-form row has no `verify` result.
+The 597.3 s search timer also differs from the 23 min 13 s draw-to-assembly window.
+The §7 and PLAN status still describe the encrypted route as begun although both outputs are
+archived and consumed through step 6. Use the observed publication time, attribute historical
+counts, distinguish the trace observation from module attribution, and qualify the recorded
+pass statuses and control scope in line with this review. Validate the narrative against the
+machine-readable fields and keep pending work visible. §7 step 5 can distinguish the earlier
+A4/A5 probes from the functional checks rerun at `356bec1`. The publication and trace claims are in
+the rewritten §10. The stale step mark predates it.
+
+#### 4. Status of previous findings
+
+I put the test file from each fix onto its immediate parent's detached worktree in `/tmp` and ran
+`python -m pytest -q -p no:cacheprovider --tb=short prototypes/framework/tests/test_<module>.py -k '<selector>'`
+with the locked environment. The table gives the selector and observed parent result. The reviewed
+suite used the committed test files. Missing API errors establish the change in interface, with
+behaviour checked separately where shown.
+
+| ID | Status at `17c7747` | Counter-proof on the parent and current evidence |
+|---|---|---|
+| CMP-1-01 | Resolved | `34468af^ -k artifact_finding_after_a_gate_error`: 2 failed, both `stopped` instead of `fails the criterion`. The current tests cover `HARNESS_ERROR`, `COLLISION`, missing gate and mismatched artifact. |
+| CMP-1-02 | Partially resolved | `22ba227^ -k second_invocation`: 1 failed, the subprocess never acquired the missing lock. The reviewed subprocess test passes. The same-process probe entered twice, CMP-2-09. |
+| CMP-1-03 | Partially resolved | `fdaec3e^ -k 'changed_harness or python_dependencies_are'`: 2 failed, A's records stayed empty on return and both dependency paths were missing. The current tests and the saved history support the fixes. A live edit still changes the judged inputs, CMP-2-02. |
+| CMP-1-04 | Resolved | `d292b0e^ -k draw_that_ends_with_no_fixture`: 2 failed, both `not established` instead of `stopped`. The current writer tests distinguish exhaustion and unread output and refuse a second draw. CMP-2-01 is on the clean draw path. |
+| CMP-1-05 | Partially resolved | `fd46cc4^ -k 'assembly_refused or result_is_reused or artifact_is_used'`: 3 failed at the new API. Calling the parent entry point with both assemblies refused gave `KeyError('artifact')`. The current tests cover canonical assembly FORM, a missing result, modified artifact input and fixture digest. The interrupted draw and comparison probes expose the remaining cases, CMP-2-01 and CMP-2-05. |
+| CMP-1-06 | Partially resolved | `74031d9^ -k 'malformed_fetched_script or stays_explained'`: 1 failed, 1 passed. The malformed script was marked explained on the parent. The current regression tests and both real artifact re-inspections pass. The two-file probe is still order-dependent, CMP-2-03. |
+| CMP-1-07 | Resolved for the exercised controls | `474a091^ -k opaque_file`: 1 failed because package-only still returned `as_expected=True`. The current opaque-carrier test rejects both forms. The saved results have 17 expected rows each and the archived fixture regenerates the layered stimuli. The remaining cases have separate coverage, including `test_controls.py` for the numeric label, `test_calibrate.py` for the incidental literal, and the clear-mode carrier controls. |
+| CMP-1-08 | Partially resolved | `f16bc2d^ -k 'visible_extra or passes_only'`: 6 failed, five accepted alterations and the missing proof aggregator. The current suite rejects those readings. The live browser probes still show both an invalid pass and an empty-footer refusal, CMP-2-04. |
+| CMP-1-09 | Partially resolved | `ff16268^ -k page_may_request`: 2 failed, 1 passed. The extra origin and query were accepted. The current suite rejects both, and the saved CDP and net-log data agree on 7 and 3 declared HTTP URLs. The live WebSocket handshake was omitted, CMP-2-06. |
+| CMP-1-10 | Partially resolved | `5a3fb95^ -k incomplete_priming`: 1 failed, groups `[[0, 1, 2, 3, 4, 5], [6]]` instead of `[[0]]`. The saved primers satisfy the recorded checks. The real worker and modified trace found remaining gaps, CMP-2-07 and CMP-2-08. |
+| CMP-1-11 | Partially resolved | `676fc2f^ -k redirect_keeps`: 1 failed with `StopIteration` for the missing 302. The real redirect, blob-worker transfer and archived 304 support the corrected path. An HTTP worker bootstrap is still missed, CMP-2-07. |
+| CMP-1-12 | Partially resolved | `e6b1a3a^ -k tarball_is_checked`: 1 failed with `KeyError: 'downloaded'`. The saved fetch is 917 cache hits, zero downloads, and the per-gate timings are present. I recount the new §10 below. CMP-2-10 covers the remaining reporting issues. |
+
+#### 5. Checks executed and results
+
+- `make prototype-test` in a detached scratch checkout of `17c7747`, with the existing frozen
+  environment and a copied collision tarball. Exit 0, `437 passed in 656.79s (0:10:56)`.
+  The scratch checkout was necessary because the sandbox tests plant a sentinel under `clear/`.
+- `uv run --frozen python -m bi_como_codigo.secrets_review --history` at `17c7747` exited 0.
+  Output: `history review: nothing found (217 occurrence(s) of values public by design, 2 registered; 15 blob(s) skipped)`.
+- The copied state reproduces both `passes` verdicts. The two builder and three artifact tarballs
+  match their recorded SHA-256 digests. Canonical and mutant cells match their fixture digests and
+  the recorded package files. The mutant also matches an independent derivation from the
+  canonical fixture. The archives re-inspected with zero findings and zero inconclusive entries
+  for both builders and both canonical artifacts. Evidence recorded 76 dependency binaries and
+  two package files in its artifact. B recorded two package files. The three copied gate
+  declarations and both candidate-specific gate lists match the saved gate roots byte for byte.
+- I counted 28 draws and 608 rejections. `contract.inspect` accounts for 598 Evidence and
+  three B rejections. Carrier inspection accounts for the other seven, all Evidence. The fixture
+  has 10,884 rows, seed 288699466, `k=8`, and window 2073-04 to 2078-04. The 597.3 s search timer
+  covers a portion of the draw's wall time. The draw timestamps span 17:33:57 to 17:57:10 UTC,
+  including work after the search.
+- The archived DOM readings give zero refusals for both candidates in the reviewed comparator.
+  Both comparator proofs reproduce all four refusals for their required reasons. The saved B
+  mutant is refused on G alone and the G detail has 60 rows against 48 canonical. Each candidate
+  has 17 control rows marked expected, with verdict counts 13 content failures, three costs and
+  one pass. The control `verify` totals are 36.604 s and 7,826.588 s for B and Evidence. The
+  candidate gates are 3.614 s and 741.113 s. The five quick Evidence gates are 0.143–1.358 s.
+- Replaying the 20 raw journeys reproduced all 20 `samples.json` entries. Each cell below is
+  median followed by min–max in seconds. Each series has five samples, and the saved reconciliation
+  reported no mismatch. Maximum reported clock disagreement was 0.408/0.209 ms cold/warm for B
+  and 3.669/0.440 ms for Evidence.
+
+  | Candidate and series | Navigation to login | Navigation to summary | Submit to summary |
+  |---|---:|---:|---:|
+  | B cold | 3.846 (3.640–6.659) | 4.702 (4.410–7.527) | 0.831 (0.769–0.868) |
+  | B warm | 1.946 (1.847–1.978) | 2.702 (2.555–2.967) | 0.755 (0.707–1.009) |
+  | Evidence cold | 4.460 (4.203–5.052) | 6.937 (6.361–9.292) | 2.157 (1.948–4.239) |
+  | Evidence warm | 1.667 (1.639–1.680) | 2.930 (2.857–2.983) | 1.263 (1.218–1.302) |
+
+- Cold completed bytes at summary, local / jsDelivr / DuckDB extension medians, are
+  320,531 / 5,619,787 / 668,227 for B and 1,561,062 / 5,350,085 / 668,215 for Evidence.
+  Warm medians are 308,242 and 312,967 local, with zero completed bytes from the CDN origins
+  by summary. Both archived revalidations record 280 wire bytes, with cached body sizes 1,457
+  and 3,633 bytes respectively. The V8 JavaScript cache entries and Evidence's two aborted
+  404s match §10. Evidence's warm navigation marks are 10.52–10.54 minutes apart. The run has
+  neither a redirect nor a worker transfer across a cutoff.
+  The separate live Chrome probe exercised both.
+- Artifact inventories reported 11/116 files, 341,803/10,326,324 raw bytes and
+  317,033/7,556,540 Brotli bytes for B/Evidence. Builder inventories reported 9/114 files,
+  36,450/10,020,971 bytes and 0.04/47.13 s. Lines total 529/393 and the gate lists have 6/22
+  inclusion lines and 5/11 media types. Evidence's 918 lockfile entries, 615,985,178 install
+  bytes, 33,764 entries, 32.1 s fetch and 91.9 s install match the saved result. Its five
+  declared install scripts were skipped. B's seven pinned bodies total 39,034,556 bytes, including
+  the 34,242,586-byte EH WASM. The release versions, dates and licences match the stored snapshots.
+- The diagnostics have five crypto calls per candidate. The wrong attempt shows a derive and a
+  failed unwrap. The right one shows a derive, unwrap and decrypt. The saved inspection counts give
+  the 1/7 on-disk findings and 26/69 inconclusive entries. Evidence records 16 write carriers,
+  17 entry points, nine committed carriers, nine readable carriers and one readable service
+  worker. I traced the old engine worker detach and the new login worker attach for both
+  candidates in this run. Evidence's service worker remains across logout. The disk findings
+  and diagnostic coverage limits remain open leads under N96.
+- Author-reported checks are `make check` at `17c7747` exit 0, `make prototype-test` at
+  `4a32977` with 437 passed in 642.52 s, and the full `make prototype` at `356bec1` exit 0.
+  I did not repeat `make check` or the full comparison. No upstream commands or database work
+  were used.
+
+#### 6. Limitations and open questions
+
+- The round 1 build and draw archives named in §4 were removed. The reviewed history still has
+  their record IDs and verdicts. The old artifact findings and historical draw counts cannot be
+  independently reconstructed from the remaining reports. The round 2 verdict, package and
+  browser reading checks use the separate retained draw.
+- The original integrated control artifacts were temporary. I checked their saved rows and
+  regenerated layered stimuli from the archived fixture. The files do not preserve the exact
+  finding path for every control instance. The layered findings, interruption and cache probes
+  are bounded tests. The saved successful run gives no direct evidence of its failure recovery.
+- This review covers one full archived run and local Chrome probes. The cold Evidence fetch is
+  pending, and the stage still excludes mobile, slow-network and cross-browser checks. The full
+  browser storage oracle stays with stage 2.5 under N96.
+
+#### 7. Handoff to Claude Code
+
+- [ ] CMP-2-01 — Preserve completed judged stages and the original artifact digest across
+  interruption. A later retry must still surface the earlier content finding.
+- [ ] CMP-2-02 — Prove that a tracked input changed during a run cannot affect a result attributed
+  to the original harness.
+- [ ] CMP-2-03 — Require ancestry and carrier identity for the broken-script explanation. Both
+  item orders must find the payload or remain inconclusive.
+- [ ] CMP-2-04 — Refuse the visible sum and the retained logout context through the actual browser
+  driver. Refuse a missing comparator proof and accept a correct table with an empty footer.
+- [ ] CMP-2-05 — Report a refused mutant and completed independent results. Reject wrong package,
+  draw or harness identities and recover from missing or invalid result JSON.
+- [ ] CMP-2-06 — Refuse the observed undeclared WebSocket handshake through the browser driver.
+- [ ] CMP-2-07 — Cover HTTP and blob worker bootstraps and a spanning transfer. Missing bytes
+  must remain visible and must not make a finished transfer look permanently active.
+- [ ] CMP-2-08 — Split different cache keys and keep an unattributed engine trace out of a warm series.
+- [ ] CMP-2-09 — Refuse concurrent entry in the same process while allowing nested calls in the
+  owning comparison.
+- [ ] CMP-2-10 — Bring §10 and the stage status into line with the retained data and attribution.
