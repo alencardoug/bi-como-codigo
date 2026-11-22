@@ -226,7 +226,8 @@ try {
   // A page whose inputs are filled by its queries after the summary's wrapper appears — Evidence's —
   // is driven once a summary cell and the month's options are there.
   raw.journey.ready = raw.journey.summary && await waitFor("[data-bice=summary] td", 120000) && await waitFor("[data-bice=month] option", 60000);
-  if (raw.journey.summary) {
+  if (!raw.journey.ready) raw.unobserved.push({ what: "the filter loop", why: "the page's inputs never became ready" });  // CMP-1-08
+  if (raw.journey.ready) {
     const filters = await options("[data-bice=filter]");
     const months = await options("[data-bice=month]");
     const picked = [4, 6, months.length - 1].filter((i) => i >= 0 && i < months.length).map((i) => months[i]);

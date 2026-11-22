@@ -139,16 +139,17 @@ def compare(seen: dict, o: Oracle, *, cdn_urls: frozenset[str] = frozenset()) ->
     wrong = seen.get("wrong") or {}
     if wrong.get("opened") or wrong.get("error_ms") is None:
         refuse("wrong password", detail=wrong)
-    if sorted(seen.get("by_filter", {})) != sorted(o.summary):
-        refuse("filters", seen=sorted(seen.get("by_filter", {})), expected=sorted(o.summary))
+    if sorted(seen.get("by_filter", {})) != sorted(o.summary) or seen.get("duplicate_filters", []):
+        refuse("filters", seen=sorted(seen.get("by_filter", {})), expected=sorted(o.summary), duplicates=seen.get("duplicate_filters"))
     for f, expected_rows in o.summary.items():
         page = (seen.get("by_filter") or {}).get(f)
         if not page or not page.get("summary"):
             refuse("summary missing", filter=f)
             continue
         table = page["summary"]
-        if table["header"] != SUMMARY_HEADER:
-            refuse("summary header", filter=f, seen=table["header"])
+        if table["header"] != SUMMARY_HEADER or any(any(c for c in row) for row in table.get("header_rows", [])[:-1]):
+            refuse("summary header", filter=f, seen=table.get("header_rows", table["header"]))
+        _no_other_text(refuse, table, f, "summary")
         rows = table["rows"]
         if len(rows) != len(expected_rows):
             refuse("summary rows", filter=f, seen=len(rows), expected=len(expected_rows))
@@ -169,8 +170,10 @@ def compare(seen: dict, o: Oracle, *, cdn_urls: frozenset[str] = frozenset()) ->
             if not got:
                 refuse("detail missing", filter=f, month=month)
                 continue
-            if (got["rows"] or got["header"]) and got["header"] != DETAIL_HEADER:  # an empty detail may have no table
-                refuse("detail header", filter=f, month=month, seen=got["header"])
+            if (got["rows"] or got["header"]) and (got["header"] != DETAIL_HEADER
+                                                   or any(any(c for c in row) for row in got.get("header_rows", [])[:-1])):
+                refuse("detail header", filter=f, month=month, seen=got.get("header_rows", got["header"]))  # an empty detail may have no table
+            _no_other_text(refuse, got, f, "detail", month=month)
             data = [r for r in got["rows"]]
             if data != want and not (not want and not data):
                 refuse("detail", filter=f, month=month, seen=len(data), expected=len(want),
@@ -188,8 +191,10 @@ def compare(seen: dict, o: Oracle, *, cdn_urls: frozenset[str] = frozenset()) ->
         if got is None or row is None or got[2:] != row[2:]:
             refuse(name, filter=f, cell=[month, root], seen=got, expected=row, check="explicit")
     after = seen.get("after_logout") or {}
-    if after.get("summary") or after.get("login_ms") is None or after.get("history") != seen.get("history_before_logout"):
-        refuse("logout", detail=after)
+    back = after.get("back") or {}
+    if (after.get("summary") or after.get("login_ms") is None or seen.get("history_at_login") is None
+            or after.get("history") != seen.get("history_at_login") or back.get("summary") is not False):
+        refuse("logout", detail=after, history_at_login=seen.get("history_at_login"))
     hosts = seen.get("hosts")
     if hosts is None:
         refuse("network unobserved", detail=seen.get("net_log_error"))
@@ -199,6 +204,14 @@ def compare(seen: dict, o: Oracle, *, cdn_urls: frozenset[str] = frozenset()) ->
             if host in THIRD_PARTY_HOSTS and url not in cdn_urls:
                 refuse("undeclared third-party URL", url=url)
     return out
+
+
+def _no_other_text(refuse, table: dict, f: str, name: str, **where) -> None:
+    """A table shows its cells and the contract's notices, nothing else: a footer
+    or a row of one cell with any other text is refused (CMP-1-08)."""
+    for n in table.get("notices", []):
+        if n["text"] not in (NOTICE, EMPTY):
+            refuse("other text in a table", filter=f, table=name, text=n["text"][:200], **where)
 
 
 def blocked_hosts(seen: dict) -> list[str]:
@@ -273,6 +286,21 @@ def mutant_proof(artifact: pathlib.Path, mutant: fx_mod.Fixture, canonical: fx_m
             "detail_is_the_mutants": not any(r["reason"].startswith("detail") for r in refusals)}
 
 
+def _passed(candidate: str, result: dict) -> tuple[bool, list[str]]:
+    """The check passes only with its proofs (CMP-1-08): the page read as the
+    oracle says, every altered reading refused for its own reason, and — for
+    B — the G mutant opened, its detail the mutant's and refused on G alone."""
+    why = [] if result["page_passed"] else ["the page's reading was refused"]
+    proof = result.get("comparator_proof")
+    if not proof or not all(p["refused"] and p["for_its_reason"] for p in proof.values()):
+        why.append("the comparator's proof is missing or failed")
+    if candidate == "own":
+        m = result.get("mutant_proof")
+        if not m or not (m["opened"] and m["refused_on_g_alone"] and m["detail_is_the_mutants"]):
+            why.append("B's G mutant proof is missing or failed")
+    return not why, why
+
+
 def run(candidate: str, artifact: pathlib.Path, fx: fx_mod.Fixture, out: pathlib.Path, *,
         mutant_artifact: pathlib.Path | None = None, mutant: fx_mod.Fixture | None = None) -> dict:
     """The browser check of one artifact, its comparator's proof, and — for B —
@@ -282,12 +310,13 @@ def run(candidate: str, artifact: pathlib.Path, fx: fx_mod.Fixture, out: pathlib
     cdn = cdn_urls(candidate)
     seen = read(artifact, o.months, out / "seen.json")
     refusals = compare(seen, o, cdn_urls=cdn)
-    result = {"candidate": candidate, "passed": not refusals, "refusals": refusals, "blocked_hosts": blocked_hosts(seen),
+    result = {"candidate": candidate, "page_passed": not refusals, "refusals": refusals, "blocked_hosts": blocked_hosts(seen),
               "third_party_urls": [u for u in seen.get("third_party_urls", []) if u.split("/")[2] in THIRD_PARTY_HOSTS],
               "login_ms": seen.get("login_ms"), "summary_ms": seen.get("summary_ms"), "seconds": seen.get("seconds")}
     if not refusals:
         result["comparator_proof"] = prove_comparator(seen, o, cdn_urls=cdn)
     if mutant_artifact is not None and mutant is not None:
         result["mutant_proof"] = mutant_proof(mutant_artifact, mutant, fx, out / "mutant-seen.json", cdn=cdn)
+    result["passed"], result["why_not"] = _passed(candidate, result)
     (out / "check.json").write_text(json.dumps(result, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     return result

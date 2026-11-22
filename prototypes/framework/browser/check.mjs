@@ -90,8 +90,10 @@ const read = (bice) => ev(`(() => {
     rows.push(tds.map(text));
   }
   for (const td of t.querySelectorAll('tfoot td')) notices.push({ at: 'foot', text: text(td) });
-  const heads = t.querySelectorAll('thead tr');  // the last header row: Evidence's first is of empty cells
-  return { header: heads.length ? [...heads[heads.length - 1].querySelectorAll('th')].map(text) : [], rows, notices };
+  // Every header row is kept: the last is the header, and the comparator requires the others empty —
+  // Evidence's first is of empty cells (CMP-1-08).
+  const heads = [...t.querySelectorAll('thead tr')].map((tr) => [...tr.querySelectorAll('th, td')].map(text));
+  return { header: heads.length ? heads[heads.length - 1] : [], header_rows: heads, rows, notices };
 })()`);
 
 const out = { url: config.url };
@@ -100,6 +102,7 @@ try {
   const t0 = Date.now();
   await send("Page.navigate", { url: config.url });
   out.login_ms = await waitFor(present("[data-bice=password]:not([disabled])"));
+  out.history_at_login = await ev("history.length");  // logout must leave the history as it was before the session (CMP-1-08)
   const submit = (pw) => ev(`(() => { const i = document.querySelector('[data-bice=password]'); i.value = ${JSON.stringify(pw)};
     i.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('[data-bice=submit]').click(); })()`);
   await submit(config.wrong);
@@ -113,7 +116,9 @@ try {
   out.filters = await ev(`[...document.querySelectorAll('[data-bice=filter] option')].map(o => [o.value, o.textContent.trim()])`);
   out.months = await ev(`[...document.querySelectorAll('[data-bice=month] option')].map(o => o.value)`);
   out.by_filter = {};
+  out.duplicate_filters = out.filters.map(([, f]) => f).filter((f, i, all) => all.indexOf(f) !== i);  // a reading is never overwritten
   for (const [value, f] of out.filters) {
+    if (f in out.by_filter) continue;
     await choose("[data-bice=filter]", value);
     const seen = { summary: await read("summary"), detail: {} };
     for (const m of config.months) {
@@ -130,6 +135,10 @@ try {
     summary: await ev(`!!document.querySelector('[data-bice=summary]')`),
     history: await ev("history.length"),
   };
+  // Back from the login page: no step of the history may show the session again (CMP-1-08).
+  await ev("history.back()");
+  await sleep(1500);
+  out.after_logout.back = { summary: await ev(`!!document.querySelector('[data-bice=summary] td')`), url: await ev("location.href") };
   out.seconds = (Date.now() - t0) / 1000;
 } catch (error) {
   out.error = String(error?.stack || error);

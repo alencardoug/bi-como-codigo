@@ -35,7 +35,8 @@ def _seen(o: check.Oracle) -> dict:
         "by_filter": {f: {"summary": {"header": list(check.SUMMARY_HEADER), "rows": copy.deepcopy(rows),
                                       "notices": [{"at": len(rows) - 5, "text": check.NOTICE}]},
                           "detail": {m: detail(f, m) for m in o.months}} for f, rows in o.summary.items()},
-        "history_before_logout": 2, "after_logout": {"login_ms": 5, "summary": False, "history": 2},
+        "history_at_login": 2, "history_before_logout": 2,
+        "after_logout": {"login_ms": 5, "summary": False, "history": 2, "back": {"summary": False, "url": "about:blank"}},
         "hosts": ["127.0.0.1:1", "cdn.jsdelivr.net"], "third_party_urls": ["https://cdn.jsdelivr.net/npm/x@1/a.js"],
     }
 
@@ -80,3 +81,30 @@ def test_the_mutants_oracle_keeps_the_canonical_g_cell_alone(fx, oracle):
     assert mo.detail[f][month] == mutant_plain.detail[f][month] != oracle.detail[f][month]
     seen = _seen(mutant_plain)  # the page shows the mutant as it is
     assert {r["reason"] for r in check.compare(seen, mo, cdn_urls=frozenset(seen["third_party_urls"]))} == {"G"}
+
+
+# --- CMP-1-08: what a pass needs ------------------------------------------------------
+
+
+@pytest.mark.parametrize("alter, reason", [
+    (lambda s: s["by_filter"]["todos"]["summary"]["notices"].append({"at": "foot", "text": "Pedidos: 20.000"}), "other text in a table"),
+    (lambda s: s["by_filter"]["todos"]["summary"].update(header_rows=[["Total"], list(check.SUMMARY_HEADER)]), "summary header"),
+    (lambda s: s.update(duplicate_filters=["todos"]), "filters"),
+    (lambda s: s.update(history_at_login=1), "logout"),  # the session pushed an entry that logout left behind
+    (lambda s: s["after_logout"]["back"].update(summary=True), "logout"),
+])
+def test_a_visible_extra_or_a_session_left_reachable_is_refused(oracle, alter, reason):
+    seen = _seen(oracle)
+    alter(seen)
+    assert reason in {r["reason"] for r in check.compare(seen, oracle, cdn_urls=frozenset(seen["third_party_urls"]))}
+
+
+def test_the_check_passes_only_with_its_proofs():
+    good = {"page_passed": True, "comparator_proof": {"a": {"refused": True, "for_its_reason": True}}}
+    mutant = {"opened": True, "refused_on_g_alone": True, "detail_is_the_mutants": True}
+    assert check._passed("evidence", good) == (True, [])
+    assert check._passed("own", {**good, "mutant_proof": mutant}) == (True, [])
+    assert not check._passed("own", good)[0]  # B with no mutant proof
+    assert not check._passed("own", {**good, "mutant_proof": {**mutant, "refused_on_g_alone": False}})[0]
+    assert not check._passed("evidence", {**good, "comparator_proof": {"a": {"refused": True, "for_its_reason": False}}})[0]
+    assert not check._passed("evidence", {"page_passed": True})[0]
