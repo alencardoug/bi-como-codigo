@@ -1,10 +1,14 @@
 <script>
   // The login of Evidence's encrypted route (docs/framework_prototype.md §2.3, §3, probe A2):
   // nothing is fetched or opened before submit; the package is opened by the envelope's reader,
-  // unchanged; the opened Parquet becomes p01.rows in Evidence's own DuckDB-WASM instance, reached
-  // through the global its browser client sets; the parquet extension is loaded pinned (N98).
-  // Logout terminates that instance's worker and replaces the page.
+  // unchanged. Evidence's own browser client is used through its public module — initDB, to wait
+  // for its engine, and setParquetURLs, to make the opened Parquet p01.rows, from a blob URL, which
+  // also releases the page's queries, held until a source is set —; its DuckDB-WASM instance,
+  // which that module does not export, through the global the client sets, only to load the
+  // parquet extension pinned (N98) and, at logout, to terminate its worker before the page is
+  // replaced.
   import { onMount } from 'svelte';
+  import { initDB, setParquetURLs } from '@evidence-dev/universal-sql/client-duckdb';
   import * as env from '$lib/envelope.mjs';
   import pins from 'bice:pins';
   import { session } from '$lib/session.js';
@@ -14,11 +18,18 @@
   let failed = false;
   let busy = false;
 
+  let blobUrl = null;
+
+  // initDB rejects after five seconds of an initialization still under way — the WASM may take
+  // longer to arrive —: asked again until the engine is instantiated.
   const engine = async () => {
-    for (let i = 0; i < 600; i++) {
-      const db = window[Symbol.for('EVIDENCE_QUERY_ENGINE')];
-      if (db) return db;
-      await new Promise((r) => setTimeout(r, 100));
+    for (let i = 0; i < 120; i++) {
+      try {
+        await initDB();
+        return window[Symbol.for('EVIDENCE_QUERY_ENGINE')];
+      } catch {
+        await new Promise((r) => setTimeout(r, 500));
+      }
     }
     throw new Error("Evidence's engine did not start");
   };
@@ -62,11 +73,9 @@
       const url = await pinnedBlob(pins.parquet);
       await c.query(`LOAD '${url}#/parquet.duckdb_extension.wasm'`);
       URL.revokeObjectURL(url);
-      await db.registerFileBuffer('p01.parquet', parquet);
-      await c.query('CREATE SCHEMA IF NOT EXISTS p01');
-      await c.query("CREATE OR REPLACE TABLE p01.rows AS SELECT * FROM read_parquet('p01.parquet')");
-      await db.dropFile('p01.parquet');
       await c.close();
+      blobUrl = URL.createObjectURL(new Blob([parquet], { type: 'application/octet-stream' }));
+      await setParquetURLs({ p01: ['rows.parquet'] }, { addBasePath: () => blobUrl });
       session.update((n) => n + 1);
     } finally {
       busy = false;
@@ -76,6 +85,7 @@
   async function logout() {
     const db = window[Symbol.for('EVIDENCE_QUERY_ENGINE')];
     if (db) await db.terminate();  // the worker, its database and its registered files end here
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
     location.replace(location.pathname);
   }
 </script>
