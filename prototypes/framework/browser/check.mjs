@@ -77,19 +77,21 @@ const read = (bice) => ev(`(() => {
   const wrapper = document.querySelector('[data-bice=${bice}]');
   if (!wrapper) return null;
   const text = (e) => e.textContent.replace(/\\u00a0|\\u202f/g, ' ').trim();
-  const t = wrapper.tagName === 'TABLE' ? wrapper : wrapper.querySelector('table');
+  // The table shown: Evidence's DataTable keeps a full-screen copy, rows cut to the window, in a dialog before it.
+  const t = wrapper.tagName === 'TABLE' ? wrapper : [...wrapper.querySelectorAll('table')].find((x) => !x.closest('dialog'));
   const beside = [...wrapper.querySelectorAll('p[data-bice=partial], p[data-bice=empty], div[data-bice=partial], div[data-bice=empty]')]
     .map((e) => ({ at: 'beside', text: text(e), ...(e.dataset.bice === 'empty' ? { empty_table: true } : {}) }));
   if (!t) return { header: [], rows: [], notices: beside };
   const rows = [], notices = [...beside];
-  for (const tr of t.querySelectorAll('tbody tr')) {
+  for (const tr of [...t.querySelectorAll('tr')].filter((r) => !r.closest('thead, tfoot'))) {  // Evidence's rows sit in no tbody
     const tds = [...tr.querySelectorAll('td')];
     if (tds.length === 1 && tds[0].dataset.bice === 'partial') { notices.push({ at: rows.length, text: text(tds[0]) }); continue; }
     if (tds.length === 1 && tds[0].hasAttribute('colspan')) { notices.push({ at: rows.length, text: text(tds[0]), empty_table: true }); continue; }
     rows.push(tds.map(text));
   }
   for (const td of t.querySelectorAll('tfoot td')) notices.push({ at: 'foot', text: text(td) });
-  return { header: [...t.querySelectorAll('thead th')].map(text), rows, notices };
+  const heads = t.querySelectorAll('thead tr');  // the last header row: Evidence's first is of empty cells
+  return { header: heads.length ? [...heads[heads.length - 1].querySelectorAll('th')].map(text) : [], rows, notices };
 })()`);
 
 const out = { url: config.url };
@@ -105,13 +107,14 @@ try {
   out.wrong.opened = await ev(`!!document.querySelector('table[data-bice=summary], [data-bice=summary] table, [data-bice=report]:not([hidden])')`);
   await waitFor(present("[data-bice=password]:not([disabled])"));
   await submit(config.password);
-  out.summary_ms = await waitFor(present("table[data-bice=summary] tbody tr td, [data-bice=summary] table tbody tr td"));
+  out.summary_ms = await waitFor(present("table[data-bice=summary] td, [data-bice=summary] table td"));
   await settled();
-  out.filters = await ev(`[...document.querySelectorAll('[data-bice=filter] option')].map(o => o.value)`);
+  // Each filter by its label, as the visitor reads it — B's "todos" is its value, Evidence's is "%".
+  out.filters = await ev(`[...document.querySelectorAll('[data-bice=filter] option')].map(o => [o.value, o.textContent.trim()])`);
   out.months = await ev(`[...document.querySelectorAll('[data-bice=month] option')].map(o => o.value)`);
   out.by_filter = {};
-  for (const f of out.filters) {
-    await choose("[data-bice=filter]", f);
+  for (const [value, f] of out.filters) {
+    await choose("[data-bice=filter]", value);
     const seen = { summary: await read("summary"), detail: {} };
     for (const m of config.months) {
       await choose("[data-bice=month]", m);
