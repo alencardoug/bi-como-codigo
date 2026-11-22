@@ -2,7 +2,7 @@
 # commit only when it exits 0, read from its own exit code — never through a pipe.
 
 .DEFAULT_GOAL := help
-.PHONY: help sync docs-check adr-check secrets secrets-history test test-js check prototype-test prototype-third-party prototype-build-own
+.PHONY: help sync docs-check adr-check secrets secrets-history test test-js check prototype-test prototype-third-party prototype-build-own prototype-build-evidence prototype
 
 UV_RUN := uv run --frozen
 
@@ -59,3 +59,9 @@ prototype-third-party: ## Fetch DuckDB-WASM 1.32.0's tarball for the prototype's
 
 prototype-build-own: ## Build Candidate B's encrypted route at HEAD in the sandbox and archive its builder output; the harness must be HEAD as committed
 	@$(UV_RUN) --group prototype python prototypes/framework/route.py own --commit $$(git rev-parse HEAD)
+
+prototype-build-evidence: ## Build Evidence's encrypted route at HEAD in the sandbox and archive its builder output; the harness must be HEAD as committed
+	@$(UV_RUN) --group prototype python prototypes/framework/route.py evidence --commit $$(git rev-parse HEAD)
+
+prototype: ## The comparison of stage 2.3 at HEAD: build what is missing, draw once, check, diagnose and measure both candidates
+	@$(UV_RUN) --group prototype python prototypes/framework/compare.py --commit $$(git rev-parse HEAD)
