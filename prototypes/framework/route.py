@@ -286,7 +286,8 @@ def evidence_install(commit: str, runs: pathlib.Path):
                                         check=True, capture_output=True).stdout)
         t0 = time.time()
         fetched = npm.fetch(lock, runs / "evidence-npm")
-        entry["fetch"] = {"tarballs": len(fetched["tarballs"]), "seconds": round(time.time() - t0, 1), "lockfile_sha256": fetched["lockfile_sha256"]}
+        entry["fetch"] = {"tarballs": len(fetched["tarballs"]), "downloaded": fetched["downloaded"], "from_cache": fetched["from_cache"],
+                          "seconds": round(time.time() - t0, 1), "lockfile_sha256": fetched["lockfile_sha256"]}  # a cold fetch only with nothing from the cache (CMP-1-12)
         sources = al.Allowlist(tuple(e for e in al.tracked(commit, "prototypes/framework/evidence/").entries
                                      if e.dest in ("package.json", "package-lock.json", ".npmrc")))
         work = folder / "install-work"

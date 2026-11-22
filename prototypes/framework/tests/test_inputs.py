@@ -163,11 +163,13 @@ def test_a_tarball_is_checked_against_the_lockfile_and_cached(tmp_path):
     project = _project(tmp_path, data)
     record = npm.fetch(project / "package-lock.json", tmp_path / "cache", get=lambda url: data)
     assert record["tarballs"][0]["sha256"] == hashlib.sha256(data).hexdigest()
+    assert (record["downloaded"], record["from_cache"]) == (1, 0)  # a cold fetch is one with nothing from the cache (CMP-1-12)
 
     def no_network(url):
         raise AssertionError("a cached tarball is not fetched again")
 
-    npm.fetch(project / "package-lock.json", tmp_path / "cache", get=no_network)
+    again = npm.fetch(project / "package-lock.json", tmp_path / "cache", get=no_network)
+    assert (again["downloaded"], again["from_cache"]) == (0, 1)
     with pytest.raises(npm.Refused, match="integrity"):
         npm.fetch(project / "package-lock.json", tmp_path / "other", get=lambda url: data + b"x")
 

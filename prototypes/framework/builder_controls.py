@@ -33,6 +33,7 @@ import io
 import json
 import pathlib
 import shutil
+import time
 from decimal import Decimal
 
 import brotli
@@ -164,8 +165,10 @@ def run(candidate: str, builder: pathlib.Path, builder_digest: str, package: pat
                   "assembly": v.Stage(cls=assembly.cls)}
         artifact_digest = None
         if assembly.cls == h.PASS:
+            started = time.time()
             checked = h.verify(work / "artifact", source, h.write_root(work, _lists(candidate, ctl.additions, work / "lists")), validated,
                                label="control")
+            row["verify_seconds"] = round(time.time() - started, 3)  # the gate's time, measured (CMP-1-12)
             # Assembly proved the rest of the artifact byte for byte the builder output, inspected once
             # above: what is new is the control's file and the package, inspected here.
             added = set(ctl.additions)

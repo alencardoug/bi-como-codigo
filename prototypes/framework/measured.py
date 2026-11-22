@@ -137,9 +137,11 @@ def run(commit: str, seed: int, *, runs: pathlib.Path = route.RUNS, measured: pa
         artifact_digest = None
         if assembly.cls == h.PASS:
             artifact_digest = h.archive(folder / "artifact", folder / "artifact.tar.gz")
+            started = time.time()
             checked = h.verify(folder / "artifact", builders[name], h.write_root(folder, LISTS / name), validated)
             stages["verify"] = v.Stage(cls=checked.cls)
-            result["verify"] = {"class": checked.cls, "message": checked.message}
+            # the gate's time on this artifact, measured where it runs (CMP-1-12)
+            result["verify"] = {"class": checked.cls, "message": checked.message, "seconds": round(time.time() - started, 3)}
             inspected = io_.inspect_dir(folder / "artifact", needles, validated=dict(validated.files), dependencies=deps[name])
             stages["inspect_artifact"] = _stage(inspected)
             result["artifact_inspection"] = _summary(inspected)

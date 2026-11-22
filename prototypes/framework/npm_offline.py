@@ -89,6 +89,7 @@ def fetch(lockfile: pathlib.Path, cache: pathlib.Path, get=_https_get) -> dict:
     lock = json.loads(lockfile.read_text(encoding="utf-8"))
     cache.mkdir(parents=True, exist_ok=True)
     listing = []
+    downloaded = 0  # tarballs fetched from the registry, apart from those the cache held (CMP-1-12)
     for name, resolved, integrity in entries(lock):
         data = None
         for p in sorted(cache.glob("*.tgz")):
@@ -100,6 +101,7 @@ def fetch(lockfile: pathlib.Path, cache: pathlib.Path, get=_https_get) -> dict:
                     break
         if data is None:
             data = get(resolved)
+            downloaded += 1
         if not verify_integrity(data, integrity):
             raise Refused(f"{name}: the tarball does not match the lockfile's integrity")
         sha = hashlib.sha256(data).hexdigest()
@@ -115,7 +117,7 @@ def fetch(lockfile: pathlib.Path, cache: pathlib.Path, get=_https_get) -> dict:
             raise Refused(f"{t['package']}: the cached file is not the checked tarball")
     record = {"lockfile_sha256": hashlib.sha256(lockfile.read_bytes()).hexdigest(), "tarballs": listing}
     (cache / "listing.json").write_text(json.dumps(record, indent=1) + "\n", encoding="utf-8")
-    return record
+    return {**record, "downloaded": downloaded, "from_cache": len(listing) - downloaded}
 
 
 def cache_allowlist(cache: pathlib.Path, record: dict) -> al.Allowlist:
