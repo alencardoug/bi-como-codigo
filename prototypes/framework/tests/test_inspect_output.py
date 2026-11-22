@@ -712,6 +712,22 @@ def test_a_broken_script_on_an_unescaped_layer_is_searched_as_data(needles, samp
     page = f'<p>&lt;script type="application/json"&gt;{{"orders": {samples["count"]}, broken&lt;/script&gt;</p>'
     report = _one(needles, "index.html", page.encode())
     assert any(x.code == io_.INSPECT_NUMBER and x.path.endswith("entities > script#0 > as data") for x in report.findings)
+    assert any("does not parse" in x.reason for x in report.inconclusive)  # no layer read it whole (CMP-1-06)
+
+
+def test_a_malformed_fetched_script_only_an_unescaping_exposes_is_inconclusive(needles, samples):
+    """CMP-1-06: a data-b64 fetched script whose wrapper does not parse, exposed by
+    entity-escaped tags: its payload is base64, which the search as text cannot
+    see, and no layer read it whole — inconclusive, never explained."""
+    import base64
+    payload = base64.b64encode(json.dumps({"orders": samples["count"]}).encode()).decode()
+    script = f'<script type="application/json" data-sveltekit-fetched data-b64>{{"body": "{payload}", broken</script>'
+    whole = _one(needles, "index.html", script.encode())
+    assert any("does not parse" in x.reason for x in whole.inconclusive)
+    escaped = script.replace("<", "&lt;").replace(">", "&gt;")
+    report = _one(needles, "index.html", f"<p>{escaped}</p>".encode())
+    assert report.inconclusive or report.findings, report.record()
+    assert not any("unescaping broke" in x.reason for x in report.recorded)
 
 
 def test_a_decoding_that_changes_nothing_is_no_layer(needles):
@@ -722,3 +738,12 @@ def test_a_decoding_that_changes_nothing_is_no_layer(needles):
     assert report.clean and not report.inconclusive, report.record()
     assert not any("entities" in x.path for x in report.inconclusive + report.recorded)
 
+
+
+def test_a_script_read_whole_stays_explained_through_two_unescapings(needles):
+    """CMP-1-06: Evidence's page has a script broken by `escapes` and again by
+    `escapes` on that layer — the same script read whole, still explained."""
+    inner = json.dumps({"a": json.dumps({"b": json.dumps({"c": []})})})
+    page = f'<p>a\\nb \\\\n</p><script type="application/json" data-sveltekit-fetched>{inner}</script>'
+    report = _one(needles, "index.html", page.encode())
+    assert not report.inconclusive, report.record()

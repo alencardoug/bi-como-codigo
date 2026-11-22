@@ -163,6 +163,9 @@ class Context:
     dependencies: frozenset[str]  # SHA-256 of every file of the locked dependency tree
     report: Report
     _binary: dict | None = None
+    #: Each JSON script read whole, as each flat decoder turns it: a script that breaks on a flat
+    #: layer is explained only when it is one of these (CMP-1-06).
+    read_scripts: set = dataclasses.field(default_factory=set)
 
     def find(self, code, file, path, value=None):
         self.report.findings.append(Finding(code, file, path, None if value is None else str(value)))
@@ -754,10 +757,11 @@ def _scripts(ctx: Context, text: str, file: str, path: str, role: str, depth: in
     devalue data read as JSON-like text, every number compared as a number.
 
     On a layer a flat decoder made (`flat`), a JSON script that does not parse
-    is one the unescaping broke — `\\"` of a string turned into `"` —: the layer
-    it came from read the script as it was, so its body is searched as a
-    data-bearing carrier, every integer needle in any spelling, and recorded,
-    not inconclusive (N99)."""
+    is searched as a data-bearing carrier, every integer needle in any
+    spelling. It is recorded, not inconclusive, only when it is a script the
+    layer before read whole, as the unescaping turned it — `\\"` of a string
+    turned into `"` (N99) —; one no layer read — a malformed script only an
+    unescaping exposes — stays inconclusive (CMP-1-06)."""
     for n, m in enumerate(_SCRIPT.finditer(text)):
         attrs, body = m[1].lower(), m[2]
         where = f"{path} > script#{n}"
@@ -767,10 +771,16 @@ def _scripts(ctx: Context, text: str, file: str, path: str, role: str, depth: in
             except ValueError:
                 if flat:
                     _numbers_in_text(ctx, body, file, f"{where} > as data", DATA)
+                if flat and body in ctx.read_scripts:
                     ctx.report.recorded.append(Note(file, where, "a JSON script an unescaping broke, searched as data"))
+                    # unescaped again on the next flat layer, it is still the script read whole
+                    ctx.read_scripts.update(out.decode("utf-8", "surrogatepass") for name, out in _text_decoders(body) if name in FLAT)
                 else:
                     ctx.report.inconclusive.append(Note(file, where, "a JSON script that does not parse"))
                 continue
+            for name, out in _text_decoders(body):
+                if name in FLAT:
+                    ctx.read_scripts.add(out.decode("utf-8", "surrogatepass"))
             if "data-b64" in attrs and not (isinstance(parsed, dict) and isinstance(parsed.get("body"), str)):
                 ctx.report.inconclusive.append(Note(file, where, "a data-b64 script with no body to decode"))
             elif "data-b64" in attrs:
