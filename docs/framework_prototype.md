@@ -20,7 +20,7 @@
 |---|---|
 | Date | 2026-11-20 — revision 9, with the five adjustments of round 8 of Codex's review (FPROTO-8-01 to -05), which found no blocking finding and closed the review. Revision 8 answered round 7 (FPROTO-7-01 to -06) with the Owner's N96, revision 7 answered round 6 (FPROTO-6-01 to -08), revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 began** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers, each caught by `verify` and by the inspection in its control (§3); on 2026-11-22 Candidate B's page is built, and its clear build's one carrier, the clear Parquet its page fetches, is caught by both in its control (§4): **step 2 is done**. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
+| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 began** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers, each caught by `verify` and by the inspection in its control (§3); on 2026-11-22 Candidate B's page is built, and its clear build's one carrier, the clear Parquet its page fetches, is caught by both in its control (§4): **step 2 is done**. **Step 3 has begun** on 2026-11-22: B's encrypted builder output is built from no data and archived, the run's state kept by identities (`route.py`, §5), and Evidence's A7 answers yes, with no patch (§3). P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool that the stage proves or refutes (§9).
@@ -715,6 +715,30 @@ the clear-mode fixture of seed 20261121 (10,872 rows), its record in `clear/evid
   verdict of each run fails. Only the page's control carries inconclusive notes, the six of the
   escape layers above. The controls on Evidence's own builder output are step 5's.
 
+**A7 — yes, with no patch [measured, 2026-11-22].** As it comes, Evidence's build carries the
+engine and serves it from the page's origin: its browser client imports DuckDB-WASM's worker and
+WASM through Vite (`?worker`, `?url`), and the clear build holds both WASM files — EH, 34,242,586
+bytes, and MVP, 39,362,651 — and both workers, re-bundled; Evidence has no setting for it, and
+writes its `vite.config.js` from its own package at every build. But `evidence build` hands its
+options to `vite build`, and Vite takes `--config`: `evidence/vite.bice.mjs` is Evidence's own
+configuration with one plugin first, `pinned-engine.mjs`, which answers those four imports with
+the jsDelivr URL of the WASM and a `Worker` started from a blob that imports the worker's URL — the
+four bodies, 1.32.0, the version the lockfile resolves, pinned in `evidence/cdn.json` by `cdn.py`
+against the npm tarball. No module of Evidence is patched; the cost is that configuration and
+plugin (`npm run build:pinned`). Measured on the clear project (`clear_mode.py evidence --a7`,
+reusing the kept install of the same lockfile by digest, in `clear/evidence-a7/`): the build holds
+no WASM and no engine worker, only the four URLs, and `build/` falls from 90.5 MB to 15.2 MB; in
+headless Chrome (`--smoke --a7`, passive) the page hydrates and Evidence's engine starts with its
+worker, the EH worker and WASM fetched from jsDelivr, and no URL of jsDelivr or of DuckDB's
+extensions the page reaches is undeclared. Unlike B's, these two bodies load with no integrity
+checked by the browser: DuckDB fetches the WASM by URL, and the worker's `importScripts` takes
+none — the check's control of a changed pinned body (§2.5.5) is what covers them. Seen on the way,
+each a cost to settle in the encrypted route: Evidence's default layout registers a service worker,
+`fix-tprotocol-service-worker.js`, on every page (§2.3 item 8 allows none); and its tables and axes
+format numbers in English (`1,000M`, `2,729k`), not `pt-BR`. The smoke run did not change an input,
+so the page's own queries in the browser, and the `parquet` extension they would load (N98), are
+A4's.
+
 **The encrypted route [planned].** No source holds data: the only source is empty — the zero-row
 Parquet of §2.2, if Evidence needs one — or absent if Evidence allows, and the package is not in the
 build. A Svelte component of the page fetches the manifest and the envelope at run time, opens it
@@ -903,7 +927,7 @@ plainly cannot reach one of them is reported as such, with the observation behin
    `tests/`. What the building settled is in §9.
 2. **The clear mode, first** [done: Evidence's A6, A1 and its controls run, 2026-11-21 (§3); B's clear build, its control and a smoke run, 2026-11-22 (§4)]: the clear-mode fixture, then each candidate's clear build in its own
    sandbox — A6 and A1 for Evidence —, and the controls built from its carriers.
-3. **The encrypted route**: Candidate B's builder output, archived; Candidate A's, through probes
+3. **The encrypted route** [begun, 2026-11-22: B's builder output archived (`make prototype-build-own`); A7 answered (§3)]: Candidate B's builder output, archived; Candidate A's, through probes
    A7, A2 and A3, in that order, each "no" recorded and the next probe run where it still can, until
    its builder output is final, archived. No measured fixture exists yet.
 4. **The draw**, once, against both builder outputs; the package; both artifacts assembled; the
