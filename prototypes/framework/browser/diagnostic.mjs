@@ -223,6 +223,9 @@ try {
   step("right");
   await submit(config.password);
   raw.journey.summary = await waitFor("[data-bice=summary]", 120000);
+  // A page whose inputs are filled by its queries after the summary's wrapper appears — Evidence's —
+  // is driven once a summary cell and the month's options are there.
+  raw.journey.ready = raw.journey.summary && await waitFor("[data-bice=summary] td", 120000) && await waitFor("[data-bice=month] option", 60000);
   if (raw.journey.summary) {
     const filters = await options("[data-bice=filter]");
     const months = await options("[data-bice=month]");
