@@ -83,10 +83,21 @@ try {
     throw null;  // to the record
   }
   out.login_ms = await waitFor("[data-bice=password]:not([disabled])");
-  await ev(`(() => { document.querySelector('[data-bice=password]').value = 'qualquer'; document.querySelector('[data-bice=submit]').click(); })()`);
+  const submit = (pw) => ev(`(() => { const i = document.querySelector('[data-bice=password]'); i.value = ${JSON.stringify(pw)};
+    i.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('[data-bice=submit]').click(); })()`);
+  if (process.env.BICE_OPENS_WITH) {  // the encrypted route: a wrong password first, then the right one
+    await submit("errada");
+    out.wrong_error_ms = await waitFor("[data-bice=login-error]:not([hidden])", 60000);
+    out.wrong_opened = await ev(`!!document.querySelector('[data-bice=summary]')`);
+    await waitFor("[data-bice=password]:not([disabled])");
+    await submit(process.env.BICE_OPENS_WITH);
+  } else {
+    await submit("qualquer");
+  }
   out.summary_ms = await waitFor("[data-bice=summary] tbody tr");
   await waitFor("[data-bice=loading][hidden]");
-  out.login_error_shown = await ev(`!document.querySelector('[data-bice=login-error]').hidden`);
+  out.login_error_shown = await ev(`!!document.querySelector('[data-bice=login-error]:not([hidden])')`);
+  out.engine = await ev(`(() => { const db = window[Symbol.for('EVIDENCE_QUERY_ENGINE')]; return db ? { present: true } : { present: false }; })()`);
   out.filters = await ev(`[...document.querySelectorAll('[data-bice=filter] option')].map(o => o.value)`);
   out.months = await ev(`document.querySelectorAll('[data-bice=month] option').length`);
   out.chart_svg = await ev(`!!document.querySelector('[data-bice=chart] svg')`);

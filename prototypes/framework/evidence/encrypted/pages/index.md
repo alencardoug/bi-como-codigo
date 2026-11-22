@@ -5,19 +5,20 @@ title: Receita por canal e categoria
 <script>
   // The encrypted route's page (docs/framework_prototype.md §3): no source holds data, and the
   // report's table, p01.rows, exists only after login, created by Login from the opened package.
-  // Every query names `session`, which Login sets once the table exists: the queries run again then.
+  // Every query names the store `session`, which Login raises once the table exists: the queries
+  // run again then.
   import Login from '$lib/Login.svelte';
-  let session = 0;
+  import { session } from '$lib/session.js';
 </script>
 
-<Login bind:session />
+<Login />
 
 ```sql canais
-select distinct sales_channel_name from p01.rows order by 1 -- session ${session}
+select distinct sales_channel_name from p01.rows order by 1 -- session ${$session}
 ```
 
 ```sql meses
-select distinct year_month from p01.rows order by 1 -- session ${session}
+select distinct year_month from p01.rows order by 1 -- session ${$session}
 ```
 
 ```sql por_mes
@@ -25,7 +26,7 @@ select year_month, root_category_name, sum(net_revenue_amount) as net_revenue_am
 from p01.rows
 where sales_channel_name like '${inputs.canal.value}'
 group by all
-order by year_month, root_category_name -- session ${session}
+order by year_month, root_category_name -- session ${$session}
 ```
 
 ```sql resumo
@@ -34,7 +35,7 @@ select year_month, root_category_name,
 from p01.rows
 where sales_channel_name like '${inputs.canal.value}'
 group by all
-order by year_month, root_category_name -- session ${session}
+order by year_month, root_category_name -- session ${$session}
 ```
 
 ```sql detalhe
@@ -42,10 +43,10 @@ select sales_channel_name, category_name, order_count, unit_count, net_revenue_a
 from p01.rows
 where sales_channel_name like '${inputs.canal.value}'
   and year_month = '${inputs.mes.value}'
-order by sales_channel_name, category_name -- session ${session}
+order by sales_channel_name, category_name -- session ${$session}
 ```
 
-{#if session}
+{#if $session}
 
 <Dropdown data={canais} name=canal value=sales_channel_name title="Canal">
     <DropdownOption value="%" valueLabel="todos"/>

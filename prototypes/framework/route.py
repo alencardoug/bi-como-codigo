@@ -151,6 +151,9 @@ def build(candidate: str, commit: str, allow: al.Allowlist, argv: list[str], out
 
     def finish(stages: dict[str, v.Stage], **extra) -> dict:
         entry.update(extra, finished=_now())
+        if extra.get("status") != "archived":  # a failed invocation keeps its logs and lists, not its trees
+            for name in ("work", "node_modules", "install-work"):
+                shutil.rmtree(folder / name, ignore_errors=True)
         state["records"][-1] = dataclasses.asdict(dataclasses.replace(record, builder_digest=extra.get("builder_digest"), stages=stages))
         save(state, runs)
         return entry
@@ -244,13 +247,50 @@ def build_evidence(commit: str, *, runs: pathlib.Path = RUNS, **kwargs) -> dict:
                  install=evidence_install(commit, runs), **kwargs)
 
 
+def probe_page(candidate: str, *, runs: pathlib.Path = RUNS) -> dict:
+    """A probe of a candidate's last archived builder output in the browser
+    (A2, A3, A4 for Evidence): the archive extracted, assembled with the
+    clear-mode fixture's validated package — a probe artifact, never judged,
+    kept out of the run's records —, served on 127.0.0.1 and driven by
+    `browser/smoke.mjs` with a wrong password, then the showcase's public one
+    (N22). Written to the build's folder as `probe.json`."""
+    import clear_mode as cm
+    import harness as h
+    import serve
+
+    entry = load(runs)["builds"][candidate]
+    folder = runs / candidate / entry["id"]
+    probe = folder / "probe"
+    if probe.exists():
+        shutil.rmtree(probe)
+    builder = probe / "builder"
+    trees.extract(runs / entry["archive"], builder, entry["builder_digest"])
+    fx, fixture_dir = cm.clear_fixture(cm.CLEAR / "evidence")
+    assembly, _ = h.assemble(builder, fixture_dir / "package", fx.rows(), probe / "artifact")
+    out = {"builder_digest": entry["builder_digest"], "assembly": assembly.cls, "assembly_message": assembly.message}
+    if assembly.cls == h.PASS:
+        opens_with = json.loads((h.DECLARATIONS / "profiles.json").read_text(encoding="utf-8"))["profiles"][0]["password"]  # N22, public
+        with serve.Server(probe / "artifact") as server:
+            subprocess.run(["node", str(HERE / "browser" / "smoke.mjs"), server.url, str(probe / "smoke.json"), str(probe / "smoke.png")],
+                           capture_output=True, text=True, timeout=900, env={**os.environ, "BICE_OPENS_WITH": opens_with})
+        out["smoke"] = json.loads((probe / "smoke.json").read_text(encoding="utf-8"))
+    (folder / "probe.json").write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
+    return out
+
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("candidate", choices=["own", "evidence"])
-    parser.add_argument("--commit", required=True, help="the commit whose tracked sources are built, and whose harness runs")
+    parser.add_argument("--commit", help="the commit whose tracked sources are built, and whose harness runs")
+    parser.add_argument("--probe", action="store_true", help="open the last archived builder output in the browser, with the clear package")
     args = parser.parse_args()
+    if args.probe:
+        print(json.dumps(probe_page(args.candidate), indent=1))
+        raise SystemExit(0)
+    if not args.commit:
+        parser.error("--commit is required for a build")
     result = (build_own if args.candidate == "own" else build_evidence)(args.commit)
     print(json.dumps(result, indent=1))
     raise SystemExit(0 if result["status"] == "archived" else 1)

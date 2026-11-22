@@ -7,8 +7,8 @@
   import { onMount } from 'svelte';
   import * as env from '$lib/envelope.mjs';
   import pins from 'bice:pins';
+  import { session } from '$lib/session.js';
 
-  export let session = 0;
   let password = '';
   let ready = false;
   let failed = false;
@@ -67,7 +67,7 @@
       await c.query("CREATE OR REPLACE TABLE p01.rows AS SELECT * FROM read_parquet('p01.parquet')");
       await db.dropFile('p01.parquet');
       await c.close();
-      session += 1;
+      session.update((n) => n + 1);
     } finally {
       busy = false;
     }
@@ -80,7 +80,7 @@
   }
 </script>
 
-{#if !session}
+{#if !$session}
   <form data-bice="login" on:submit|preventDefault={submit}>
     <label for="senha">Senha da Diretoria</label>
     <input id="senha" data-bice="password" type="password" autocomplete="off" bind:value={password} disabled={!ready || busy} />
