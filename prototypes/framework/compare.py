@@ -5,7 +5,8 @@ It builds what is missing — each candidate's encrypted route at the harness
 that runs, `route.py` —, draws the measured fixture once against both builder
 outputs and carries both runs through (`measured.py`), and then, on both
 artifacts of that draw: the browser check and its proofs (`check.py`, the G
-mutant for B), the browser diagnostic (`diagnose.py`, N96: reported, never
+mutant for B), the controls of §2.5.5 on each candidate's own builder output
+(`builder_controls.py`), the browser diagnostic (`diagnose.py`, N96: reported, never
 judged), the measures of §2.7 (`measure.py`) and what needs no browser. Every
 result is kept with the package's and the artifact's digests; the state's
 measures are discarded with the draw by any build or harness change
@@ -22,6 +23,7 @@ import pathlib
 import secrets
 import subprocess
 
+import builder_controls
 import cdn
 import check
 import diagnose
@@ -64,6 +66,11 @@ def measure_candidate(name: str, draw: dict, artifacts: dict, out: pathlib.Path)
     if name == "own" and "own-mutant" in artifacts:
         mutant = {"mutant_artifact": route.RUNS / artifacts["own-mutant"]["artifact"], "mutant": _fixture(draw, mutant=True)}
     result["check"] = check.run(name, artifact, fx, out / "check", **mutant)
+    state = route.load()
+    entry = state["builds"][name]
+    result["controls"] = builder_controls.run(name, route.RUNS / "draws" / draw["id"] / name / "builder", entry["builder_digest"],
+                                              measured.MEASURED / draw["id"] / "package", fx, out / "controls",
+                                              dependencies=measured._dependencies(name, entry, route.RUNS))
     decl = HERE / name / "cdn.json"
     pins = {f["url"]: f["sha256"] for f in json.loads(decl.read_text(encoding="utf-8"))["files"]}
     diagnosis = diagnose.run(artifact, io_.Needles.from_fixture(fx), out=out / "diagnostic", cdn=pins,
