@@ -172,6 +172,47 @@ def test_a_tarball_is_checked_against_the_lockfile_and_cached(tmp_path):
         npm.fetch(project / "package-lock.json", tmp_path / "other", get=lambda url: data + b"x")
 
 
+def _declaration(tmp_path, url, data, path=".home/ext/x.wasm"):
+    out = tmp_path / "extensions.json"
+    out.write_text(json.dumps({"files": [{"url": url, "sha256": hashlib.sha256(data).hexdigest(), "path": path}]}))
+    return out
+
+
+def test_a_pinned_file_is_checked_cached_and_placed_at_its_declared_path(tmp_path):
+    data = b"\0asm pinned extension"
+    url = "https://extensions.duckdb.org/v1.4.3/wasm_eh/x.wasm"
+    fetched = []
+    allow = npm.pinned(_declaration(tmp_path, url, data), tmp_path / "cache", get=lambda u: fetched.append(u) or data)
+    assert fetched == [url]
+    assert [(e.dest, e.sha256) for e in allow.entries] == [(".home/ext/x.wasm", hashlib.sha256(data).hexdigest())]
+
+    def no_network(u):
+        raise AssertionError("a cached pinned file is not fetched again")
+
+    npm.pinned(_declaration(tmp_path, url, data), tmp_path / "cache", get=no_network)
+    with pytest.raises(npm.Refused, match="not the declared bytes"):
+        npm.pinned(_declaration(tmp_path, url, data), tmp_path / "other", get=lambda u: data + b"x")
+
+
+@pytest.mark.parametrize("url", ["http://extensions.duckdb.org/x.wasm", "https://evil.example/x.wasm",
+                                 "https://extensions.duckdb.org.evil.example/x.wasm"])
+def test_a_pinned_file_from_an_undeclared_host_is_refused(tmp_path, url):
+    def no_network(u):
+        raise AssertionError("an undeclared host is never fetched")
+
+    with pytest.raises(npm.Refused, match="not a declared host"):
+        npm.pinned(_declaration(tmp_path, url, b"x"), tmp_path / "cache", get=no_network)
+
+
+def test_the_pinned_fetcher_takes_only_the_declared_hosts_and_the_registry_fetcher_only_the_registry():
+    with pytest.raises(npm.Refused, match="is not on"):
+        npm._https_get("https://extensions.duckdb.org/x.wasm")
+    with pytest.raises(npm.Refused, match="is not on"):
+        npm._pinned_get(npm.REGISTRY + "a/-/a-1.tgz")
+    with pytest.raises(npm.Refused, match="is not on"):
+        npm._pinned_get("https://extensions.duckdb.org.evil.example/x.wasm")
+
+
 # --- the offline install, in the sandbox -----------------------------------------------
 
 

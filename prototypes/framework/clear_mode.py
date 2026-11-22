@@ -101,12 +101,15 @@ def evidence(commit: str, *, root: pathlib.Path = CLEAR / "evidence", fresh: boo
     build_work = root / "build-work"
     if build_work.exists():
         shutil.rmtree(build_work)
-    allow_build = sources + modules + al.single("sources/p01/p01.parquet", parquet)
+    extensions = npm.pinned(HERE / "evidence" / "extensions.json", root / "pinned")  # A6: what the build loads at run time
+    record["A6_build_inputs"] = [{"path": e.dest, "sha256": e.sha256} for e in extensions.entries]
+    allow_build = sources + modules + extensions + al.single("sources/p01/p01.parquet", parquet)
     al.assemble(allow_build, build_work)
     al.check(allow_build, build_work)
     t0 = time.time()
     built = sb.run(build_work, ["/usr/bin/sh", "-c", EVIDENCE_BUILD], timeout=3600,
-                   env={"EVIDENCE_TELEMETRY_DISABLED": "1", "DO_NOT_TRACK": "1", "NODE_OPTIONS": "--max-old-space-size=4096"})
+                   env={"HOME": f"{sb.WORK}/.home", "EVIDENCE_TELEMETRY_DISABLED": "1", "DO_NOT_TRACK": "1",
+                        "NODE_OPTIONS": "--max-old-space-size=4096"})
     record["A6_build"] = {"argv": EVIDENCE_BUILD, "exit": built.returncode, "seconds": round(time.time() - t0, 1),
                           "stderr": _tail(built.stderr), "stdout": _tail(built.stdout)}
     _log(record, log)

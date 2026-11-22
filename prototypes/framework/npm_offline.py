@@ -64,9 +64,9 @@ def verify_integrity(data: bytes, integrity: str) -> bool:
     return False
 
 
-def _https_get(url: str) -> bytes:
-    if not url.startswith(REGISTRY):
-        raise Refused(f"{url} is not on {REGISTRY}")
+def _https_get(url: str, allowed: tuple[str, ...] = (REGISTRY,)) -> bytes:
+    if not url.startswith(allowed):
+        raise Refused(f"{url} is not on {' or '.join(allowed)}")
 
     class NoRedirect(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, *args, **kwargs):
@@ -149,6 +149,38 @@ def keep_install(work: pathlib.Path, out: pathlib.Path) -> al.Allowlist:
     if uncarried:
         raise Refused(f"the install wrote entries no copy can carry: {uncarried}")
     return al.files(out, "node_modules/")
+
+
+#: The hosts a pinned file of a candidate may come from (§2.4, §3 A6).
+PINNED_HOSTS = ("extensions.duckdb.org", "cdn.jsdelivr.net")
+
+
+def _pinned_get(url: str) -> bytes:
+    return _https_get(url, tuple(f"https://{host}/" for host in PINNED_HOSTS))
+
+
+def pinned(declaration: pathlib.Path, cache: pathlib.Path, get=_pinned_get) -> al.Allowlist:
+    """Every file a candidate's declaration names by URL and SHA-256 — what its
+    build loads at run time, fetched by the harness instead —, from a declared
+    host only, checked, kept in `cache` by its digest; the allowlist that puts
+    each at its declared path in the work folder (§3, A6)."""
+    import urllib.parse
+
+    files = json.loads(declaration.read_text(encoding="utf-8"))["files"]
+    cache.mkdir(parents=True, exist_ok=True)
+    entries = []
+    for f in files:
+        host = urllib.parse.urlsplit(f["url"]).hostname
+        if urllib.parse.urlsplit(f["url"]).scheme != "https" or host not in PINNED_HOSTS:
+            raise Refused(f"{f['url']}: not a declared host")
+        path = cache / f"{f['sha256']}.bin"
+        if not (path.is_file() and not path.is_symlink() and hashlib.sha256(path.read_bytes()).hexdigest() == f["sha256"]):
+            data = get(f["url"])
+            if hashlib.sha256(data).hexdigest() != f["sha256"]:
+                raise Refused(f"{f['url']}: not the declared bytes")
+            path.write_bytes(data)
+        entries.append(al.Entry(f["path"], f["sha256"], str(path)))
+    return al.Allowlist(tuple(entries))
 
 
 def third_party(name: str, version: str, out: pathlib.Path, get=_https_get) -> pathlib.Path:
