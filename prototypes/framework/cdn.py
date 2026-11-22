@@ -88,6 +88,24 @@ def check(declaration: pathlib.Path, get_cdn=_cdn_get) -> list[str]:
     return [f["url"] for f in decl["files"] if hashlib.sha256(get_cdn(f["url"])).hexdigest() != f["sha256"]]
 
 
+def bodies(declaration: pathlib.Path, cache: pathlib.Path, get_cdn=_cdn_get) -> dict[str, bytes]:
+    """Each declared body by its URL, from a cache by digest, fetched once and
+    checked against the declaration: what the browser diagnostic, whose Chrome
+    resolves only the local origin, fulfils by interception (§2.5.3)."""
+    decl = json.loads(declaration.read_text(encoding="utf-8"))
+    cache.mkdir(parents=True, exist_ok=True)
+    out = {}
+    for f in decl["files"]:
+        kept = cache / f["sha256"]
+        data = kept.read_bytes() if kept.is_file() else get_cdn(f["url"])
+        if hashlib.sha256(data).hexdigest() != f["sha256"]:
+            raise Refused(f"{f['url']}: not the declared bytes")
+        if not kept.is_file():
+            kept.write_bytes(data)
+        out[f["url"]] = data
+    return out
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 3 or sys.argv[1] not in ("take", "check"):
         raise SystemExit("usage: cdn.py take|check <cdn.json>")

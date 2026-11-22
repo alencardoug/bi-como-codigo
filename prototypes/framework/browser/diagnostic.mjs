@@ -154,7 +154,9 @@ handlers.push(async (msg) => {
     (raw.requests[params.requestId] ||= {}).failed = params.errorText;
   } else if (method === "Fetch.requestPaused") {
     const b64 = config.fulfill[params.request.url];
-    if (b64 !== undefined) await send("Fetch.fulfillRequest", { requestId: params.requestId, responseCode: 200, responseHeaders: [{ name: "Content-Type", value: "text/javascript" }, { name: "Access-Control-Allow-Origin", value: "*" }], body: b64 }, sessionId);
+    // The type the host serves it as: a WASM by `application/wasm`, which instantiateStreaming requires.
+    const type = /\.wasm(?:$|[?#])/.test(params.request.url) ? "application/wasm" : "text/javascript";
+    if (b64 !== undefined) await send("Fetch.fulfillRequest", { requestId: params.requestId, responseCode: 200, responseHeaders: [{ name: "Content-Type", value: type }, { name: "Access-Control-Allow-Origin", value: "*" }], body: b64 }, sessionId);
     else await send("Fetch.continueRequest", { requestId: params.requestId }, sessionId);
   }
 });
