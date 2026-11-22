@@ -37,13 +37,24 @@ await new Promise((r) => ws.addEventListener("open", r));
 let id = 0;
 const pending = new Map();
 const logs = [];
+// Every request the page and its workers make, as each asked for it, query included: attributed by
+// the protocol, apart from Chrome's own background requests the net log also holds (CMP-1-09).
+const pageUrls = new Set();
 ws.addEventListener("message", (m) => {
   const d = JSON.parse(m.data);
   if (d.id && pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); return; }
+  if (d.method === "Network.requestWillBeSent") pageUrls.add(d.params.request.url);
+  if (d.method === "Target.attachedToTarget") {
+    const s = d.params.sessionId;
+    send("Network.enable", {}, s).then(() => send("Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: true, flatten: true }, s))
+      .then(() => send("Runtime.runIfWaitingForDebugger", {}, s));
+  }
   if (d.method === "Runtime.exceptionThrown") logs.push(`exception: ${d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text}`);
   if (d.method === "Runtime.consoleAPICalled" && ["error", "warning"].includes(d.params.type)) logs.push(`${d.params.type}: ${d.params.args.map((a) => a.value ?? a.description).join(" ")}`);
 });
-const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
+const send = (method, params = {}, sessionId) => new Promise((r) => {
+  const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params, ...(sessionId ? { sessionId } : {}) }));
+});
 const ev = async (expression) => (await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })).result?.result?.value;
 const waitFor = async (expression, ms = 120000) => {
   const t0 = Date.now();
@@ -98,7 +109,8 @@ const read = (bice) => ev(`(() => {
 
 const out = { url: config.url };
 try {
-  await send("Runtime.enable"); await send("Page.enable");
+  await send("Runtime.enable"); await send("Page.enable"); await send("Network.enable");
+  await send("Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
   const t0 = Date.now();
   await send("Page.navigate", { url: config.url });
   out.login_ms = await waitFor(present("[data-bice=password]:not([disabled])"));
@@ -144,12 +156,13 @@ try {
   out.error = String(error?.stack || error);
 } finally {
   out.logs = logs;
+  out.page_urls = [...pageUrls].filter((u) => /^https?:/.test(u)).sort();
   ws.close();
   chrome.kill();
   await sleep(1500);
   try {  // every URL Chrome's network stack requested, the workers' included
     const text = readFileSync(join(profile, "net.json"), "utf8");
-    const urls = new Set([...text.matchAll(/"url":"(https?:[^"?#]+)/g)].map((m) => m[1]));
+    const urls = new Set([...text.matchAll(/"url":"(https?:[^"#]+)/g)].map((m) => m[1]));  // the query kept (CMP-1-09)
     out.hosts = [...new Set([...urls].map((u) => new URL(u).host))].sort();
     out.third_party_urls = [...urls].filter((u) => !u.startsWith(new URL(config.url).origin)).sort();
   } catch (error) {

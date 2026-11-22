@@ -196,13 +196,19 @@ def compare(seen: dict, o: Oracle, *, cdn_urls: frozenset[str] = frozenset()) ->
             or after.get("history") != seen.get("history_at_login") or back.get("summary") is not False):
         refuse("logout", detail=after, history_at_login=seen.get("history_at_login"))
     hosts = seen.get("hosts")
-    if hosts is None:
+    if hosts is None or seen.get("page_urls") is None:
         refuse("network unobserved", detail=seen.get("net_log_error"))
     else:
         for url in seen.get("third_party_urls", []):
             host = url.split("/")[2]
             if host in THIRD_PARTY_HOSTS and url not in cdn_urls:
                 refuse("undeclared third-party URL", url=url)
+        # What the page and its workers requested: the local origin, or a declared URL exactly, query
+        # and all — any other origin is refused, even one Chrome could not resolve (CMP-1-09).
+        local = "/".join(seen.get("url", "").split("/")[:3]) + "/"
+        for url in seen["page_urls"]:
+            if not url.startswith(local) and url not in cdn_urls:
+                refuse("undeclared URL", url=url)
     return out
 
 

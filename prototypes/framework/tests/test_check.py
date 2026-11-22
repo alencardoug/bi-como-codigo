@@ -38,6 +38,7 @@ def _seen(o: check.Oracle) -> dict:
         "history_at_login": 2, "history_before_logout": 2,
         "after_logout": {"login_ms": 5, "summary": False, "history": 2, "back": {"summary": False, "url": "about:blank"}},
         "hosts": ["127.0.0.1:1", "cdn.jsdelivr.net"], "third_party_urls": ["https://cdn.jsdelivr.net/npm/x@1/a.js"],
+        "page_urls": ["http://127.0.0.1:1/", "http://127.0.0.1:1/app.js", "https://cdn.jsdelivr.net/npm/x@1/a.js"],
     }
 
 
@@ -108,3 +109,17 @@ def test_the_check_passes_only_with_its_proofs():
     assert not check._passed("own", {**good, "mutant_proof": {**mutant, "refused_on_g_alone": False}})[0]
     assert not check._passed("evidence", {**good, "comparator_proof": {"a": {"refused": True, "for_its_reason": False}}})[0]
     assert not check._passed("evidence", {"page_passed": True})[0]
+
+
+@pytest.mark.parametrize("url, refused", [
+    ("https://example.org/x.js", True),  # an origin no one declared, even unresolved
+    ("https://cdn.jsdelivr.net/npm/x@1/a.js?v=2", True),  # a query on a pinned path
+    ("http://127.0.0.1:1/package/P01.bice", False),
+])
+def test_the_page_may_request_only_its_origin_and_declared_urls(oracle, url, refused):
+    """CMP-1-09: attributed to the page or its workers; Chrome's background hosts are listed apart."""
+    seen = _seen(oracle)
+    seen["page_urls"].append(url)
+    seen["hosts"].append("clients2.google.com")
+    reasons = {r["reason"] for r in check.compare(seen, oracle, cdn_urls=frozenset(seen["third_party_urls"]))}
+    assert ("undeclared URL" in reasons) == refused, reasons
