@@ -17,9 +17,10 @@ import trees
 
 def _clean_draw(tmp_path, monkeypatch, artifacts):
     state = route.load(tmp_path)
-    state.update(draw={"id": "d1", "status": "clean", "fixture_digest": "f"}, artifacts=artifacts)
+    state.update(draw={"id": "d1", "status": "clean", "fixture_digest": "f", "finished": "t"}, artifacts=artifacts)
     route.save(state, tmp_path)
     monkeypatch.setattr(compare, "build_missing", lambda commit, runs: [])
+    monkeypatch.setattr(route, "harness_inputs", lambda commit, **kw: {"prototypes/framework": "h"})  # no commit to read
 
 
 def test_an_assembly_refused_by_form_is_reported_not_raised(tmp_path, monkeypatch):

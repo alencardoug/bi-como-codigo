@@ -122,9 +122,12 @@ def _kept(state: dict, name: str, runs: pathlib.Path) -> dict | None:
 
 @route.serialized
 def run(commit: str, *, seed: int | None = None, runs: pathlib.Path = route.RUNS) -> dict:
+    inputs = route.harness_inputs(commit)
     built = build_missing(commit, runs)
     state = route.load(runs)
-    if state["draw"] is None:
+    standing = state["draw"]
+    if standing is None or (standing.get("status") == "clean" and not standing.get("finished")):
+        # a new draw, or one an interruption left unfinished, carried on over its fixture (CMP-2-01)
         measured.run(commit, seed if seed is not None else secrets.randbelow(2**31), runs=runs)
         state = route.load(runs)
     draw = state["draw"]
@@ -143,6 +146,7 @@ def run(commit: str, *, seed: int | None = None, runs: pathlib.Path = route.RUNS
                 results[name] = kept
                 continue
             results[name] = measure_candidate(name, draw, state["artifacts"], out / name, runs)
+            route.still(commit, inputs)  # nothing measured under a harness edited meanwhile is published (CMP-2-02)
             # The result first, then the pointer to it: an interruption between them leaves no pointer.
             (out / name / "result.json").write_text(json.dumps(results[name], indent=1, ensure_ascii=False, default=str) + "\n",
                                                     encoding="utf-8")
@@ -158,6 +162,7 @@ def run(commit: str, *, seed: int | None = None, runs: pathlib.Path = route.RUNS
                           "verdicts": measured.verdicts({**final, "records": h_["records"]})} for h_ in final["history"]]
     report["artifacts"] = {n: {k: v for k, v in a.items() if k not in ("builder_inspection", "artifact_inspection")}
                            for n, a in final["artifacts"].items()}
+    route.still(commit, inputs)
     out.mkdir(parents=True, exist_ok=True)
     (out / "report.json").write_text(json.dumps(report, indent=1, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
     return report

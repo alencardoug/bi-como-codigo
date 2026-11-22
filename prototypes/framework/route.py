@@ -76,6 +76,18 @@ def harness_inputs(commit: str, *, require_clean: bool = True) -> dict[str, str]
     return {path: _git("rev-parse", f"{commit}:{path}") for path in HARNESS_PATHS}
 
 
+def still(commit: str, inputs: dict[str, str], *, require_clean: bool = True) -> None:
+    """The harness that runs is still `inputs`, as committed: checked again
+    before a stage's outcome is recorded and before a result is published, so
+    that a tracked file edited during a long run — a list, a declaration, a
+    script read when its stage runs — is never judged under the identity the
+    run started with (CMP-2-02). Refused otherwise; the stage stays as it was
+    recorded before it ran, interrupted."""
+    now = harness_inputs(commit, require_clean=require_clean)
+    if now != inputs:
+        raise Refused(f"the harness changed during the run: {sorted(k for k in inputs if now.get(k) != inputs[k])}")
+
+
 # --- the state ------------------------------------------------------------------------------
 
 def _empty() -> dict:
@@ -259,6 +271,11 @@ def build(candidate: str, commit: str, allow: al.Allowlist, argv: list[str], out
     shutil.rmtree(work)
     digest = trees.archive(builder, folder / "builder.tar.gz")
     files = [p for p in builder.rglob("*") if p.is_file()]
+    try:
+        still(commit, entry["harness"], require_clean=require_clean)  # CMP-2-02
+    except Refused as changed:
+        finish({"build": v.Stage(status="interrupted")}, status=f"refused: {changed}")
+        raise
     return finish({"build": v.Stage(), "archive": v.Stage()}, status="archived", builder_digest=digest,
                   archive=str((folder / "builder.tar.gz").relative_to(runs)), seconds=seconds,
                   files=len(files), bytes=sum(p.stat().st_size for p in files))
