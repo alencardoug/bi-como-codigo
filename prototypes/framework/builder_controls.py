@@ -11,6 +11,16 @@ asserts its diagnosis at the layer it is for — `verify`'s class, the
 inspection's code in that file — and records the rest, the verdict of that
 one run included. Control runs are labelled `control` and never enter a
 candidate's history.
+
+A control is as expected only when everything it shows is (CMP-1-07): its
+`verify` class, its code in the added file — through its decoding layer where
+it has one —, no finding anywhere else, nothing inconclusive, and the verdict
+of that run alone. The rows of §2.5.5 that take no builder output of a
+candidate's — the incidental literal, the numeric label behind form, the
+harness classes, the collision, the carrier nobody listed, a pinned body
+changed — are proved on hand-made outputs by step 1's tests; A1's carriers of
+Evidence's own page, each alone in a clean artifact, by the clear mode's
+controls (`clear_mode.py evidence --controls`, step 2).
 """
 
 from __future__ import annotations
@@ -75,6 +85,13 @@ class Control:
     verify: str  # the class `verify` must give
     code: str  # the inspection's code in the added file, or NONE
     own_package: bool = False  # the builder output carries a package/ of its own: assembly's form
+    layers: tuple[str, ...] = ()  # the decoding layers the code's finding must be reached through
+
+    @property
+    def expected_verdict(self) -> str:
+        if self.code != NONE:
+            return v.FAILS
+        return v.PASSES if self.verify == h.PASS else v.COST
 
 
 def table(fx: fx_mod.Fixture) -> list[Control]:
@@ -93,12 +110,13 @@ def table(fx: fx_mod.Fixture) -> list[Control]:
         Control("an amount in its JavaScript spelling", {d + "w.js": f"const v = {_js(amount)};".encode()}, h.PASS, io_.INSPECT_NUMBER),
         Control("Arrow IPC", {d + "q.arrow": _arrow_counts(fx)}, h.PASS, io_.INSPECT_ARROW),
         Control("Parquet with rows", {d + "p.parquet": _parquet_rows(fx)}, h.CONTENT, io_.INSPECT_PARQUET),
-        Control("gzip of a JSON of rows", {d + "rows.bin": gzip.compress(rows, mtime=0)}, h.PASS, io_.INSPECT_TEXT),
-        Control("brotli of a JSON of rows", {d + "rows2.bin": brotli.compress(rows)}, h.PASS, io_.INSPECT_TEXT),
-        Control("base64 of a JSON of rows", {d + "rows.txt": base64.b64encode(rows)}, h.PASS, io_.INSPECT_TEXT),
-        Control("JSON-escaped text", {d + "s.js": f'const s = "{escaped}";'.encode()}, h.PASS, io_.INSPECT_TEXT),
+        Control("schema only", {d + "s.parquet": fx_mod.parquet([])}, h.SCHEMA_ONLY, NONE),
+        Control("gzip of a JSON of rows", {d + "rows.bin": gzip.compress(rows, mtime=0)}, h.PASS, io_.INSPECT_TEXT, layers=("gzip",)),
+        Control("brotli of a JSON of rows", {d + "rows2.bin": brotli.compress(rows)}, h.PASS, io_.INSPECT_TEXT, layers=("brotli",)),
+        Control("base64 of a JSON of rows", {d + "rows.txt": base64.b64encode(rows)}, h.PASS, io_.INSPECT_TEXT, layers=("base64",)),
+        Control("JSON-escaped text", {d + "s.js": f'const s = "{escaped}";'.encode()}, h.PASS, io_.INSPECT_TEXT, layers=("escapes",)),
         Control("a base64 payload in a service worker", {d + "sw.js": b"self.data = '" + base64.b64encode(gzip.compress(rows, mtime=0)) + b"';"},
-                h.PASS, io_.INSPECT_TEXT),
+                h.PASS, io_.INSPECT_TEXT, layers=("base64", "gzip")),
         Control("a label in a .map", {d + "app.js.map": b'{"sources": ["fixture_canal_a"]}'}, h.FORM, io_.INSPECT_TEXT),
         Control("a label in a second manifest.json", {d + "x/manifest.json": b'{"name": "fixture_canal_a"}'}, h.FORM, io_.INSPECT_TEXT),
         Control("assembly form: a package/ of the builder's", {}, "assembly FORM", NONE, own_package=True),
@@ -139,7 +157,8 @@ def run(candidate: str, builder: pathlib.Path, builder_digest: str, package: pat
         else:
             work.mkdir()
         assembly, validated = h.assemble(source, package, fx.rows(), work / "artifact", control_additions=ctl.additions or None)
-        row = {"control": ctl.name, "assembly": assembly.cls, "expected_verify": ctl.verify, "expected_code": ctl.code}
+        row = {"control": ctl.name, "assembly": assembly.cls, "expected_verify": ctl.verify, "expected_code": ctl.code,
+               "expected_verdict": ctl.expected_verdict}
         stages = {"build": v.Stage(), "archive": v.Stage(),
                   "inspect_builder": v.Stage(findings=len(built.findings), inconclusive=len(built.inconclusive)),
                   "assembly": v.Stage(cls=assembly.cls)}
@@ -154,6 +173,8 @@ def run(candidate: str, builder: pathlib.Path, builder_digest: str, package: pat
             new += [io_.Item(f"{h.PACKAGE}/{name}", (work / "artifact" / h.PACKAGE / name).read_bytes()) for name in sorted(validated.files)]
             inspected = io_.inspect_items(new, needles, validated=dict(validated.files), dependencies=dependencies)
             in_file = sorted({x.code for x in inspected.findings if x.file in added})
+            through = any(x.code == ctl.code and x.file in added and all(f"> {layer}" in x.path for layer in ctl.layers)
+                          for x in inspected.findings)
             stages["verify"] = v.Stage(cls=checked.cls)
             stages["inspect_artifact"] = v.Stage(findings=len(inspected.findings) + len(built.findings),
                                                  inconclusive=len(inspected.inconclusive) + len(built.inconclusive))
@@ -161,13 +182,15 @@ def run(candidate: str, builder: pathlib.Path, builder_digest: str, package: pat
             row.update(verify=checked.cls, verify_message=checked.message[:300], codes_in_file=in_file,
                        codes_elsewhere=sorted({x.code for x in [*inspected.findings, *built.findings] if x.file not in added}),
                        inconclusive=len(inspected.inconclusive) + len(built.inconclusive))
-            row["as_expected"] = checked.cls == ctl.verify and (in_file == [] if ctl.code == NONE else ctl.code in in_file)
+            row["as_expected"] = (checked.cls == ctl.verify and (in_file == [] if ctl.code == NONE else ctl.code in in_file and through)
+                                  and row["codes_elsewhere"] == [] and row["inconclusive"] == 0)
         else:
-            row["as_expected"] = ctl.verify == f"assembly {assembly.cls}"
-            row["inspect_builder_findings"] = len(built.findings)
+            row["as_expected"] = (ctl.verify == f"assembly {assembly.cls}" and not built.findings and not built.inconclusive)
+            row.update(inspect_builder_findings=len(built.findings), inconclusive=len(built.inconclusive))
         judged = v.verdict([v.Record(f"control{i}", label="judged", build_input="control", builder_digest=builder_digest,
                                      artifact_digest=artifact_digest, stages=stages)])  # this one run, judged alone
         row["verdict"] = judged.name
+        row["as_expected"] = row["as_expected"] and judged.name == ctl.expected_verdict
         shutil.rmtree(work / "artifact", ignore_errors=True)
         shutil.rmtree(work / "builder", ignore_errors=True)
         results.append(row)
