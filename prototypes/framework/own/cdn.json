@@ -1,5 +1,5 @@
 {
- "about": "What Candidate B's page loads from jsDelivr (docs/framework_prototype.md §2.4, §4), by npm package, version and file; url, bytes, sha256 and integrity are taken by cdn.py from the npm tarball and checked against jsDelivr's body. role: 'module' is mapped by the import map under its specifier, 'script' is a classic script, 'fetch' is fetched by the page with its integrity and handed to DuckDB as a blob URL.",
+ "about": "What Candidate B's page loads from a third party (docs/framework_prototype.md §2.4, §4). An npm file is declared by package, version and file, and its url, bytes, sha256 and integrity are taken by cdn.py from the npm tarball and checked against jsDelivr's body; a DuckDB extension, which npm does not publish, by its url on extensions.duckdb.org, taken by cdn.py from there. role: 'module' is mapped by the import map under its specifier, 'script' is a classic script, 'fetch' is fetched by the page with its integrity and handed to DuckDB as a blob URL, 'extension' likewise and loaded with LOAD, autoloading off.",
  "files": [
   {
    "name": "duckdb",
@@ -67,6 +67,15 @@
    "bytes": 257954,
    "sha256": "83e215e84e308ee8688fa6503ba0f1cf8a3c05c0d61df2841a0b92bf86809e00",
    "integrity": "sha384-pV2l7nzmyxZh02knvUH7N8zvtyCYsYiGt+SsE/emG/dFiBI6G0YJZFZ2FzEX72P3"
+  },
+  {
+   "name": "duckdb_parquet",
+   "role": "extension",
+   "extension": "parquet",
+   "url": "https://extensions.duckdb.org/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+   "bytes": 3045039,
+   "sha256": "22765c8f7dc741cda2b571a66ac7bb355295d7d69a6c37e5315b265672984f55",
+   "integrity": "sha384-BOQzRRlWIlBsguRiM4lH3NvA+Gl1aCfYJ1IjOjyaUD0566SD7N6Jo4TnT0LmKVvs"
   }
  ]
 }

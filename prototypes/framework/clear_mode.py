@@ -182,7 +182,9 @@ def smoke(root: pathlib.Path = CLEAR / "own") -> dict:
     """B's clear build served on 127.0.0.1 by the stage's server and opened in
     headless Chrome by `browser/smoke.mjs`: that the page loads its pinned
     bodies from jsDelivr, opens the clear Parquet after submit, shows G, Z and
-    the partial month, and logs out. A record, not the check of §2.6."""
+    the partial month, and logs out; and every URL of jsDelivr or of DuckDB's
+    extensions it reached that `cdn.json` does not declare. A record, not the
+    check of §2.6."""
     import serve
 
     log = root / "record.json"
@@ -193,6 +195,10 @@ def smoke(root: pathlib.Path = CLEAR / "own") -> dict:
         done = subprocess.run(["node", str(HERE / "browser" / "smoke.mjs"), server.url + "index.html", str(out), str(root / "smoke.png")],
                               capture_output=True, text=True, timeout=600)
     record["smoke"] = json.loads(out.read_text(encoding="utf-8")) if out.is_file() else {"exit": done.returncode, "stderr": done.stderr[-4000:]}
+    declared = {f["url"] for f in json.loads((HERE / "own" / "cdn.json").read_text(encoding="utf-8"))["files"]}
+    third = ("https://cdn.jsdelivr.net/", "https://extensions.duckdb.org/")
+    if isinstance(record["smoke"].get("cdn_urls"), list):  # what the page reached of the declared hosts and was not declared
+        record["smoke"]["undeclared"] = sorted(u for u in record["smoke"]["cdn_urls"] if u.startswith(third) and u not in declared)
     _log(record, log)
     return record["smoke"]
 

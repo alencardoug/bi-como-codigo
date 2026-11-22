@@ -104,15 +104,35 @@ def test_the_pinned_scripts_and_the_engine_are_loaded_by_their_declared_url_and_
     html = (work / "build" / "index.html").read_text()
     declared = json.loads((OWN / "cdn.json").read_text())["files"]
     for f in declared:
-        assert f["url"] == cdn.url(f["package"], f["version"], f["file"]) and re.fullmatch(r"[0-9a-f]{64}", f["sha256"])
+        assert re.fullmatch(r"[0-9a-f]{64}", f["sha256"])
+        if f["role"] != "extension":
+            assert f["url"] == cdn.url(f["package"], f["version"], f["file"])
         if f["role"] == "script":
             assert f'<script src="{f["url"]}" integrity="{f["integrity"]}" crossorigin="anonymous"></script>' in html
         if f["role"] == "module":
             assert _importmap(html)["integrity"][f["url"]] == f["integrity"]
     pins = next((work / "build").glob("pins.*.mjs")).read_text()
     for f in declared:
-        assert (f["integrity"] in pins) == (f["role"] == "fetch")
+        assert (f["integrity"] in pins) == (f["role"] in ("fetch", "extension"))
     assert set(re.findall(r'https://[^"\s]+', html)) == {f["url"] for f in declared if f["role"] in ("script", "module")}
+
+
+def test_the_parquet_extension_is_the_body_evidence_pins_and_comes_only_from_duckdb(tmp_path):
+    ext = [f for f in json.loads((OWN / "cdn.json").read_text())["files"] if f["role"] == "extension"]
+    evidence = json.loads((HERE / "evidence" / "extensions.json").read_text())["files"]
+    assert [(f["extension"], f["url"], f["sha256"]) for f in ext] == [("parquet", e["url"], e["sha256"]) for e in evidence]
+    work = _work(tmp_path)
+    decl = json.loads((work / "cdn.json").read_text())
+    next(f for f in decl["files"] if f["role"] == "extension")["url"] = "https://cdn.jsdelivr.net/npm/x@1/parquet.duckdb_extension.wasm"
+    (work / "cdn.json").write_text(json.dumps(decl))
+    done = _build(work, "package")
+    assert done.returncode != 0 and "not pinned on https://extensions.duckdb.org/" in done.stderr
+
+
+def test_the_page_turns_autoloading_off_and_loads_the_pinned_extension():
+    page = (OWN / "page.mjs").read_text()
+    assert "SET GLOBAL autoinstall_known_extensions = false" in page and "SET GLOBAL autoload_known_extensions = false" in page
+    assert page.index("autoload_known_extensions = false") < page.index("LOAD '${url}#/${pin.extension}.duckdb_extension.wasm'")
 
 
 def test_a_declaration_with_an_unpinned_file_is_refused(tmp_path):
@@ -165,6 +185,12 @@ def test_cdn_take_pins_the_tarball_file_and_refuses_another_body(tmp_path):
     assert cdn.check(decl, get_cdn=lambda url: body) == []
     assert cdn.check(decl, get_cdn=lambda url: body + b" ") == [f["url"]]
     (tmp_path / "tp").joinpath("p-1.0.0.tgz").unlink()
+    ext = tmp_path / "ext.json"
+    ext.write_text(json.dumps({"files": [{"name": "e", "role": "extension", "extension": "parquet", "url": "https://extensions.duckdb.org/v1/e.wasm"}]}))
+    pinned = cdn.take(ext, get_cdn=lambda url: b"ext")["files"][0]
+    assert pinned["sha256"] == hashlib.sha256(b"ext").hexdigest() and "package" not in pinned
+    with pytest.raises(cdn.Refused, match="not the declared bytes"):
+        cdn.take(ext, get_cdn=lambda url: b"other ext")
     with pytest.raises(cdn.Refused, match="not the npm tarball's file"):
         cdn.take(decl, tarballs=tmp_path / "tp", get_registry=_registry(_tarball({"x.mjs": body})), get_cdn=lambda url: b"other")
 

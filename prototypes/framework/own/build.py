@@ -53,7 +53,8 @@ def emit(name: str, data: bytes) -> tuple[str, str]:
 
 
 def pins_module(cdn: dict) -> bytes:
-    fetched = {f["name"]: {"url": f["url"], "integrity": f["integrity"]} for f in cdn["files"] if f["role"] == "fetch"}
+    fetched = {f["name"]: {"url": f["url"], "integrity": f["integrity"], **({"extension": f["extension"]} if "extension" in f else {})}
+               for f in cdn["files"] if f["role"] in ("fetch", "extension")}
     return ("// The bodies the page fetches from jsDelivr with their integrity (cdn.json), written by build.py.\n"
             f"export default {json.dumps(fetched, indent=1, sort_keys=True)};\n").encode()
 
@@ -66,8 +67,9 @@ def build(mode: str) -> dict:
     OUT.mkdir()
     cdn = json.loads((HERE / "cdn.json").read_text(encoding="utf-8"))
     for f in cdn["files"]:
-        if not f.get("integrity") or not f["url"].startswith("https://cdn.jsdelivr.net/npm/"):
-            raise SystemExit(f"cdn.json: {f['name']} is not pinned on jsDelivr")
+        host = "https://extensions.duckdb.org/" if f["role"] == "extension" else "https://cdn.jsdelivr.net/npm/"
+        if not f.get("integrity") or not f["url"].startswith(host):
+            raise SystemExit(f"cdn.json: {f['name']} is not pinned on {host}")
 
     imports, integrity = {}, {}
     modules = dict(MODULES, **{"./source.mjs": SOURCES[mode]})

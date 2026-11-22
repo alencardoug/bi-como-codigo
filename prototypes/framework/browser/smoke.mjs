@@ -15,7 +15,7 @@ const [url, outPath, shot] = process.argv.slice(2);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const profile = mkdtempSync(join(tmpdir(), "bice-smoke-"));
 const chrome = spawn(process.env.BICE_CHROME || "google-chrome", ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`,
-  "--no-first-run", "--no-default-browser-check", "--window-size=1200,2000", "about:blank"], { stdio: "ignore" });
+  "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-component-update", "--window-size=1200,2000", `--log-net-log=${join(profile, "net.json")}`, "about:blank"], { stdio: "ignore" });
 
 let port = null;
 for (let i = 0; i < 100 && !port; i++) {
@@ -90,6 +90,15 @@ try {
   writeFileSync(outPath, JSON.stringify(out, null, 1) + "\n");
   ws.close();
   chrome.kill();
-  await sleep(500);
+  await sleep(1500);
+  try {  // every URL Chrome's network stack requested, the workers' included: the hosts reached
+    const text = readFileSync(join(profile, "net.json"), "utf8");
+    const urls = new Set([...text.matchAll(/"url":"(https?:[^"?#]+)/g)].map((m) => m[1]));  // no query: Chrome's own requests carry the client's address
+    out.hosts = [...new Set([...urls].map((u) => new URL(u).host))].sort();
+    out.cdn_urls = [...urls].filter((u) => !u.startsWith(new URL(url).origin)).sort();
+  } catch (error) {
+    out.hosts = `net log unreadable: ${error}`;
+  }
+  writeFileSync(outPath, JSON.stringify(out, null, 1) + "\n");
   rmSync(profile, { recursive: true, force: true });
 }

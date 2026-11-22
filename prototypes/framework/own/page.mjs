@@ -1,5 +1,5 @@
-// The page of Candidate B (docs/framework_prototype.md §2.3, §4). The engine is
-// loaded at start — it carries no data —; nothing is opened before the visitor
+// The page of Candidate B (docs/framework_prototype.md §2.3, §4). The engine and
+// its parquet extension are loaded at start — they carry no data —; nothing is opened before the visitor
 // submits; after login the Parquet is registered in DuckDB-WASM and every query
 // of the report runs there, in the browser. Logout terminates the engine's
 // worker and replaces the page (§2.3 item 7). Nothing is written to any store.
@@ -32,6 +32,18 @@ async function startEngine() {
   const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
   await db.instantiate(wasmUrl);
   URL.revokeObjectURL(workerUrl);
+  // The parquet extension, pinned, instead of the engine's own fetch of it from
+  // extensions.duckdb.org: autoloading off, then LOAD of the checked bytes. The
+  // fragment names the file, from which DuckDB takes the extension's entry point.
+  const setup = await db.connect();
+  await setup.query("SET GLOBAL autoinstall_known_extensions = false");
+  await setup.query("SET GLOBAL autoload_known_extensions = false");
+  for (const [name, pin] of Object.entries(pins).filter(([, p]) => p.extension)) {
+    const url = await pinned(name, "application/wasm");
+    await setup.query(`LOAD '${url}#/${pin.extension}.duckdb_extension.wasm'`);
+    URL.revokeObjectURL(url);
+  }
+  await setup.close();
   engine = { db, worker };
   return engine;
 }

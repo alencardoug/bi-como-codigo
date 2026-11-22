@@ -8,6 +8,10 @@ from it, and jsDelivr's body at `https://cdn.jsdelivr.net/npm/<package>@<version
 must be the same bytes. The declaration then carries, per file, the URL, the
 SHA-256 and the subresource-integrity token the own build writes into its page.
 
+A DuckDB extension the engine would load at run time is published by DuckDB
+on `extensions.duckdb.org`, not on npm: it is declared by its URL, its body
+taken from there, and a digest already declared must be the one served.
+
     uv run --frozen --group prototype python prototypes/framework/cdn.py take own/cdn.json
     uv run --frozen --group prototype python prototypes/framework/cdn.py check own/cdn.json
 """
@@ -26,6 +30,7 @@ import npm_offline as npm
 
 HERE = pathlib.Path(__file__).resolve().parent
 JSDELIVR = "https://cdn.jsdelivr.net/npm/"
+EXTENSIONS = "https://extensions.duckdb.org/"
 TARBALLS = HERE / "runs" / "third_party"
 
 
@@ -50,7 +55,7 @@ def from_tarball(tarball: pathlib.Path, file: str) -> bytes:
 
 
 def _cdn_get(address: str) -> bytes:
-    return npm._https_get(address, (JSDELIVR,))
+    return npm._https_get(address, (JSDELIVR, EXTENSIONS))
 
 
 def take(declaration: pathlib.Path, *, tarballs: pathlib.Path = TARBALLS, get_registry=npm._https_get, get_cdn=_cdn_get) -> dict:
@@ -58,6 +63,14 @@ def take(declaration: pathlib.Path, *, tarballs: pathlib.Path = TARBALLS, get_re
     compared byte for byte, the digests written into the declaration."""
     decl = json.loads(declaration.read_text(encoding="utf-8"))
     for f in decl["files"]:
+        if f["role"] == "extension":
+            if not f["url"].startswith(EXTENSIONS):
+                raise Refused(f"{f['url']}: an extension comes from {EXTENSIONS}")
+            served = get_cdn(f["url"])
+            if f.get("sha256") and hashlib.sha256(served).hexdigest() != f["sha256"]:
+                raise Refused(f"{f['url']}: not the declared bytes")
+            f.update({"bytes": len(served), "sha256": hashlib.sha256(served).hexdigest(), "integrity": sri(served)})
+            continue
         tarball = npm.third_party(f["package"], f["version"], tarballs, get=get_registry)
         published = from_tarball(tarball, f["file"])
         address = url(f["package"], f["version"], f["file"])
