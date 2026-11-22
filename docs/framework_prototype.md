@@ -20,7 +20,7 @@
 |---|---|
 | Date | 2026-11-20 — revision 9, with the five adjustments of round 8 of Codex's review (FPROTO-8-01 to -05), which found no blocking finding and closed the review. Revision 8 answered round 7 (FPROTO-7-01 to -06) with the Owner's N96, revision 7 answered round 6 (FPROTO-6-01 to -08), revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 began** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers, each caught by `verify` and by the inspection in its control (§3); on 2026-11-22 Candidate B's page is built, and its clear build's one carrier, the clear Parquet its page fetches, is caught by both in its control (§4): **step 2 is done**. **Step 3 has begun** on 2026-11-22: B's encrypted builder output is built from no data and archived, the run's state kept by identities (`route.py`, §5), and Evidence's A7 answers yes, with no patch (§3). P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
+| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 began** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers, each caught by `verify` and by the inspection in its control (§3); on 2026-11-22 Candidate B's page is built, and its clear build's one carrier, the clear Parquet its page fetches, is caught by both in its control (§4): **step 2 is done**. **Step 3 has begun** on 2026-11-22: B's encrypted builder output is built from no data and archived, the run's state kept by identities (`route.py`, §5), and Evidence's A7, A3 and A2 answer yes, with no patch, its encrypted builder output archived (§3); both are built again at the harness of the draw (§5). P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool that the stage proves or refutes (§9).
@@ -739,6 +739,40 @@ format numbers in English (`1,000M`, `2,729k`), not `pt-BR`. The smoke run did n
 so the page's own queries in the browser, and the `parquet` extension they would load (N98), are
 A4's.
 
+**A3 and A2 — yes, with no patch [measured, 2026-11-22].** The encrypted route's allowlist takes
+the project with `sources/` left out and the encrypted page in place of the clear one —
+`encrypted/pages/index.md`, `encrypted/components/Login.svelte` and `session.js`, and the
+envelope's reader as `components/envelope.mjs` (`route.py evidence_sources`) —; no source at all,
+so no empty Parquet is needed. `route.py evidence --commit 5b64bfc` fetches the 917
+tarballs into the route's own cache — never the clear mode's —, installs offline in the sandbox
+(83 s), and builds with A7's configuration and no `evidence sources` (53 s): **A3 — the build
+succeeds with only the allowlisted inputs**, every page query failing at build time on the missing
+`p01.rows`, so the builder output, 116 files and 14.9 MB, holds no `prerendered_queries` file, no
+Parquet, no WASM and no source manifest; archived as
+`evidence-20261122T053058Z-45f8bf47`. Two arrangements were needed, each a cost in our code, not
+in Evidence's: Evidence declares a page's queries before the page's script runs, so the variable the
+queries name to run again after login is a store of `session.js`, not a script variable (the first
+build failed to prerender on it); and its browser `query()` waits, five seconds at a time, for the
+tables only `setParquetURLs` sets, which no source sets here. **A2 — page code reaches Evidence's
+engine with no patch**: through the public module `@evidence-dev/universal-sql/client-duckdb`,
+`initDB` — asked again while the WASM is still arriving, since it gives up after five seconds — and
+`setParquetURLs`, whose `addBasePath` option makes the opened Parquet `p01.rows` from a blob URL and
+releases the queries; and, for what that module does not export, the instance its client sets on
+`window[Symbol.for('EVIDENCE_QUERY_ENGINE')]` — before instantiating it, so it is used only after
+`initDB` —, to load the `parquet` extension pinned (N98, by the module `bice:pins` A7's plugin
+serves from `evidence/cdn.json`) and, at logout, to terminate its worker. A probe in headless
+Chrome (`route.py evidence --probe`: the archived builder output assembled with the clear-mode
+fixture's validated package, a probe kept out of the run's records) shows the page working: the
+login box ready in 28.7 s cold, engine and client bundle included; a wrong password shows the
+refusal and opens nothing; with the right one the summary appears 2.7 s after submit, and the
+chart, the summary and the detail are Evidence's own components over its own queries; logout
+leaves the login page with the history unchanged; the page reached jsDelivr and
+`extensions.duckdb.org` only for declared bodies. **A4, seen in that probe**: the page's queries ran
+again when the table appeared, through the store each of them names; whether they run again on a
+change of the filter and of the month — Evidence's dropdowns are no `select`, which the smoke run
+drives — is step 5's, on the measured artifact. Costs seen, beside A7's: the queries' failure at
+build time is logged, not fatal; and the page still registers Evidence's service worker.
+
 **The encrypted route [planned].** No source holds data: the only source is empty — the zero-row
 Parquet of §2.2, if Evidence needs one — or absent if Evidence allows, and the package is not in the
 build. A Svelte component of the page fetches the manifest and the envelope at run time, opens it
@@ -927,7 +961,7 @@ plainly cannot reach one of them is reported as such, with the observation behin
    `tests/`. What the building settled is in §9.
 2. **The clear mode, first** [done: Evidence's A6, A1 and its controls run, 2026-11-21 (§3); B's clear build, its control and a smoke run, 2026-11-22 (§4)]: the clear-mode fixture, then each candidate's clear build in its own
    sandbox — A6 and A1 for Evidence —, and the controls built from its carriers.
-3. **The encrypted route** [begun, 2026-11-22: B's builder output archived (`make prototype-build-own`); A7 answered (§3)]: Candidate B's builder output, archived; Candidate A's, through probes
+3. **The encrypted route** [begun, 2026-11-22: B's builder output archived (`make prototype-build-own`); A7, A3 and A2 answered and Evidence's builder output archived (§3)]: Candidate B's builder output, archived; Candidate A's, through probes
    A7, A2 and A3, in that order, each "no" recorded and the next probe run where it still can, until
    its builder output is final, archived. No measured fixture exists yet.
 4. **The draw**, once, against both builder outputs; the package; both artifacts assembled; the
