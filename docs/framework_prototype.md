@@ -790,7 +790,7 @@ settled:
   and digest — 3,045,039 bytes, **the same body Evidence's build pins** (§3), which npm does not
   publish, so `cdn.py` takes it from DuckDB's host alone. A probe of the author's, with the page's
   own fetch given a query string, showed the engine's fetch of the bare URL gone. The page's
-  third-party origins are two: jsDelivr and `extensions.duckdb.org`.
+  third-party origins are two: jsDelivr and `extensions.duckdb.org`, accepted by the Owner (N98).
 - **The engine starts with the page** — it carries no data —, so that the password field is
   enabled once a submission can be served; nothing of the package is fetched before submit.
 
