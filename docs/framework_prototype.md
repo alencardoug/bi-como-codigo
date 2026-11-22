@@ -20,7 +20,7 @@
 |---|---|
 | Date | 2026-11-20 — revision 9, with the five adjustments of round 8 of Codex's review (FPROTO-8-01 to -05), which found no blocking finding and closed the review. Revision 8 answered round 7 (FPROTO-7-01 to -06) with the Owner's N96, revision 7 answered round 6 (FPROTO-6-01 to -08), revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 began** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers, each caught by `verify` and by the inspection in its control (§3); on 2026-11-22 Candidate B's page is built, and its clear build's one carrier, the clear Parquet its page fetches, is caught by both in its control (§4): **step 2 is done**. **Step 3 has begun** on 2026-11-22: B's encrypted builder output is built from no data and archived, the run's state kept by identities (`route.py`, §5), and Evidence's A7, A3 and A2 answer yes, with no patch, its encrypted builder output archived (§3); both are built again at the harness of the draw (§5). **Steps 4 to 6 have run once**, on 2026-11-22 at `344d525`, before the review: the draw clean, both candidates pass the criterion and the browser check, and both are measured (§10); Evidence through A8 (N100) and the arrangements of A4 and A5 (§3); the controls on each builder output are pending. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
+| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 began** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers, each caught by `verify` and by the inspection in its control (§3); on 2026-11-22 Candidate B's page is built, and its clear build's one carrier, the clear Parquet its page fetches, is caught by both in its control (§4): **step 2 is done**. **Step 3 has begun** on 2026-11-22: B's encrypted builder output is built from no data and archived, the run's state kept by identities (`route.py`, §5), and Evidence's A7, A3 and A2 answer yes, with no patch, its encrypted builder output archived (§3); both are built again at the harness of the draw (§5). **Steps 4 to 6 have run once**, on 2026-11-22 at `344d525`, before the review: the draw clean, both candidates pass the criterion and the browser check, and both are measured (§10); Evidence through A8 (N100) and the arrangements of A4 and A5 (§3); the controls of §2.5.5 on each candidate's own builder output then ran, every one as expected (§10). P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool that the stage proves or refutes (§9).
@@ -971,7 +971,7 @@ plainly cannot reach one of them is reported as such, with the observation behin
    its builder output is final, archived. No measured fixture exists yet.
 4. **The draw** [run, 2026-11-22, `compare.py`/`measured.py`; §10], once, against both builder outputs; the package; both artifacts assembled; the
    G mutant derived, sealed and assembled for B.
-5. On both artifacts [A4, A5 and the browser check run; the controls on each builder output pending, §10]: A4 and A5 for Evidence; the controls on each candidate's own builder output;
+5. On both artifacts [A4, A5, the browser check and the controls on each builder output run, §10]: A4 and A5 for Evidence; the controls on each candidate's own builder output;
    the browser check and its proof. A rebuild of either candidate here sends the work back to step 4.
 6. The measures of §6 under §2.7 [run once, before the review, §10], in one sitting per candidate, on this machine, on the artifacts of
    step 4.
@@ -1086,8 +1086,9 @@ built both encrypted routes at that harness — B `own-20261122T095732Z-baff345a
 `evidence-20261122T095732Z-456b9423`, with A8 —, drew the measured fixture once against both, and ran
 everything below on the two artifacts of that draw; the evidence is under
 `prototypes/framework/runs/draws/draw-20261122T100056Z-45077390/`, ignored by Git. The controls of
-§2.5.5 on each candidate's own builder output (§7 step 5) are **not yet run**, and the run is
-repeated in full after the review: these numbers are the author's, of one sitting.
+§2.5.5 on each candidate's own builder output (§7 step 5) ran after it, on the builder outputs of
+that draw, from the working tree that became `builder_controls.py`. The run is repeated in full
+after the review: these numbers are the author's, of one sitting.
 
 **The draw.** Clean after 10 draws and 532 rejections, in 221 s: seed 1906667583, the window 2072-02 to
 2077-02, *k* = 9, 10,896 rows, fixture `6dfba26c…`. The first draw at an earlier harness, against
@@ -1104,6 +1105,19 @@ and the last months, G and Z told apart, the notice, `order_count` only native, 
 comparator refuses each of its four altered readings for its own reason; B served with the G mutant
 opens it, shows the mutant's detail and is refused on G alone. Every third-party URL either page
 requested is declared in its `cdn.json` — jsDelivr and `extensions.duckdb.org` (N98).
+
+**The controls on each builder output (§2.5.5).** Sixteen per candidate, on its archived builder
+output with the draw's package and one leak each (`builder_controls.py`): clean metadata; a count in
+a JSON; the package alone with a form refusal; a fixed label; an amount in pt-BR and in its
+JavaScript spelling; Arrow IPC; Parquet with rows; gzip, brotli and base64 of a JSON of rows;
+JSON-escaped text; a base64 payload in a service worker; a label in a `.map` and in a second
+`manifest.json`; and assembly's own form, a `package/` of the builder's. **All 32 as expected**:
+each reaches its `verify` class (`PASS`, `CONTENT` or `FORM`) and its inspection code in the added
+file, with no finding elsewhere and nothing inconclusive; the verdict of each run alone passes for
+the clean one, is a cost for the two form refusals and fails the criterion for every leak. The
+gate's search is each of the fixture's 141,733 needles over each file, so its time grows with the
+artifact: B's 16 controls took 47 s in all, and each `verify` of Evidence's artifact about
+12 minutes — 2 h 11 min for its 16, the builder output's inspection included.
 
 **The browser's behaviour (§2.5.3, N96: reported, not judged).** Neither decrypts before a submission
 or in the wrong attempt: five WebCrypto calls each, all as the reader allows. Nothing the journey
@@ -1150,6 +1164,7 @@ accounting was not exercised; the warm revalidation was (`304`, 280 wire bytes, 
 | Build: time; builder output | 0.05 s; 9 files, 36 KB | 50.5 s; 114 files, 10.0 MB |
 | Engine in the build | no | no (A7) |
 | The gate's lists: inclusion lines, media types | 6, 5 | 22, 11 |
+| The gate on the artifact, one run of `verify` | under 4 s | about 12 min |
 | Upkeep: latest release, licence | DuckDB-WASM 1.33.1-dev57 (2026-06-22, MIT); Vega 6.4.0 (2026-08-14), Vega-Lite 6.5.0 (2026-10-08), BSD-3-Clause; Arrow 21.2.0 (2026-07-21, Apache-2.0) | Evidence 40.1.8 and core-components 5.4.2 (2026-02-06), MIT |
 
 **What it cost Evidence to get here**, each recorded in §3: A7's plugin for the engine; A8's for the icon
@@ -1158,5 +1173,4 @@ use of a global its client sets; A4's inputs written by our own component; A5's 
 since its tables format in English; its service worker, which no setting of ours removed; and its
 queries' failure at build time, logged.
 
-**Not measured here**: the controls of §2.5.5 on each candidate's own builder output (§7 step 5); a
-worker transfer spanning a cutoff; the phone, a slow network, other browsers (§9).
+**Not measured here**: a worker transfer spanning a cutoff; the phone, a slow network, other browsers (§9).
