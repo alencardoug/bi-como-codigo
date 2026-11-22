@@ -87,6 +87,7 @@ def measure_candidate(name: str, draw: dict, artifacts: dict, out: pathlib.Path)
     return result
 
 
+@route.serialized
 def run(commit: str, *, seed: int | None = None) -> dict:
     built = build_missing(commit)
     state = route.load()

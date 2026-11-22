@@ -25,7 +25,10 @@ a `verdict.Record`.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
+import fcntl
+import functools
 import json
 import os
 import pathlib
@@ -76,6 +79,49 @@ def harness_inputs(commit: str, *, require_clean: bool = True) -> dict[str, str]
 def _empty() -> dict:
     return {"harness": None, "builds": {}, "draw": None, "artifacts": {}, "measures": {}, "records": [], "discarded": [],
             "history": []}
+
+
+_HELD: dict[pathlib.Path, list[int]] = {}  # runs folder -> [lock fd, depth], this process's
+
+
+@contextlib.contextmanager
+def exclusive(runs: pathlib.Path = RUNS):
+    """One invocation at a time on a runs folder (CMP-1-02): each reads the
+    state, works and saves it, so two at once would publish whichever saved
+    last. An exclusive lock on `runs/.lock`, held for the whole invocation and
+    reentrant within it — `compare.py` builds and draws inside its own —; a
+    second invocation is refused, never queued."""
+    key = runs.resolve() if runs.exists() else runs.absolute()
+    if key in _HELD:
+        _HELD[key][1] += 1
+        try:
+            yield
+        finally:
+            _HELD[key][1] -= 1
+        return
+    runs.mkdir(parents=True, exist_ok=True)
+    fd = os.open(runs / ".lock", os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        raise Refused(f"another invocation is running on {runs} (its .lock is held)") from None
+    _HELD[runs.resolve()] = [fd, 1]
+    try:
+        yield
+    finally:
+        del _HELD[runs.resolve()]
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+def serialized(fn):
+    """`fn` under `exclusive` on the runs folder it is given, `RUNS` by default."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        with exclusive(kwargs.get("runs", RUNS)):
+            return fn(*args, **kwargs)
+    return wrapper
 
 
 def load(runs: pathlib.Path = RUNS) -> dict:
@@ -136,6 +182,7 @@ def own_allowlist(commit: str) -> al.Allowlist:
     return al.tracked(commit, "prototypes/framework/own/") + al.tracked(commit, "web/envelope.mjs")
 
 
+@serialized
 def build(candidate: str, commit: str, allow: al.Allowlist, argv: list[str], output: str, *, runs: pathlib.Path = RUNS,
           require_clean: bool = True, prove=prove_sandbox, timeout: float = 3600, env: dict[str, str] | None = None,
           install=None) -> dict:

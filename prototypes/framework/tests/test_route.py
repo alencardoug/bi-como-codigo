@@ -117,3 +117,23 @@ def test_evidence_encrypted_sources_have_no_source_and_the_encrypted_page():
     assert page.source.endswith(":prototypes/framework/evidence/encrypted/pages/index.md")
     envelope = next(e for e in route.evidence_sources(HEAD).entries if e.dest == "components/envelope.mjs")
     assert envelope.source.endswith(":web/envelope.mjs")
+
+
+def test_a_second_invocation_on_the_same_runs_is_refused_while_one_holds_it(tmp_path):
+    """CMP-1-02: overlapping invocations would each save the state they read."""
+    import subprocess, sys, textwrap
+    holder = subprocess.Popen([sys.executable, "-c", textwrap.dedent(f"""
+        import sys, time; sys.path.insert(0, {str(route.HERE)!r})
+        import pathlib, route
+        with route.exclusive(pathlib.Path({str(tmp_path)!r})):
+            print("held", flush=True); time.sleep(30)
+    """)], stdout=subprocess.PIPE, text=True)
+    try:
+        assert holder.stdout.readline().strip() == "held"
+        with pytest.raises(route.Refused, match="another invocation"):
+            _build(tmp_path)
+        assert route.load(tmp_path)["records"] == []  # refused before it read or wrote anything
+    finally:
+        holder.kill(); holder.wait()
+    with route.exclusive(tmp_path), route.exclusive(tmp_path):  # free again, and reentrant within one invocation
+        pass

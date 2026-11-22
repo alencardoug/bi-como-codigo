@@ -65,6 +65,7 @@ def _summary(report: io_.Report) -> dict:
             "recorded": len(report.recorded)}
 
 
+@route.serialized
 def run(commit: str, seed: int, *, runs: pathlib.Path = route.RUNS, measured: pathlib.Path = MEASURED,
         candidates: tuple[str, ...] = CANDIDATES, require_clean: bool = True, limit: int = fx_mod.DRAWS_MAX) -> dict:
     state = route.load(runs)
