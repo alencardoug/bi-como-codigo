@@ -1,0 +1,25 @@
+# Candidate A's (Evidence's) inclusion list for the gate
+# (docs/framework_prototype.md §6): the narrowest that covers its artifact,
+# its length a measured cost.
+site/index.html
+site/favicon.ico
+site/icon.svg
+site/apple-touch-icon.png
+site/icon-192.png
+site/icon-512.png
+site/manifest.webmanifest
+site/fix-tprotocol-service-worker.js
+site/_app/env.js
+site/_app/version.json
+site/_app/immutable/assets/*.css
+site/_app/immutable/assets/*.png
+site/_app/immutable/assets/*.woff
+site/_app/immutable/assets/*.woff2
+site/_app/immutable/chunks/*.js
+site/_app/immutable/entry/*.js
+site/_app/immutable/nodes/*.js
+site/api/evidencemeta.json
+site/api/pagesManifest.json
+site/api/customFormattingSettings.json/GET.json
+site/package/manifest.json
+site/package/*.bice

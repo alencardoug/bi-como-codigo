@@ -1,0 +1,6 @@
+# Candidate B's media types for the gate (docs/framework_prototype.md §6).
+.html text/html
+.mjs text/javascript
+.css text/css
+.json application/json
+.bice application/octet-stream

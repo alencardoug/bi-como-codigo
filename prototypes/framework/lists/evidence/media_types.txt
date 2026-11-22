@@ -1,0 +1,12 @@
+# Candidate A's (Evidence's) media types for the gate (docs/framework_prototype.md §6).
+.html text/html
+.js text/javascript
+.css text/css
+.json application/json
+.webmanifest application/manifest+json
+.ico image/x-icon
+.svg image/svg+xml
+.png image/png
+.woff font/woff
+.woff2 font/woff2
+.bice application/octet-stream

@@ -1,0 +1,8 @@
+# Candidate B's inclusion list for the gate (docs/framework_prototype.md §6):
+# the narrowest that covers its artifact, its length a measured cost.
+site/index.html
+site/*.mjs
+site/page.*.css
+site/p01.report.*.json
+site/package/manifest.json
+site/package/*.bice

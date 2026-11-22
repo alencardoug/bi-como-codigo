@@ -125,6 +125,22 @@ class Fixture:
                         m.order_count, m.unit_count, m.gross, m.discount, m.net))
         return sorted(out, key=lambda r: (r[0], r[3], r[6]))
 
+    def digest(self) -> str:
+        """The fixture's identity: its rows, in the grain's order."""
+        return hashlib.sha256(json.dumps([[str(v) for v in r] for r in self.rows()]).encode()).hexdigest()
+
+    def dump(self) -> dict:
+        """Every cell, so that a drawn fixture — not reproducible from its seed
+        alone — is read back as it was drawn."""
+        return {"seed": self.seed, "start": list(self.start), "k": self.k, "partial": [list(g) for g in self.partial],
+                "mutant": self.mutant, "cells": [[*key, m.order_count, m.unit_count, str(m.gross), str(m.discount), str(m.net)]
+                                                 for key, m in sorted(self.cells.items())]}
+
+    @classmethod
+    def load(cls, d: dict) -> "Fixture":
+        cells = {(c[0], c[1], c[2]): Measures(c[3], c[4], Decimal(c[5]), Decimal(c[6]), Decimal(c[7])) for c in d["cells"]}
+        return cls(d["seed"], tuple(d["start"]), d["k"], tuple(tuple(g) for g in d["partial"]), cells, d["mutant"])
+
     def describe(self) -> dict:
         return {"seed": self.seed, "start": self.year_month(0), "end": self.year_month(PARTIAL), "k": self.k,
                 "partial_groups": [list(g) for g in self.partial], "rows": len(self.cells), "mutant": self.mutant}
