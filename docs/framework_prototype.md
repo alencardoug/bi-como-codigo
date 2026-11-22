@@ -921,8 +921,10 @@ the checkout, the publishing tools — within reach. So **[planned]**:
   Git, keyed by **identities, not only digests** (FPROTO-6-07): each build invocation's own id and
   its build input — the allowlist's digest —, the digests of the two final builder outputs, the
   harness inputs that judge or time them — the commit of `prototypes/framework/`, the release
-  declarations, `cdn.json`, the lockfiles, the sandbox wrapper —, the draw, the package's digest and
-  the measures taken with all of them. **Any** build invocation of either candidate invalidates the
+  declarations, `cdn.json`, the lockfiles, the sandbox wrapper, and the Python dependencies
+  (`pyproject.toml`, `uv.lock`, CMP-1-03) —, the draw, the package's digest and the measures taken
+  with all of them. One invocation runs at a time on that state, under a lock (CMP-1-02); records of
+  a closed harness are kept and reported, and come back if that harness returns (N102, CMP-1-03). **Any** build invocation of either candidate invalidates the
   draw, both artifacts and both sets of measures, even when it reproduces the same bytes, and so
   does a change to any harness input; the comparison is reported only when both artifacts carry the
   same package digest under the same harness inputs, and a candidate whose encrypted route is not
@@ -975,7 +977,7 @@ plainly cannot reach one of them is reported as such, with the observation behin
    the browser check and its proof. A rebuild of either candidate here sends the work back to step 4.
 6. The measures of §6 under §2.7 [run once, before the review, §10], in one sitting per candidate, on this machine, on the artifacts of
    step 4.
-7. The results written in §10, and the implementation handed to Codex with the `review` skill.
+7. The results written in §10, and the implementation handed to Codex with the `review` skill [round 1 answered, 2026-11-22: CMP-1-01 to CMP-1-12 in `DOSSIER.md`; the full run follows, then round 2].
 8. The Owner chooses; the ADR is the Owner's.
 
 ## 8. Choices taken in this plan
@@ -1088,7 +1090,10 @@ everything below on the two artifacts of that draw; the evidence is under
 `prototypes/framework/runs/draws/draw-20261122T100056Z-45077390/`, ignored by Git. The controls of
 §2.5.5 on each candidate's own builder output (§7 step 5) ran after it, on the builder outputs of
 that draw, from the working tree that became `builder_controls.py`. The run is repeated in full
-after the review: these numbers are the author's, of one sitting.
+after the review: these numbers are the author's, of one sitting. **Round 1 of the review**
+(CMP-1-01 to CMP-1-12, `DOSSIER.md`) changed the harness — the verdict, the run's state, the
+inspector, the controls, the browser check and the measures —, so what follows stands for
+`344d525` alone and is replaced by the next full run.
 
 **The draw.** Clean after 10 draws and 532 rejections, in 221 s: seed 1906667583, the window 2072-02 to
 2077-02, *k* = 9, 10,896 rows, fixture `6dfba26c…`. The first draw at an earlier harness, against
@@ -1117,20 +1122,22 @@ file, with no finding elsewhere and nothing inconclusive; the verdict of each ru
 the clean one, is a cost for the two form refusals and fails the criterion for every leak. The
 gate's search is each of the fixture's 141,733 needles over each file, so its time grows with the
 artifact: B's 16 controls took 47 s in all, and each `verify` of Evidence's artifact about
-12 minutes — 2 h 11 min for its 16, the builder output's inspection included.
+12 minutes — 2 h 11 min for its 16, the builder output's inspection included —, both read from the
+times of the controls' folders, not timed by the harness.
 
 **The browser's behaviour (§2.5.3, N96: reported, not judged).** Neither decrypts before a submission
 or in the wrong attempt: five WebCrypto calls each, all as the reader allows. Nothing the journey
 wrote, and nothing readable at the end, holds a fixture value. **What the diagnostic reports first**:
 on disk, `INSPECT_NUMBER` in 1 file for B (`Service Worker/Database`) and 12 for Evidence — 6 in the
-HTTP cache, each the entry of one of the artifact's own files (fonts, scripts, a stylesheet, an
-image) stored as served, brotli-compressed, which the diagnostic does not recognise by digest and
-reads as an unknown binary; 4 in V8's code cache and 2 in its service worker's storage —, not
+HTTP cache, each the entry of one of the artifact's own files stored as served — four
+brotli-compressed, the WOFF2 font and the PNG image raw, each body matched to the artifact's own
+representation by the reviewer (round 1 of the review, CMP-1-12) —, which the diagnostic does not
+recognise by digest and reads as an unknown binary; 4 in V8's code cache and 2 in its service worker's storage —, not
 explained further; and `SESSION_SURVIVES` for both: after logout, B has one worker alive and
-Evidence two. For B the worker alive is a blob other than the session's, which was terminated: the
-new login page starts its own engine on load. Evidence's are its service worker
-(`fix-tprotocol-service-worker.js`, registered on every page, which §2.3 item 8 does not allow) and
-its engine's worker. Both are questions for 2.5's browser oracle on the chosen framework.
+Evidence two. For both, the session's engine worker was terminated and the new login page
+started an engine of its own on load, the worker alive at the end — for Evidence too, as the
+archived target ids and times show (CMP-1-12). Evidence's other is its service worker
+(`fix-tprotocol-service-worker.js`, registered on every page, which §2.3 item 8 does not allow). Both are questions for 2.5's browser oracle on the chosen framework.
 
 **First load and timings (§2.7)**, on this machine, served on `127.0.0.1`, medians of five with the
 range; the clock's error under 0.5 ms:
@@ -1159,13 +1166,13 @@ accounting was not exercised; the warm revalidation was (`304`, 280 wire bytes, 
 |---|---|---|
 | Lines we wrote: declaration / glue / configuration | 73 / 286 / 170 = 529 | 86 / 127 / 180 = 393 |
 | npm packages in the lockfile; `node_modules` | 0; none | 918; 616 MB, 33,764 entries |
-| Fetch; offline install | — | 917 tarballs, 29.6 s; 66.4 s, no script run (5 packages declare one) |
+| Fetch; offline install | — | 917 tarballs in 29.6 s from a tarball cache already filled: the cold fetch is **pending**, the next run counts downloads apart (CMP-1-12); install 66.4 s, no script run (5 packages declare one) |
 | Third-party bodies it loads | 7 files, 39.0 MB raw (the WASM 34.2 MB) | 5 declared, of which the EH pair and the extension load |
 | Build: time; builder output | 0.05 s; 9 files, 36 KB | 50.5 s; 114 files, 10.0 MB |
 | Engine in the build | no | no (A7) |
 | The gate's lists: inclusion lines, media types | 6, 5 | 22, 11 |
-| The gate on the artifact, one run of `verify` | under 4 s | about 12 min |
-| Upkeep: latest release, licence | DuckDB-WASM 1.33.1-dev57 (2026-06-22, MIT); Vega 6.4.0 (2026-08-14), Vega-Lite 6.5.0 (2026-10-08), BSD-3-Clause; Arrow 21.2.0 (2026-07-21, Apache-2.0) | Evidence 40.1.8 and core-components 5.4.2 (2026-02-06), MIT |
+| The gate on the artifact, one run of `verify` | 4.0 s, replayed by the reviewer | about 12 min, read from the controls' folder times; the next run times each `verify` (CMP-1-12) |
+| Upkeep: latest release, licence | DuckDB-WASM 1.33.1-dev57.0 (2026-06-22, MIT); Vega 6.4.0 (2026-08-14), Vega-Lite 6.5.0 (2026-10-08), BSD-3-Clause; Arrow 21.2.0 (2026-07-21, Apache-2.0) | Evidence 40.1.8 and core-components 5.4.2 (2026-02-06), MIT |
 
 **What it cost Evidence to get here**, each recorded in §3: A7's plugin for the engine; A8's for the icon
 set, without which no draw could be clean and the gate would refuse a release of real data; A2's
