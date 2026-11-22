@@ -94,7 +94,8 @@ try {
   } else {
     await submit("qualquer");
   }
-  out.summary_ms = await waitFor("[data-bice=summary] tbody tr");
+  out.summary_ms = await waitFor("[data-bice=summary] tr td");
+  out.summary_marker = await ev(`(() => { const s = document.querySelector('[data-bice=summary]'); return s ? { tag: s.tagName, rows: s.querySelectorAll('tr').length, head: s.outerHTML.slice(0, 200) } : null; })()`);
   await waitFor("[data-bice=loading][hidden]");
   out.login_error_shown = await ev(`!!document.querySelector('[data-bice=login-error]:not([hidden])')`);
   out.engine = await ev(`(() => { const db = window[Symbol.for('EVIDENCE_QUERY_ENGINE')]; return db ? { present: true } : { present: false }; })()`);
