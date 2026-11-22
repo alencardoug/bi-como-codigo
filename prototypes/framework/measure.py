@@ -144,8 +144,10 @@ def sample(raw: dict) -> dict:
     served = [{"url": r["url"], "cache": r["cache"], "size": r["content_length"] or "size unknown"}
               for r in requests if r["cache"] in ("memory", "disk", "304", "service worker")]
     evidence = trace_evidence(m.get("trace", []))
-    signature = {"requests": sorted((r["url"], r["cache"]) for r in requests), "code_cache": evidence["code_cache_consumed"],
-                 "wasm": evidence["wasm"]}
+    # The local origin's port changes with every journey's server: a request is the same by its path there.
+    path = lambda u: u[len(local):] if u.startswith(local) else u  # noqa: E731
+    signature = {"requests": sorted((path(r["url"]), r["cache"]) for r in requests),
+                 "code_cache": sorted(path(u) for u in evidence["code_cache_consumed"]), "wasm": evidence["wasm"]}
     return {
         "error": raw.get("error"), "clock_error_ms": round(error, 3),
         "nav_to_summary_ms": round(marks["summary"] - marks["navigation"], 1) if {"summary", "navigation"} <= marks.keys() else None,
@@ -215,7 +217,7 @@ def run(artifact: pathlib.Path, expected: list[list[str]], out: pathlib.Path, *,
 
 def _brief(s: dict) -> dict:
     return {k: s[k] for k in ("error", "nav_to_login_box_ms", "nav_to_summary_ms", "submit_to_summary_ms", "clock_error_ms", "bytes",
-                              "by_origin", "trace_lost", "cache_evidence")} | {"served_from_cache": len(s["served_from_cache"])}
+                              "by_origin", "trace_lost", "cache_evidence", "primed")} | {"served_from_cache": len(s["served_from_cache"])}
 
 
 # --- what needs no browser ---------------------------------------------------------------

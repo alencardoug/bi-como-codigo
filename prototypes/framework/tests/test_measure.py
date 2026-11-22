@@ -48,3 +48,11 @@ def test_warm_samples_split_by_their_wasm_evidence_and_a_lost_trace_enters_no_se
     out = measure.series([*same, mismatched, lost])
     assert [g["samples"] for g in out["series"]] == [[0, 1], [2]] and out["apart"] == [3]
     assert [g["wasm"] for g in out["series"]] == ["compiled", "cached"]
+
+
+def test_samples_served_on_different_ports_share_a_series():
+    a, b = _raw(), _raw()
+    for raw, port in ((a, "1"), (b, "2")):
+        raw["origin"] = f"http://127.0.0.1:{port}"
+        raw["measured"]["requests"]["P:1"]["url"] = f"http://127.0.0.1:{port}/"
+    assert [g["samples"] for g in measure.series([measure.sample(a), measure.sample(b)])["series"]] == [[0, 1]]
