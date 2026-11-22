@@ -126,22 +126,30 @@ def evidence(commit: str, *, root: pathlib.Path = CLEAR / "evidence", fresh: boo
         if (build_work / rel).is_dir() and not (build_work / rel).is_symlink():
             copied[rel] = al.copy_out(build_work, rel, outputs / rel)
     record["A1"] = {"copied": sorted(copied), "uncarried": {k: v for k, v in copied.items() if v}}
+    record["A1"].update(inventory(outputs, sorted(copied), fx, frozenset(e.sha256 for e in modules.entries)))
+    _log(record, log)
+    return record
+
+
+def inventory(outputs: pathlib.Path, copied: list[str], fx: fx_mod.Fixture, dependencies: frozenset[str]) -> dict:
+    """A1: every copied-out file inspected with the clear fixture's needles, by
+    carrier, and the query results the build wrote — wherever under the
+    outputs Evidence put them (its SvelteKit project lives in
+    `.evidence/template/`). A binary byte-identical to a file of the kept
+    install, by `dependencies`, is recorded, not inconclusive (§2.5.2)."""
     needles = io_.Needles.from_fixture(fx)
     carriers: dict[str, dict] = {}
-    for rel in sorted(copied):
+    for rel in copied:
         items = [io_.Item(f"{rel}/{name}", data) for name, data in sorted(trees.files(outputs / rel).items())]
-        report = io_.inspect_items(items, needles)
+        report = io_.inspect_items(items, needles, dependencies=dependencies)
         carriers[rel] = {
             "files": len(items),
             "findings_by_file": _by_file(report.findings),
             "inconclusive": [{"file": n.file, "path": n.path, "reason": n.reason} for n in report.inconclusive],
+            "recorded": len(report.recorded),
         }
-    record["A1"]["carriers"] = carriers
-    prerendered = [f for f in carriers.get(".svelte-kit", {}).get("findings_by_file", {}) if "prerendered_queries" in f]
-    record["A1"]["queries_at_build_time"] = bool(prerendered)
-    record["A1"]["prerendered_query_files_with_rows"] = prerendered
-    _log(record, log)
-    return record
+    prerendered = sorted(f for c in carriers.values() for f in c["findings_by_file"] if "/prerendered_queries/" in f)
+    return {"carriers": carriers, "queries_at_build_time": bool(prerendered), "prerendered_query_files_with_rows": prerendered}
 
 
 def _by_file(findings) -> dict[str, dict[str, int]]:
@@ -157,8 +165,17 @@ if __name__ == "__main__":
     parser.add_argument("candidate", choices=["evidence"])
     parser.add_argument("--commit", required=True, help="the commit whose tracked candidate sources are built")
     parser.add_argument("--fresh", action="store_true", help="remove the candidate's clear folder first")
+    parser.add_argument("--inventory-only", action="store_true", help="redo A1 on the outputs already copied out")
     args = parser.parse_args()
-    result = evidence(args.commit, fresh=args.fresh)
+    if args.inventory_only:
+        log = CLEAR / "evidence" / "record.json"
+        result = json.loads(log.read_text(encoding="utf-8"))
+        kept = al.files(CLEAR / "evidence" / "node_modules", "node_modules/")
+        result["A1"].update(inventory(CLEAR / "evidence" / "outputs", result["A1"]["copied"], clear_fixture(CLEAR / "evidence")[0],
+                                      frozenset(e.sha256 for e in kept.entries)))
+        _log(result, log)
+    else:
+        result = evidence(args.commit, fresh=args.fresh)
     summary = {k: ({kk: vv for kk, vv in v.items() if kk not in ("stderr", "stdout", "carriers")} if isinstance(v, dict) else v)
                for k, v in result.items()}
     print(json.dumps(summary, indent=1, default=str))
