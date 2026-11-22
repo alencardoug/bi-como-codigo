@@ -20,7 +20,7 @@
 |---|---|
 | Date | 2026-11-20 — revision 9, with the five adjustments of round 8 of Codex's review (FPROTO-8-01 to -05), which found no blocking finding and closed the review. Revision 8 answered round 7 (FPROTO-7-01 to -06) with the Owner's N96, revision 7 answered round 6 (FPROTO-6-01 to -08), revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 has begun** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers, each caught by `verify` and by the inspection in its control (§3); Candidate B's clear build is not yet built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
+| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 began** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers, each caught by `verify` and by the inspection in its control (§3); on 2026-11-22 Candidate B's page is built, and its clear build's one carrier, the clear Parquet its page fetches, is caught by both in its control (§4): **step 2 is done**. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool that the stage proves or refutes (§9).
@@ -758,6 +758,60 @@ the Owner's to overturn before the build starts (§8).
 and their `pt-BR` formatting, the empty-state text, the loading state, the logout of §2.3 item 7 —
 each counted (§6).
 
+**What was built [measured, 2026-11-22].** In `prototypes/framework/own/`, at `aaf452f`:
+`p01.report.json`, the declaration — five queries, the two inputs, the chart's Vega-Lite
+specification and the two tables, amounts cast to `VARCHAR` so that `Intl.NumberFormat` formats
+their decimal text exactly, and to `DOUBLE` only for the chart —; `report.mjs`, the runner, which
+knows neither the DOM nor the envelope; `page.mjs`, the page of §2.3 with the `data-bice` contract
+of §2.5.3; `source.package.mjs`, the envelope's reader as the only path to the report, and
+`source.clear.mjs`, the clear mode's fetch of `data/p01.parquet`; and `build.py`, the standard
+library only, which names each own file by its content hash and writes `index.html` with an import
+map that carries the integrity of every module, own or pinned. Four things the plan had not
+settled:
+
+- **The pinned bodies.** `cdn.json` declares six files of jsDelivr, each taken by `cdn.py` from the
+  npm tarball the registry names and checked byte for byte against jsDelivr's body, and one of
+  DuckDB's (below): DuckDB-WASM's browser module (31,977 bytes), its EH worker (772,759) and EH WASM (34,242,586) —
+  the MVP and COI builds are not loaded —, `apache-arrow` 17.0.0's `Arrow.esnext.min.js`
+  (163,118), and `vega` 6.4.0's and `vega-lite` 6.5.0's minified builds (521,123 and 257,954).
+  **`vega-embed` is not used**: the page compiles the specification with `vegaLite.compile` and
+  renders it with `vega.View` as SVG, one dependency fewer.
+- **Integrity on every body.** DuckDB-WASM's browser module imports `apache-arrow` by name, which
+  publishes no single-file ES module: the import map points that name at `arrow.mjs`, which
+  re-exports from the pinned UMD build loaded before it by a classic script with its integrity —
+  the members the pinned module reads from it are checked by a test. The worker and the WASM are
+  fetched by the page with `fetch(url, { integrity })` and handed to DuckDB as blob URLs, so no
+  pinned body loads without its digest checked by the browser.
+- **The `parquet` extension, a third origin.** DuckDB-WASM 1.32.0 does not read Parquet on its own:
+  at the first `read_parquet` its worker fetched
+  `extensions.duckdb.org/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm`, unpinned — seen in the
+  smoke run's network log at `9998d42`. The page now turns autoloading off and `LOAD`s the extension from a blob URL of its checked bytes, the URL's
+  fragment naming the file, from which DuckDB takes the entry point; `cdn.json` declares it by URL
+  and digest — 3,045,039 bytes, **the same body Evidence's build pins** (§3), which npm does not
+  publish, so `cdn.py` takes it from DuckDB's host alone. A probe of the author's, with the page's
+  own fetch given a query string, showed the engine's fetch of the bare URL gone. The page's
+  third-party origins are two: jsDelivr and `extensions.duckdb.org`.
+- **The engine starts with the page** — it carries no data —, so that the password field is
+  enabled once a submission can be served; nothing of the package is fetched before submit.
+
+**The clear mode [measured, 2026-11-22].** `clear_mode.py own --commit aaf452f`, with the same
+clear-mode fixture as Evidence's (seed 20261121, 10,872 rows, the same Parquet by digest), its
+record in `clear/own/record.json`. B installs nothing; `build.py clear` runs in the sandbox with no
+network over an allowlist of 12 files — its ten tracked sources, `web/envelope.mjs` and the clear
+Parquet — and writes nine files. **Its one carrier is the clear Parquet** at `data/p01.parquet`,
+every row (`INSPECT_PARQUET`); no other file holds a fixture value, nothing is inconclusive, and no
+query runs at build time. In its control (§2.5.5) — the Parquet copied alone into a clean artifact
+— `verify` refuses it as `CONTENT` for its magic, the inspection names it there and nowhere else,
+and the verdict fails. A smoke run (`--smoke`, `browser/smoke.mjs`: headless Chrome against the
+clear build on `127.0.0.1`, no oracle — §2.6 is that) shows the page working end to end: the seven
+pinned bodies load with their integrity, and no URL of jsDelivr or of DuckDB's extensions the page
+reaches is undeclared; the login box is ready in 4.7 s on this connection, engine and extension
+loaded; the summary appears 0.4 s after submit; and under each filter G, Z and the partial
+month read as §2.1 draws them — on `fixture_canal_c`, G's cell in the fifth month and the whole
+last month say "Sem vendas neste recorte."; on `fixture_canal_b`, Z's cell shows `R$ 0,00` —; the
+notice of the last month stands in both tables; logout leaves the login page with the history
+unchanged and no summary. No error or warning in the console.
+
 ## 5. Safety of the build
 
 Pinning is not isolation: an exact lockfile still runs whatever its packages' scripts do, and
@@ -847,7 +901,7 @@ plainly cannot reach one of them is reported as such, with the observation behin
    (the draw against builder outputs), `serve.py`, `diagnose.py` with `leveldb.py` and `browser/`, and
    the control page `controls/page/`, all under `prototypes/framework/`, their controls in its
    `tests/`. What the building settled is in §9.
-2. **The clear mode, first** [Evidence's A6, A1 and its controls run, 2026-11-21 (§3); B's clear build to come]: the clear-mode fixture, then each candidate's clear build in its own
+2. **The clear mode, first** [done: Evidence's A6, A1 and its controls run, 2026-11-21 (§3); B's clear build, its control and a smoke run, 2026-11-22 (§4)]: the clear-mode fixture, then each candidate's clear build in its own
    sandbox — A6 and A1 for Evidence —, and the controls built from its carriers.
 3. **The encrypted route**: Candidate B's builder output, archived; Candidate A's, through probes
    A7, A2 and A3, in that order, each "no" recorded and the next probe run where it still can, until
@@ -897,12 +951,15 @@ plainly cannot reach one of them is reported as such, with the observation behin
 - **[assumed]** that Evidence builds its page with only the allowlisted inputs (A3); if not, its
   encrypted route is not possible, and that is a result, not a defect of the plan.
 - **[assumed]** that Evidence's DuckDB-WASM loads the same `parquet` extension from
-  `extensions.duckdb.org` in the browser, as its build does in Node: if so, A7 declares it in
-  `cdn.json` beside the engine.
+  `extensions.duckdb.org` in the browser, as its build does in Node — DuckDB-WASM 1.32.0 does so in
+  B's page (§4): if so, A7 declares it in `cdn.json` beside the engine, and needs a way to load it
+  pinned, as B does.
 - **[assumed]** that Evidence can load its engine from jsDelivr (A7) and that its worker can be
   terminated from page code (A2).
-- **[assumed]** that DuckDB-WASM 1.32.0 from jsDelivr runs in headless Chrome from a page served on
-  `127.0.0.1`, with its worker created from a blob of the CDN script.
+- **[measured, for B]** that DuckDB-WASM 1.32.0 from jsDelivr runs in headless Chrome from a page
+  served on `127.0.0.1`, with its worker created from a blob of the CDN script, fetched with its
+  integrity — and that it needs the `parquet` extension, which B loads pinned (§4). For Evidence
+  it is A7's.
 - **[assumed]** that each candidate's artifact can hold the package as `verify` finds it: `_package`
   takes the one `manifest.json` of the whole folder, so a framework that writes a `manifest.json` of
   its own is refused by form. That is a cost of the candidate, with the setting that removes it; the
