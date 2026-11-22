@@ -117,11 +117,16 @@ def _history(records: list[Record]) -> _History:
     explains counts for nothing (PROTO-3-01). In a record, a stage that is
     missing in a run, or that did not complete, ends what counts of it; so do
     an exhausted draw and an assembly refused by form, which leave nothing to
-    assemble or to verify in that record (PROTO-5-01, PROTO-5-02)."""
+    assemble or to verify in that record (PROTO-5-01, PROTO-5-02). A `verify`
+    attempted on an assembled artifact that ended in `HARNESS_ERROR` or
+    `COLLISION` does not complete, but the inspection of that same artifact
+    after it counts: its finding is content, first in §2.5.4's order, and an
+    error of the gate does not hide it (CMP-1-01)."""
     archived: set[str] = set()
     inspected: set[str] = set()
     assembled: set[str] = set()
     verified: set[str] = set()
+    attempted: set[str] = set()  # artifacts a verify was attempted on and errored
     eligible: set[tuple[int, str]] = set()
     complete: set[tuple[int, str]] = set()
     draws: list[tuple[int, bool, str | None]] = []
@@ -154,11 +159,15 @@ def _history(records: list[Record]) -> _History:
             elif name == "verify":
                 good = subject in assembled
             else:
-                good = subject in verified
+                good = subject in verified or subject in attempted
             if not good or subject is None:
                 break
             eligible.add((n, name))
             if not _complete(r, name):
+                st = r.stages[name]
+                if name == "verify" and st.status == "done" and st.cls in {HARNESS_ERROR, COLLISION}:
+                    attempted.add(subject)
+                    continue  # the gate errored: the artifact's inspection after it still counts for content
                 break
             complete.add((n, name))
             if name == "build":

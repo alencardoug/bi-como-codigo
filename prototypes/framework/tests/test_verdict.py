@@ -278,3 +278,19 @@ ROUND_5 = {
 def test_each_history_of_round_5(name):
     records, expected = ROUND_5[name]
     assert v.verdict(records).name == expected, v.verdict(records).reason
+
+
+# --- CMP-1-01: an error of the gate does not hide the artifact's inspection ---------
+
+
+@pytest.mark.parametrize("gate", [HARNESS_ERROR, "COLLISION"])
+def test_an_artifact_finding_after_a_gate_error_fails(gate):
+    assert v.verdict([run("r1", verify=S(cls=gate), inspect_artifact=S(findings=1))]).name == v.FAILS
+    clean = v.verdict([run("r1", verify=S(cls=gate), inspect_artifact=S())])
+    assert clean.name == v.STOPPED, clean.reason
+    # still refused: an inspection with no verify attempted, or of another artifact
+    assert v.verdict([run("r1", verify=None, inspect_artifact=S(findings=1))]).name != v.FAILS
+    other = [run("r1", verify=S(cls=gate), inspect_artifact=None), resume("x", artifact="a9", inspect_artifact=S(findings=1))]
+    assert v.verdict(other).name == v.STOPPED
+    later = [run("r1", verify=S(cls=gate), inspect_artifact=None), resume("x", artifact="a1", inspect_artifact=S(findings=1))]
+    assert v.verdict(later).name == v.FAILS
