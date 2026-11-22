@@ -683,3 +683,42 @@ def test_rendered_numbers_keep_their_boundaries(name, text, found):
 
 def test_a_spaced_amount_with_a_dot_decimal_is_found():
     assert not _r5("t.txt", b"amount = 1 234.50").clean
+
+
+# --- the narrow adjustment of the Owner's N99 -------------------------------------------
+
+
+def _fetched(body: dict) -> str:
+    """A SvelteKit fetched-data script as Evidence's build writes it: a JSON
+    whose `body` is itself a JSON, escaped into the string."""
+    return ('<script type="application/json" data-sveltekit-fetched data-url="/api/q">'
+            + json.dumps({"status": 200, "statusText": "", "headers": {}, "body": json.dumps(body)}) + "</script>")
+
+
+def test_a_fetched_script_an_unescaping_breaks_is_recorded_not_inconclusive(needles, samples):
+    """Read as it is on the page; the layer of `escapes` turns its `\\"` into
+    `"` and breaks it, which is no carrier left unread (N99)."""
+    report = _one(needles, "index.html", f"<p>a\\nb</p>{_fetched({'customFormats': []})}".encode())
+    assert report.clean, report.record()
+    assert any("unescaping broke" in x.reason and "escapes" in x.path for x in report.recorded)
+    found = _one(needles, "index.html", _fetched({"orders": samples["count"]}).encode())
+    assert any(x.code == io_.INSPECT_NUMBER and "script#0 > json" in x.path for x in found.findings)
+
+
+def test_a_broken_script_on_an_unescaped_layer_is_searched_as_data(needles, samples):
+    """A count in a JSON script that only an unescaping reveals, and that does
+    not parse there, is still found: searched with every integer needle, as a
+    data-bearing carrier, though the page itself is code (N99)."""
+    page = f'<p>&lt;script type="application/json"&gt;{{"orders": {samples["count"]}, broken&lt;/script&gt;</p>'
+    report = _one(needles, "index.html", page.encode())
+    assert any(x.code == io_.INSPECT_NUMBER and x.path.endswith("entities > script#0 > as data") for x in report.findings)
+
+
+def test_a_decoding_that_changes_nothing_is_no_layer(needles):
+    """`&t;` looks like an entity and decodes to itself: the bundle is not
+    read again, layer after layer, past the depth (N99)."""
+    bundle = b'const map = {"a": [1, 2]}; const amp = "&t;";'
+    report = _one(needles, "app.js", bundle)
+    assert report.clean and not report.inconclusive, report.record()
+    assert not any("entities" in x.path for x in report.inconclusive + report.recorded)
+

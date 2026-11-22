@@ -220,7 +220,7 @@ def _is_text(data: bytes) -> str | None:
 
 
 def _blob(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int, *, speculative: bool,
-          digest: str | None = None) -> None:
+          digest: str | None = None, flat: bool = False) -> None:
     if data[:4] == b"PAR1" and data[-4:] == b"PAR1" and len(data) >= 12:
         if _parquet(ctx, data, file, path, depth):
             return
@@ -248,7 +248,7 @@ def _blob(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int
     _binary_numbers(ctx, data, file, path)
     text = _is_text(data)
     if text is not None:
-        _text(ctx, text, file, path, role, depth)
+        _text(ctx, text, file, path, role, depth, flat=flat)
         return
     _numbers_in_text(ctx, data.decode("latin-1"), file, path, role)
     for name, attempt in (("brotli", _brotli), ("deflate", _raw_deflate)):
@@ -339,7 +339,8 @@ def _flat_text_decoders(text: str):
             yield name, out
 
 
-def _descend(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int, *, speculative: bool) -> None:
+def _descend(ctx: Context, data: bytes, file: str, path: str, role: str, depth: int, *, speculative: bool,
+             flat: bool = False) -> None:
     if depth + 1 > DEPTH:
         # Past the depth, the bytes are still searched; only no further layer is opened.
         _search_only(ctx, data, file, path, role)
@@ -355,7 +356,7 @@ def _descend(ctx: Context, data: bytes, file: str, path: str, role: str, depth: 
         if unread:
             ctx.report.inconclusive.append(Note(file, path, f"deeper than {DEPTH} layers"))
         return
-    _blob(ctx, data, file, path, role, depth + 1, speculative=speculative)
+    _blob(ctx, data, file, path, role, depth + 1, speculative=speculative, flat=flat)
 
 
 # --- decoders ---------------------------------------------------------------------------
@@ -712,7 +713,11 @@ def _csv_fields(text: str, path: str) -> list[str] | None:
         return None
 
 
-def _text(ctx: Context, text: str, file: str, path: str, role: str, depth: int) -> None:
+#: The text decoders whose output is the same text unescaped (N99).
+FLAT = ("percent", "escapes", "entities")
+
+
+def _text(ctx: Context, text: str, file: str, path: str, role: str, depth: int, *, flat: bool = False) -> None:
     fields = _csv_fields(text, path)
     if fields is None:
         _numbers_in_text(ctx, text, file, path, role)
@@ -731,19 +736,28 @@ def _text(ctx: Context, text: str, file: str, path: str, role: str, depth: int) 
     if parsed is None:
         _embedded_json(ctx, text, file, path, depth)
     if "<script" in text.lower():
-        _scripts(ctx, text, file, path, role, depth)
+        _scripts(ctx, text, file, path, role, depth, flat=flat)
+    same = text.encode("utf-8", "surrogatepass")
     for name, out in _text_decoders(text):
-        _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=True)
+        if out == same:
+            continue  # a decoding that changes nothing is no layer: `&t;` is no entity (N99)
+        _descend(ctx, out, file, f"{path} > {name}", role, depth, speculative=True, flat=name in FLAT)
 
 
 _SCRIPT = re.compile(r"<script([^>]*)>(.*?)</script>", re.S | re.I)
 _DEVALUE_NUMBER = re.compile(r"(?<=[:\[,(])\s*(-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)(?=\s*[,\]})])")
 
 
-def _scripts(ctx: Context, text: str, file: str, path: str, role: str, depth: int) -> None:
+def _scripts(ctx: Context, text: str, file: str, path: str, role: str, depth: int, *, flat: bool = False) -> None:
     """Inline scripts of an HTML page: SvelteKit's fetched-data scripts and JSON
     scripts parsed as JSON — with `data-b64`, their body base64 —; SvelteKit's
-    devalue data read as JSON-like text, every number compared as a number."""
+    devalue data read as JSON-like text, every number compared as a number.
+
+    On a layer a flat decoder made (`flat`), a JSON script that does not parse
+    is one the unescaping broke — `\\"` of a string turned into `"` —: the layer
+    it came from read the script as it was, so its body is searched as a
+    data-bearing carrier, every integer needle in any spelling, and recorded,
+    not inconclusive (N99)."""
     for n, m in enumerate(_SCRIPT.finditer(text)):
         attrs, body = m[1].lower(), m[2]
         where = f"{path} > script#{n}"
@@ -751,7 +765,11 @@ def _scripts(ctx: Context, text: str, file: str, path: str, role: str, depth: in
             try:
                 parsed = json.loads(body)
             except ValueError:
-                ctx.report.inconclusive.append(Note(file, where, "a JSON script that does not parse"))
+                if flat:
+                    _numbers_in_text(ctx, body, file, f"{where} > as data", DATA)
+                    ctx.report.recorded.append(Note(file, where, "a JSON script an unescaping broke, searched as data"))
+                else:
+                    ctx.report.inconclusive.append(Note(file, where, "a JSON script that does not parse"))
                 continue
             if "data-b64" in attrs and not (isinstance(parsed, dict) and isinstance(parsed.get("body"), str)):
                 ctx.report.inconclusive.append(Note(file, where, "a data-b64 script with no body to decode"))
