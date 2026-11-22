@@ -96,7 +96,20 @@ def none_match(header: str | None, etag: str) -> bool:
 _ETAG_LIST = re.compile(r'(?:W/)?"[^"]*"')
 
 
+#: Each representation encoded once, by the digest of its bytes and its coding:
+#: brotli at its default quality takes seconds on a bundle of megabytes, which a
+#: page would otherwise wait for at every request. The bytes sent are the same.
+_ENCODED: dict[tuple[str, str], tuple[bytes, str | None]] = {}
+
+
 def _encode(data: bytes, coding: str) -> tuple[bytes, str | None]:
+    key = (hashlib.sha256(data).hexdigest(), coding)
+    if key not in _ENCODED:
+        _ENCODED[key] = _encode_once(data, coding)
+    return _ENCODED[key]
+
+
+def _encode_once(data: bytes, coding: str) -> tuple[bytes, str | None]:
     if coding == "br":
         import brotli
 

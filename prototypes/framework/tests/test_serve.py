@@ -110,3 +110,11 @@ def test_accept_encoding_split_over_two_field_lines_is_one_list(tmp_path):
         assert (response.status, response.getheader("Content-Encoding"), len(body), response.getheader("ETag")) == (
             one[0], one[1]["Content-Encoding"], len(one[2]), one[1]["ETag"])
         conn.close()
+
+
+def test_a_representation_is_encoded_once_and_sent_identical():
+    data = b"export const x = 1;\n" * 1000
+    first = serve._encode(data, "br")
+    again = serve._encode(data, "br")
+    assert again is first and first[1] == "br" and serve._encode_once(data, "br") == first
+    assert serve._encode(data, "gzip") != first

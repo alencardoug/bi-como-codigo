@@ -64,8 +64,19 @@ try {
   if (passive) {
     out.table_ms = await waitFor("table tbody tr");
     out.chart_ms = await waitFor("canvas, svg path");
-    await sleep(5000);  // queries still settling
+    // Evidence's engine, once its client has hydrated and started it, then its queries settling
+    out.engine_ms = await waitFor("html", 1) !== null && await (async () => {
+      const t1 = Date.now();
+      while (Date.now() - t1 < 120000) {
+        if (await ev(`!!window[Symbol.for('EVIDENCE_QUERY_ENGINE')]`)) return Date.now() - t0;
+        await sleep(200);
+      }
+      return null;
+    })();
+    await sleep(5000);
     out.table_rows = await ev(`document.querySelectorAll('table tbody tr').length`);
+    out.resources = await ev(`performance.getEntriesByType('resource').map(e => e.name.split('?')[0])`);
+    out.engine = await ev(`(() => { const db = window[Symbol.for('EVIDENCE_QUERY_ENGINE')]; return db ? { present: true, worker: !!db._worker } : { present: false }; })()`);
     out.service_workers = await ev(`navigator.serviceWorker.getRegistrations().then(r => r.map(x => x.active?.scriptURL || x.installing?.scriptURL || x.waiting?.scriptURL))`);
     if (shot) writeFileSync(shot, Buffer.from((await send("Page.captureScreenshot", { format: "png" })).result.data, "base64"));
     out.seconds = (Date.now() - t0) / 1000;
