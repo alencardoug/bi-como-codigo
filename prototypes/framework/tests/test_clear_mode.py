@@ -50,3 +50,10 @@ def test_no_prerendered_result_with_rows_is_no_query_at_build_time(tmp_path):
     a1 = cm.inventory(tmp_path, ["build"], fx, frozenset())
     assert a1["queries_at_build_time"] is False
     assert a1["prerendered_query_files_with_rows"] == []
+
+
+def test_the_data_carriers_are_the_parquet_the_query_results_and_the_pages():
+    found = {f: {} for f in ("build/data/p01/rows/h/rows.parquet", "build/api/prerendered_queries/q.arrow", "build/index.html",
+                             "build/_app/immutable/chunks/index.js", "build/api/x/all-queries.json",
+                             ".evidence/template/build/index.html")}
+    assert cm.data_carriers(found) == ["build/api/prerendered_queries/q.arrow", "build/data/p01/rows/h/rows.parquet", "build/index.html"]

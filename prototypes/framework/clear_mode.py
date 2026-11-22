@@ -152,6 +152,77 @@ def inventory(outputs: pathlib.Path, copied: list[str], fx: fx_mod.Fixture, depe
     return {"carriers": carriers, "queries_at_build_time": bool(prerendered), "prerendered_query_files_with_rows": prerendered}
 
 
+#: The media types of a clear-mode control's gate run: what Evidence's carriers are served as.
+CONTROL_LISTS = ("site/*\n", "".join(f"{x} application/octet-stream\n" for x in (".html", ".js", ".json", ".bice", ".parquet", ".arrow")))
+
+
+def data_carriers(findings_by_file: dict[str, dict]) -> list[str]:
+    """The files of `build/` A1 found the clear fixture in that are Evidence's
+    carriers of it: the source's Parquet under `data/`, the query results under
+    `api/prerendered_queries/`, and the prerendered pages. A number hit in the
+    bundled code or in the query index is a coincidence of the clear fixture,
+    which is not drawn against the builder output (§3), and is no carrier."""
+    return sorted(f for f in findings_by_file if f.startswith("build/") and (
+        f.startswith(("build/data/", "build/api/prerendered_queries/")) or f.endswith(".html")))
+
+
+def controls(root: pathlib.Path = CLEAR / "evidence") -> list[dict]:
+    """The clear mode's controls of §2.5.5: each carrier A1 found, copied
+    **alone** into a clean artifact — a hand-made builder output and the
+    clear fixture's validated package —, and diagnosed there: `verify`'s class,
+    the inspection's codes in that file and elsewhere, and the verdict of that
+    one run. The candidate's own builder output takes the carriers at step 5."""
+    import harness as h
+    import verdict as v
+
+    log = root / "record.json"
+    record = json.loads(log.read_text(encoding="utf-8"))
+    fx, fixture_dir = clear_fixture(root)
+    needles = io_.Needles.from_fixture(fx)
+    outputs = root / "outputs"
+    work = root / "controls"
+    if work.exists():
+        shutil.rmtree(work)
+    made = work / "made"
+    made.mkdir(parents=True)
+    (made / "index.html").write_text("<!doctype html><title>P01</title>")
+    archive_digest = h.archive(made, work / "builder.tar.gz")  # archived, then inspected from the archive
+    builder = work / "builder"
+    h.extract(work / "builder.tar.gz", builder, archive_digest)
+    built = io_.inspect_dir(builder, needles)
+    lists = work / "lists"
+    lists.mkdir()
+    (lists / "include.txt").write_text(CONTROL_LISTS[0])
+    (lists / "media_types.txt").write_text(CONTROL_LISTS[1])
+    out = []
+    for i, rel in enumerate(data_carriers(record["A1"]["carriers"]["build"]["findings_by_file"])):
+        dest = "evidence/" + rel[len("build/"):]
+        artifact = work / f"artifact{i}"
+        assembly, validated = h.assemble(builder, fixture_dir / "package", fx.rows(), artifact,
+                                         control_additions={dest: (outputs / rel).read_bytes()})
+        if assembly.cls != h.PASS:
+            out.append({"carrier": rel, "assembly": assembly.cls, "message": assembly.message})
+            continue
+        result = h.verify(artifact, builder, h.write_root(work / f"run{i}", lists), validated, label="control")
+        inspected = io_.inspect_dir(artifact, needles, validated=dict(validated.files))
+        stages = {"build": v.Stage(), "archive": v.Stage(),
+                  "inspect_builder": v.Stage(findings=len(built.findings), inconclusive=len(built.inconclusive)),
+                  "assembly": v.Stage(cls=assembly.cls), "verify": v.Stage(cls=result.cls),
+                  "inspect_artifact": v.Stage(findings=len(inspected.findings), inconclusive=len(inspected.inconclusive))}
+        artifact_digest = hashlib.sha256(json.dumps(h.tree(artifact)).encode()).hexdigest()
+        judged = v.verdict([v.Record(f"control{i}", build_input="clear-control", builder_digest=archive_digest,
+                                     artifact_digest=artifact_digest, stages=stages)])  # this one run, judged alone
+        out.append({
+            "carrier": rel, "as": dest, "verify": result.cls, "verify_message": result.message,
+            "codes_in_carrier": sorted({x.code for x in inspected.findings if x.file == dest}),
+            "codes_elsewhere": sorted({x.code for x in inspected.findings if x.file != dest}),
+            "inconclusive": len(inspected.inconclusive), "verdict": judged.name,
+        })
+    record["controls"] = out
+    _log(record, log)
+    return out
+
+
 def _by_file(findings) -> dict[str, dict[str, int]]:
     out: dict[str, dict[str, int]] = {}
     for f in findings:
@@ -166,7 +237,11 @@ if __name__ == "__main__":
     parser.add_argument("--commit", required=True, help="the commit whose tracked candidate sources are built")
     parser.add_argument("--fresh", action="store_true", help="remove the candidate's clear folder first")
     parser.add_argument("--inventory-only", action="store_true", help="redo A1 on the outputs already copied out")
+    parser.add_argument("--controls", action="store_true", help="run the clear mode's controls on A1's carriers")
     args = parser.parse_args()
+    if args.controls:
+        print(json.dumps(controls(), indent=1))
+        raise SystemExit(0)
     if args.inventory_only:
         log = CLEAR / "evidence" / "record.json"
         result = json.loads(log.read_text(encoding="utf-8"))
