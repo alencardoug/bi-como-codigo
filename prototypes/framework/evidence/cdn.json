@@ -1,0 +1,53 @@
+{
+ "about": "What Evidence's page loads from jsDelivr once probe A7's configuration is used (docs/framework_prototype.md §2.4, §3): DuckDB-WASM's worker and WASM, of the version the lockfile resolves, in place of the copies Vite would bundle into the build. Taken by cdn.py from the npm tarball and checked against jsDelivr's body. role: 'worker' is started from a blob that imports it, 'wasm' is handed to DuckDB by URL.",
+ "files": [
+  {
+   "name": "duckdb_worker_eh",
+   "role": "worker",
+   "import": "@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?worker",
+   "package": "@duckdb/duckdb-wasm",
+   "version": "1.32.0",
+   "file": "dist/duckdb-browser-eh.worker.js",
+   "url": "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-browser-eh.worker.js",
+   "bytes": 772759,
+   "sha256": "f8ab72b6b90b3ad83077d47426d4a99d5d9a4c7e07cba1a2be37d655adc7c1ab",
+   "integrity": "sha384-a2Q5wPfMJHriw96D3xhtkym83ST11xUIm6e27q9d3v4ykPqSzeY7WCXK6CTlJFwb"
+  },
+  {
+   "name": "duckdb_wasm_eh",
+   "role": "wasm",
+   "import": "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url",
+   "package": "@duckdb/duckdb-wasm",
+   "version": "1.32.0",
+   "file": "dist/duckdb-eh.wasm",
+   "url": "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-eh.wasm",
+   "bytes": 34242586,
+   "sha256": "4c221bfa59c11f24dbd750e70c90b9252eca6eec5633936e6a2ec766e55fd879",
+   "integrity": "sha384-hw3GjeJZY5QapQ8mwqMHXBPVmTLO+jKm5dlDwkGsEfjyu/HcXx1d0Rwlr/ZAShjq"
+  },
+  {
+   "name": "duckdb_worker_mvp",
+   "role": "worker",
+   "import": "@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?worker",
+   "package": "@duckdb/duckdb-wasm",
+   "version": "1.32.0",
+   "file": "dist/duckdb-browser-mvp.worker.js",
+   "url": "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-browser-mvp.worker.js",
+   "bytes": 844644,
+   "sha256": "b0387027f174e2b60c2d5cfa31cecca9b89d8a9762346b6449a784cd1c4dde3c",
+   "integrity": "sha384-ABB4QFgUoQqfiMRv4Eme20RCo+rO//OBEOJfiUbiZFBRH/4T4xy8Vcu4hLXgPxQ0"
+  },
+  {
+   "name": "duckdb_wasm_mvp",
+   "role": "wasm",
+   "import": "@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url",
+   "package": "@duckdb/duckdb-wasm",
+   "version": "1.32.0",
+   "file": "dist/duckdb-mvp.wasm",
+   "url": "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-mvp.wasm",
+   "bytes": 39362651,
+   "sha256": "45d72a81fba8e57693d890da837c7041310e385e75619a8559839b15388dfe97",
+   "integrity": "sha384-aPxDmtovNQyMTy8S7zolNUiHoQNvtkLGOWJdPtQpW1T52DQuqeGutmEdb0ycBoNs"
+  }
+ ]
+}

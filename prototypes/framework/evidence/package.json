@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "sources": "evidence sources",
-    "build": "evidence build"
+    "build": "evidence build",
+    "build:pinned": "evidence build --config ../../vite.bice.mjs"
   },
   "dependencies": {
     "@evidence-dev/core-components": "5.4.2",

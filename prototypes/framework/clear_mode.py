@@ -44,6 +44,8 @@ CLEAR_SEED = 20261121
 #: What Evidence writes that may carry the rows, copied out of the build's work folder (§3, A1).
 EVIDENCE_OUTPUTS = ("build", ".svelte-kit", ".evidence", "static")
 EVIDENCE_BUILD = "npm run sources && npm run build"
+#: Probe A7: the same build with Vite's configuration of ours, which loads the engine from jsDelivr (§3).
+EVIDENCE_BUILD_PINNED = "npm run sources && npm run build:pinned"
 
 
 def _log(record: dict, path: pathlib.Path) -> None:
@@ -63,8 +65,12 @@ def clear_fixture(root: pathlib.Path) -> tuple[fx_mod.Fixture, pathlib.Path]:
     return fx, out
 
 
-def evidence(commit: str, *, root: pathlib.Path = CLEAR / "evidence", fresh: bool = False) -> dict:
-    """A6 and A1 for Evidence, in the clear mode."""
+def evidence(commit: str, *, root: pathlib.Path = CLEAR / "evidence", fresh: bool = False, build: str = EVIDENCE_BUILD,
+             install_from: pathlib.Path | None = None) -> dict:
+    """A6 and A1 for Evidence, in the clear mode. `build` is the build's
+    command; `install_from`, a candidate clear folder whose fetch and kept
+    install are reused — only for the same lockfile, by digest — instead of
+    fetching and installing again."""
     if fresh and root.exists():
         shutil.rmtree(root)
     root.mkdir(parents=True, exist_ok=True)
@@ -73,6 +79,8 @@ def evidence(commit: str, *, root: pathlib.Path = CLEAR / "evidence", fresh: boo
     fx, fixture_dir = clear_fixture(root)
     parquet = fixture_dir / "p01.parquet"
     record["fixture"] = {"parquet_sha256": hashlib.sha256(parquet.read_bytes()).hexdigest(), "rows": len(fx.rows()), "k": fx.k}
+    if install_from is not None:
+        return _build_evidence(commit, root, record, log, fx, parquet, build, install_from)
 
     sources = al.tracked(commit, "prototypes/framework/evidence/")
     tracked_lock = root / "package-lock.json"  # the commit's own lockfile, as the allowlist has it
@@ -100,6 +108,22 @@ def evidence(commit: str, *, root: pathlib.Path = CLEAR / "evidence", fresh: boo
         shutil.rmtree(modules_dir)
     modules = npm.keep_install(install_work, modules_dir)
     record["A6_install"]["node_modules_entries"] = len(modules.entries)
+    return _build_evidence(commit, root, record, log, fx, parquet, build, root)
+
+
+def _build_evidence(commit: str, root: pathlib.Path, record: dict, log: pathlib.Path, fx, parquet: pathlib.Path, build: str,
+                    install: pathlib.Path) -> dict:
+    """The build phase, offline, over the sources at `commit`, the kept install
+    of `install` and the clear Parquet; then A1's inventory."""
+    sources = al.tracked(commit, "prototypes/framework/evidence/")
+    if install != root:
+        mine = subprocess.run(["git", "-C", str(HERE), "show", f"{commit}:prototypes/framework/evidence/package-lock.json"],
+                              check=True, capture_output=True).stdout
+        theirs = json.loads((install / "record.json").read_text(encoding="utf-8"))
+        if theirs.get("fetch", {}).get("lockfile_sha256") != hashlib.sha256(mine).hexdigest() or theirs.get("A6_install", {}).get("exit") != 0:
+            raise SystemExit(f"{install} holds no install of this lockfile")
+        record["install_reused"] = {"from": str(install.relative_to(HERE)), "lockfile_sha256": hashlib.sha256(mine).hexdigest()}
+    modules = al.files(install / "node_modules", "node_modules/")
 
     # The build, offline, in a fresh work folder: the sources, the install's node_modules, and the
     # clear-mode fixture as P01's source (the clear mode only).
@@ -112,10 +136,10 @@ def evidence(commit: str, *, root: pathlib.Path = CLEAR / "evidence", fresh: boo
     al.assemble(allow_build, build_work)
     al.check(allow_build, build_work)
     t0 = time.time()
-    built = sb.run(build_work, ["/usr/bin/sh", "-c", EVIDENCE_BUILD], timeout=3600,
+    built = sb.run(build_work, ["/usr/bin/sh", "-c", build], timeout=3600,
                    env={"HOME": f"{sb.WORK}/.home", "EVIDENCE_TELEMETRY_DISABLED": "1", "DO_NOT_TRACK": "1",
                         "NODE_OPTIONS": "--max-old-space-size=4096"})
-    record["A6_build"] = {"argv": EVIDENCE_BUILD, "exit": built.returncode, "seconds": round(time.time() - t0, 1),
+    record["A6_build"] = {"argv": build, "exit": built.returncode, "seconds": round(time.time() - t0, 1),
                           "stderr": _tail(built.stderr), "stdout": _tail(built.stdout)}
     _log(record, log)
     if built.returncode != 0:
@@ -178,13 +202,14 @@ def own(commit: str, *, root: pathlib.Path = CLEAR / "own", fresh: bool = False)
     return record
 
 
-def smoke(root: pathlib.Path = CLEAR / "own") -> dict:
+def smoke(root: pathlib.Path = CLEAR / "own", *, cdn: pathlib.Path = HERE / "own" / "cdn.json", passive: bool = False) -> dict:
     """B's clear build served on 127.0.0.1 by the stage's server and opened in
     headless Chrome by `browser/smoke.mjs`: that the page loads its pinned
     bodies from jsDelivr, opens the clear Parquet after submit, shows G, Z and
     the partial month, and logs out; and every URL of jsDelivr or of DuckDB's
     extensions it reached that `cdn.json` does not declare. A record, not the
-    check of §2.6."""
+    check of §2.6. `passive` only opens the page and waits for its tables:
+    Evidence's page has no login of the clear mode to drive."""
     import serve
 
     log = root / "record.json"
@@ -192,15 +217,33 @@ def smoke(root: pathlib.Path = CLEAR / "own") -> dict:
     out = root / "smoke.json"
     out.unlink(missing_ok=True)
     with serve.Server(root / "outputs" / "build") as server:
-        done = subprocess.run(["node", str(HERE / "browser" / "smoke.mjs"), server.url + "index.html", str(out), str(root / "smoke.png")],
+        done = subprocess.run(["node", str(HERE / "browser" / "smoke.mjs"), server.url + ("" if passive else "index.html"), str(out),
+                               str(root / "smoke.png"), *(["--passive"] if passive else [])],
                               capture_output=True, text=True, timeout=600)
     record["smoke"] = json.loads(out.read_text(encoding="utf-8")) if out.is_file() else {"exit": done.returncode, "stderr": done.stderr[-4000:]}
-    declared = {f["url"] for f in json.loads((HERE / "own" / "cdn.json").read_text(encoding="utf-8"))["files"]}
+    declared = {f["url"] for f in json.loads(cdn.read_text(encoding="utf-8"))["files"]}
     third = ("https://cdn.jsdelivr.net/", "https://extensions.duckdb.org/")
     if isinstance(record["smoke"].get("cdn_urls"), list):  # what the page reached of the declared hosts and was not declared
         record["smoke"]["undeclared"] = sorted(u for u in record["smoke"]["cdn_urls"] if u.startswith(third) and u not in declared)
     _log(record, log)
     return record["smoke"]
+
+
+def a7(root: pathlib.Path) -> dict:
+    """What of the engine A7's build still carries: every WASM file and every
+    file holding DuckDB-WASM's worker, by name and size, and the bytes of the
+    published `build/`."""
+    build = root / "outputs" / "build"
+    if not build.is_dir():
+        return {"built": False}
+    files = [p for p in build.rglob("*") if p.is_file()]
+    wasm = sorted((p.relative_to(build).as_posix(), p.stat().st_size) for p in files if p.suffix == ".wasm")
+    workers = sorted((p.relative_to(build).as_posix(), p.stat().st_size) for p in files
+                     if p.suffix == ".js" and b"duckdb_web_" in p.read_bytes())
+    pinned = sorted({f["url"] for f in json.loads((HERE / "evidence" / "cdn.json").read_text(encoding="utf-8"))["files"]
+                     if any(f["url"].encode() in p.read_bytes() for p in files if p.suffix == ".js")})
+    return {"built": True, "wasm_files": wasm, "engine_worker_files": workers, "pinned_urls_in_build": pinned,
+            "build_bytes": sum(p.stat().st_size for p in files), "build_files": len(files)}
 
 
 def inventory(outputs: pathlib.Path, copied: list[str], fx: fx_mod.Fixture, dependencies: frozenset[str]) -> dict:
@@ -321,12 +364,24 @@ if __name__ == "__main__":
     parser.add_argument("--fresh", action="store_true", help="remove the candidate's clear folder first")
     parser.add_argument("--inventory-only", action="store_true", help="redo A1 on the outputs already copied out")
     parser.add_argument("--controls", action="store_true", help="run the clear mode's controls on A1's carriers")
-    parser.add_argument("--smoke", action="store_true", help="B only: open the clear build in headless Chrome")
+    parser.add_argument("--smoke", action="store_true", help="open the clear build in headless Chrome (B), or A7's build (Evidence, with --a7)")
+    parser.add_argument("--a7", action="store_true", help="Evidence only: probe A7, the build with the engine from jsDelivr, in clear/evidence-a7/")
     args = parser.parse_args()
     if args.smoke:
-        if args.candidate != "own":
-            raise SystemExit("--smoke is B's")
-        print(json.dumps(smoke(), indent=1))
+        if args.candidate == "own":
+            print(json.dumps(smoke(), indent=1))
+        elif args.a7:
+            print(json.dumps(smoke(CLEAR / "evidence-a7", cdn=HERE / "evidence" / "cdn.json", passive=True), indent=1))
+        else:
+            raise SystemExit("--smoke is B's, or Evidence's with --a7")
+        raise SystemExit(0)
+    if args.a7:
+        if args.candidate != "evidence":
+            raise SystemExit("--a7 is Evidence's")
+        result = evidence(args.commit, root=CLEAR / "evidence-a7", fresh=True, build=EVIDENCE_BUILD_PINNED, install_from=CLEAR / "evidence")
+        result["A7"] = a7(CLEAR / "evidence-a7")
+        _log(result, CLEAR / "evidence-a7" / "record.json")
+        print(json.dumps({k: v for k, v in result.items() if k not in ("A1",)}, indent=1, default=str))
         raise SystemExit(0)
     if args.controls:
         print(json.dumps(controls(args.candidate), indent=1))

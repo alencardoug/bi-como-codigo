@@ -5,13 +5,18 @@
 // only records that the page works end to end, and what it shows, for the
 // clear mode (§7 step 2).
 //
-//   node smoke.mjs <url> <out.json> [screenshot.png]
+//   node smoke.mjs <url> <out.json> [screenshot.png] [--passive]
+//
+// --passive opens the page and waits for a table and a chart to render, with
+// no login and no input: for a page that is not driven by the data-bice contract.
 import { spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const [url, outPath, shot] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const passive = args.includes("--passive");
+const [url, outPath, shot] = args.filter((a) => a !== "--passive");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const profile = mkdtempSync(join(tmpdir(), "bice-smoke-"));
 const chrome = spawn(process.env.BICE_CHROME || "google-chrome", ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`,
@@ -51,11 +56,21 @@ const choose = async (selector, value) => {
 };
 const rows = (selector, pattern) => ev(`[...document.querySelectorAll('${selector} tbody tr')].map(r => r.innerText.replace(/\\u00a0/g, ' ')).filter(t => ${pattern}.test(t))`);
 
-const out = { url };
+const out = { url, passive };
 try {
   await send("Runtime.enable"); await send("Log.enable"); await send("Page.enable");
   const t0 = Date.now();
   await send("Page.navigate", { url });
+  if (passive) {
+    out.table_ms = await waitFor("table tbody tr");
+    out.chart_ms = await waitFor("canvas, svg path");
+    await sleep(5000);  // queries still settling
+    out.table_rows = await ev(`document.querySelectorAll('table tbody tr').length`);
+    out.service_workers = await ev(`navigator.serviceWorker.getRegistrations().then(r => r.map(x => x.active?.scriptURL || x.installing?.scriptURL || x.waiting?.scriptURL))`);
+    if (shot) writeFileSync(shot, Buffer.from((await send("Page.captureScreenshot", { format: "png" })).result.data, "base64"));
+    out.seconds = (Date.now() - t0) / 1000;
+    throw null;  // to the record
+  }
   out.login_ms = await waitFor("[data-bice=password]:not([disabled])");
   await ev(`(() => { document.querySelector('[data-bice=password]').value = 'qualquer'; document.querySelector('[data-bice=submit]').click(); })()`);
   out.summary_ms = await waitFor("[data-bice=summary] tbody tr");
@@ -84,7 +99,7 @@ try {
   out.after_logout = { login_ms: await waitFor("[data-bice=password]:not([disabled])", 60000), summary: await ev(`!!document.querySelector('[data-bice=summary]')`), history: await ev("history.length") };
   out.seconds = (Date.now() - t0) / 1000;
 } catch (error) {
-  out.error = String(error?.stack || error);
+  if (error !== null) out.error = String(error?.stack || error);
 } finally {
   out.logs = logs;
   writeFileSync(outPath, JSON.stringify(out, null, 1) + "\n");
