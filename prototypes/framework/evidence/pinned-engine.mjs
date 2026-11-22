@@ -16,14 +16,17 @@ function body(file) {
   return `export default class PinnedWorker {\n  constructor() {\n    return new Worker(URL.createObjectURL(new Blob([${JSON.stringify(script)}], { type: "text/javascript" })));\n  }\n}\n`;
 }
 
-const modules = Object.fromEntries(cdn.files.map((f) => [f.import, body(f)]));
+// By the file's name, with no query: an id ending in ?worker or ?url would be
+// taken up again by Vite's own worker and asset plugins.
+const names = Object.fromEntries(cdn.files.map((f) => [f.import, f.name]));
+const modules = Object.fromEntries(cdn.files.map((f) => [f.name, body(f)]));
 
 export default function pinnedEngine() {
   return {
     name: "bice-pinned-engine",
     enforce: "pre",
     resolveId(id) {
-      return id in modules ? PREFIX + id : null;
+      return id in names ? PREFIX + names[id] : null;
     },
     load(id) {
       return id.startsWith(PREFIX) ? modules[id.slice(PREFIX.length)] : null;
