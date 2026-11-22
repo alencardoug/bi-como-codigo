@@ -147,3 +147,37 @@ def test_a_second_invocation_on_the_same_runs_is_refused_while_one_holds_it(tmp_
         holder.kill(); holder.wait()
     with route.exclusive(tmp_path), route.exclusive(tmp_path):  # free again, and reentrant within one invocation
         pass
+
+
+def test_another_thread_of_the_same_process_is_another_invocation(tmp_path):
+    """CMP-2-09: reentrancy belonged to the whole process, so a second thread
+    entered while the first held the lock; it is refused, through the lock and
+    through an entry point, and the owner still nests."""
+    import threading
+    import measured
+    held, done, seen = threading.Event(), threading.Event(), {}
+
+    def owner():
+        with route.exclusive(tmp_path):
+            with route.exclusive(tmp_path):  # nested in its own invocation
+                seen["nested"] = True
+            held.set()
+            done.wait(10)
+
+    t = threading.Thread(target=owner)
+    t.start()
+    try:
+        assert held.wait(10)
+        with pytest.raises(route.Refused, match="another invocation"):
+            with route.exclusive(tmp_path):
+                pass
+        with pytest.raises(route.Refused, match="another invocation"):
+            measured.run(HEAD, 1, runs=tmp_path)
+        with pytest.raises(route.Refused, match="another invocation"):
+            _build(tmp_path)
+        assert route.load(tmp_path)["records"] == []
+    finally:
+        done.set(); t.join()
+    assert seen == {"nested": True}
+    with route.exclusive(tmp_path):  # free again
+        pass

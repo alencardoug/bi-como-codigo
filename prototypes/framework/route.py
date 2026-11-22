@@ -34,6 +34,7 @@ import os
 import pathlib
 import secrets
 import shutil
+import threading
 import subprocess
 import tempfile
 import time
@@ -82,7 +83,8 @@ def _empty() -> dict:
             "history": []}
 
 
-_HELD: dict[pathlib.Path, list[int]] = {}  # runs folder -> [lock fd, depth], this process's
+_HELD: dict[pathlib.Path, list[int]] = {}  # runs folder -> [lock fd, depth, owning thread], this process's
+_HELD_LOCK = threading.Lock()
 
 
 @contextlib.contextmanager
@@ -91,27 +93,38 @@ def exclusive(runs: pathlib.Path = RUNS):
     state, works and saves it, so two at once would publish whichever saved
     last. An exclusive lock on `runs/.lock`, held for the whole invocation and
     reentrant within it — `compare.py` builds and draws inside its own —; a
-    second invocation is refused, never queued."""
-    key = runs.resolve() if runs.exists() else runs.absolute()
-    if key in _HELD:
-        _HELD[key][1] += 1
+    second invocation is refused, never queued. The invocation is the thread
+    that took the lock: another thread of the same process is another
+    invocation, refused like another process (CMP-2-09)."""
+    me = threading.get_ident()
+    runs.mkdir(parents=True, exist_ok=True)
+    key = runs.resolve()
+    with _HELD_LOCK:
+        held = _HELD.get(key)
+        if held is not None and held[2] != me:
+            raise Refused(f"another invocation is running on {runs} (in this process)")
+        if held is not None:
+            held[1] += 1
+    if held is not None:
         try:
             yield
         finally:
-            _HELD[key][1] -= 1
+            with _HELD_LOCK:
+                held[1] -= 1
         return
-    runs.mkdir(parents=True, exist_ok=True)
     fd = os.open(runs / ".lock", os.O_CREAT | os.O_RDWR, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         os.close(fd)
         raise Refused(f"another invocation is running on {runs} (its .lock is held)") from None
-    _HELD[runs.resolve()] = [fd, 1]
+    with _HELD_LOCK:
+        _HELD[key] = [fd, 1, me]
     try:
         yield
     finally:
-        del _HELD[runs.resolve()]
+        with _HELD_LOCK:
+            del _HELD[key]
         fcntl.flock(fd, fcntl.LOCK_UN)
         os.close(fd)
 
