@@ -50,7 +50,9 @@ const injected = `(() => {
   const opensWith = ${JSON.stringify(config.password)};
   const marks = window.__biceMarks = [];
   const mark = (name) => marks.push({ mark: name, t: performance.timeOrigin + performance.now() });
-  mark("navigation");
+  // Navigation starts when the document's request does, not when this script runs: the document's time
+  // origin, on the same clock as every other mark (CMP-1-11).
+  marks.push({ mark: "navigation", t: performance.timeOrigin });
   const text = (e) => e.textContent.replace(/\\u00a0|\\u202f/g, " ").trim();
   let state = "login";
   const shownSummary = () => {
@@ -99,6 +101,9 @@ async function journey(measured) {
     const r = (record.requests[`${msg.sessionId}:${p.requestId}`] ??= { session: msg.sessionId, events: [] });
     switch (msg.method) {
       case "Network.requestWillBeSent":
+        if (p.redirectResponse) {  // a redirect reuses the request's id: each hop is kept, never overwritten (CMP-1-11)
+          (r.hops ??= []).push({ url: r.url, status: p.redirectResponse.status, encoded: p.redirectResponse.encodedDataLength, ts: p.timestamp });
+        }
         r.url = p.request.url; r.method = p.request.method; r.type = p.type;
         r.events.push({ e: "sent", ts: p.timestamp, wall: p.wallTime, redirect: !!p.redirectResponse });
         (record.sessions[msg.sessionId] ??= []).push([p.timestamp, p.wallTime]);

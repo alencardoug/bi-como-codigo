@@ -131,10 +131,22 @@ def sample(raw: dict) -> dict:
             if row[f"completed_by_{name}"]:
                 row[f"observed_by_{name}"] = max(row[f"observed_by_{name}"], fin["encoded"])
             row[f"partial_at_{name}"] = row[f"observed_by_{name}"] > 0 and not row[f"completed_by_{name}"]
-        requests.append(row)
-        o = by_origin.setdefault(row["origin"], {"requests": 0, "encoded": 0})
-        o["requests"] += 1
-        o["encoded"] += row["encoded"] or 0
+        hops = []
+        for hop in r.get("hops", []):  # each redirect a response of its own, with its bytes (CMP-1-11)
+            h_row = {"url": hop["url"].split("?")[0], "origin": _origin(hop["url"], local), "cache": f"redirect {hop['status']}",
+                     "encoding": None, "status": hop["status"], "wire_status": hop["status"], "encoded": hop.get("encoded") or 0,
+                     "content_length": None, "data_encoded": 0, "worker": row["worker"]}
+            for name, cut in cutoffs.items():
+                if cut is None:
+                    continue
+                done = to_wall(r, hop["ts"]) <= cut
+                h_row.update({f"observed_by_{name}": h_row["encoded"] if done else 0, f"completed_by_{name}": done, f"partial_at_{name}": False})
+            hops.append(h_row)
+        for x in (*hops, row):
+            requests.append(x)
+            o = by_origin.setdefault(x["origin"], {"requests": 0, "encoded": 0})
+            o["requests"] += 1
+            o["encoded"] += x["encoded"] or 0
     totals = {}
     for name in cutoffs:
         totals[name] = {
@@ -142,6 +154,7 @@ def sample(raw: dict) -> dict:
             "completed": sum(r["encoded"] or 0 for r in requests if r.get(f"completed_by_{name}")),
             "partial_requests": sum(1 for r in requests if r.get(f"partial_at_{name}")),
             "by_origin": {o: sum(r["encoded"] or 0 for r in requests if r["origin"] == o and r.get(f"completed_by_{name}")) for o in by_origin},
+            "observed_by_origin": {o: sum(r.get(f"observed_by_{name}", 0) for r in requests if r["origin"] == o) for o in by_origin},
         }
     served = [{"url": r["url"], "cache": r["cache"], "size": r["content_length"] or "size unknown"}
               for r in requests if r["cache"] in ("memory", "disk", "304", "service worker")]
@@ -157,9 +170,31 @@ def sample(raw: dict) -> dict:
         "nav_to_login_box_ms": round(marks["login_box"] - marks["navigation"], 1) if {"login_box", "navigation"} <= marks.keys() else None,
         "bytes": totals, "by_origin": by_origin, "served_from_cache": served, "requests": requests,
         "accounting_mismatches": [r["url"] for r in requests if r["encoded"] is not None and r["data_encoded"] > r["encoded"]],
+        "reconciliation": reconcile(totals, by_origin, requests),
         "trace_lost": m.get("trace_lost"), "cache_evidence": evidence, "signature": signature,
         "workers": m.get("workers", []), "primed": raw.get("primed", []),
     }
+
+
+def reconcile(totals: dict, by_origin: dict, requests: list[dict]) -> list[str]:
+    """The byte totals checked against each other (CMP-1-11): at each cutoff the
+    origins add up to the total, observed and completed both, and nothing
+    completed is more than was observed; the later cutoff holds at least what
+    the earlier did; the whole journey's origins add up to its requests. Each
+    failure named; none is an empty list."""
+    bad = []
+    for name, t in totals.items():
+        if sum(t["by_origin"].values()) != t["completed"]:
+            bad.append(f"{name}: completed by origin does not add up")
+        if sum(t["observed_by_origin"].values()) != t["observed"]:
+            bad.append(f"{name}: observed by origin does not add up")
+        if t["completed"] > t["observed"]:
+            bad.append(f"{name}: more completed than observed")
+    if {"login_box", "summary"} <= totals.keys() and totals["summary"]["observed"] < totals["login_box"]["observed"]:
+        bad.append("fewer bytes by the summary than by the login box")
+    if sum(o["encoded"] for o in by_origin.values()) != sum(r["encoded"] or 0 for r in requests):
+        bad.append("the journey's origins do not add up")
+    return bad
 
 
 def series(samples: list[dict]) -> dict:
@@ -210,8 +245,12 @@ def accounting_check(cold: list[dict], warm: list[dict]) -> dict:
                      for s in cold for r in s["requests"] if r["worker"] and (r.get("partial_at_login_box") or r.get("partial_at_summary"))), None)
     reval = next(({"url": r["url"], "wire_status": r["wire_status"], "encoded": r["encoded"], "size": r["content_length"] or "size unknown"}
                   for s in warm for r in s["requests"] if r["cache"] == "304"), None)
+    redirect = next(({"url": r["url"], "status": r["status"], "encoded": r["encoded"]}
+                     for s in cold + warm for r in s["requests"] if str(r["cache"]).startswith("redirect")), None)
     return {"worker_transfer_spanning_a_cutoff": spanning or "none observed", "warm_revalidation": reval or "none observed",
-            "mismatches": sorted({u for s in cold + warm for u in s["accounting_mismatches"]})}
+            "redirect": redirect or "none observed",
+            "mismatches": sorted({u for s in cold + warm for u in s["accounting_mismatches"]}),
+            "unreconciled": sorted({f for s in cold + warm for f in s["reconciliation"]})}
 
 
 def run(artifact: pathlib.Path, expected: list[list[str]], out: pathlib.Path, *, cold: int = COLD, warm: int = WARM) -> dict:
