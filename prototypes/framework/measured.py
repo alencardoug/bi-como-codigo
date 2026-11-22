@@ -157,7 +157,11 @@ def run(commit: str, seed: int, *, runs: pathlib.Path = route.RUNS, measured: pa
         folder.mkdir()
         assembly, _ = h.assemble(builders["own"], mutant_dir / "package", mutant.rows(), folder / "artifact")
         artifacts["own-mutant"] = {"label": "control", "assembly": {"class": assembly.cls, "message": assembly.message},
-                                   "artifact": str((folder / "artifact").relative_to(runs)), "fixture_digest": mutant.digest()}
+                                   "fixture_digest": mutant.digest()}
+        if assembly.cls == h.PASS:  # archived as the candidates' artifacts are, and used from the archive (CMP-1-05)
+            artifacts["own-mutant"].update(artifact=str((folder / "artifact").relative_to(runs)),
+                                           artifact_archive=str((folder / "artifact.tar.gz").relative_to(runs)),
+                                           artifact_digest=h.archive(folder / "artifact", folder / "artifact.tar.gz"))
     out["finished"] = route._now()
     state["draw"], state["artifacts"] = out, artifacts
     route.save(state, runs)
