@@ -20,7 +20,7 @@
 |---|---|
 | Date | 2026-11-20 — revision 9, with the five adjustments of round 8 of Codex's review (FPROTO-8-01 to -05), which found no blocking finding and closed the review. Revision 8 answered round 7 (FPROTO-7-01 to -06) with the Owner's N96, revision 7 answered round 6 (FPROTO-6-01 to -08), revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). No candidate is built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
+| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 has begun** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers (§3); its controls and Candidate B's clear build are not yet built. P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool that the stage proves or refutes (§9).
@@ -655,7 +655,7 @@ cutoff and on one warm revalidation before it is trusted.
 and ECharts 5.6.0, fetched by the harness from a committed lockfile and installed offline with
 `npm ci --offline --ignore-scripts` (§2.2, §5).
 
-**How it carries data [assumed, probe A1].** Evidence runs its *sources* at `npm run sources`, writes
+**How it carries data [measured by A1 — below — after being read from the source].** Evidence runs its *sources* at `npm run sources`, writes
 their results as Parquet into its static folder, runs the page queries at build time to prerender
 them — `@evidence-dev/universal-sql` 3.0.1 serialises each result as Arrow IPC under
 `.svelte-kit/output/prerendered/dependencies/api/prerendered_queries/`, and the page's
@@ -673,6 +673,39 @@ devalue, anything else —; each becomes a control of §2.5.5. A1 is also the re
 Evidence, as it comes, runs report queries at build time, and says so only from query evidence: a
 prerendered query result with the clear-mode fixture's rows in it, at the cache path above
 (FPROTO-4-01).
+
+**What A6 and A1 measured [measured, 2026-11-21].** `clear_mode.py evidence --commit 3dceaaf`, with
+the clear-mode fixture of seed 20261121 (10,872 rows), its record in `clear/evidence/record.json`:
+
+- **A6 — yes, with one pinned run-time file.** The 917 tarballs are fetched in 310 s from an empty
+  cache; `npm ci --offline --ignore-scripts` installs 839 packages in 67 s with no network; and
+  `npm run sources && npm run build` succeeds in 59 s with no network and no script of a dependency
+  run — the lockfile declares install scripts for `@sveltejs/kit`, `esbuild`, `fsevents` and
+  `svelte-preprocess`, and none was needed. `evidence sources` loads DuckDB's `parquet` extension
+  for `wasm_eh` from `extensions.duckdb.org` at run time and waits on it with no network: the
+  harness fetches it, pinned by URL and SHA-256 in `evidence/extensions.json` (3,045,039 bytes), and
+  places it under the sandbox's `HOME` (`npm_offline.pinned`). Resolving the lockfile took npm 12's
+  `--allow-remote=all`, for a dependency npm 12 classes as remote, although every resolved URL is on
+  the registry.
+- **A1 — the rows and results land in four carriers of `build/`**, the 90.5 MB the build publishes:
+  the source's whole result rewritten as Parquet, `data/p01/rows/<hash>/rows.parquet` (248,003
+  bytes, every row); every page query run at build time with the inputs' defaults, each result an
+  Arrow IPC file under `api/prerendered_queries/` — seven of its 17 files hold rows, one per query
+  and Dropdown —; and the prerendered `index.html`, which holds the month Dropdown's selected value
+  as text. Its three SvelteKit fetched-data scripts hold the compiled SQL and settings, no row. So
+  **Evidence, as it comes, runs report queries at build time**, from query evidence: 21 prerendered
+  results with the fixture's rows, the seven of `build/` and their copies in `.evidence/template/`,
+  where Evidence keeps its SvelteKit project, its query cache and further copies of the Parquet.
+- **What else the inspection reports there is not data.** The number hits in four JavaScript files
+  and in `all-queries.json` are a colour (`#54278f`), a file-mode constant (`32768`), a fragment of
+  a query's hash and numbers of SVG paths: the clear-mode fixture is not drawn against the builder
+  output, and such collisions are what §2.1's draw removes from the measured one. Every font, image
+  and WASM file of `build/` is byte-identical to a file of the kept install and recorded. Seven
+  notes stay inconclusive: six are the three fetched-data scripts once the speculative escape layers
+  have unescaped their quotes — the scripts themselves parse —, and one is the depth limit in the
+  bundle that carries chroma-js's colour tables. Both would stand in the measured route's inspection of
+  Evidence's builder output, where the verdict of §2.5.4 cannot pass while they do: each is a cost of
+  the candidate until a setting or the inspection resolves it.
 
 **The encrypted route [planned].** No source holds data: the only source is empty — the zero-row
 Parquet of §2.2, if Evidence needs one — or absent if Evidence allows, and the package is not in the
@@ -796,7 +829,7 @@ plainly cannot reach one of them is reported as such, with the observation behin
 
 ## 7. The order of the work
 
-1. **The ground, before either candidate [built, 2026-11-20 — not yet reviewed]**: the sandbox and its probe (§5); the fetcher;
+1. **The ground, before either candidate [built, 2026-11-20; review closed 2026-11-21, N97]**: the sandbox and its probe (§5); the fetcher;
    the allowlist and its check (§2.2); the fixture's shape and generator, with its shape checks and
    the coverage assertion, on a throwaway seed, and the G mutant's own check; assembly with its own
    validation; the harness and its classification (§2.5.1); the inspection, the browser collection
@@ -806,7 +839,7 @@ plainly cannot reach one of them is reported as such, with the observation behin
    (the draw against builder outputs), `serve.py`, `diagnose.py` with `leveldb.py` and `browser/`, and
    the control page `controls/page/`, all under `prototypes/framework/`, their controls in its
    `tests/`. What the building settled is in §9.
-2. **The clear mode, first**: the clear-mode fixture, then each candidate's clear build in its own
+2. **The clear mode, first** [Evidence's A6 and A1 run, 2026-11-21 (§3); its controls and B's clear build to come]: the clear-mode fixture, then each candidate's clear build in its own
    sandbox — A6 and A1 for Evidence —, and the controls built from its carriers.
 3. **The encrypted route**: Candidate B's builder output, archived; Candidate A's, through probes
    A7, A2 and A3, in that order, each "no" recorded and the next probe run where it still can, until
@@ -851,11 +884,13 @@ plainly cannot reach one of them is reported as such, with the observation behin
 - **Outside the oracle, by N95**: page code of ours written to deceive it, and a compromised
   dependency. Our page code is reviewed by Codex with the implementation; the dependencies are
   pinned by lockfile and digest and run with no network.
-- **[assumed]** Evidence's data path as described in §3, read from its source by the reviewer, not
-  run — probe A1 measures it.
-- **[assumed]** that Evidence installs and builds offline from a fetched cache (A6) and builds its
-  page with only the allowlisted inputs (A3); if not, its encrypted route is not possible, and that
-  is a result, not a defect of the plan.
+- **[measured]** Evidence's data path of §3, in the clear mode, and its offline install and build
+  with no script of a dependency, given the one run-time file the harness pins (A6, A1, §3).
+- **[assumed]** that Evidence builds its page with only the allowlisted inputs (A3); if not, its
+  encrypted route is not possible, and that is a result, not a defect of the plan.
+- **[assumed]** that Evidence's DuckDB-WASM loads the same `parquet` extension from
+  `extensions.duckdb.org` in the browser, as its build does in Node: if so, A7 declares it in
+  `cdn.json` beside the engine.
 - **[assumed]** that Evidence can load its engine from jsDelivr (A7) and that its worker can be
   terminated from page code (A2).
 - **[assumed]** that DuckDB-WASM 1.32.0 from jsDelivr runs in headless Chrome from a page served on
