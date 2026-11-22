@@ -56,6 +56,39 @@ fc6e4c4 feat(prototype): cut Evidence's brand icons to the four it uses (A8, N10
 a704e42 docs: record the controls of stage 2.3 on each builder output
 ```
 
+### Round 2 — the corrections of round 1, and the full run
+
+Range of round 2: `a704e42..4a32977`, the corrections of CMP-1-01 to CMP-1-12 and the full run
+they asked for. `a704e42` is the top round 1 reviewed; both ends are fixed.
+
+```
+af9cbc6 docs: hand stage 2.3's steps 2 to 6 to review
+0fff16e docs: record round 1 of the review of stage 2.3's comparison
+34468af fix(prototype): keep an artifact's finding when its verify errors
+22ba227 fix(prototype): run one invocation at a time on the run's state
+fdaec3e fix(prototype): bring a harness's records back when it returns
+d292b0e fix(prototype): stop the verdict on a draw that ends with no fixture
+fd46cc4 fix(prototype): bind the comparison to its archives and survive failures
+74031d9 fix(prototype): explain a broken script only when a layer read it whole
+474a091 fix(prototype): fail a control on anything it did not expect
+5a3fb95 fix(prototype): count a warm sample only after complete priming
+f16bc2d fix(prototype): pass the browser check only with its proofs
+676fc2f fix(prototype): time navigation from its request and keep redirect hops
+ff16268 fix(prototype): refuse any page request outside its origin and declarations
+e6b1a3a fix(prototype): time each verify and count the tarballs a fetch downloads
+356bec1 docs: answer round 1 of the review of stage 2.3's comparison
+4a32977 docs: record stage 2.3's full comparison run at 356bec1
+```
+
+`af9cbc6` and `0fff16e` change only this file. `4a32977` changes only `PLAN.md` and
+`docs/framework_prototype.md`: the harness of the full run is `356bec1`'s, and `git diff 356bec1
+4a32977 -- prototypes src web pyproject.toml uv.lock` is empty. The status of each round 1 finding
+is in the table at the end; the fixes are in 13 code commits, each with its tests.
+
+**Where to spend effort in round 2**: whether each fix closes its finding at the root, with a
+counter-proof that fails on the code before it; and whether §10 of the plan, rewritten from the
+full run, says only what the run's results hold.
+
 ## 2. Review map
 
 Where to spend effort. **An error in derived output is a symptom: fix it in the declaration.**
@@ -171,28 +204,143 @@ Literal output, not a summary. A command with no output here is not a measuremen
   e0bb3c323cac  site/package/P13.646219cec9b25ccc.bice  skipped: not UTF-8 text
 ```
 
+### Round 2 — at `4a32977`
+
+`make check`, exit 0 (the tail; the whole output is as above, with the same skipped blobs):
+
+```
+ℹ tests 157
+ℹ suites 0
+ℹ pass 156
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 3504.929233
+```
+
+`make prototype-test`:
+
+```
+$ make prototype-test
+437 passed in 642.52s (0:10:42)
+```
+
+`make prototype` at `356bec1`, run once, 17:30 to 21:09 UTC, exit 0 — `report.json` of
+`runs/draws/draw-20261122T173353Z-f4f26398/results/`, its verdicts, results and draw:
+
+```
+{
+ "commit": "356bec103c61ed978da8c1b906dea0af737bc415",
+ "built": [
+  "own",
+  "evidence"
+ ],
+ "verdicts": {
+  "own": "passes: own-20261122T173008Z-1627d431: every stage complete, verify passed, nothing found",
+  "evidence": "passes: evidence-20261122T173008Z-70b18d9a: every stage complete, verify passed, nothing found"
+ },
+ "results": {
+  "own": {
+   "result": "draws/draw-20261122T173353Z-f4f26398/results/own/result.json",
+   "check_passed": true
+  },
+  "evidence": {
+   "result": "draws/draw-20261122T173353Z-f4f26398/results/evidence/result.json",
+   "check_passed": true
+  }
+ },
+ "draw": {
+  "id": "draw-20261122T173353Z-f4f26398",
+  "status": "clean",
+  "draws": 28,
+  "seconds": 597.3,
+  "seed": 288699466,
+  "started": "2026-11-22T17:33:57Z",
+  "finished": "2026-11-22T17:57:10Z"
+ },
+ "history": [
+  {
+   "closed": "2026-11-22T17:30:08Z",
+   "verdicts": {
+    "own": "passes: own-20261122T095732Z-baff345a: every stage complete, verify passed, nothing found",
+    "evidence": "passes: evidence-20261122T095732Z-456b9423: every stage complete, verify passed, nothing found"
+   }
+  }
+ ]
+}
+```
+
+The controls, as `compare.py` ran them through `builder_controls.run`, read from each
+`results/<candidate>/result.json` (columns: candidate, as expected, control, `verify` class, codes
+in the added file, codes elsewhere, inconclusive, verdict of that run alone, `verify` seconds):
+
+```
+own OK  clean metadata PASS [] [] 0 passes 3.839
+own OK  a count in a JSON CONTENT ['INSPECT_NUMBER'] [] 0 fails the criterion 1.638
+own OK  package only, with a form refusal FORM [] [] 0 a cost 0.009
+own OK  a fixed label CONTENT ['INSPECT_TEXT'] [] 0 fails the criterion 1.562
+own OK  an amount in pt-BR CONTENT ['INSPECT_TEXT'] [] 0 fails the criterion 1.602
+own OK  an amount in its JavaScript spelling PASS ['INSPECT_NUMBER'] [] 0 fails the criterion 3.741
+own OK  Arrow IPC PASS ['INSPECT_ARROW'] [] 0 fails the criterion 3.716
+own OK  Parquet with rows CONTENT ['INSPECT_PARQUET'] [] 0 fails the criterion 1.053
+own OK  schema only SCHEMA_ONLY [] [] 0 a cost 1.022
+own OK  gzip of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 3.696
+own OK  brotli of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 3.671
+own OK  base64 of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 3.695
+own OK  JSON-escaped text PASS ['INSPECT_TEXT'] [] 0 fails the criterion 3.666
+own OK  a base64 payload in a service worker PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 3.675
+own OK  a label in a .map FORM ['INSPECT_TEXT'] [] 0 fails the criterion 0.009
+own OK  a label in a second manifest.json FORM ['INSPECT_TEXT'] [] 0 fails the criterion 0.01
+own OK  assembly form: a package/ of the builder's None None None 0 a cost None
+evidence OK  clean metadata PASS [] [] 0 passes 709.848
+evidence OK  a count in a JSON CONTENT ['INSPECT_NUMBER'] [] 0 fails the criterion 709.542
+evidence OK  package only, with a form refusal FORM [] [] 0 a cost 0.145
+evidence OK  a fixed label CONTENT ['INSPECT_TEXT'] [] 0 fails the criterion 712.292
+evidence OK  an amount in pt-BR CONTENT ['INSPECT_TEXT'] [] 0 fails the criterion 709.34
+evidence OK  an amount in its JavaScript spelling PASS ['INSPECT_NUMBER'] [] 0 fails the criterion 710.67
+evidence OK  Arrow IPC PASS ['INSPECT_ARROW'] [] 0 fails the criterion 712.003
+evidence OK  Parquet with rows CONTENT ['INSPECT_PARQUET'] [] 0 fails the criterion 1.331
+evidence OK  schema only SCHEMA_ONLY [] [] 0 a cost 1.358
+evidence OK  gzip of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 709.655
+evidence OK  brotli of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 711.019
+evidence OK  base64 of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 711.595
+evidence OK  JSON-escaped text PASS ['INSPECT_TEXT'] [] 0 fails the criterion 717.975
+evidence OK  a base64 payload in a service worker PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 709.528
+evidence OK  a label in a .map FORM ['INSPECT_TEXT'] [] 0 fails the criterion 0.143
+evidence OK  a label in a second manifest.json FORM ['INSPECT_TEXT'] [] 0 fails the criterion 0.144
+evidence OK  assembly form: a package/ of the builder's None None None 0 a cost None
+```
+
 ## 4. What was NOT verified
 
 The most useful section of the dossier, and the one the author least wants to write.
 Every claim with no command output in section 3 belongs here.
 
-- **`make prototype` was not run at the top of this range.** The run recorded in §10 of the plan is at
-  the harness of `344d525`; this range adds `builder_controls.py` and changes `compare.py` after it,
-  which changes the harness's identity, so the next `make prototype` builds both candidates again
-  and draws again. The controls themselves ran on the builder outputs of that draw, from the working
-  tree that became `596dc90` (output below), but not through `compare.py`: the call from
-  `compare.py` to `builder_controls.run` is exercised by no test and no run. The full run is repeated
-  once after this review (§7 step 7).
+- **Round 2: `make prototype` ran once, at `356bec1`** (section 3). It ran each stage of the
+  comparison on its successful path only: no build failed, the draw was clean, no assembly was
+  refused, so the failure paths of CMP-1-04 and CMP-1-05 ran in the tests alone, on hand-made
+  states. The lock of CMP-1-02 was not contended in the run.
+- **Round 1's archived evidence is gone**: as the hand-over between sessions said, with 11 GB free, I deleted the build
+  `evidence-20261122T095732Z-456b9423` and the draw `draw-20261122T100056Z-45077390`, which only
+  `discarded` and `history` in `runs/state.json` still name. What round 1 reproduced from them
+  cannot be reproduced again; B's old builds (84 KB each) are kept.
+- **The new numbers are not comparable with the old**: CMP-1-10 and CMP-1-11 changed what is timed.
+  Evidence's cold navigation to summary went from 4.93 s to 6.94 s and B's from 4.44 s to 4.70 s;
+  I did not separate how much is the new start mark and how much is the machine.
 - **One sitting, one machine, one draw**: every number of §10 is of one run; the medians are of five
   samples each, and no run was repeated to see whether they hold.
 - **A worker transfer spanning a cutoff**: no such transfer happened, so that branch of the byte
   accounting (`measure.py`, partial transfers) ran on no real data.
 - **The warm series split**: in the run both candidates gave one series of five; the split by cache
   evidence (`measure.series`) ran on real data only with one class.
-- **The diagnostic's leads (§10)** — Evidence's 12 on-disk `INSPECT_NUMBER` and B's 1, and
-  `SESSION_SURVIVES` for both — are reported and not explained further: in particular, I did not
-  prove that the 6 HTTP cache entries of Evidence are only brotli-compressed copies of its own files
-  (I read their URLs, not their bodies).
+- **The diagnostic's leads (§10)** — in round 2's run, Evidence's 7 on-disk `INSPECT_NUMBER` and
+  B's 1, the binaries no layer decodes (26 and 69), and `SESSION_SURVIVES` for both — are reported
+  and not explained further. Of Evidence's one HTTP cache entry I read the key, the artifact's
+  `_app/immutable/nodes/4.CX0S_G4J.js`, not the body; that B's live worker after logout is the new
+  login page's engine was derived at `344d525`, not again.
+- **The cold fetch of Evidence's 917 tarballs** is still not measured: the run found all of them in
+  the tarball cache (`downloaded: 0`), so §10 marks it pending.
 - **Evidence's service worker** (`fix-tprotocol-service-worker.js`): not removed, not studied beyond
   noting it is registered on every page and keeps each priming journey waiting 302 s.
 - **The pt-BR formatting of Evidence's tables** is done in SQL (A5); the oracle checks the cells it
@@ -297,11 +445,12 @@ in eng_dados is not needed and should not be run. What it needs, all on this mac
 | The prototype's dependency group | `uv sync --frozen --group prototype` | `make prototype-test` |
 | Node 20+ and Google Chrome, for the browser checks | installed | `node --version`; `google-chrome --version` |
 | `bubblewrap`, for a build | installed | `bwrap --version` |
-| The archived builder outputs, the draw and its results | already under `prototypes/framework/runs/` (ignored by Git) | `runs/state.json`; `runs/draws/draw-20261122T100056Z-45077390/results/` |
+| The archived builder outputs, the draw and its results | already under `prototypes/framework/runs/` (ignored by Git) | `runs/state.json`; `runs/draws/draw-20261122T173353Z-f4f26398/results/` |
 
 **Do not run** `make prototype`, `make prototype-build-own` or `make prototype-build-evidence`: each
-writes `runs/state.json`, and at this range's harness `make prototype` would discard the draw and
-build both again (hours, chiefly the controls on Evidence). Reading `runs/` and running the tests is
+writes `runs/state.json`; at `4a32977` the harness is the full run's, and a second run would
+measure and control again over hours (chiefly the controls on Evidence), and change the results
+under review. Reading `runs/` and running the tests is
 review; a probe of your own goes into a copy under `/tmp`.
 
 ## 7. Where I hesitated
@@ -328,6 +477,13 @@ Decisions that could have gone the other way, with the reason they went this one
   adaptations to Evidence's markup (`%` for "all", the full-screen copy of a DataTable). The risk is
   that the reader is shaped to pass Evidence; the comparator's proofs refuse altered readings, but
   they alter the reading, not the markup.
+- **Round 2: §10 replaced, not amended**: the old numbers stand for a harness the review changed, so
+  §10 now holds only the run at `356bec1`, and the run of `344d525` survives in `report.json`'s
+  `history` and in Git. The alternative, both runs side by side, would invite comparing numbers
+  timed differently.
+- **Round 2: the old run's archives deleted** (section 4), by the hand-over's instruction to keep
+  only what `state.json` uses, with 11 GB free at the time; the price is that round 1's
+  reproductions cannot be redone.
 - **Zero order sums are excluded from the order-sums check**, and the detail header is checked only
   when the table has rows or a header (`check.py`): a cell with no sales shows the notice instead.
 
