@@ -47,8 +47,9 @@ import verdict as v
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 RUNS = HERE / "runs"
-#: What the harness is made of, by path in the repository, at a commit (§5).
-HARNESS_PATHS = ("prototypes/framework", "src/bi_como_codigo", "web/envelope.mjs")
+#: What the harness is made of, by path in the repository, at a commit (§5) — the Python
+#: dependencies too, which the inspector, the oracle and the compressors run on (CMP-1-03).
+HARNESS_PATHS = ("prototypes/framework", "src/bi_como_codigo", "web/envelope.mjs", "pyproject.toml", "uv.lock")
 OWN_BUILD = ["/usr/bin/python3", "-I", "build.py", "package"]
 #: Evidence's encrypted build: A7's configuration, and no `evidence sources` — there is no source (§3, A3).
 EVIDENCE_BUILD = ["/usr/bin/sh", "-c", "npm run build:pinned"]
@@ -147,12 +148,17 @@ def enter_harness(state: dict, inputs: dict[str, str]) -> None:
     """A changed harness discards the draw, the artifacts and the measures, and
     closes the records made under the old one into `history`, kept and
     reported: a verdict judges the runs of one harness, the one that compares
-    the candidates, never a run its oracle did not judge."""
+    the candidates, never a run its oracle did not judge. Returning to a
+    harness already closed brings its records back, every one, in their order:
+    they are that harness's evidence, and a candidate it built is still judged
+    by them (CMP-1-03)."""
     if state["harness"] is not None and state["harness"] != inputs:
         discard(state, "the harness inputs changed")
         if state["records"]:
             state["history"].append({"harness": state["harness"], "closed": _now(), "records": state["records"]})
-            state["records"] = []
+        back = [h for h in state["history"] if h["harness"] == inputs]
+        state["history"] = [h for h in state["history"] if h["harness"] != inputs]
+        state["records"] = [r for h in back for r in h["records"]]
     state["harness"] = inputs
 
 

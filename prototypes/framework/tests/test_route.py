@@ -65,6 +65,16 @@ def test_a_changed_harness_discards_them_too(tmp_path):
     assert state["draw"] is None and state["discarded"][-1]["why"] == "the harness inputs changed"
     assert state["records"] == [] and state["history"][-1]["records"] == [{"id": "r1"}]
     assert state["history"][-1]["harness"] == {"prototypes/framework": "a"}
+    state["records"].append({"id": "r2"})
+    route.enter_harness(state, {"prototypes/framework": "a"})  # back to a: its records are its evidence again (CMP-1-03)
+    assert state["records"] == [{"id": "r1"}]
+    assert [h["harness"] for h in state["history"]] == [{"prototypes/framework": "b"}]
+    assert state["history"][0]["records"] == [{"id": "r2"}]
+
+
+def test_the_python_dependencies_are_harness_inputs():
+    inputs = route.harness_inputs(HEAD, require_clean=False)
+    assert {"pyproject.toml", "uv.lock"} <= set(inputs) and all(inputs.values())
 
 
 def test_a_failed_probe_refuses_the_build_and_the_record_says_so(tmp_path):

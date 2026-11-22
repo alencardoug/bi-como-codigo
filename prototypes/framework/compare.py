@@ -112,6 +112,8 @@ def run(commit: str, *, seed: int | None = None) -> dict:
         route.save(state)
         (out / name / "result.json").write_text(json.dumps(results[name], indent=1, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
     report["verdicts"] = measured.verdicts(route.load())
+    report["history"] = [{"harness": h_["harness"], "closed": h_["closed"], "records": [r["id"] for r in h_["records"]],
+                           "verdicts": measured.verdicts({**state, "records": h_["records"]})} for h_ in route.load()["history"]]
     report["artifacts"] = {n: {k: v for k, v in a.items() if k not in ("builder_inspection", "artifact_inspection")} for n, a in state["artifacts"].items()}
     (out / "report.json").write_text(json.dumps(report, indent=1, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
     return report
