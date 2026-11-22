@@ -1,0 +1,73 @@
+{
+ "about": "P01 for Candidate B (docs/framework_prototype.md §2.3, §4): its queries, its two inputs, its chart and its two tables, run by report.mjs over the table the page registers after login. The queries read the table as it is; the only sums are the page's of §2.3, and order_count is never summed (M4). Amounts are cast to VARCHAR, so that they reach the formatter exactly, and to DOUBLE only for the chart.",
+ "id": "P01",
+ "title": "Receita por canal e categoria",
+ "table": "p01",
+ "inputs": [
+  {"id": "canal", "label": "Canal", "options": "canais", "all": "todos", "bice": "filter"},
+  {"id": "mes", "label": "Mês do detalhe", "options": "meses", "default": "last", "bice": "month"}
+ ],
+ "queries": {
+  "canais": {"sql": "select distinct sales_channel_name as value from p01 order by 1"},
+  "meses": {"sql": "select distinct year_month as value from p01 order by 1"},
+  "por_mes": {
+   "params": ["canal"],
+   "sql": "select year_month, root_category_name, cast(sum(net_revenue_amount) as double) as net_revenue_amount from p01 where ($1 = 'todos' or sales_channel_name = $1) group by year_month, root_category_name order by year_month, root_category_name"
+  },
+  "resumo": {
+   "params": ["canal"],
+   "sql": "with cells as (select m.year_month, r.root_category_name from (select distinct year_month from p01) m cross join (select distinct root_category_name from p01) r), filtered as (select year_month, root_category_name, sum(net_revenue_amount) as net_revenue_amount, sum(unit_count) as unit_count from p01 where ($1 = 'todos' or sales_channel_name = $1) group by year_month, root_category_name) select c.year_month, c.root_category_name, cast(f.net_revenue_amount as varchar) as net_revenue_amount, f.unit_count from cells c left join filtered f on f.year_month = c.year_month and f.root_category_name = c.root_category_name order by c.year_month, c.root_category_name"
+  },
+  "detalhe": {
+   "params": ["canal", "mes"],
+   "sql": "select sales_channel_name, category_name, order_count, unit_count, cast(net_revenue_amount as varchar) as net_revenue_amount from p01 where ($1 = 'todos' or sales_channel_name = $1) and year_month = $2 order by sales_channel_name, category_name"
+  }
+ },
+ "partial": {"month": "last", "text": "Mês em curso: os números ainda vão mudar."},
+ "chart": {
+  "query": "por_mes",
+  "title": "Receita líquida por mês",
+  "vega_lite": {
+   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+   "data": {"name": "rows"},
+   "width": "container",
+   "height": 280,
+   "mark": {"type": "line", "point": false},
+   "encoding": {
+    "x": {"field": "year_month", "type": "ordinal", "title": "Mês", "axis": {"labelAngle": -45, "labelOverlap": true}},
+    "y": {"field": "net_revenue_amount", "type": "quantitative", "title": "Receita líquida (R$)", "axis": {"format": ",.0f"}},
+    "color": {"field": "root_category_name", "type": "nominal", "title": "Categoria raiz"}
+   },
+   "config": {"locale": {"number": {"decimal": ",", "thousands": ".", "grouping": [3], "currency": ["R$ ", ""]}}}
+  }
+ },
+ "tables": [
+  {
+   "bice": "summary",
+   "title": "Resumo",
+   "query": "resumo",
+   "columns": [
+    {"field": "year_month", "label": "Mês", "format": "text"},
+    {"field": "root_category_name", "label": "Categoria raiz", "format": "text"},
+    {"field": "net_revenue_amount", "label": "Receita líquida", "format": "brl"},
+    {"field": "unit_count", "label": "Unidades", "format": "int"}
+   ],
+   "empty_cell": "Sem vendas neste recorte.",
+   "month_field": "year_month"
+  },
+  {
+   "bice": "detail",
+   "title": "Detalhe do mês",
+   "query": "detalhe",
+   "columns": [
+    {"field": "sales_channel_name", "label": "Canal", "format": "text"},
+    {"field": "category_name", "label": "Categoria", "format": "text"},
+    {"field": "order_count", "label": "Pedidos", "format": "int"},
+    {"field": "unit_count", "label": "Unidades", "format": "int"},
+    {"field": "net_revenue_amount", "label": "Receita líquida", "format": "brl"}
+   ],
+   "empty_table": "Sem vendas neste recorte.",
+   "month_input": "mes"
+  }
+ ]
+}

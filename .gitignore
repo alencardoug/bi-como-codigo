@@ -30,3 +30,6 @@ release/firebase-tools/node_modules/
 /prototypes/framework/clear/
 /prototypes/framework/runs/
 /prototypes/framework/*/runs/
+# What Candidate B's build writes, if it is ever run in its own folder (§4)
+/prototypes/framework/own/build/
+/prototypes/framework/own/data/
