@@ -161,21 +161,29 @@ async function journey(measured) {
   }
   handlers.splice(handlers.indexOf(on), 1);
   await send("Target.closeTarget", { targetId });
-  // Quiescence: no target of the journey left for two seconds.
-  let since = Date.now();
-  while (Date.now() - since < 2000) {
-    const { result } = await send("Target.getTargets");
-    if (result.targetInfos.some((t) => t.type !== "browser" && t.url.startsWith(new URL(config.url).origin))) since = Date.now();
-    await sleep(200);
+  // Quiescence, between journeys only — the measured one is the last of its process: no target of
+  // the journey left for two seconds. A service worker of the origin is such a target until Chrome
+  // stops it; how long that took is kept as evidence of the priming.
+  let quiescence = null;
+  if (!measured) {
+    const q0 = Date.now();
+    let since = Date.now(), left = [];
+    while (Date.now() - since < 2000 && Date.now() - q0 < 900000) {
+      const { result } = await send("Target.getTargets");
+      left = result.targetInfos.filter((t) => t.type !== "browser" && t.url.startsWith(new URL(config.url).origin));
+      if (left.length) since = Date.now();
+      await sleep(200);
+    }
+    quiescence = { seconds: (Date.now() - q0) / 1000, reached: !left.length, left: left.map((t) => t.type) };
   }
-  return { marks, ...record, seconds: (Date.now() - t0) / 1000 };
+  return { marks, ...record, quiescence, seconds: (Date.now() - t0) / 1000 };
 }
 
 const out = { url: config.url, priming: config.priming, primed: [] };
 try {
   for (let i = 0; i < config.priming; i++) {
     const p = await journey(false);
-    out.primed.push({ marks: p.marks, seconds: p.seconds });
+    out.primed.push({ marks: p.marks, seconds: p.seconds, quiescence: p.quiescence });
   }
   out.measured = await journey(true);
 } catch (error) {
