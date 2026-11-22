@@ -57,3 +57,9 @@ def test_the_data_carriers_are_the_parquet_the_query_results_and_the_pages():
                              "build/_app/immutable/chunks/index.js", "build/api/x/all-queries.json",
                              ".evidence/template/build/index.html")}
     assert cm.data_carriers(found) == ["build/api/prerendered_queries/q.arrow", "build/data/p01/rows/h/rows.parquet", "build/index.html"]
+
+
+def test_b_carriers_are_every_file_of_its_build_with_a_finding():
+    found = {"build/data/p01.parquet": {}, "build/page.0123456789abcdef.mjs": {}, "outputs/elsewhere": {}}
+    assert cm.own_carriers(found) == ["build/data/p01.parquet", "build/page.0123456789abcdef.mjs"]
+    assert cm.CARRIERS["evidence"] is cm.data_carriers

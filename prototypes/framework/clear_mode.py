@@ -7,11 +7,16 @@ build's work folders, each assembled fresh from an allowlist and checked before 
 copied-out builder output and query caches; and `record.json`, what each phase did.
 
     uv run --frozen --group prototype python prototypes/framework/clear_mode.py evidence --commit <sha>
+    uv run --frozen --group prototype python prototypes/framework/clear_mode.py own --commit <sha>
 
 A6 is the install with `npm ci --offline --ignore-scripts`, run first, in the sandbox with no
 network, and the build after it, also with no network: whether they succeed with no script of a
 dependency. A1 is the inspection of what the build wrote, with the clear-mode fixture's needles:
 every carrier its rows and results land in, and whether a prerendered query result holds them.
+
+Candidate B, the own build, installs nothing: its clear build is `build.py clear`, run with the
+system's Python in the sandbox with no network, over its tracked sources, the envelope's reader and
+the clear-mode fixture's Parquet, which the page fetches after login (§2.5.5, "Clear mode").
 """
 
 from __future__ import annotations
@@ -131,6 +136,67 @@ def evidence(commit: str, *, root: pathlib.Path = CLEAR / "evidence", fresh: boo
     return record
 
 
+OWN_BUILD = ["/usr/bin/python3", "-I", "build.py", "clear"]
+
+
+def own(commit: str, *, root: pathlib.Path = CLEAR / "own", fresh: bool = False) -> dict:
+    """The clear mode of Candidate B: its build, in the sandbox with no network,
+    over its tracked sources, the envelope's reader and the clear-mode
+    fixture's Parquet; then the same inventory as Evidence's A1."""
+    if fresh and root.exists():
+        shutil.rmtree(root)
+    root.mkdir(parents=True, exist_ok=True)
+    record: dict = {"candidate": "own", "commit": commit, "seed": CLEAR_SEED, "started": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    log = root / "record.json"
+    fx, fixture_dir = clear_fixture(root)
+    parquet = fixture_dir / "p01.parquet"
+    record["fixture"] = {"parquet_sha256": hashlib.sha256(parquet.read_bytes()).hexdigest(), "rows": len(fx.rows()), "k": fx.k}
+
+    build_work = root / "build-work"
+    if build_work.exists():
+        shutil.rmtree(build_work)
+    allow = al.tracked(commit, "prototypes/framework/own/") + al.tracked(commit, "web/envelope.mjs") + al.single("data/p01.parquet", parquet)
+    record["build_inputs"] = {"allowlist_sha256": allow.digest, "files": len(allow.entries)}
+    al.assemble(allow, build_work)
+    al.check(allow, build_work)
+    t0 = time.time()
+    built = sb.run(build_work, OWN_BUILD, timeout=600)
+    record["build"] = {"argv": OWN_BUILD, "exit": built.returncode, "seconds": round(time.time() - t0, 1),
+                       "stderr": _tail(built.stderr), "stdout": _tail(built.stdout)}
+    _log(record, log)
+    if built.returncode != 0:
+        return record
+
+    outputs = root / "outputs"
+    if outputs.exists():
+        shutil.rmtree(outputs)
+    outputs.mkdir()
+    uncarried = al.copy_out(build_work, "build", outputs / "build")
+    record["A1"] = {"copied": ["build"], "uncarried": {"build": uncarried} if uncarried else {}}
+    record["A1"].update(inventory(outputs, ["build"], fx, frozenset()))
+    _log(record, log)
+    return record
+
+
+def smoke(root: pathlib.Path = CLEAR / "own") -> dict:
+    """B's clear build served on 127.0.0.1 by the stage's server and opened in
+    headless Chrome by `browser/smoke.mjs`: that the page loads its pinned
+    bodies from jsDelivr, opens the clear Parquet after submit, shows G, Z and
+    the partial month, and logs out. A record, not the check of §2.6."""
+    import serve
+
+    log = root / "record.json"
+    record = json.loads(log.read_text(encoding="utf-8"))
+    out = root / "smoke.json"
+    out.unlink(missing_ok=True)
+    with serve.Server(root / "outputs" / "build") as server:
+        done = subprocess.run(["node", str(HERE / "browser" / "smoke.mjs"), server.url + "index.html", str(out), str(root / "smoke.png")],
+                              capture_output=True, text=True, timeout=600)
+    record["smoke"] = json.loads(out.read_text(encoding="utf-8")) if out.is_file() else {"exit": done.returncode, "stderr": done.stderr[-4000:]}
+    _log(record, log)
+    return record["smoke"]
+
+
 def inventory(outputs: pathlib.Path, copied: list[str], fx: fx_mod.Fixture, dependencies: frozenset[str]) -> dict:
     """A1: every copied-out file inspected with the clear fixture's needles, by
     carrier, and the query results the build wrote — wherever under the
@@ -166,7 +232,17 @@ def data_carriers(findings_by_file: dict[str, dict]) -> list[str]:
         f.startswith(("build/data/", "build/api/prerendered_queries/")) or f.endswith(".html")))
 
 
-def controls(root: pathlib.Path = CLEAR / "evidence") -> list[dict]:
+def own_carriers(findings_by_file: dict[str, dict]) -> list[str]:
+    """Every file of B's `build/` A1 found the clear fixture in: the own build
+    bundles no third party, so a hit there is a carrier, never a coincidence
+    set aside."""
+    return sorted(f for f in findings_by_file if f.startswith("build/"))
+
+
+CARRIERS = {"evidence": data_carriers, "own": own_carriers}
+
+
+def controls(candidate: str = "evidence", root: pathlib.Path | None = None) -> list[dict]:
     """The clear mode's controls of §2.5.5: each carrier A1 found, copied
     **alone** into a clean artifact — a hand-made builder output and the
     clear fixture's validated package —, and diagnosed there: `verify`'s class,
@@ -175,6 +251,7 @@ def controls(root: pathlib.Path = CLEAR / "evidence") -> list[dict]:
     import harness as h
     import verdict as v
 
+    root = root or CLEAR / candidate
     log = root / "record.json"
     record = json.loads(log.read_text(encoding="utf-8"))
     fx, fixture_dir = clear_fixture(root)
@@ -195,8 +272,8 @@ def controls(root: pathlib.Path = CLEAR / "evidence") -> list[dict]:
     (lists / "include.txt").write_text(CONTROL_LISTS[0])
     (lists / "media_types.txt").write_text(CONTROL_LISTS[1])
     out = []
-    for i, rel in enumerate(data_carriers(record["A1"]["carriers"]["build"]["findings_by_file"])):
-        dest = "evidence/" + rel[len("build/"):]
+    for i, rel in enumerate(CARRIERS[candidate](record["A1"]["carriers"]["build"]["findings_by_file"])):
+        dest = f"{candidate}/" + rel[len("build/"):]
         artifact = work / f"artifact{i}"
         assembly, validated = h.assemble(builder, fixture_dir / "package", fx.rows(), artifact,
                                          control_additions={dest: (outputs / rel).read_bytes()})
@@ -233,16 +310,24 @@ def _by_file(findings) -> dict[str, dict[str, int]]:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("candidate", choices=["evidence"])
+    parser.add_argument("candidate", choices=["evidence", "own"])
     parser.add_argument("--commit", required=True, help="the commit whose tracked candidate sources are built")
     parser.add_argument("--fresh", action="store_true", help="remove the candidate's clear folder first")
     parser.add_argument("--inventory-only", action="store_true", help="redo A1 on the outputs already copied out")
     parser.add_argument("--controls", action="store_true", help="run the clear mode's controls on A1's carriers")
+    parser.add_argument("--smoke", action="store_true", help="B only: open the clear build in headless Chrome")
     args = parser.parse_args()
+    if args.smoke:
+        if args.candidate != "own":
+            raise SystemExit("--smoke is B's")
+        print(json.dumps(smoke(), indent=1))
+        raise SystemExit(0)
     if args.controls:
-        print(json.dumps(controls(), indent=1))
+        print(json.dumps(controls(args.candidate), indent=1))
         raise SystemExit(0)
     if args.inventory_only:
+        if args.candidate != "evidence":
+            raise SystemExit("--inventory-only is Evidence's: B's build takes seconds")
         log = CLEAR / "evidence" / "record.json"
         result = json.loads(log.read_text(encoding="utf-8"))
         kept = al.files(CLEAR / "evidence" / "node_modules", "node_modules/")
@@ -250,7 +335,7 @@ if __name__ == "__main__":
                                       frozenset(e.sha256 for e in kept.entries)))
         _log(result, log)
     else:
-        result = evidence(args.commit, fresh=args.fresh)
+        result = (evidence if args.candidate == "evidence" else own)(args.commit, fresh=args.fresh)
     summary = {k: ({kk: vv for kk, vv in v.items() if kk not in ("stderr", "stdout", "carriers")} if isinstance(v, dict) else v)
                for k, v in result.items()}
     print(json.dumps(summary, indent=1, default=str))
