@@ -46,6 +46,7 @@ class Record:
     artifact_digest: str | None = None
     stages: dict[str, Stage] = dataclasses.field(default_factory=dict)
     draw_exhausted: bool = False
+    draw_stopped: bool = False  # the draw stopped on a builder output it could not read (PROTO-1-07, CMP-1-04)
     draw_clean: bool = False  # a clean draw recorded against this builder output, of the fixture below
     fixture: str | None = None  # the drawn fixture's digest: of a clean draw, or of the package an assembly sealed
     not_possible: bool = False  # A3: the encrypted route is not possible, with its probe
@@ -134,12 +135,15 @@ def _history(records: list[Record]) -> _History:
         built = False
         for name in _WALK:
             if name == "draw":
-                if not (r.draw_exhausted or r.draw_clean):
+                ended = r.draw_exhausted or r.draw_stopped
+                if not (ended or r.draw_clean):
                     continue
-                if r.builder_digest not in inspected or (r.draw_clean and not r.draw_exhausted and r.fixture is None):
-                    break  # a draw nothing inspected, or a clean one with no fixture, explains nothing
-                draws.append((n, r.draw_exhausted, r.fixture))
-                if r.draw_exhausted:
+                # A clean draw counts on an inspected builder output, with its fixture; one that
+                # exhausted or stopped, on the archived builder output it searched (CMP-1-04).
+                if r.builder_digest not in (archived if ended else inspected) or (r.draw_clean and not ended and r.fixture is None):
+                    break  # a draw nothing explains, or a clean one with no fixture, explains nothing
+                draws.append((n, ended, r.fixture))
+                if ended:
                     break  # no fixture to seal: nothing after it in this record counts
                 continue
             if name not in r.stages:
@@ -290,7 +294,7 @@ def _stop(n: int, r: Record, h: _History) -> tuple[str, str] | None:
         if st is not None and (n, name) in h.eligible and _failed(st):
             return name, _why(name, st)
     if any(m == n and e for m, e, _ in h.draws):
-        return "draw", "the draw exhausted"
+        return "draw", "the draw stopped on a builder output it could not read" if r.draw_stopped else "the draw exhausted"
     for name in STAGES[3:]:
         st = r.stages.get(name)
         if st is not None and (n, name) in h.eligible and _failed(st):

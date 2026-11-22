@@ -73,3 +73,25 @@ def test_the_draw_refuses_a_builder_output_of_another_harness(tmp_path):
 def test_a_fixture_reads_back_as_it_was_drawn():
     fx, _ = fx_mod.generate(7)
     assert fx_mod.Fixture.load(json.loads(json.dumps(fx.dump()))) == fx
+
+
+@pytest.mark.parametrize("ending", ["exhausted", "stopped"])
+def test_a_draw_that_ends_with_no_fixture_stops_the_verdict_with_its_reason(tmp_path, monkeypatch, ending):
+    """CMP-1-04: through the writer, each ending gives `stopped` with its own reason and no clean draw."""
+    import calibrate
+
+    def ends(*args, **kwargs):
+        record = {"draws": 3, "rejections": [{"draw": 1}]}
+        if ending == "exhausted":
+            raise fx_mod.DrawExhausted(record)
+        raise fx_mod.DrawStopped([{"file": "x.bin", "reason": "unreadable"}], record)
+
+    monkeypatch.setattr(calibrate, "draw_against", ends)
+    route.build_own(HEAD, runs=tmp_path, require_clean=False, prove=PASSED)
+    out = measured.run(HEAD, 1, runs=tmp_path, measured=tmp_path / "m", candidates=("own",), require_clean=False)
+    assert out["status"] == ending and "package" not in out
+    verdict = measured.verdicts(route.load(tmp_path))["own"]
+    assert verdict.startswith(v.STOPPED), verdict
+    assert ("could not read" in verdict) == (ending == "stopped") and ("exhausted" in verdict) == (ending == "exhausted")
+    with pytest.raises(route.Refused, match="a draw stands"):
+        measured.run(HEAD, 1, runs=tmp_path, measured=tmp_path / "m", candidates=("own",), require_clean=False)

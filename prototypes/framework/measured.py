@@ -100,12 +100,15 @@ def run(commit: str, seed: int, *, runs: pathlib.Path = route.RUNS, measured: pa
         exhausted = isinstance(ended, fx_mod.DrawExhausted)
         record = ended.record or {}
         out.update(status="exhausted" if exhausted else "stopped", seconds=round(time.time() - t0, 1),
-                   draws=record.get("draws"), rejections=len(record.get("rejections", [])), stopped=record.get("stopped"))
+                   draws=record.get("draws"), rejections=len(record.get("rejections", [])), stopped=record.get("stopped"),
+                   reasons=None if exhausted else ended.reasons)
         (work / "draw.json").write_text(json.dumps(record, indent=1) + "\n", encoding="utf-8")
         for name, entry in entries.items():
             # No fixture to inspect the builder output with: the draw's record is its evidence (§2.1, step 4).
+            # Bound to the archive it searched, extracted against its digest above (CMP-1-04).
             state["records"].append(dataclasses.asdict(v.Record(f"{draw_id}-{name}", kind="resume",
-                                                                builder_digest=entry["builder_digest"], draw_exhausted=True)))
+                                                                builder_digest=entry["builder_digest"], draw_exhausted=exhausted,
+                                                                draw_stopped=not exhausted)))
         state["draw"] = out
         route.save(state, runs)
         return out
