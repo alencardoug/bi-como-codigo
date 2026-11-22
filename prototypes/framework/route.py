@@ -74,12 +74,13 @@ def harness_inputs(commit: str, *, require_clean: bool = True) -> dict[str, str]
 # --- the state ------------------------------------------------------------------------------
 
 def _empty() -> dict:
-    return {"harness": None, "builds": {}, "draw": None, "artifacts": {}, "measures": {}, "records": [], "discarded": []}
+    return {"harness": None, "builds": {}, "draw": None, "artifacts": {}, "measures": {}, "records": [], "discarded": [],
+            "history": []}
 
 
 def load(runs: pathlib.Path = RUNS) -> dict:
     path = runs / "state.json"
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else _empty()
+    return {**_empty(), **json.loads(path.read_text(encoding="utf-8"))} if path.is_file() else _empty()
 
 
 def save(state: dict, runs: pathlib.Path = RUNS) -> None:
@@ -97,8 +98,15 @@ def discard(state: dict, why: str) -> None:
 
 
 def enter_harness(state: dict, inputs: dict[str, str]) -> None:
+    """A changed harness discards the draw, the artifacts and the measures, and
+    closes the records made under the old one into `history`, kept and
+    reported: a verdict judges the runs of one harness, the one that compares
+    the candidates, never a run its oracle did not judge."""
     if state["harness"] is not None and state["harness"] != inputs:
         discard(state, "the harness inputs changed")
+        if state["records"]:
+            state["history"].append({"harness": state["harness"], "closed": _now(), "records": state["records"]})
+            state["records"] = []
     state["harness"] = inputs
 
 

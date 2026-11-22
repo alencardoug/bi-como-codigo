@@ -471,7 +471,7 @@ absence of findings is never read as a proof.
 
 #### 2.5.4 The verdict
 
-One function, `verdict(runs)`, over every **judged** run of the encrypted route of a candidate,
+One function, `verdict(runs)`, over every **judged** run of the encrypted route of a candidate made under the harness that compares them — the runs of an earlier harness are closed into the state's history, kept and reported (N102) —,
 tested in step 1 of §7 with a table of cases — synthetic run histories, judged within the test and
 kept apart from any candidate's history. Every real run is labelled when it starts — `judged`,
 `probe` or `control` —, and only judged runs enter a candidate's verdict; a probe's or a control's

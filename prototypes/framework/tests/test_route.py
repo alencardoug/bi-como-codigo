@@ -60,8 +60,11 @@ def test_a_changed_harness_discards_them_too(tmp_path):
     state.update(draw={"seed": 1}, measures={"own": {}})
     route.enter_harness(state, {"prototypes/framework": "a"})
     assert state["draw"] == {"seed": 1}
+    state["records"].append({"id": "r1"})
     route.enter_harness(state, {"prototypes/framework": "b"})
     assert state["draw"] is None and state["discarded"][-1]["why"] == "the harness inputs changed"
+    assert state["records"] == [] and state["history"][-1]["records"] == [{"id": "r1"}]
+    assert state["history"][-1]["harness"] == {"prototypes/framework": "a"}
 
 
 def test_a_failed_probe_refuses_the_build_and_the_record_says_so(tmp_path):
