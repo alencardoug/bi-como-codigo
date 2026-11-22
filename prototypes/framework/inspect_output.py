@@ -163,8 +163,10 @@ class Context:
     dependencies: frozenset[str]  # SHA-256 of every file of the locked dependency tree
     report: Report
     _binary: dict | None = None
-    #: Each JSON script read whole, as each flat decoder turns it: a script that breaks on a flat
-    #: layer is explained only when it is one of these (CMP-1-06).
+    #: Each JSON script read whole, as each flat decoder turns it, keyed by the file, the text it was
+    #: read in and its attributes: a script that breaks on a flat layer is explained only when it is
+    #: one of these — the same script of the same file, reached from that text by flat layers alone,
+    #: with the same attributes (CMP-1-06, CMP-2-03).
     read_scripts: set = dataclasses.field(default_factory=set)
 
     def find(self, code, file, path, value=None):
@@ -771,16 +773,15 @@ def _scripts(ctx: Context, text: str, file: str, path: str, role: str, depth: in
             except ValueError:
                 if flat:
                     _numbers_in_text(ctx, body, file, f"{where} > as data", DATA)
-                if flat and body in ctx.read_scripts:
+                origin = _read_whole(ctx, file, path, attrs, body) if flat else None
+                if origin is not None:
                     ctx.report.recorded.append(Note(file, where, "a JSON script an unescaping broke, searched as data"))
                     # unescaped again on the next flat layer, it is still the script read whole
-                    ctx.read_scripts.update(out.decode("utf-8", "surrogatepass") for name, out in _text_decoders(body) if name in FLAT)
+                    _remember_script(ctx, file, origin, attrs, body)
                 else:
                     ctx.report.inconclusive.append(Note(file, where, "a JSON script that does not parse"))
                 continue
-            for name, out in _text_decoders(body):
-                if name in FLAT:
-                    ctx.read_scripts.add(out.decode("utf-8", "surrogatepass"))
+            _remember_script(ctx, file, path, attrs, body)
             if "data-b64" in attrs and not (isinstance(parsed, dict) and isinstance(parsed.get("body"), str)):
                 ctx.report.inconclusive.append(Note(file, where, "a data-b64 script with no body to decode"))
             elif "data-b64" in attrs:
@@ -793,6 +794,38 @@ def _scripts(ctx: Context, text: str, file: str, path: str, role: str, depth: in
         elif "__sveltekit" in body or "kit.start" in body:
             for num in _DEVALUE_NUMBER.finditer(body):
                 _number(ctx, num[1], file, f"{where} > devalue", count_too=True)
+
+
+def _flat_forms(text: str) -> dict[str, str]:
+    """`text` as each flat decoder turns it; unchanged where a decoder does not apply."""
+    forms = dict.fromkeys(FLAT, text)
+    for name, out in _text_decoders(text):
+        if name in FLAT:
+            try:
+                forms[name] = out.decode("utf-8", "surrogatepass")
+            except UnicodeDecodeError:
+                forms.pop(name)
+    return forms
+
+
+def _remember_script(ctx: Context, file: str, origin: str, attrs: str, body: str) -> None:
+    """A JSON script read whole in the text at `origin`: what each flat layer makes of it."""
+    a, b = _flat_forms(attrs), _flat_forms(body)
+    for name in FLAT:
+        if name in a and name in b:
+            ctx.read_scripts.add((file, origin, a[name], b[name]))
+
+
+def _read_whole(ctx: Context, file: str, path: str, attrs: str, body: str) -> str | None:
+    """The text a broken script on the layer at `path` was read whole in, or None: the same
+    file, the same attributes and body as that layer made them, and `path` that text's path
+    followed by flat layers only (CMP-2-03)."""
+    for f, origin, a, b in ctx.read_scripts:
+        if f != file or a != attrs or b != body or not path.startswith(origin + " > "):
+            continue
+        if all(step in FLAT for step in path[len(origin) + 3:].split(" > ")):
+            return origin
+    return None
 
 
 def _number(ctx: Context, literal, file: str, path: str, *, count_too: bool) -> None:

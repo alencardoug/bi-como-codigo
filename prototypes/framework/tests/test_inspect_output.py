@@ -747,3 +747,36 @@ def test_a_script_read_whole_stays_explained_through_two_unescapings(needles):
     page = f'<p>a\\nb \\\\n</p><script type="application/json" data-sveltekit-fetched>{inner}</script>'
     report = _one(needles, "index.html", page.encode())
     assert not report.inconclusive, report.record()
+
+
+def _vouching_pair(samples):
+    """CMP-2-03: a plain JSON script in `a.html`, read whole, and in `b.html` an
+    entity-escaped data-b64 script whose body, unescaped, is what the entities
+    layer makes of a.html's — a script a.html's reading never saw."""
+    import base64
+    payload = base64.b64encode(json.dumps({"orders": samples["count"]}).encode()).decode()
+    body = '{"body": "%s", "note": "x&quot;y"}' % payload
+    plain = f'<script type="application/json">{body}</script>'
+    escaped = f'<p>&lt;script type="application/json" data-b64&gt;{body}&lt;/script&gt;</p>'
+    return plain.encode(), escaped.encode()
+
+
+@pytest.mark.parametrize("order", ["plain first", "escaped first"])
+def test_a_script_in_another_file_does_not_explain_a_broken_one(needles, samples, order):
+    plain, escaped = _vouching_pair(samples)
+    alone = _one(needles, "b.html", escaped)
+    assert alone.findings or alone.inconclusive, alone.record()
+    items = [io_.Item("a.html", plain), io_.Item("b.html", escaped)]
+    report = io_.inspect_items(items if order == "plain first" else items[::-1], needles)
+    on_b = [x for x in report.findings + report.inconclusive if x.file == "b.html"]
+    assert on_b, report.record()
+    assert not any(x.file == "b.html" and "unescaping broke" in x.reason for x in report.recorded)
+
+
+def test_a_sibling_script_with_other_attributes_is_not_explained(needles, samples):
+    """CMP-2-03: in one file, the plain script and the escaped data-b64 one beside it."""
+    plain, escaped = _vouching_pair(samples)
+    report = _one(needles, "index.html", plain + escaped)
+    assert any("script#1" in x.path or "data-b64" in x.reason or "does not parse" in x.reason
+               for x in report.inconclusive) or report.findings, report.record()
+    assert not any("script#1" in x.path and "unescaping broke" in x.reason for x in report.recorded)
