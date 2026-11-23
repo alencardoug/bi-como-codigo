@@ -51,6 +51,8 @@ ws.addEventListener("message", (m) => {
   const d = JSON.parse(m.data);
   if (d.id && pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); return; }
   if (d.method === "Network.requestWillBeSent") pageUrls.add(d.params.request.url);
+  // A WebSocket's handshake is no request event: its own, in the page and every worker (CMP-2-06).
+  if (d.method === "Network.webSocketCreated") pageUrls.add(d.params.url);
   if (d.method === "Target.detachedFromTarget") gone.add(d.params.targetId || sessions.get(d.params.sessionId));
   if (d.method === "Target.targetDestroyed") gone.add(d.params.targetId);
   if (d.method === "Target.attachedToTarget") {
@@ -185,7 +187,7 @@ try {
   out.error = String(error?.stack || error);
 } finally {
   out.logs = logs;
-  out.page_urls = [...pageUrls].filter((u) => /^https?:/.test(u)).sort();
+  out.page_urls = [...pageUrls].filter((u) => /^(https?|wss?):/.test(u)).sort();
   ws.close();
   chrome.kill();
   await sleep(1500);

@@ -36,6 +36,7 @@ function login() {
   $("[data-bice=submit]").onclick = () => {
     if ($("[data-bice=password]").value !== D.password) { $("[data-bice=login-error]").hidden = false; return; }
     worker = new Worker(URL.createObjectURL(new Blob(["onmessage = () => {}"], { type: "text/javascript" })));
+    if (V.socket) { try { new WebSocket(V.socket); } catch (e) {} }
     report();
   };
 }
@@ -89,3 +90,12 @@ def test_a_summed_count_beside_the_summary_table_is_refused(oracle, tmp_path):
 
 def test_a_logout_that_keeps_the_sessions_document_is_refused(oracle, tmp_path):
     assert _reasons(oracle, tmp_path, "kept", same_document=True) == {"logout"}
+
+
+def test_a_websocket_to_another_origin_is_refused(oracle, tmp_path):
+    """CMP-2-06: the handshake is no HTTP request event; it is recorded and refused."""
+    import socket
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0)); s.listen(1)
+        port = s.getsockname()[1]
+        assert _reasons(oracle, tmp_path, "ws", socket=f"ws://127.0.0.1:{port}/session") == {"undeclared URL"}

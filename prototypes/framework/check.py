@@ -218,6 +218,7 @@ def compare(seen: dict, o: Oracle, *, cdn_urls: frozenset[str] = frozenset()) ->
         # and all — any other origin is refused, even one Chrome could not resolve (CMP-1-09).
         local = "/".join(seen.get("url", "").split("/")[:3]) + "/"
         for url in seen["page_urls"]:
+            # a WebSocket to anything but the local origin is another origin (CMP-2-06)
             if not url.startswith(local) and url not in cdn_urls:
                 refuse("undeclared URL", url=url)
     return out
