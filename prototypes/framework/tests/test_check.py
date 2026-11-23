@@ -36,7 +36,8 @@ def _seen(o: check.Oracle) -> dict:
                                       "notices": [{"at": len(rows) - 5, "text": check.NOTICE}]},
                           "detail": {m: detail(f, m) for m in o.months}} for f, rows in o.summary.items()},
         "history_at_login": 2, "history_before_logout": 2,
-        "after_logout": {"login_ms": 5, "summary": False, "history": 2, "back": {"summary": False, "url": "about:blank"}},
+        "after_logout": {"login_ms": 5, "summary": False, "history": 2, "back": {"summary": False, "url": "about:blank"},
+                         "same_document": False, "session_workers": [{"type": "worker", "url": "blob:x", "alive": False}]},
         "hosts": ["127.0.0.1:1", "cdn.jsdelivr.net"], "third_party_urls": ["https://cdn.jsdelivr.net/npm/x@1/a.js"],
         "page_urls": ["http://127.0.0.1:1/", "http://127.0.0.1:1/app.js", "https://cdn.jsdelivr.net/npm/x@1/a.js"],
     }
@@ -101,13 +102,16 @@ def test_a_visible_extra_or_a_session_left_reachable_is_refused(oracle, alter, r
 
 
 def test_the_check_passes_only_with_its_proofs():
-    good = {"page_passed": True, "comparator_proof": {"a": {"refused": True, "for_its_reason": True}}}
+    good = {"page_passed": True, "comparator_proof": {p: {"refused": True, "for_its_reason": True} for p in check.PROOFS}}
     mutant = {"opened": True, "refused_on_g_alone": True, "detail_is_the_mutants": True}
     assert check._passed("evidence", good) == (True, [])
     assert check._passed("own", {**good, "mutant_proof": mutant}) == (True, [])
     assert not check._passed("own", good)[0]  # B with no mutant proof
     assert not check._passed("own", {**good, "mutant_proof": {**mutant, "refused_on_g_alone": False}})[0]
-    assert not check._passed("evidence", {**good, "comparator_proof": {"a": {"refused": True, "for_its_reason": False}}})[0]
+    assert not check._passed("evidence", {**good, "comparator_proof": {**good["comparator_proof"],
+                                                                       check.PROOFS[0]: {"refused": True, "for_its_reason": False}}})[0]
+    one = {check.PROOFS[0]: {"refused": True, "for_its_reason": True}}
+    assert not check._passed("evidence", {**good, "comparator_proof": one})[0]  # one proof of four (CMP-2-04)
     assert not check._passed("evidence", {"page_passed": True})[0]
 
 
@@ -123,3 +127,29 @@ def test_the_page_may_request_only_its_origin_and_declared_urls(oracle, url, ref
     seen["hosts"].append("clients2.google.com")
     reasons = {r["reason"] for r in check.compare(seen, oracle, cdn_urls=frozenset(seen["third_party_urls"]))}
     assert ("undeclared URL" in reasons) == refused, reasons
+
+
+# --- CMP-2-04: every summary element, the logout's document and workers, an empty cell ------
+
+
+def _a_sum(oracle) -> str:
+    return sorted(s for s in oracle.order_sums if "." in s)[0]
+
+
+@pytest.mark.parametrize("alter, reason", [
+    (lambda s, o: s["by_filter"]["todos"]["summary"].update(shown=[f"Total de pedidos: {_a_sum(o)}"]), "order_count summed"),
+    (lambda s, o: s["after_logout"].update(same_document=True), "logout"),
+    (lambda s, o: s["after_logout"]["session_workers"][0].update(alive=True), "logout"),
+    (lambda s, o: s["after_logout"].pop("session_workers"), "logout"),
+])
+def test_a_sum_beside_the_table_or_a_session_kept_by_logout_is_refused(oracle, alter, reason):
+    seen = _seen(oracle)
+    alter(seen, oracle)
+    assert reason in {r["reason"] for r in check.compare(seen, oracle, cdn_urls=frozenset(seen["third_party_urls"]))}
+
+
+def test_an_empty_footer_cell_and_an_amount_beside_the_table_are_accepted(oracle):
+    seen = _seen(oracle)
+    seen["by_filter"]["todos"]["summary"]["notices"].append({"at": "foot", "text": ""})
+    seen["by_filter"]["todos"]["summary"]["shown"] = [f"R$ {_a_sum(oracle)},00", "Mostrando 60 linhas"]
+    assert check.compare(seen, oracle, cdn_urls=frozenset(seen["third_party_urls"])) == []

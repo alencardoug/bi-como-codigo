@@ -22,6 +22,7 @@ import copy
 import dataclasses
 import json
 import pathlib
+import re
 import subprocess
 import tempfile
 from decimal import Decimal
@@ -162,6 +163,12 @@ def compare(seen: dict, o: Oracle, *, cdn_urls: frozenset[str] = frozenset()) ->
             for text in r[2:]:
                 if text.replace("R$ ", "") in o.order_sums:
                     refuse("order_count summed", filter=f, cell=r[:2])
+        # No summary element holds a summed count, beside the table either (§2.6, CMP-2-04): every
+        # pt-BR number the wrapper shows, whole, decimals and all.
+        for text in table.get("shown", []):
+            for number in _NUMBER.findall(text):
+                if number in o.order_sums:
+                    refuse("order_count summed", filter=f, shown=text[:200])
         if not any(n["text"] == NOTICE for n in table["notices"]):
             refuse("notice", filter=f, table="summary")
         for month in o.months:
@@ -192,8 +199,12 @@ def compare(seen: dict, o: Oracle, *, cdn_urls: frozenset[str] = frozenset()) ->
             refuse(name, filter=f, cell=[month, root], seen=got, expected=row, check="explicit")
     after = seen.get("after_logout") or {}
     back = after.get("back") or {}
+    # §2.3 item 7: a full navigation — no object of the session's document left — and no worker the
+    # session started alive (CMP-2-04).
     if (after.get("summary") or after.get("login_ms") is None or seen.get("history_at_login") is None
-            or after.get("history") != seen.get("history_at_login") or back.get("summary") is not False):
+            or after.get("history") != seen.get("history_at_login") or back.get("summary") is not False
+            or after.get("same_document") is not False or after.get("session_workers") is None
+            or any(w.get("alive") for w in after["session_workers"])):
         refuse("logout", detail=after, history_at_login=seen.get("history_at_login"))
     hosts = seen.get("hosts")
     if hosts is None or seen.get("page_urls") is None:
@@ -216,7 +227,7 @@ def _no_other_text(refuse, table: dict, f: str, name: str, **where) -> None:
     """A table shows its cells and the contract's notices, nothing else: a footer
     or a row of one cell with any other text is refused (CMP-1-08)."""
     for n in table.get("notices", []):
-        if n["text"] not in (NOTICE, EMPTY):
+        if n["text"] not in (NOTICE, EMPTY, ""):  # an empty cell shows nothing (CMP-2-04)
             refuse("other text in a table", filter=f, table=name, text=n["text"][:200], **where)
 
 
@@ -236,6 +247,11 @@ def _set(seen: dict, f: str, key: tuple[str, str], column: int, text: str) -> di
         if r[:2] == list(key):
             r[column] = text
     return out
+
+
+#: §2.6's altered readings, every one of which the comparator must refuse for its own reason.
+PROOFS = ("G's cell turned to R$ 0,00", "G's notice blanked", "Z's cell turned to the notice", "a summed count in a summary cell")
+_NUMBER = re.compile(r"(?<![\d.,])\d(?:[\d.]*\d)?(?:,\d+)?(?![\d,])")
 
 
 def prove_comparator(seen: dict, o: Oracle, **kw) -> dict[str, dict]:
@@ -298,7 +314,7 @@ def _passed(candidate: str, result: dict) -> tuple[bool, list[str]]:
     B — the G mutant opened, its detail the mutant's and refused on G alone."""
     why = [] if result["page_passed"] else ["the page's reading was refused"]
     proof = result.get("comparator_proof")
-    if not proof or not all(p["refused"] and p["for_its_reason"] for p in proof.values()):
+    if not proof or set(proof) != set(PROOFS) or not all(p["refused"] and p["for_its_reason"] for p in proof.values()):
         why.append("the comparator's proof is missing or failed")
     if candidate == "own":
         m = result.get("mutant_proof")

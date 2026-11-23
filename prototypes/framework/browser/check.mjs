@@ -40,11 +40,23 @@ const logs = [];
 // Every request the page and its workers make, as each asked for it, query included: attributed by
 // the protocol, apart from Chrome's own background requests the net log also holds (CMP-1-09).
 const pageUrls = new Set();
+// Every worker attached before logout — the engine the page started on load holds the session's
+// files —, and every target that went away: logout must end each one alive at its click; a service
+// worker is the diagnostic's (§2.3 items 7 and 8, CMP-2-04).
+let phase = "before";
+const workers = new Map();
+const sessions = new Map();
+const gone = new Set();
 ws.addEventListener("message", (m) => {
   const d = JSON.parse(m.data);
   if (d.id && pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); return; }
   if (d.method === "Network.requestWillBeSent") pageUrls.add(d.params.request.url);
+  if (d.method === "Target.detachedFromTarget") gone.add(d.params.targetId || sessions.get(d.params.sessionId));
+  if (d.method === "Target.targetDestroyed") gone.add(d.params.targetId);
   if (d.method === "Target.attachedToTarget") {
+    const info = d.params.targetInfo;
+    sessions.set(d.params.sessionId, info.targetId);
+    if (phase !== "logout" && ["worker", "shared_worker"].includes(info.type)) workers.set(info.targetId, { type: info.type, url: info.url, phase });
     const s = d.params.sessionId;
     send("Network.enable", {}, s).then(() => send("Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: true, flatten: true }, s))
       .then(() => send("Runtime.runIfWaitingForDebugger", {}, s));
@@ -92,7 +104,17 @@ const read = (bice) => ev(`(() => {
   const t = wrapper.tagName === 'TABLE' ? wrapper : [...wrapper.querySelectorAll('table')].find((x) => !x.closest('dialog'));
   const beside = [...wrapper.querySelectorAll('p[data-bice=partial], p[data-bice=empty], div[data-bice=partial], div[data-bice=empty]')]
     .map((e) => ({ at: 'beside', text: text(e), ...(e.dataset.bice === 'empty' ? { empty_table: true } : {}) }));
-  if (!t) return { header: [], rows: [], notices: beside };
+  // Everything the wrapper shows, outside the full-screen copy: no summary element may hold a summed
+  // count, in a cell or beside the table (§2.6, CMP-2-04).
+  const shown = [];
+  const walk = document.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT);
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+    const e = n.parentElement;
+    if (!e || e.closest('dialog, script, style, template') || (e.checkVisibility && !e.checkVisibility())) continue;
+    const s = n.textContent.replace(/\\u00a0|\\u202f/g, ' ').trim();
+    if (s) shown.push(s);
+  }
+  if (!t) return { header: [], rows: [], notices: beside, shown };
   const rows = [], notices = [...beside];
   for (const tr of [...t.querySelectorAll('tr')].filter((r) => !r.closest('thead, tfoot'))) {  // Evidence's rows sit in no tbody
     const tds = [...tr.querySelectorAll('td')];
@@ -104,7 +126,7 @@ const read = (bice) => ev(`(() => {
   // Every header row is kept: the last is the header, and the comparator requires the others empty —
   // Evidence's first is of empty cells (CMP-1-08).
   const heads = [...t.querySelectorAll('thead tr')].map((tr) => [...tr.querySelectorAll('th, td')].map(text));
-  return { header: heads.length ? heads[heads.length - 1] : [], header_rows: heads, rows, notices };
+  return { header: heads.length ? heads[heads.length - 1] : [], header_rows: heads, rows, notices, shown };
 })()`);
 
 const out = { url: config.url };
@@ -121,6 +143,7 @@ try {
   out.wrong = { error_ms: await waitFor(present("[data-bice=login-error]:not([hidden])"), 60000) };
   out.wrong.opened = await ev(`!!document.querySelector('table[data-bice=summary], [data-bice=summary] table, [data-bice=report]:not([hidden])')`);
   await waitFor(present("[data-bice=password]:not([disabled])"));
+  phase = "session";
   await submit(config.password);
   out.summary_ms = await waitFor(present("table[data-bice=summary] td, [data-bice=summary] table td"));
   await settled();
@@ -140,6 +163,9 @@ try {
     out.by_filter[f] = seen;
   }
   out.history_before_logout = await ev("history.length");
+  await ev("window.__biceCheckSession = 1");  // an object of the session's document: a full navigation drops it
+  const atLogout = [...workers].filter(([id]) => !gone.has(id));
+  phase = "logout";
   await ev(`document.querySelector('[data-bice=logout]').click()`);
   await sleep(1000);
   out.after_logout = {
@@ -147,6 +173,9 @@ try {
     summary: await ev(`!!document.querySelector('[data-bice=summary]')`),
     history: await ev("history.length"),
   };
+  await sleep(1000);
+  out.after_logout.same_document = await ev("typeof window.__biceCheckSession !== 'undefined'");
+  out.after_logout.session_workers = atLogout.map(([id, w]) => ({ ...w, alive: !gone.has(id) }));
   // Back from the login page: no step of the history may show the session again (CMP-1-08).
   await ev("history.back()");
   await sleep(1500);
