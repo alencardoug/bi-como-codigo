@@ -61,3 +61,20 @@ def test_an_opaque_file_in_the_builder_output_turns_the_controls_red(tmp_path):
     assert ran["package only, with a form refusal"]["inconclusive"] >= 1
     assert not ran["package only, with a form refusal"]["as_expected"]
     assert not ran["assembly form: a package/ of the builder's"]["as_expected"]
+
+
+def test_a_refusal_of_the_right_class_for_another_reason_is_no_control_as_expected(tmp_path):
+    """CMP-3-05: a builder output with a file the candidate's lists do not include — the
+    gate refuses it first, FORM, for every control —: the FORM and CONTENT rows must
+    name their own file or form, so none of them passes on that refusal."""
+    fx = f.generate(SEED)[0]
+    f.write(fx, tmp_path / "fx")
+    made = tmp_path / "made"
+    made.mkdir()
+    (made / "index.html").write_text("<!doctype html><title>P01</title>")
+    (made / "0-unlisted.js").write_text("export const a = 1;\n")
+    digest = h.archive(made, tmp_path / "builder.tar.gz")
+    h.extract(tmp_path / "builder.tar.gz", tmp_path / "builder", digest)
+    ran = {r["control"]: r for r in bc.run("own", tmp_path / "builder", digest, tmp_path / "fx" / "package", fx, tmp_path / "out")}
+    for name in ("package only, with a form refusal", "a label in a .map", "a label in a second manifest.json"):
+        assert "0-unlisted.js" in ran[name]["verify_message"] and not ran[name]["as_expected"], ran[name]

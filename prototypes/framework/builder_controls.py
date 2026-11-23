@@ -87,12 +87,19 @@ class Control:
     code: str  # the inspection's code in the added file, or NONE
     own_package: bool = False  # the builder output carries a package/ of its own: assembly's form
     layers: tuple[str, ...] = ()  # the decoding layers the code's finding must be reached through
+    #: What the gate's refusal must say — the added file it names, or the form it refuses —: a refusal
+    #: of the class asked for, for another reason, is no control as expected (CMP-3-05).
+    reason: str | None = None
 
     @property
     def expected_verdict(self) -> str:
         if self.code != NONE:
             return v.FAILS
         return v.PASSES if self.verify == h.PASS else v.COST
+
+
+#: The gate's refusal of a second package manifest (`release._package`).
+MANIFESTS = "2 package manifests in the artifact; exactly one is expected"
 
 
 def table(fx: fx_mod.Fixture) -> list[Control]:
@@ -104,22 +111,26 @@ def table(fx: fx_mod.Fixture) -> list[Control]:
     d = "bice-control/"
     return [
         Control("clean metadata", {d + "meta.json": b'{"version": 1, "month": 5}'}, h.PASS, NONE),
-        Control("a count in a JSON", {d + "count.json": json.dumps({"orders": count}).encode()}, h.CONTENT, io_.INSPECT_NUMBER),
-        Control("package only, with a form refusal", {d + "manifest.json": b"{}"}, h.FORM, NONE),
-        Control("a fixed label", {d + "label.txt": b"fixture_raiz_3"}, h.CONTENT, io_.INSPECT_TEXT),
-        Control("an amount in pt-BR", {d + "v.js": c.spellings(str(amount))[1].encode()}, h.CONTENT, io_.INSPECT_TEXT),
+        Control("a count in a JSON", {d + "count.json": json.dumps({"orders": count}).encode()}, h.CONTENT, io_.INSPECT_NUMBER,
+                reason=f"(in {d}count.json)"),
+        Control("package only, with a form refusal", {d + "manifest.json": b"{}"}, h.FORM, NONE, reason=MANIFESTS),
+        Control("a fixed label", {d + "label.txt": b"fixture_raiz_3"}, h.CONTENT, io_.INSPECT_TEXT, reason=f"(in {d}label.txt)"),
+        Control("an amount in pt-BR", {d + "v.js": c.spellings(str(amount))[1].encode()}, h.CONTENT, io_.INSPECT_TEXT, reason=f"(in {d}v.js)"),
         Control("an amount in its JavaScript spelling", {d + "w.js": f"const v = {_js(amount)};".encode()}, h.PASS, io_.INSPECT_NUMBER),
         Control("Arrow IPC", {d + "q.arrow": _arrow_counts(fx)}, h.PASS, io_.INSPECT_ARROW),
-        Control("Parquet with rows", {d + "p.parquet": _parquet_rows(fx)}, h.CONTENT, io_.INSPECT_PARQUET),
-        Control("schema only", {d + "s.parquet": fx_mod.parquet([])}, h.SCHEMA_ONLY, NONE),
+        Control("Parquet with rows", {d + "p.parquet": _parquet_rows(fx)}, h.CONTENT, io_.INSPECT_PARQUET,
+                reason=f"{d}p.parquet holds a Parquet magic"),
+        Control("schema only", {d + "s.parquet": fx_mod.parquet([])}, h.SCHEMA_ONLY, NONE, reason=f"{d}s.parquet holds a Parquet magic"),
         Control("gzip of a JSON of rows", {d + "rows.bin": gzip.compress(rows, mtime=0)}, h.PASS, io_.INSPECT_TEXT, layers=("gzip",)),
         Control("brotli of a JSON of rows", {d + "rows2.bin": brotli.compress(rows)}, h.PASS, io_.INSPECT_TEXT, layers=("brotli",)),
         Control("base64 of a JSON of rows", {d + "rows.txt": base64.b64encode(rows)}, h.PASS, io_.INSPECT_TEXT, layers=("base64",)),
         Control("JSON-escaped text", {d + "s.js": f'const s = "{escaped}";'.encode()}, h.PASS, io_.INSPECT_TEXT, layers=("escapes",)),
         Control("a base64 payload in a service worker", {d + "sw.js": b"self.data = '" + base64.b64encode(gzip.compress(rows, mtime=0)) + b"';"},
                 h.PASS, io_.INSPECT_TEXT, layers=("base64", "gzip")),
-        Control("a label in a .map", {d + "app.js.map": b'{"sources": ["fixture_canal_a"]}'}, h.FORM, io_.INSPECT_TEXT),
-        Control("a label in a second manifest.json", {d + "x/manifest.json": b'{"name": "fixture_canal_a"}'}, h.FORM, io_.INSPECT_TEXT),
+        Control("a label in a .map", {d + "app.js.map": b'{"sources": ["fixture_canal_a"]}'}, h.FORM, io_.INSPECT_TEXT,
+                reason=f"{d}app.js.map is a source map"),
+        Control("a label in a second manifest.json", {d + "x/manifest.json": b'{"name": "fixture_canal_a"}'}, h.FORM, io_.INSPECT_TEXT,
+                reason=MANIFESTS),
         Control("assembly form: a package/ of the builder's", {}, "assembly FORM", NONE, own_package=True),
     ]
 
@@ -185,7 +196,8 @@ def run(candidate: str, builder: pathlib.Path, builder_digest: str, package: pat
             row.update(verify=checked.cls, verify_message=checked.message[:300], codes_in_file=in_file,
                        codes_elsewhere=sorted({x.code for x in [*inspected.findings, *built.findings] if x.file not in added}),
                        inconclusive=len(inspected.inconclusive) + len(built.inconclusive))
-            row["as_expected"] = (checked.cls == ctl.verify and (in_file == [] if ctl.code == NONE else ctl.code in in_file and through)
+            row["as_expected"] = (checked.cls == ctl.verify and (ctl.reason is None or ctl.reason in checked.message)
+                                  and (in_file == [] if ctl.code == NONE else ctl.code in in_file and through)
                                   and row["codes_elsewhere"] == [] and row["inconclusive"] == 0)
         else:
             row["as_expected"] = (ctl.verify == f"assembly {assembly.cls}" and not built.findings and not built.inconclusive)
