@@ -111,7 +111,8 @@ def sample(raw: dict) -> dict:
     marks = {x["mark"]: x["t"] for x in m.get("marks", [])}
     offsets, error = clocks(m.get("sessions", {}))
     local = raw["origin"]
-    to_wall = lambda r, ts: ts * 1000 + offsets.get(r["session"], next(iter(offsets.values()), 0.0))  # noqa: E731
+    # An event another session reported is on that session's clock (CMP-2-07).
+    to_wall = lambda r, ts, s=None: ts * 1000 + offsets.get(s or r["session"], offsets.get(r["session"], next(iter(offsets.values()), 0.0)))  # noqa: E731
     cutoffs = {name: marks.get(name) for name in ("login_box", "summary")}
     requests, by_origin = [], {}
     for r in (m.get("requests") or {}).values():
@@ -122,12 +123,14 @@ def sample(raw: dict) -> dict:
                "encoding": r.get("encoding"), "status": r.get("status"), "wire_status": r.get("wire_status"),
                "encoded": fin["encoded"] if fin else None, "content_length": r.get("content_length"),
                "data_encoded": sum(e.get("encoded", 0) for e in r["events"] if e["e"] == "data"),
-               "worker": r["session"] != m.get("page")}
+               "worker": r["session"] != m.get("page"),
+               # answered, but no session reported its completion or failure: its bytes are unknown (CMP-2-07)
+               "bytes_unknown": not fin and not r.get("failed") and (r.get("status") is not None or r.get("wire_status") is not None)}
         for name, cut in cutoffs.items():
             if cut is None:
                 continue
-            row[f"observed_by_{name}"] = sum(e.get("encoded", 0) for e in r["events"] if e["e"] == "data" and to_wall(r, e["ts"]) <= cut)
-            row[f"completed_by_{name}"] = bool(fin and to_wall(r, fin["ts"]) <= cut)
+            row[f"observed_by_{name}"] = sum(e.get("encoded", 0) for e in r["events"] if e["e"] == "data" and to_wall(r, e["ts"], e.get("s")) <= cut)
+            row[f"completed_by_{name}"] = bool(fin and to_wall(r, fin["ts"], fin.get("s")) <= cut)
             if row[f"completed_by_{name}"]:
                 row[f"observed_by_{name}"] = max(row[f"observed_by_{name}"], fin["encoded"])
             row[f"partial_at_{name}"] = row[f"observed_by_{name}"] > 0 and not row[f"completed_by_{name}"]
@@ -194,6 +197,7 @@ def reconcile(totals: dict, by_origin: dict, requests: list[dict]) -> list[str]:
         bad.append("fewer bytes by the summary than by the login box")
     if sum(o["encoded"] for o in by_origin.values()) != sum(r["encoded"] or 0 for r in requests):
         bad.append("the journey's origins do not add up")
+    bad += [f"bytes unknown: {r['url']}" for r in requests if r.get("bytes_unknown")]  # never reconciled by omission (CMP-2-07)
     return bad
 
 

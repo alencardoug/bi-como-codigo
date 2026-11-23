@@ -5,6 +5,10 @@ deliberately mismatched trace and once on an incomplete one."""
 
 from __future__ import annotations
 
+import shutil
+
+import pytest
+
 import measure
 
 
@@ -91,3 +95,64 @@ def test_a_redirect_keeps_each_hop_and_the_totals_reconcile():
     assert s["reconciliation"] == [] and measure.accounting_check([s], [])["redirect"]["status"] == 302
     broken = dict(s["bytes"]["summary"], completed=9999)
     assert "summary: completed by origin does not add up" in measure.reconcile({"summary": broken}, s["by_origin"], s["requests"])
+
+
+# --- CMP-2-07: a worker's script, answered in the worker's session -------------------------
+
+
+def test_an_answered_request_with_no_completion_has_its_bytes_unknown_not_reconciled():
+    raw = _raw()
+    raw["measured"]["requests"]["P:2"] = {"session": "P", "url": "http://127.0.0.1:1/worker.js", "status": 200, "wire_status": 200,
+                                          "events": [{"e": "sent", "ts": 1000.2, "wall": 5000.2}]}
+    s = measure.sample(raw)
+    assert "bytes unknown: http://127.0.0.1:1/worker.js" in s["reconciliation"]
+
+
+def test_an_event_of_another_session_is_on_that_sessions_clock():
+    raw = _raw()
+    raw["measured"]["sessions"]["W"] = [[2000.2, (1000.2 * 1000 + 5_000_000) / 1000]]  # W's clock runs 1000 s ahead
+    engine = raw["measured"]["requests"]["W:1"]
+    engine["session"] = "P"  # sent in the page's session, answered in the worker's
+    engine["events"] = [engine["events"][0]] + [{**e, "ts": e["ts"] + 1000, "s": "W"} for e in engine["events"][1:]]
+    engine["finished"] = {**engine["finished"], "ts": engine["finished"]["ts"] + 1000, "s": "W"}
+    s = measure.sample(raw)
+    assert s["bytes"]["summary"]["observed"] == 5000 and s["bytes"]["summary"]["partial_requests"] == 1
+
+
+_WORKER_PAGE = """<!doctype html><meta charset="utf-8"><body>
+<input data-bice="password" type="password"><button data-bice="submit">Entrar</button>
+<script>
+document.querySelector('[data-bice=submit]').onclick = () => {
+  const blob = URL.createObjectURL(new Blob([`fetch('${location.origin}/stream.bin').then(r => r.arrayBuffer()).then(b => postMessage(b.byteLength));`]));
+  const w = new Worker(__WORKER__);
+  w.onmessage = (e) => {
+    document.body.innerHTML = '<div data-bice="summary"><table><tr><td>2024-01</td><td>r</td><td>R$ 1,00</td><td>' + e.data + '</td></tr></table></div>'
+      + '<button data-bice="logout" onclick="location.replace(location.href)">Sair</button>';
+  };
+};
+</script>"""
+
+
+@pytest.mark.skipif(not (shutil.which("node") and shutil.which("google-chrome")), reason="needs node and Chrome")
+@pytest.mark.parametrize("worker", ["'worker.js'", "blob"])
+def test_a_workers_bootstrap_completes_its_journey_with_its_bytes(tmp_path, worker):
+    """CMP-2-07: an HTTP worker's script was sent in the page's session and finished in the
+    worker's; the journey waited six minutes for it and then counted nothing. It is one request,
+    and its bytes count; a blob worker's script is no network."""
+    import os
+    import time
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "stream.bin").write_bytes(os.urandom(200_000))
+    (site / "worker.js").write_text("fetch('stream.bin').then(r => r.arrayBuffer()).then(b => postMessage(b.byteLength));\n")
+    (site / "index.html").write_text(_WORKER_PAGE.replace("__WORKER__", worker), encoding="utf-8")
+    t0 = time.time()
+    raw = measure.journey(site, [["2024-01", "r", "R$ 1,00", "200000"]], 1, tmp_path / "out.json", timeout=600)
+    assert time.time() - t0 < 120 and raw["measured"]["settled"] == {"summary": True, "quiet": True}
+    assert raw["primed"][0]["settled"]["quiet"]
+    s = measure.sample(raw)
+    assert s["reconciliation"] == [], s["reconciliation"]
+    urls = {r["url"].rsplit("/", 1)[-1]: r for r in s["requests"]}
+    assert urls["stream.bin"]["encoded"] and urls["stream.bin"]["worker"]
+    if worker != "blob":
+        assert urls["worker.js"]["encoded"] and urls["worker.js"]["completed_by_summary"]

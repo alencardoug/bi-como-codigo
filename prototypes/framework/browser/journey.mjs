@@ -92,13 +92,21 @@ async function journey(measured) {
   const { result: { sessionId } } = await send("Target.attachToTarget", { targetId, flatten: true });
   const record = { page: null, requests: {}, sessions: {}, workers: [], trace: [], trace_lost: null };
   const sessions = new Set([sessionId]);
+  // A request is one by its id across sessions: a worker's script is sent in the page's session and
+  // answered in the worker's, a fetch's extra info can come in its parent's (CMP-2-07).
+  const byId = new Map();
   record.page = sessionId;
   const on = (msg) => {
     if (!msg.sessionId || !sessions.has(msg.sessionId)) return;
     if (msg.method === "Target.attachedToTarget") { attach(msg); return; }  // a worker waits for us, measured or not
     if (!msg.method?.startsWith("Network.")) return;  // every journey's, the priming ones' too: their requests must finish (CMP-1-10)
     const p = msg.params;
-    const r = (record.requests[`${msg.sessionId}:${p.requestId}`] ??= { session: msg.sessionId, events: [] });
+    if (p.requestId === undefined) return;
+    let key = `${msg.sessionId}:${p.requestId}`;
+    if (!record.requests[key] && byId.has(p.requestId)) key = byId.get(p.requestId);
+    if (!record.requests[key]) { record.requests[key] = { session: msg.sessionId, events: [] }; byId.set(p.requestId, key); }
+    const r = record.requests[key];
+    const s = msg.sessionId === r.session ? undefined : msg.sessionId;  // an event of another session keeps its own clock
     switch (msg.method) {
       case "Network.requestWillBeSent":
         if (p.redirectResponse) {  // a redirect reuses the request's id: each hop is kept, never overwritten (CMP-1-11)
@@ -112,14 +120,14 @@ async function journey(measured) {
         const h = Object.fromEntries(Object.entries(p.response.headers).map(([k, v]) => [k.toLowerCase(), v]));
         r.status = p.response.status; r.from_disk = !!p.response.fromDiskCache; r.from_sw = !!p.response.fromServiceWorker;
         r.encoding = h["content-encoding"] || null; r.content_length = h["content-length"] || null;
-        r.events.push({ e: "response", ts: p.timestamp });
+        r.events.push({ e: "response", ts: p.timestamp, s });
         break;
       }
       case "Network.responseReceivedExtraInfo": r.wire_status = p.statusCode; break;
       case "Network.requestServedFromCache": r.from_memory = true; break;
-      case "Network.dataReceived": r.events.push({ e: "data", ts: p.timestamp, encoded: p.encodedDataLength, decoded: p.dataLength }); break;
-      case "Network.loadingFinished": r.finished = { ts: p.timestamp, encoded: p.encodedDataLength }; break;
-      case "Network.loadingFailed": r.failed = { ts: p.timestamp, error: p.errorText, canceled: !!p.canceled }; break;
+      case "Network.dataReceived": r.events.push({ e: "data", ts: p.timestamp, encoded: p.encodedDataLength, decoded: p.dataLength, s }); break;
+      case "Network.loadingFinished": r.finished = { ts: p.timestamp, encoded: p.encodedDataLength, s }; break;
+      case "Network.loadingFailed": r.failed = { ts: p.timestamp, error: p.errorText, canceled: !!p.canceled, s }; break;
     }
   };
   async function attach(msg) {
@@ -155,10 +163,15 @@ async function journey(measured) {
   }
   // Every request of the engine and the package finished: no request in flight for 2 s.
   // blob: and data: URLs are no network: a worker started from a blob gets no loadingFinished.
-  const inflight = () => Object.values(record.requests).filter((r) => r.url && /^https?:/.test(r.url) && !r.finished && !r.failed).length;
+  // A worker's script answered with no completion any session reported is no transfer still running:
+  // it is kept unattributed, its bytes unknown to the counting, never waited for (CMP-2-07).
+  const answered = (r) => r.status !== undefined || r.wire_status !== undefined;
+  const bootstrap = (r) => answered(r) && record.workers.some((w) => w.url === r.url);
+  const inflight = () => Object.values(record.requests).filter((r) => r.url && /^https?:/.test(r.url) && !r.finished && !r.failed && !bootstrap(r)).length;
   let quiet = Date.now();
   while (Date.now() - t0 < 360000 && Date.now() - quiet < 2000) { if (inflight()) quiet = Date.now(); await sleep(100); }
   const settled = { summary: marks.some((m) => m.mark === "summary"), quiet: !inflight() };
+  for (const r of Object.values(record.requests)) if (r.url && !r.finished && !r.failed && bootstrap(r)) r.unattributed = true;
   if (measured) { await send("Tracing.end"); await traceDone; }
   if (!measured) {  // the priming journey ends with logout, as a visitor's does — and the new login page is not submitted
     await send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script }, sessionId);
