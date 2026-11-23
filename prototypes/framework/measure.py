@@ -88,7 +88,9 @@ def cache_class(r: dict) -> str:
 #: The engine's module, by its URL; DuckDB's extensions are other modules.
 ENGINE_WASM = re.compile(r"/duckdb-(?:eh|mvp|coi)\.wasm(?:\?|$)")
 _CACHED = ("v8.wasm.cachedModule", "v8.wasm.moduleCacheHit")
-_COMPILED = ("wasm.StartStreamingCompilation", "wasm.BaselineFinished", "v8.wasm.compiledModule")
+#: Terminal evidence of a compilation: a streaming job's start is no evidence — the same job can end by
+#: deserializing a cached module (CMP-3-08).
+_COMPILED = ("wasm.BaselineFinished", "v8.wasm.compiledModule")
 
 
 def trace_evidence(events: list[dict], requests: dict | None = None) -> dict:
@@ -113,7 +115,11 @@ def trace_evidence(events: list[dict], requests: dict | None = None) -> dict:
     sent = lambda pick: min((r["events"][0]["ts"] for r in (requests or {}).values()  # noqa: E731
                              if r.get("url") and r.get("events") and pick(r["url"])), default=None)
     engine = sent(lambda u: ENGINE_WASM.search(u))
-    extension = sent(lambda u: "extensions.duckdb.org/" in u)
+    # The extension that closes the window is the first requested after the engine's: a prefetch
+    # before it is no module after it (CMP-3-08).
+    extension = None if engine is None else min((r["events"][0]["ts"] for r in (requests or {}).values()
+                                                  if r.get("url") and r.get("events") and "extensions.duckdb.org/" in r["url"]
+                                                  and r["events"][0]["ts"] >= engine), default=None)
     names = sorted({e.get("name", "") for e in wasm})
     if engine is None:
         return {"code_cache_consumed": sorted(consumed), "wasm_events": names, "wasm": "unattributed" if wasm else "unobserved",
@@ -122,7 +128,8 @@ def trace_evidence(events: list[dict], requests: dict | None = None) -> dict:
     cached = any(e["name"] in _CACHED or "deserial" in e["name"].lower() for e in window)
     compiled = any(e["name"] in _COMPILED for e in window)
     kind = "unclassified" if cached and compiled else "cached" if cached else "compiled" if compiled else ("unattributed" if wasm else "unobserved")
-    first = min((e["ts"] / 1e6 for e in window if e["name"] in _CACHED + _COMPILED or "deserial" in e["name"].lower()), default=None)
+    first = min((e["ts"] / 1e6 for e in window if e["name"] in _CACHED + _COMPILED + ("wasm.StartStreamingCompilation",)
+                 or "deserial" in e["name"].lower()), default=None)
     basis = (f"the module event at {round((first - engine) * 1000, 1)} ms after the engine's WASM request"
              + (f", {round((extension - first) * 1000, 1)} ms before the extension's" if extension is not None else "")) if first is not None \
         else "no module event between the engine's WASM request and the extension's"

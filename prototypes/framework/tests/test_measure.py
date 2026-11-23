@@ -15,7 +15,7 @@ import measure
 GOOD_PRIMER = {"settled": {"summary": True, "quiet": True, "logout": True}, "quiescence": {"reached": True}}
 
 
-def _raw(*, wasm="wasm.StartStreamingCompilation", lost=False, cache=None, primed=None):
+def _raw(*, wasm=("wasm.StartStreamingCompilation", "wasm.BaselineFinished"), lost=False, cache=None, primed=None):
     """A page that requests a page and a worker's WASM, the WASM spanning the summary's cutoff."""
     t = 1000.0  # monotonic seconds; wall = t * 1000 + 5_000_000
     wall = lambda s: (s * 1000 + 5_000_000) / 1000  # noqa: E731 — the protocol's wallTime is seconds
@@ -77,7 +77,7 @@ def test_incomplete_priming_or_an_unclassifiable_engine_enters_no_series():
     samples += [measure.sample(_raw(primed=[GOOD_PRIMER, f])) for f in failed]
     samples += [measure.sample(_raw(primed=[GOOD_PRIMER, {**GOOD_PRIMER, "quiescence": {"reached": False}}])),
                 measure.sample(_raw(primed=[GOOD_PRIMER])),
-                measure.sample(_raw(wasm=["wasm.StartStreamingCompilation", "wasm.DeserializeNativeModule"]))]
+                measure.sample(_raw(wasm=["wasm.BaselineFinished", "wasm.DeserializeNativeModule"]))]
     out = measure.series(samples)
     assert [g["samples"] for g in out["series"]] == [[0]] and out["apart"] == [1, 2, 3, 4, 5, 6]
     assert samples[6]["cache_evidence"]["wasm"] == "unclassified"
@@ -178,6 +178,26 @@ def test_a_module_event_outside_the_engines_window_is_unattributed_and_enters_no
                                           "events": [{"e": "sent", "ts": 1000.25}], "finished": {"ts": 1000.26, "encoded": 1}}
     raw["measured"]["trace"] = [{"name": "wasm.StartStreamingCompilation", "ts": (1000.0 + 0.3) * 1e6}]  # after the extension's
     assert measure.sample(raw)["cache_evidence"]["wasm"] == "unattributed"
-    raw["measured"]["trace"] = [{"name": "wasm.StartStreamingCompilation", "ts": (1000.0 + 0.22) * 1e6}]  # in the window
+    raw["measured"]["trace"] = [{"name": "wasm.StartStreamingCompilation", "ts": (1000.0 + 0.22) * 1e6},
+                                {"name": "wasm.BaselineFinished", "ts": (1000.0 + 0.23) * 1e6}]  # in the window
     evidence = measure.sample(raw)["cache_evidence"]
     assert evidence["wasm"] == "compiled" and "ms after the engine's WASM request" in evidence["wasm_basis"]
+
+
+# --- CMP-3-08: terminal evidence, and the extension after the engine -----------------------
+
+
+def test_a_streaming_start_that_ends_in_a_cache_hit_is_cached():
+    s = measure.sample(_raw(wasm=["wasm.StartStreamingCompilation", "v8.wasm.cachedModule"]))
+    assert s["cache_evidence"]["wasm"] == "cached"
+
+
+def test_an_extension_prefetched_before_the_engine_does_not_close_its_window():
+    raw = _raw()
+    raw["measured"]["requests"]["P:9"] = {"session": "P", "url": "https://extensions.duckdb.org/v1/p.duckdb_extension.wasm", "status": 200,
+                                          "events": [{"e": "sent", "ts": 1000.1}], "finished": {"ts": 1000.15, "encoded": 1}}
+    assert measure.sample(raw)["cache_evidence"]["wasm"] == "compiled"
+
+
+def test_both_terminal_kinds_in_the_window_stay_unclassified():
+    assert measure.sample(_raw(wasm=["wasm.BaselineFinished", "v8.wasm.cachedModule"]))["cache_evidence"]["wasm"] == "unclassified"
