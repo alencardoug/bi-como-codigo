@@ -18,6 +18,7 @@ measures are discarded with the draw by any build or harness change
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import pathlib
 import secrets
@@ -80,6 +81,9 @@ def measure_candidate(name: str, draw: dict, artifacts: dict, out: pathlib.Path,
     entry = route.load(runs)["builds"][name]
     art = artifacts[name]
     artifact = _bound(runs, art["artifact_archive"], art["artifact_digest"], out / "bound" / "artifact")
+    held = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in (artifact / "package").iterdir() if p.is_file()}
+    if held != draw["package"]:  # measured and labelled with the draw's package only when it is the one it holds (CMP-3-02)
+        raise ValueError(f"{name}'s artifact does not hold the package the draw sealed")
     builder = _bound(runs, entry["archive"], entry["builder_digest"], out / "bound" / "builder")
     result = {"package": draw["package"], "artifact_digest": art["artifact_digest"], "fixture_digest": draw["fixture_digest"],
               "draw": draw["id"], "harness": draw["harness"]}

@@ -30,6 +30,7 @@ over a draw that stands.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import pathlib
 import secrets
@@ -141,6 +142,11 @@ def run(commit: str, seed: int, *, runs: pathlib.Path = route.RUNS, measured: pa
     out["mutant_package"] = fx_mod.write(mutant, mutant_dir)["package"]
     out["mutant_digest"] = mutant.digest()
     (mutant_dir / "cells.json").write_text(json.dumps(mutant.dump()) + "\n", encoding="utf-8")
+    # Each seal archived beside the draw, by its digest: a resume assembles from these bytes, never from a
+    # package sealed again from the same cells, which is another package (CMP-3-02).
+    for key, folder in (("package_archive", fixture_dir), ("mutant_package_archive", mutant_dir)):
+        archive = work / f"{key}.tar.gz"
+        out[key] = {"path": str(archive.relative_to(runs)), "digest": trees.archive(folder / "package", archive)}
     route.still(commit, inputs, require_clean=require_clean)  # CMP-2-02
     # The clean draw is kept at once, unfinished: an interruption from here on loses no stage that
     # completed, and the next invocation carries the runs on over this fixture (CMP-2-01).
@@ -160,17 +166,42 @@ def _load_fixture(folder: pathlib.Path, digest: str) -> fx_mod.Fixture:
 
 
 def _done_stages(state: dict, draw_id: str, name: str) -> tuple[dict[str, v.Stage], str | None]:
-    """The stages of this draw's runs of `name` that completed, and the artifact assembled."""
+    """The stages of this draw's runs of `name` that completed, and the artifact assembled. A
+    stage that ended in `HARNESS_ERROR` or `COLLISION` did not complete: it is run again
+    (CMP-3-01); a `verify` run again is followed by the artifact's inspection again, which counts
+    only after it (§2.5.4)."""
     done, artifact = {}, None
     for r in route.records(state):
         if not (r.id.startswith(f"{draw_id}-") and r.id.endswith(f"-{name}")):
             continue
-        for stage, st in r.stages.items():
-            if st.status == "done":
+        for stage in (s for s in v.STAGES if s in r.stages):  # in the stages' order: the state stores keys sorted
+            st = r.stages[stage]
+            if stage == "verify":
+                done.pop("inspect_artifact", None)  # an inspection counts only after the verify before it
+            if st.status == "done" and st.cls not in (h.HARNESS_ERROR, h.COLLISION):
                 done[stage] = st
                 if stage == "assembly":
                     artifact = r.artifact_digest
     return done, artifact
+
+
+def _through(done: dict[str, v.Stage]) -> bool:
+    """A run through this draw: its assembly refused by form, or its artifact verified and inspected."""
+    return ("assembly" in done and done["assembly"].cls == h.FORM) or ("verify" in done and "inspect_artifact" in done)
+
+
+def _seal(draw: dict, key: str, legacy: pathlib.Path, dest: pathlib.Path, runs: pathlib.Path) -> pathlib.Path:
+    """The draw's seal — its package, or the mutant's —, extracted fresh from its archive against its
+    digest, and its files the draw's package map exactly (CMP-3-02)."""
+    archive = draw.get(f"{key}_archive")
+    if archive is not None:
+        trees.extract(runs / archive["path"], dest, archive["digest"])
+    else:  # a draw before seals were archived: the expanded copy, held to the same map
+        shutil.copytree(legacy, dest)
+    files = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in dest.iterdir() if p.is_file()}
+    if files != draw[key]:
+        raise route.Refused(f"{dest} is not the {key.replace('_', ' ')} the draw sealed")
+    return dest
 
 
 def _carry(state: dict, draw: dict, entries: dict, commit: str, inputs: dict, runs: pathlib.Path, measured: pathlib.Path,
@@ -181,7 +212,7 @@ def _carry(state: dict, draw: dict, entries: dict, commit: str, inputs: dict, ru
     again first (CMP-2-01, CMP-2-02); the G mutant for B, a control, last."""
     draw_id = draw["id"]
     fixture_dir = measured / draw_id
-    fx = _load_fixture(fixture_dir, draw["fixture_digest"])
+    fx = _load_fixture(fixture_dir, draw["fixture_digest"])  # the cells, for the needles and the rows; the package is the seal
     needles = io_.Needles.from_fixture(fx)
     began = state["artifacts"] or any(r["stages"] for r in state["records"] if r["id"].startswith(f"{draw_id}-"))
     attempt = len(list((runs / "draws" / draw_id).glob("attempt-*"))) + 1 if began else 0
@@ -197,14 +228,19 @@ def _carry(state: dict, draw: dict, entries: dict, commit: str, inputs: dict, ru
         rec["stages"][stage] = dataclasses.asdict(outcome)
         route.save(state, runs)
 
+    package = None
     for name, entry in entries.items():
         done, artifact_digest = _done_stages(state, draw_id, name)
-        if "inspect_artifact" in done or done.get("assembly", v.Stage()).cls not in (None, h.PASS):
-            continue  # this run is through: an artifact inspected, or an assembly refused
+        if _through(done):
+            continue
+        if package is None:
+            package = _seal(draw, "package", fixture_dir / "package", work / "seal" / "package", runs)
         rec = next(r for r in state["records"] if r["id"] == f"{draw_id}-{name}")
-        if rec["stages"]:  # an earlier attempt began this run: carried on in a resume of its own
+        if rec["stages"]:
+            # An earlier attempt began this run: carried on in a resume of its own, which keeps the clean
+            # draw — the earlier record's walk may have stopped before it (CMP-3-01).
             rec = dataclasses.asdict(v.Record(f"{draw_id}-r{attempt}-{name}", kind="resume", builder_digest=entry["builder_digest"],
-                                              artifact_digest=artifact_digest, fixture=draw["fixture_digest"]))
+                                              artifact_digest=artifact_digest, draw_clean=True, fixture=draw["fixture_digest"]))
             state["records"].append(rec)
         folder = work / name
         builder = folder / "builder"
@@ -221,7 +257,7 @@ def _carry(state: dict, draw: dict, entries: dict, commit: str, inputs: dict, ru
         bound: dict = {}
         if "assembly" not in done:
             def assembly():
-                outcome, bound["validated"] = h.assemble(builder, fixture_dir / "package", fx.rows(), folder / "artifact")
+                outcome, bound["validated"] = h.assemble(builder, package, fx.rows(), folder / "artifact")
                 result["assembly"] = {"class": outcome.cls, "message": outcome.message}
                 if outcome.cls == h.PASS:
                     rec["artifact_digest"] = result["artifact_digest"] = h.archive(folder / "artifact", folder / "artifact.tar.gz")
@@ -238,10 +274,13 @@ def _carry(state: dict, draw: dict, entries: dict, commit: str, inputs: dict, ru
             validated = bound["validated"]
         else:
             # The artifact assembled before, from its archive and against its digest — the tree the
-            # assembly bound, since the archive is of that tree —, its package validated again.
+            # assembly bound, since the archive is of that tree —, its package validated again from the
+            # artifact's own package/, which must be the draw's seal (CMP-3-02).
             trees.extract(runs / result["artifact_archive"], folder / "artifact", result["artifact_digest"])
-            validated = dataclasses.replace(h.validate_package(fixture_dir / "package", fx.rows()),
+            validated = dataclasses.replace(h.validate_package(folder / "artifact" / h.PACKAGE, fx.rows()),
                                             artifact=tuple(h.tree(folder / "artifact")), builder=tuple(h.tree(builder)))
+            if validated.files != draw["package"]:
+                raise route.Refused(f"{name}'s archived artifact does not hold the package the draw sealed")
         if "verify" not in done:
             def verify():
                 started = time.time()
@@ -264,7 +303,8 @@ def _carry(state: dict, draw: dict, entries: dict, commit: str, inputs: dict, ru
         folder.mkdir(parents=True)
         builder = folder / "builder"
         trees.extract(runs / entries["own"]["archive"], builder, entries["own"]["builder_digest"])
-        assembly, _ = h.assemble(builder, mutant_dir / "package", mutant.rows(), folder / "artifact")
+        sealed = _seal(draw, "mutant_package", mutant_dir / "package", folder / "seal", runs)
+        assembly, _ = h.assemble(builder, sealed, mutant.rows(), folder / "artifact")
         shutil.rmtree(builder)
         artifacts["own-mutant"] = {"label": "control", "assembly": {"class": assembly.cls, "message": assembly.message},
                                    "fixture_digest": mutant.digest()}
@@ -273,7 +313,14 @@ def _carry(state: dict, draw: dict, entries: dict, commit: str, inputs: dict, ru
                                            artifact_archive=str((folder / "artifact.tar.gz").relative_to(runs)),
                                            artifact_digest=h.archive(folder / "artifact", folder / "artifact.tar.gz"))
         route.still(commit, inputs, require_clean=require_clean)
-    draw["finished"] = route._now()
+    # Finished only when every run is through it; otherwise it stays open, and the next invocation
+    # carries on what errored (CMP-3-01).
+    open_ = [n for n in entries if not _through(_done_stages(state, draw_id, n)[0])]
+    if open_:
+        draw["open"] = open_
+    else:
+        draw.pop("open", None)
+        draw["finished"] = route._now()
     state["draw"] = draw
     route.save(state, runs)
     return draw

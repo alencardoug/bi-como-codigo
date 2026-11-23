@@ -169,3 +169,11 @@ def test_a_mutant_that_does_not_bind_is_a_missing_proof_not_an_abort(tmp_path, m
                                "fixture_digest": fx_mod.mutant(fx).digest()}
     result = compare.measure_candidate("own", draw, artifacts, tmp_path / "out", runs)
     assert "does not bind" in result["mutant_missing"] and given["check"] == {}
+
+
+def test_an_artifact_that_holds_another_package_is_not_measured_under_the_draws(tmp_path, monkeypatch):
+    """CMP-3-02: the result is labelled with the draw's package only when the artifact holds it."""
+    runs, draw, artifacts, given = _measurable(tmp_path, monkeypatch, mutant_archive=False)
+    other = {**draw, "package": {k: "0" * 64 for k in draw["package"]}}
+    with pytest.raises(ValueError, match="does not hold the package"):
+        compare.measure_candidate("own", other, artifacts, tmp_path / "out", runs)

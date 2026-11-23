@@ -102,7 +102,10 @@ def _two(runs):
     runs a test can interrupt, with no second framework to build."""
     route.build_own(HEAD, runs=runs, require_clean=False, prove=PASSED)
     state = route.load(runs)
-    state["builds"]["evidence"] = {**state["builds"]["own"], "candidate": "evidence"}
+    own = state["builds"]["own"]
+    state["builds"]["evidence"] = {**own, "candidate": "evidence", "id": "evidence" + own["id"][3:]}
+    run = next(r for r in state["records"] if r["id"] == own["id"])
+    state["records"].append({**run, "id": "evidence" + own["id"][3:]})  # its build's record, as a real build leaves one
     route.save(state, runs)
 
 
@@ -204,3 +207,106 @@ def test_a_harness_changed_during_a_stage_is_never_recorded_under_the_first(tmp_
     rec = next(r for r in route.records(state) if r.id == f"{state['draw']['id']}-own")
     assert rec.stages["inspect_builder"].status == "interrupted" and "assembly" not in rec.stages
     assert not measured.verdicts(state)["own"].startswith(v.PASSES)
+
+
+
+# --- CMP-3-01, CMP-3-02: a resume keeps its draw, retries an error, assembles the archived seal ---
+
+
+def test_a_clean_draw_after_an_exhausted_one_still_closes_it_when_its_inspection_is_resumed(tmp_path, monkeypatch):
+    """CMP-3-01: an exhausted draw; B alone built again, which discards it; a clean draw whose
+    Evidence inspection is interrupted, and its retry. The retry's record holds the clean draw,
+    so the earlier exhaustion is closed."""
+    import calibrate
+    import inspect_output as io_
+    _two(tmp_path)
+    kw = dict(runs=tmp_path, measured=tmp_path / "m", require_clean=False, limit=20)
+    real_draw = calibrate.draw_against
+
+    def exhausted(*a, **k):
+        raise fx_mod.DrawExhausted({"draws": 3, "rejections": []})
+    monkeypatch.setattr(calibrate, "draw_against", exhausted)
+    measured.run(HEAD, 1, **kw)
+    monkeypatch.setattr(calibrate, "draw_against", real_draw)
+    state = route.load(tmp_path)
+    evidence = state["builds"]["evidence"]
+    route.build_own(HEAD, runs=tmp_path, require_clean=False, prove=PASSED)  # B alone: the draw is discarded
+    state = route.load(tmp_path)
+    state["builds"]["evidence"] = evidence
+    route.save(state, tmp_path)
+    real = io_.inspect_dir
+
+    def interrupted(root, needles, **k):
+        if root.name == "builder" and root.parent.name == "evidence":
+            raise OSError("interrupted")
+        return real(root, needles, **k)
+    monkeypatch.setattr(io_, "inspect_dir", interrupted)
+    with pytest.raises(OSError):
+        measured.run(HEAD, 20261122, **kw)
+    monkeypatch.setattr(io_, "inspect_dir", real)
+    measured.run(HEAD, 1, **kw)
+    verdicts = measured.verdicts(route.load(tmp_path))
+    # B's output under Evidence's lists is a cost by form; what matters is that the exhaustion is closed
+    assert not verdicts["evidence"].startswith(v.STOPPED) and "exhausted" not in verdicts["evidence"], verdicts
+
+
+def test_a_harness_error_is_retried_and_the_draw_stays_open_until_it_is_through(tmp_path, monkeypatch):
+    """CMP-3-01: an assembly that returns HARNESS_ERROR left the draw finished and its run
+    stopped for good; the draw now stays open, and the next invocation assembles again."""
+    import harness as h
+    route.build_own(HEAD, runs=tmp_path, require_clean=False, prove=PASSED)
+    real = h.assemble
+    calls = {"n": 0}
+
+    def errs_once(builder, package_dir, *a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return h.Outcome("assembly", h.HARNESS_ERROR, "a transient error"), None
+        return real(builder, package_dir, *a, **k)
+    monkeypatch.setattr(h, "assemble", errs_once)
+    kw = dict(runs=tmp_path, measured=tmp_path / "m", candidates=("own",), require_clean=False, limit=20)
+    out = measured.run(HEAD, 20261122, **kw)
+    assert not out.get("finished") and out["open"] == ["own"]
+    again = measured.run(HEAD, 1, **kw)
+    state = route.load(tmp_path)
+    assert again["id"] == out["id"] and again["finished"] and measured.verdicts(state)["own"].startswith(v.PASSES)
+
+
+def test_a_resume_assembles_the_archived_seal_never_a_new_one(tmp_path, monkeypatch):
+    """CMP-3-02: B assembled, Evidence's assembly interrupted, the same cells sealed again
+    beside the draw — another valid package —; the retry assembles Evidence from the draw's
+    archived seal, and works with the expanded copy gone."""
+    import harness as h
+    _two(tmp_path)
+    real = h.assemble
+    seen = []
+
+    def interrupted(builder, package_dir, *a, **k):
+        seen.append(package_dir)
+        if builder.parent.name == "evidence" and len(seen) == 2:
+            raise OSError("interrupted")
+        return real(builder, package_dir, *a, **k)
+    monkeypatch.setattr(h, "assemble", interrupted)
+    kw = dict(runs=tmp_path, measured=tmp_path / "m", require_clean=False, limit=20)
+    with pytest.raises(OSError):
+        measured.run(HEAD, 20261122, **kw)
+    state = route.load(tmp_path)
+    draw = state["draw"]
+    folder = tmp_path / "m" / draw["id"]
+    fx = fx_mod.Fixture.load(json.loads((folder / "cells.json").read_text()))
+    shutil.rmtree(folder / "package")
+    resealed = fx_mod.write(fx, tmp_path / "reseal")["package"]
+    assert resealed != draw["package"]  # the same cells, another package
+    shutil.copytree(tmp_path / "reseal" / "package", folder / "package")
+    measured.run(HEAD, 1, **kw)
+    state = route.load(tmp_path)
+    import hashlib
+    import trees
+    for name in ("own", "evidence"):
+        art = state["artifacts"][name]
+        out = tmp_path / "x" / name
+        trees.extract(tmp_path / art["artifact_archive"], out, art["artifact_digest"])
+        held = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in (out / h.PACKAGE).iterdir()}
+        assert held == draw["package"], name
+    shutil.rmtree(folder / "package")  # the expanded copy lost: the archived seal is enough
+    assert measured._seal(state["draw"], "package", folder / "package", tmp_path / "y", tmp_path).is_dir()
