@@ -81,16 +81,20 @@ def measure_candidate(name: str, draw: dict, artifacts: dict, out: pathlib.Path,
     art = artifacts[name]
     artifact = _bound(runs, art["artifact_archive"], art["artifact_digest"], out / "bound" / "artifact")
     builder = _bound(runs, entry["archive"], entry["builder_digest"], out / "bound" / "builder")
-    result = {"package": draw["package"], "artifact_digest": art["artifact_digest"], "fixture_digest": draw["fixture_digest"]}
+    result = {"package": draw["package"], "artifact_digest": art["artifact_digest"], "fixture_digest": draw["fixture_digest"],
+              "draw": draw["id"], "harness": draw["harness"]}
     mutant = {}
     if name == "own":
         m = artifacts.get("own-mutant", {})
-        if "artifact_archive" not in m:
-            raise route.Refused(f"B's G mutant has no artifact to prove the check with: assembly {m.get('assembly')}")
-        mutant = {"mutant_artifact": _bound(runs, m["artifact_archive"], m["artifact_digest"], out / "bound" / "mutant"),
-                  "mutant": _fixture(draw, mutant=True, digest=m["fixture_digest"])}
+        if "artifact_archive" in m:
+            mutant = {"mutant_artifact": _bound(runs, m["artifact_archive"], m["artifact_digest"], out / "bound" / "mutant"),
+                      "mutant": _fixture(draw, mutant=True, digest=m["fixture_digest"])}
+        else:  # the check runs, and says its mutant proof is missing; the rest is measured (CMP-2-05)
+            result["mutant_missing"] = f"B's G mutant has no artifact: assembly {m.get('assembly')}"
     result["check"] = check.run(name, artifact, fx, out / "check", **mutant)
-    result["controls"] = builder_controls.run(name, builder, entry["builder_digest"], measured.MEASURED / draw["id"] / "package", fx,
+    # The controls take the package the artifact holds — the archived one, by its digest —, never the
+    # expanded copy beside the draw, which could have been sealed again (CMP-2-05).
+    result["controls"] = builder_controls.run(name, builder, entry["builder_digest"], artifact / "package", fx,
                                               out / "controls", dependencies=measured._dependencies(name, entry, runs))
     decl = HERE / name / "cdn.json"
     pins = {f["url"]: f["sha256"] for f in json.loads(decl.read_text(encoding="utf-8"))["files"]}
@@ -108,16 +112,24 @@ def measure_candidate(name: str, draw: dict, artifacts: dict, out: pathlib.Path,
 
 
 def _kept(state: dict, name: str, runs: pathlib.Path) -> dict | None:
-    """A measured result reused only when its file exists and is of this artifact (CMP-1-05)."""
+    """A measured result reused only when its file exists, reads, and is of this artifact, this
+    draw — its fixture and package — and this harness; anything else is measured again (CMP-1-05,
+    CMP-2-05)."""
     kept = state["measures"].get(name)
     art = state["artifacts"].get(name, {})
+    draw = state["draw"] or {}
     if not kept or kept.get("artifact_digest") != art.get("artifact_digest"):
         return None
     path = runs / kept["results"] / "result.json"
-    if not path.is_file():
+    try:
+        result = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
         return None
-    result = json.loads(path.read_text(encoding="utf-8"))
-    return result if result.get("artifact_digest") == art.get("artifact_digest") else None
+    if not isinstance(result, dict):
+        return None
+    same = {"artifact_digest": art.get("artifact_digest"), "fixture_digest": draw.get("fixture_digest"),
+            "package": draw.get("package"), "draw": draw.get("id"), "harness": draw.get("harness")}
+    return result if all(result.get(k) == v and v is not None for k, v in same.items()) else None
 
 
 @route.serialized
@@ -145,7 +157,13 @@ def run(commit: str, *, seed: int | None = None, runs: pathlib.Path = route.RUNS
             if kept is not None:
                 results[name] = kept
                 continue
-            results[name] = measure_candidate(name, draw, state["artifacts"], out / name, runs)
+            try:
+                results[name] = measure_candidate(name, draw, state["artifacts"], out / name, runs)
+            except route.Refused:
+                raise
+            except Exception as error:  # noqa: BLE001 — one candidate's failure leaves the other's results (CMP-2-05)
+                results[name] = {"not_measured": f"failed: {type(error).__name__}: {error}"[:2000]}
+                continue  # no pointer: the next invocation measures it again
             route.still(commit, inputs)  # nothing measured under a harness edited meanwhile is published (CMP-2-02)
             # The result first, then the pointer to it: an interruption between them leaves no pointer.
             (out / name / "result.json").write_text(json.dumps(results[name], indent=1, ensure_ascii=False, default=str) + "\n",
