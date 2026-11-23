@@ -201,3 +201,67 @@ def test_an_extension_prefetched_before_the_engine_does_not_close_its_window():
 
 def test_both_terminal_kinds_in_the_window_stay_unclassified():
     assert measure.sample(_raw(wasm=["wasm.BaselineFinished", "v8.wasm.cachedModule"]))["cache_evidence"]["wasm"] == "unclassified"
+
+
+@pytest.mark.skipif(not (shutil.which("node") and shutil.which("google-chrome")), reason="needs node and Chrome")
+def test_a_later_fetch_of_a_workers_url_is_waited_for_to_its_end(tmp_path):
+    """CMP-3-07: an HTTP worker's script, then a slow fetch of the same URL. The fetch is
+    another request: it is in flight until it ends, never taken for the bootstrap."""
+    import http.server
+    import json
+    import subprocess
+    import threading
+    seen = []
+
+    class Slow(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            path = self.path.split("?")[0]
+            body = {"/": b'''<!doctype html><meta charset="utf-8"><body>
+<input data-bice="password" type="password"><button data-bice="submit">Entrar</button><script>
+document.querySelector('[data-bice=submit]').onclick = () => {
+  const w = new Worker('worker.js');
+  w.onmessage = () => { fetch('worker.js').then(r => r.text());
+    document.body.innerHTML = '<div data-bice="summary"><table><tr><td>2024-01</td><td>r</td><td>R$ 1,00</td><td>1</td></tr></table></div>'
+      + '<button data-bice="logout" onclick="location.replace(location.href)">Sair</button>'; };
+};</script>''', "/worker.js": b"postMessage(1);\n"}.get(path)
+            if body is None:
+                self.send_response(404); self.end_headers(); return
+            seen.append(path)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/javascript" if path.endswith(".js") else "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.flush()
+            if path == "/worker.js" and seen.count("/worker.js") % 2 == 0:  # the page's own fetch: slow
+                import time
+                time.sleep(5)
+            self.wfile.write(body)
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Slow)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        out = tmp_path / "out.json"
+        config = {"profile": str(tmp_path / "profile"), "url": f"http://127.0.0.1:{server.server_port}/", "password": "x",
+                  "expected": [["2024-01", "r", "R$ 1,00", "1"]], "priming": 0, "out": str(out)}
+        (tmp_path / "config.json").write_text(json.dumps(config))
+        subprocess.run(["node", str(measure.DRIVER), str(tmp_path / "config.json")], capture_output=True, timeout=300, check=False)
+        raw = json.loads(out.read_text())
+    finally:
+        server.shutdown()
+    requests = [r for r in raw["measured"]["requests"].values() if (r.get("url") or "").endswith("/worker.js")]
+    assert len(requests) == 2 and not any(r.get("unattributed") for r in requests if r.get("type") != "Script"), requests
+    fetch = next(r for r in requests if r.get("type") != "Script")
+    assert fetch.get("finished") and raw["measured"]["settled"]["quiet"]
+
+
+def test_a_redirect_hop_reported_by_another_session_is_on_its_clock():
+    """CMP-3-07: a hop keeps the session that reported it, as data and completion do."""
+    raw = _raw()
+    raw["measured"]["sessions"]["Q"] = [[2000.0, (1000.0 * 1000 + 5_000_000) / 1000]]  # Q's clock runs 1000 s ahead
+    raw["measured"]["requests"]["P:1"]["hops"] = [{"url": "http://127.0.0.1:1/old", "status": 302, "encoded": 138, "ts": 2000.05, "s": "Q"}]
+    hop = next(r for r in measure.sample(raw)["requests"] if r["cache"] == "redirect 302")
+    assert hop["completed_by_login_box"] and hop["completed_by_summary"]

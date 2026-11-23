@@ -173,7 +173,7 @@ def sample(raw: dict) -> dict:
             for name, cut in cutoffs.items():
                 if cut is None:
                     continue
-                done = to_wall(r, hop["ts"]) <= cut
+                done = to_wall(r, hop["ts"], hop.get("s")) <= cut  # the hop's own session's clock (CMP-3-07)
                 h_row.update({f"observed_by_{name}": h_row["encoded"] if done else 0, f"completed_by_{name}": done, f"partial_at_{name}": False})
             hops.append(h_row)
         for x in (*hops, row):

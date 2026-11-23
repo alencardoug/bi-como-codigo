@@ -110,7 +110,7 @@ async function journey(measured) {
     switch (msg.method) {
       case "Network.requestWillBeSent":
         if (p.redirectResponse) {  // a redirect reuses the request's id: each hop is kept, never overwritten (CMP-1-11)
-          (r.hops ??= []).push({ url: r.url, status: p.redirectResponse.status, encoded: p.redirectResponse.encodedDataLength, ts: p.timestamp });
+          (r.hops ??= []).push({ url: r.url, status: p.redirectResponse.status, encoded: p.redirectResponse.encodedDataLength, ts: p.timestamp, s });
         }
         r.url = p.request.url; r.method = p.request.method; r.type = p.type;
         r.events.push({ e: "sent", ts: p.timestamp, wall: p.wallTime, redirect: !!p.redirectResponse });
@@ -165,8 +165,11 @@ async function journey(measured) {
   // blob: and data: URLs are no network: a worker started from a blob gets no loadingFinished.
   // A worker's script answered with no completion any session reported is no transfer still running:
   // it is kept unattributed, its bytes unknown to the counting, never waited for (CMP-2-07).
+  // Positively a worker's script: of type Script, at an attached worker's URL, and the first such request
+  // for it — a later fetch of the same URL is another request, waited for to its end (CMP-3-07).
   const answered = (r) => r.status !== undefined || r.wire_status !== undefined;
-  const bootstrap = (r) => answered(r) && record.workers.some((w) => w.url === r.url);
+  const bootstrap = (r) => answered(r) && r.type === "Script" && record.workers.some((w) => w.url === r.url)
+    && r === Object.values(record.requests).find((x) => x.url === r.url && x.type === "Script");
   const inflight = () => Object.values(record.requests).filter((r) => r.url && /^https?:/.test(r.url) && !r.finished && !r.failed && !bootstrap(r)).length;
   let quiet = Date.now();
   while (Date.now() - t0 < 360000 && Date.now() - quiet < 2000) { if (inflight()) quiet = Date.now(); await sleep(100); }
