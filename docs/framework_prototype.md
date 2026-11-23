@@ -20,7 +20,7 @@
 |---|---|
 | Date | 2026-11-20 — revision 9, with the five adjustments of round 8 of Codex's review (FPROTO-8-01 to -05), which found no blocking finding and closed the review. Revision 8 answered round 7 (FPROTO-7-01 to -06) with the Owner's N96, revision 7 answered round 6 (FPROTO-6-01 to -08), revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 began** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers, each caught by `verify` and by the inspection in its control (§3); on 2026-11-22 Candidate B's page is built, and its clear build's one carrier, the clear Parquet its page fetches, is caught by both in its control (§4): **step 2 is done**. **Step 3 has begun** on 2026-11-22: B's encrypted builder output is built from no data and archived, the run's state kept by identities (`route.py`, §5), and Evidence's A7, A3 and A2 answer yes, with no patch, its encrypted builder output archived (§3); both are built again at the harness of the draw (§5). **Steps 4 to 6 have run**, on 2026-11-22 at `344d525`, before the review, and in full again at `356bec1` and at `5fdaa02`, after rounds 1 and 2 of the review of step 7 were answered (CMP-1-01 to -12, CMP-2-01 to -10, `DOSSIER.md`): the draw clean, both candidates pass the criterion and the browser check with its proofs, the controls of §2.5.5 on each candidate's own builder output all as expected, and both measured (§10); Evidence through A8 (N100) and the arrangements of A4 and A5 (§3). P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
+| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 began** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers, each caught by `verify` and by the inspection in its control (§3); on 2026-11-22 Candidate B's page is built, and its clear build's one carrier, the clear Parquet its page fetches, is caught by both in its control (§4): **step 2 is done**. **Step 3 has begun** on 2026-11-22: B's encrypted builder output is built from no data and archived, the run's state kept by identities (`route.py`, §5), and Evidence's A7, A3 and A2 answer yes, with no patch, its encrypted builder output archived (§3); both are built again at the harness of the draw (§5). **Steps 4 to 6 have run**, on 2026-11-22 at `344d525`, before the review, and in full again at `356bec1`, `5fdaa02` and `a4f333f`, after rounds 1 to 3 of the review of step 7 were answered (CMP-1-01 to -12, CMP-2-01 to -10, CMP-3-01 to -09, `DOSSIER.md`) — the last, by N103 —: the draw clean, both candidates pass the criterion and the browser check with its proofs, the controls of §2.5.5 on each candidate's own builder output all as expected, and both measured (§10); Evidence through A8 (N100) and the arrangements of A4 and A5 (§3). P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool that the stage proves or refutes (§9).
@@ -973,11 +973,11 @@ plainly cannot reach one of them is reported as such, with the observation behin
    its builder output is final, archived. No measured fixture exists yet.
 4. **The draw** [run, 2026-11-22, `compare.py`/`measured.py`; §10], once, against both builder outputs; the package; both artifacts assembled; the
    G mutant derived, sealed and assembled for B.
-5. On both artifacts [A4 and A5 probed on 2026-11-22 (§3); the browser check and the controls on each builder output run through `compare.py`, last at `5fdaa02`, §10]: A4 and A5 for Evidence; the controls on each candidate's own builder output;
+5. On both artifacts [A4 and A5 probed on 2026-11-22 (§3); the browser check and the controls on each builder output run through `compare.py`, last at `a4f333f`, §10]: A4 and A5 for Evidence; the controls on each candidate's own builder output;
    the browser check and its proof. A rebuild of either candidate here sends the work back to step 4.
-6. The measures of §6 under §2.7 [run before the review, at `344d525`, after its round 1, at `356bec1`, and after its round 2, at `5fdaa02`, §10], in one sitting per candidate, on this machine, on the artifacts of
+6. The measures of §6 under §2.7 [run before the review, at `344d525`, after its round 1, at `356bec1`, after its round 2, at `5fdaa02`, and after its round 3, at `a4f333f`, the last by N103, §10], in one sitting per candidate, on this machine, on the artifacts of
    step 4.
-7. The results written in §10, and the implementation handed to Codex with the `review` skill [rounds 1 and 2 answered, 2026-11-22 and -23: CMP-1-01 to CMP-1-12 and CMP-2-01 to CMP-2-10 in `DOSSIER.md`; the full run done at `5fdaa02`; round 3 next].
+7. The results written in §10, and the implementation handed to Codex with the `review` skill [rounds 1 to 3 answered, 2026-11-22 and -23: CMP-1-01 to CMP-1-12, CMP-2-01 to CMP-2-10 and CMP-3-01 to CMP-3-09 in `DOSSIER.md`; the last full run done at `a4f333f`; round 4, of regressions only, closes the review (N103)].
 8. The Owner chooses; the ADR is the Owner's.
 
 ## 8. Choices taken in this plan
@@ -1031,7 +1031,7 @@ plainly cannot reach one of them is reported as such, with the observation behin
   gate is not changed for a prototype.
 - **[measured, 2026-11-22]** that the draw of §2.1 converges within 1,000 draws against both builder outputs
   with both inspections — once Evidence's whole icon set is out of its build (A8, N100): before, every year
-  from 2000 to 2199 was in it and no draw could be clean; after, 14, 4, 10, 28 and 22 draws at five harnesses (§10).
+  from 2000 to 2199 was in it and no draw could be clean; after, 14, 4, 10, 28, 22 and 11 draws at six harnesses (§10).
   What a collision means for real data at 2.5 — a real count of three digits that a bundle happens to hold —
   is a question for the gate then, not answered here.
 - **Not claimed, by N96**: that the browser diagnostic of §2.5.3 sees every store, write or target;
@@ -1083,45 +1083,53 @@ plainly cannot reach one of them is reported as such, with the observation behin
 
 ## 10. Results
 
-**[measured, 2026-11-23, at the harness of `5fdaa02`, after rounds 1 and 2 of the review of step 7.]**
-`make prototype` built both encrypted routes at that harness — B `own-20261123T031334Z-80321283`,
-Evidence `evidence-20261123T031335Z-09d44912`, with A8 —, drew the measured fixture once against
-both, and ran everything below on the two artifacts of that draw and on their builder outputs, in
-one invocation from 03:13 UTC, when the first build was recorded, to 06:48:50 UTC, when
-`report.json` was written, with exit 0. The machine-readable results are under
-`prototypes/framework/runs/draws/draw-20261123T031704Z-1e0db08a/results/` — `report.json` and
-`<candidate>/result.json` —, ignored by Git. The run of `356bec1`, which round 2 reviewed, and the
-four before it are in `report.json`'s `history`, their records and verdicts, and no longer count;
-their numbers stand in Git, in earlier revisions of this section. These numbers are the author's,
-of one sitting.
+**[measured, 2026-11-23, at the harness of `a4f333f`, after rounds 1 to 3 of the review of step 7; the
+last full run, by N103.]** `make prototype` ran from a read-only snapshot of that commit's harness
+(CMP-3-03), built both encrypted routes — B `own-20261123T190942Z-6d56a4fd`, Evidence
+`evidence-20261123T190942Z-187843ea`, with A8 —, drew the measured fixture once against both, and ran
+everything below on the two artifacts of that draw and on their builder outputs, in one invocation
+from 19:09 UTC, when the builds were recorded, to 22:44:17 UTC, when `report.json` was written, with
+exit 0. The machine-readable results are under
+`prototypes/framework/runs/draws/draw-20261123T191327Z-4fb760ca/results/` — `report.json` and
+`<candidate>/result.json` —, ignored by Git. `report.json`'s `history` holds the six harnesses before
+it, each with its records and verdicts — one of them a builder record alone, with no draw —; their
+numbers stand in Git, in earlier revisions of this section. These numbers are the author's, of one
+sitting.
 
-**The draw.** Clean after 22 draws and 561 rejections — 555 by the gate's search, 552 of them against
-Evidence's builder output and 3 against B's, and 6 by the carrier inspection, 5 and 1 —: seed
-1245211059, the window 2151-12 to 2156-12, *k* = 5, 10,848 rows, fixture `63cfff9f…`. The search took
-467 s; the draw's record spans 03:17:20 to 03:37:42 UTC because it is closed once both runs are
+**What changed between sittings.** Each sitting builds both again and draws a new fixture, so every
+digest after the builds is its own. B's builder output was the same in the last three
+(`8aab8f6f…`); Evidence's was not (`bdf68d2f…` at `356bec1`, `d821d764…` at `5fdaa02`,
+`fe37fbe0…` now), with the same file count and size. The artifacts, the fixtures and the packages
+differ in every sitting: now B `b3823193…`, Evidence `89234df5…`, fixture `6afcbd01…`.
+
+**The draw.** Clean after 11 draws and 576 rejections — 563 by the gate's search, 561 of them against
+Evidence's builder output and 2 against B's, and 13 by the carrier inspection, all against
+Evidence's —: seed 853985153, the window 2150-05 to 2155-05, *k* = 8, 10,884 rows. The search took
+236 s; the draw's record spans 19:13:34 to 19:30:06 UTC because it is closed once both runs are
 carried through it — the inspections, assembly, `verify` of each artifact and the mutant (CMP-2-01).
 The first draw at an earlier harness, against Evidence's output before A8, could never be clean (A8,
-§3); after A8, draws at five harnesses were clean, in 14, 4, 10, 28 and 22 draws — the first four as
-the records of their runs gave them, in Git history and in rounds 1 and 2 of the review, their draw
-folders since deleted or superseded.
+§3); after A8, draws at six harnesses were clean, in 14, 4, 10, 28, 22 and 11 draws — all but the last
+as the records of their runs gave them, in Git history and in rounds 1 to 3 of the review; their draw
+folders are deleted or superseded.
 
 **The criterion (§2.5.4).** **Both pass**: in each candidate's only judged run at that harness,
-build, archive, the builder output's inspection — no finding, nothing inconclusive —, assembly,
-`verify` `PASS` and the artifact's inspection — no finding, nothing inconclusive — complete, each
-stage recorded as it completed (CMP-2-01) and the harness checked again before it was (CMP-2-02).
-Evidence's 76 binaries identical to files of its locked install are recorded, not inspected further
-(§2.5.2), and the two package files beside them in its artifact; B's artifact records only the two
-package files.
+build, archive, the builder output's inspection — no finding, nothing inconclusive —, assembly from
+the draw's archived seal (CMP-3-02), `verify` `PASS` and the artifact's inspection — no finding,
+nothing inconclusive — complete, each stage recorded as it completed (CMP-2-01). Evidence's builder
+inspection records 76 notes — 70 binaries identical to files of its locked install, not inspected
+further (§2.5.2), and 6 JSON scripts an unescaping broke, read whole before it and searched as data
+(N99, CMP-1-06, CMP-2-03) —, its artifact's the same and the two package files; B's builder output
+records none, its artifact the two package files.
 
 **The page works (§2.6).** Both pass the browser check with its four proofs (CMP-1-08, CMP-2-04): every
 filter and the fifth, the seventh and the last months, G and Z told apart, the notice, `order_count`
-only native — no summed count in any visible text of the summary —, and a logout that replaces the
-document and ends the engine's worker, which both pages start on load; the comparator refuses each
-of its four altered readings for its own reason; B served with the G mutant opens it, shows the
-mutant's detail and is refused on G alone. Every third-party URL either page or its workers
-requested, WebSockets included (CMP-1-09, CMP-2-06), is declared in its `cdn.json` — B seven, from
-jsDelivr and `extensions.duckdb.org` (N98); Evidence three: the engine's EH worker and WASM, and the
-extension.
+only native — no summed count in the summary's rendered text, generated text included (CMP-3-04) —,
+and a logout that replaces the document and ends the engine's worker, which both pages start on load;
+the comparator refuses each of its four altered readings for its own reason; B served with the G
+mutant opens it, shows the mutant's detail and is refused on G alone. Every third-party URL either
+page or its workers requested, WebSockets included (CMP-1-09, CMP-2-06), is declared in its
+`cdn.json` — B seven, from jsDelivr and `extensions.duckdb.org` (N98); Evidence three: the engine's EH
+worker and WASM, and the extension.
 
 **The controls on each builder output (§2.5.5).** Seventeen per candidate, run by `compare.py` on its
 archived builder output with the package its artifact holds and one leak or one form each
@@ -1130,17 +1138,17 @@ refusal; a fixed label; an amount in pt-BR and in its JavaScript spelling; Arrow
 rows; Parquet with its schema only; gzip, brotli and base64 of a JSON of rows; JSON-escaped text; a
 base64 payload in a service worker; a label in a `.map` and in a second `manifest.json`; and
 assembly's own form, a `package/` of the builder's, which has no `verify`. **All 34 as expected**,
-under CMP-1-07's rule: each reaches its `verify` class (`PASS`, `CONTENT`, `FORM` or `SCHEMA_ONLY`) and
-its inspection code in the added file, by the layer that carries it, with no finding elsewhere and
-nothing inconclusive. Of each candidate's seventeen, the run alone passes for the clean one, is a
-cost for three — the two form refusals and the schema —, and fails the criterion for the thirteen
-leaks.
+under CMP-1-07's rule and CMP-3-05's: each reaches its `verify` class (`PASS`, `CONTENT`, `FORM` or
+`SCHEMA_ONLY`), for the reason it is built for — its added file, or the second manifest —, and its
+inspection code in the added file, by the layer that carries it, with no finding elsewhere and nothing
+inconclusive. Of each candidate's seventeen, the run alone passes for the clean one, is a cost for
+three — the two form refusals and the schema —, and fails the criterion for the thirteen leaks.
 
 **The gate's time, measured** (CMP-1-12). The gate searches each of the fixture's needles over each
 file, so its time grows with the artifact. One `verify` of the draw's artifact took 3.6 s for B and
-702 s — 11 min 42 s — for Evidence. On the controls: B's 16 runs of `verify` took 36.0 s in all, none
-over 3.7 s; Evidence's took 7,733 s — 2 h 9 min —, each of the eleven that search the whole artifact
-between 700 and 704 s, the five that stop on form or on a Parquet magic under 1.3 s.
+704 s — 11 min 44 s — for Evidence. On the controls: B's 16 runs of `verify` took 36.0 s in all, none
+over 3.7 s; Evidence's took 7,896 s — 2 h 12 min —, each of the eleven that search the whole artifact
+between 706 and 747 s, the five that stop on form or on a Parquet magic under 1.3 s.
 
 **The browser's behaviour (§2.5.3, N96: reported, not judged).** Neither decrypts before a submission
 or in the wrong attempt: five WebCrypto calls each, all as the reader allows. Nothing the journey
@@ -1148,53 +1156,57 @@ wrote, and nothing readable at the end, holds a fixture value: B writes nothing;
 writes through 17 entry points — `history.replaceState`, `localStorage.setItem` among them —, 9 of
 them committed, and leaves 9 carriers and one service worker readable, none with a value. **What the
 diagnostic reports first**: on disk, `INSPECT_NUMBER` in 1 file for B (`Service Worker/Database`) and
-11 for Evidence — 4 in the HTTP cache, by their keys entries of the artifact's own files (the
-`Inter-SemiBold` WOFF2, the wordmark PNG, the CSS and the `entry` chunk), their bodies not compared,
-5 in V8's code cache and 2 in its service worker's storage —, not explained further; besides them,
-binaries no layer decodes, 26 for B and 69 for Evidence (9 of these in its Local Storage), reported as
-inconclusive. And `SESSION_SURVIVES` for both: after logout, B has one worker alive of the two created
-and Evidence two. The check shows the engine's worker the session used ended by logout in both
-(CMP-2-04); the worker alive is the one the new login page starts on load and, for Evidence, its
-service worker too (`fix-tprotocol-service-worker.js`, registered on every page, which §2.3 item 8
-does not allow). Bodies the protocol could not return — the engine's WASM, blob workers, Evidence's
-fonts — are listed in the report as unobserved. All are questions for 2.5's browser oracle on the
-chosen framework.
+5 for Evidence — 2 in the HTTP cache, by their keys entries of the artifact's own files (a CSS and the
+white wordmark PNG), their bodies not compared, 2 in V8's code cache and 1 in its service worker's
+storage —, not explained further; besides them, binaries no layer decodes, 26 for B and 69 for
+Evidence (9 of these in its Local Storage), reported as inconclusive. Which files collide moves with
+the fixture from sitting to sitting. And `SESSION_SURVIVES` for both: after logout, B has one worker
+alive of the two created and Evidence two. The check shows the engine's worker the session used
+ended by logout in both (CMP-2-04); the worker alive is the one the new login page starts on load
+and, for Evidence, its service worker too (`fix-tprotocol-service-worker.js`, registered on every
+page, which §2.3 item 8 does not allow). Bodies the protocol could not return — the engine's WASM,
+blob workers, Evidence's fonts — are listed in the report as unobserved. All are questions for 2.5's
+browser oracle on the chosen framework.
 
 **First load and timings (§2.7)**, on this machine, served on `127.0.0.1`, medians of five with the
 range; the clock's error under 1 ms. Navigation is timed from the page's `performance.timeOrigin`
 (CMP-1-11), priming waits for the summary, a quiet network, a confirmed logout and quiescence
-(CMP-1-10), and a request is one across the page's and its workers' sessions (CMP-2-07):
+(CMP-1-10), and a request is one across the page's and its workers' sessions (CMP-2-07, CMP-3-07):
 
 | | B | Evidence |
 |---|---|---|
-| Cold: navigation to login box | 4.35 s (3.80–4.54) | 2.86 s (2.77–2.96) |
-| Cold: navigation to summary | 5.12 s (4.57–5.31) | 4.67 s (4.48–4.93) |
-| Cold: submit to summary | 0.77 s (0.76–0.78) | 1.71 s (1.67–2.07) |
-| Warm, one series of five: navigation to login box | 1.82 s (1.80–1.83) | 1.66 s (1.63–1.68) |
-| Warm: navigation to summary | 2.52 s (2.50–2.54) | 2.90 s (2.89–2.92) |
-| Warm: submit to summary | 0.71 s (0.70–0.71) | 1.24 s (1.24–1.26) |
+| Cold: navigation to login box | 4.33 s (4.28–4.51) | 3.08 s (2.83–3.31) |
+| Cold: navigation to summary | 5.10 s (5.06–5.28) | 4.93 s (4.87–5.42) |
+| Cold: submit to summary | 0.77 s (0.77–0.78) | 2.04 s (1.81–2.12) |
+| Warm, one series of five: navigation to login box | 1.81 s (1.81–1.84) | 1.76 s (1.75–1.85) |
+| Warm: navigation to summary | 2.53 s (2.51–2.55) | 3.16 s (3.08–3.20) |
+| Warm: submit to summary | 0.71 s (0.71–0.72) | 1.38 s (1.32–1.40) |
 | Cold bytes by the summary, completed: local / jsDelivr / DuckDB's extensions | 0.32 / 5.62 / 0.67 MB | 1.56 / 5.35 / 0.67 MB |
 | Warm bytes by the summary (all local; third parties from disk cache or `304`) | 0.31 MB | 0.31 MB |
 | The engine's WASM, warm | compiled again in every sample | compiled again in every sample |
 | V8's code cache consumed, warm | Arrow, Vega, Vega-Lite | none |
 | Artifact: files, raw, brotli | 11, 0.34 MB, 0.32 MB | 116, 10.33 MB, 7.56 MB |
 
-The timings move between sittings — at `356bec1`, B's cold navigation to summary was 4.70 s and
-Evidence's 6.94 s — on the same artifacts' bytes: one sitting is no basis for a ranking within a
-second. The warm samples of each candidate share their cache evidence and form one series, none set
-apart; none had an incomplete trace, and every sample's bytes reconciled, none unknown. **How the
-engine's WASM is classed**: the trace's WebAssembly events name no module, so the engine's are taken
-by time (CMP-2-08) — in every warm sample one streaming compilation, after the engine's
-`duckdb-eh.wasm` request was sent and before the extension was requested: for B 544 to 555 ms after
-it and 918 to 931 ms before the extension; for Evidence 0.2 to 0.3 ms after it and 1.39 to 1.42 s
-before. That is an inference from the order of events, recorded with each sample, not an
+**What holds across sittings, and what does not.** In the last three sittings the bytes, the artifact
+sizes and the order of the submit-to-summary times held — B about 0.7–0.8 s, Evidence 1.2–2.2 s —; the
+navigation times moved: B's cold navigation to summary was 4.70, 5.12 and 5.10 s, Evidence's 6.94,
+4.67 and 4.93 s. One sitting is no basis for a ranking within a second. The warm samples of each
+candidate share their cache evidence and form one series, none set apart; none had an incomplete
+trace, and every sample's bytes reconciled, none unknown. **How the engine's WASM is classed**: the
+trace's WebAssembly events name no module, so the engine's are taken by time and by terminal events
+(CMP-2-08, CMP-3-08) — in every warm sample a streaming compilation finished in baseline, after the
+engine's `duckdb-eh.wasm` request was sent and before the extension was requested: for B 548 to 575 ms
+after it and 918 to 928 ms before the extension; for Evidence 0.2 to 0.3 ms after it and 1.46 to
+1.62 s before. That is an inference from the order of events, recorded with each sample, not an
 attribution the trace makes. Evidence's warm samples also carry two requests its client makes for
 data it does not ship on the encrypted route — `data/manifest.json` and an `all-queries.json`, each
 `404` and aborted. Evidence's samples are ten and a half minutes apart, each priming waiting for its
 service worker to stop (§2.7). No transfer of a worker spanned a cutoff and no navigation was
-redirected, so those checks of the byte accounting were not exercised here — the tests exercise them
-on live pages (CMP-2-07); the warm revalidation was (`304`, 280 wire bytes, the body's
-`Content-Length` reported apart).
+redirected in this run; the tests exercise those branches of the byte accounting on synthetic records
+(`tests/test_measure.py`), and their live pages — an HTTP and a blob worker, a slow fetch of a
+worker's URL — wait for the transfer before showing the summary, so a transfer spanning a cutoff on a
+live page was seen only in round 2's probes, the reviewer's. The warm revalidation was exercised
+(`304`, 280 wire bytes, the body's `Content-Length` reported apart).
 
 **Lines, dependencies, build, lists, upkeep (§6).**
 
@@ -1202,21 +1214,21 @@ on live pages (CMP-2-07); the warm revalidation was (`304`, 280 wire bytes, the 
 |---|---|---|
 | Lines we wrote: declaration / glue / configuration | 73 / 286 / 170 = 529 | 86 / 127 / 180 = 393 |
 | npm packages in the lockfile; `node_modules` | 0; none | 918; 616 MB, 33,764 entries |
-| Fetch; offline install | — | 917 tarballs in 31.2 s, all from the tarball cache, none downloaded: the cold fetch is still **pending**; install 68.7 s, no script run (5 packages declare one) |
+| Fetch; offline install | — | 917 tarballs in 31.3 s, all from the tarball cache, none downloaded: the cold fetch is still **pending**; install 75.3 s, no script run (5 packages declare one) |
 | Third-party bodies it loads | 7 files, 39.0 MB raw (the WASM 34.2 MB) | 5 declared, of which the EH pair and the extension load |
-| Build: time; builder output | 0.04 s; 9 files, 36 KB | 48.8 s; 114 files, 10.0 MB |
+| Build: time; builder output | 0.04 s; 9 files, 36 KB | 48.5 s; 114 files, 10.0 MB |
 | Engine in the build | no | no (A7) |
 | The gate's lists: inclusion lines, media types | 6, 5 | 22, 11 |
-| The gate on the artifact, one run of `verify` | 3.6 s | 702 s |
+| The gate on the artifact, one run of `verify` | 3.6 s | 704 s |
 | Upkeep: latest release, licence | DuckDB-WASM 1.33.1-dev57.0 (2026-06-22, MIT); Vega 6.4.0 (2026-08-14), Vega-Lite 6.5.0 (2026-10-08), BSD-3-Clause; Arrow 21.2.0 (2026-07-21, Apache-2.0) | Evidence 40.1.8 and core-components 5.4.2 (2026-02-06), MIT |
 
 **What it cost Evidence to get here**, each recorded in §3: A7's plugin for the engine; A8's for the icon
 set, without which no draw could be clean and the gate would refuse a release of real data; A2's
 use of a global its client sets; A4's inputs written by our own component; A5's formatting in SQL,
 since its tables format in English; its service worker, which no setting of ours removed; its
-queries' failure at build time, logged; and a gate two hundred times slower on its artifact than on
-B's.
+queries' failure at build time, logged; a build whose output is not the same from one build to the
+next; and a gate two hundred times slower on its artifact than on B's.
 
 **Not measured here**: a worker transfer spanning a cutoff and a redirected navigation on the real
-pages; the cold fetch of Evidence's tarballs; whether the timings hold across sittings; the phone, a
-slow network, other browsers (§9).
+pages; the cold fetch of Evidence's tarballs; whether the navigation timings hold across sittings; the
+phone, a slow network, other browsers (§9).
