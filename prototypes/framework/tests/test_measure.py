@@ -22,14 +22,14 @@ def _raw(*, wasm="wasm.StartStreamingCompilation", lost=False, cache=None, prime
     page = {"session": "P", "url": "http://127.0.0.1:1/", "status": 200, "wire_status": 200, "events": [
         {"e": "sent", "ts": t, "wall": wall(t)}, {"e": "data", "ts": t + 0.1, "encoded": 1000}], "finished": {"ts": t + 0.1, "encoded": 1000},
         **(cache or {})}
-    engine = {"session": "W", "url": "https://cdn.jsdelivr.net/npm/x@1/e.wasm", "status": 200, "wire_status": 200, "events": [
+    engine = {"session": "W", "url": "https://cdn.jsdelivr.net/npm/x@1/dist/duckdb-eh.wasm", "status": 200, "wire_status": 200, "events": [
         {"e": "sent", "ts": t + 0.2, "wall": wall(t + 0.2)}, {"e": "data", "ts": t + 0.5, "encoded": 4000},
         {"e": "data", "ts": t + 2.5, "encoded": 6000}], "finished": {"ts": t + 2.5, "encoded": 10000}}
     marks = [{"mark": "navigation", "t": t * 1000 + 5_000_000}, {"mark": "login_box", "t": t * 1000 + 5_000_300},
              {"mark": "submit", "t": t * 1000 + 5_000_301}, {"mark": "summary", "t": t * 1000 + 5_001_000}]
     return {"origin": "http://127.0.0.1:1", "primed": [GOOD_PRIMER, GOOD_PRIMER] if primed is None else primed, "measured": {
         "page": "P", "marks": marks, "requests": {"P:1": page, "W:1": engine},
-        "sessions": {"P": [[t, wall(t)]], "W": [[t + 0.2, wall(t + 0.2)]]}, "trace": [{"name": w} for w in ([wasm] if isinstance(wasm, str) else wasm)],
+        "sessions": {"P": [[t, wall(t)]], "W": [[t + 0.2, wall(t + 0.2)]]}, "trace": [{"name": w, "ts": (t + 0.3) * 1e6} for w in ([wasm] if isinstance(wasm, str) else wasm)],
         "trace_lost": lost}}
 
 
@@ -42,7 +42,7 @@ def test_marks_bytes_and_partial_transfers_by_cutoff():
     assert s["reconciliation"] == []
     engine = next(r for r in s["requests"] if r["worker"])
     assert engine["partial_at_summary"] and not engine["completed_by_summary"] and engine["encoded"] == 10000
-    assert measure.accounting_check([s], [])["worker_transfer_spanning_a_cutoff"]["url"].endswith("e.wasm")
+    assert measure.accounting_check([s], [])["worker_transfer_spanning_a_cutoff"]["url"].endswith("duckdb-eh.wasm")
 
 
 def test_a_revalidation_counts_its_wire_bytes_and_reports_the_body_apart():
@@ -156,3 +156,28 @@ def test_a_workers_bootstrap_completes_its_journey_with_its_bytes(tmp_path, work
     assert urls["stream.bin"]["encoded"] and urls["stream.bin"]["worker"]
     if worker != "blob":
         assert urls["worker.js"]["encoded"] and urls["worker.js"]["completed_by_summary"]
+
+
+# --- CMP-2-08: a series by the URLs asked for, and the engine's module by its window -------
+
+
+def test_two_queries_of_one_document_are_two_series():
+    a, b = _raw(), _raw()
+    b["measured"]["requests"]["P:1"]["url"] = "http://127.0.0.1:1/?v=2"
+    s = measure.series([measure.sample(a), measure.sample(b)])
+    assert [x["samples"] for x in s["series"]] == [[0], [1]]
+
+
+def test_a_module_event_outside_the_engines_window_is_unattributed_and_enters_no_series():
+    raw = _raw()
+    raw["measured"]["trace"] = [{"name": "wasm.StartStreamingCompilation", "ts": (1000.0 + 0.1) * 1e6}]  # before the engine's request
+    s = measure.sample(raw)
+    assert s["cache_evidence"]["wasm"] == "unattributed"
+    assert measure.series([s])["apart"] == [0]
+    raw["measured"]["requests"]["X:1"] = {"session": "W", "url": "https://extensions.duckdb.org/v1/p.duckdb_extension.wasm", "status": 200,
+                                          "events": [{"e": "sent", "ts": 1000.25}], "finished": {"ts": 1000.26, "encoded": 1}}
+    raw["measured"]["trace"] = [{"name": "wasm.StartStreamingCompilation", "ts": (1000.0 + 0.3) * 1e6}]  # after the extension's
+    assert measure.sample(raw)["cache_evidence"]["wasm"] == "unattributed"
+    raw["measured"]["trace"] = [{"name": "wasm.StartStreamingCompilation", "ts": (1000.0 + 0.22) * 1e6}]  # in the window
+    evidence = measure.sample(raw)["cache_evidence"]
+    assert evidence["wasm"] == "compiled" and "ms after the engine's WASM request" in evidence["wasm_basis"]

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 import statistics
 import subprocess
 import tempfile
@@ -84,25 +85,48 @@ def cache_class(r: dict) -> str:
     return str(r.get("wire_status") or r.get("status") or "unknown")
 
 
-def trace_evidence(events: list[dict]) -> dict:
-    """From the trace: the scripts whose compile consumed a code cache, and the
-    WebAssembly events that say how the module was obtained."""
+#: The engine's module, by its URL; DuckDB's extensions are other modules.
+ENGINE_WASM = re.compile(r"/duckdb-(?:eh|mvp|coi)\.wasm(?:\?|$)")
+_CACHED = ("v8.wasm.cachedModule", "v8.wasm.moduleCacheHit")
+_COMPILED = ("wasm.StartStreamingCompilation", "wasm.BaselineFinished", "v8.wasm.compiledModule")
+
+
+def trace_evidence(events: list[dict], requests: dict | None = None) -> dict:
+    """From the trace: the scripts whose compile consumed a code cache — by their URL, query and
+    all —, and how the engine's WASM module was obtained.
+
+    The WebAssembly events name no module (`wasm.SetUrl` is empty), so the engine's are taken
+    by time (CMP-2-08): those after the engine's WASM request was sent — `duckdb-eh.wasm` — and
+    before the first request of DuckDB's extensions, another module; the trace's microseconds and
+    the protocol's seconds are one monotonic clock. A module from Chromium's compiled-WASM cache
+    is deserialized; one compiled streams through baseline compilation (FPROTO-8-04). With no
+    engine request, or no event in its window, the engine is unattributed; with both kinds in
+    it, unclassified (CMP-1-10). The basis of the inference is kept with it."""
     consumed, wasm = set(), []
     for e in events:
         name, data = e.get("name", ""), (e.get("args") or {}).get("data") or {}
         if name in ("v8.compile", "V8.CompileCode", "v8.compileModule") and (data.get("consumedCacheSize") or data.get("cacheConsumeOptions") == "code"):
             if data.get("url"):
-                consumed.add(data["url"].split("?")[0])
+                consumed.add(data["url"])
         if "wasm" in name.lower() or name.lower().startswith("v8.wasm"):
-            wasm.append(name)
-    # A module from Chromium's compiled-WASM cache is deserialized; one compiled streams through baseline
-    # compilation (FPROTO-8-04). Both DuckDB-WASM loaders reach instantiateStreaming.
-    # The engine is not the only module — DuckDB's parquet extension is another —, and these events name
-    # none: a trace with both kinds cannot say which the engine was, and is unclassified (CMP-1-10).
-    cached = any(n in ("v8.wasm.cachedModule", "v8.wasm.moduleCacheHit") or ("wasm" in n.lower() and "deserial" in n.lower()) for n in wasm)
-    compiled = any(n in ("wasm.StartStreamingCompilation", "wasm.BaselineFinished", "v8.wasm.compiledModule") for n in wasm)
-    kind = "unclassified" if cached and compiled else "cached" if cached else "compiled" if compiled else "unobserved"
-    return {"code_cache_consumed": sorted(consumed), "wasm_events": sorted(set(wasm)), "wasm": kind}
+            wasm.append(e)
+    sent = lambda pick: min((r["events"][0]["ts"] for r in (requests or {}).values()  # noqa: E731
+                             if r.get("url") and r.get("events") and pick(r["url"])), default=None)
+    engine = sent(lambda u: ENGINE_WASM.search(u))
+    extension = sent(lambda u: "extensions.duckdb.org/" in u)
+    names = sorted({e.get("name", "") for e in wasm})
+    if engine is None:
+        return {"code_cache_consumed": sorted(consumed), "wasm_events": names, "wasm": "unattributed" if wasm else "unobserved",
+                "wasm_basis": "no request of the engine's WASM in the journey"}
+    window = [e for e in wasm if e.get("ts") is not None and e["ts"] / 1e6 >= engine and (extension is None or e["ts"] / 1e6 < extension)]
+    cached = any(e["name"] in _CACHED or "deserial" in e["name"].lower() for e in window)
+    compiled = any(e["name"] in _COMPILED for e in window)
+    kind = "unclassified" if cached and compiled else "cached" if cached else "compiled" if compiled else ("unattributed" if wasm else "unobserved")
+    first = min((e["ts"] / 1e6 for e in window if e["name"] in _CACHED + _COMPILED or "deserial" in e["name"].lower()), default=None)
+    basis = (f"the module event at {round((first - engine) * 1000, 1)} ms after the engine's WASM request"
+             + (f", {round((extension - first) * 1000, 1)} ms before the extension's" if extension is not None else "")) if first is not None \
+        else "no module event between the engine's WASM request and the extension's"
+    return {"code_cache_consumed": sorted(consumed), "wasm_events": names, "wasm": kind, "wasm_basis": basis}
 
 
 def sample(raw: dict) -> dict:
@@ -119,7 +143,7 @@ def sample(raw: dict) -> dict:
         if not r.get("url") or not r["url"].startswith(("http://", "https://")):
             continue  # blob: and data: URLs are no network
         fin = r.get("finished")
-        row = {"url": r["url"].split("?")[0], "origin": _origin(r["url"], local), "cache": cache_class(r),
+        row = {"url": r["url"].split("?")[0], "key": r["url"], "origin": _origin(r["url"], local), "cache": cache_class(r),
                "encoding": r.get("encoding"), "status": r.get("status"), "wire_status": r.get("wire_status"),
                "encoded": fin["encoded"] if fin else None, "content_length": r.get("content_length"),
                "data_encoded": sum(e.get("encoded", 0) for e in r["events"] if e["e"] == "data"),
@@ -136,7 +160,7 @@ def sample(raw: dict) -> dict:
             row[f"partial_at_{name}"] = row[f"observed_by_{name}"] > 0 and not row[f"completed_by_{name}"]
         hops = []
         for hop in r.get("hops", []):  # each redirect a response of its own, with its bytes (CMP-1-11)
-            h_row = {"url": hop["url"].split("?")[0], "origin": _origin(hop["url"], local), "cache": f"redirect {hop['status']}",
+            h_row = {"url": hop["url"].split("?")[0], "key": hop["url"], "origin": _origin(hop["url"], local), "cache": f"redirect {hop['status']}",
                      "encoding": None, "status": hop["status"], "wire_status": hop["status"], "encoded": hop.get("encoded") or 0,
                      "content_length": None, "data_encoded": 0, "worker": row["worker"]}
             for name, cut in cutoffs.items():
@@ -161,10 +185,11 @@ def sample(raw: dict) -> dict:
         }
     served = [{"url": r["url"], "cache": r["cache"], "size": r["content_length"] or "size unknown"}
               for r in requests if r["cache"] in ("memory", "disk", "304", "service worker")]
-    evidence = trace_evidence(m.get("trace", []))
+    evidence = trace_evidence(m.get("trace", []), m.get("requests"))
     # The local origin's port changes with every journey's server: a request is the same by its path there.
     path = lambda u: u[len(local):] if u.startswith(local) else u  # noqa: E731
-    signature = {"requests": sorted((path(r["url"]), r["cache"]) for r in requests),
+    # By the URL each request asked for, query and all: two queries are two cache entries (CMP-2-08).
+    signature = {"requests": sorted((path(r.get("key", r["url"])), r["cache"]) for r in requests),
                  "code_cache": sorted(path(u) for u in evidence["code_cache_consumed"]), "wasm": evidence["wasm"]}
     return {
         "error": raw.get("error"), "clock_error_ms": round(error, 3),
@@ -211,7 +236,7 @@ def series(samples: list[dict]) -> dict:
     apart = []
     for i, s in enumerate(samples):
         if (s["trace_lost"] or s["trace_lost"] is None or s["error"] or s["nav_to_summary_ms"] is None or not primed_complete(s)
-                or s["signature"]["wasm"] in ("unclassified", "unobserved")):
+                or s["signature"]["wasm"] in ("unclassified", "unobserved", "unattributed")):
             apart.append(i)
             continue
         for g in groups:
