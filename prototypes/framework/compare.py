@@ -210,4 +210,6 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, help="the draw's seed, if a draw is made; at random and recorded otherwise")
     args = parser.parse_args()
     commit = args.commit or subprocess.run(["git", "-C", str(route.REPO), "rev-parse", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
+    # From a snapshot of the commit: no file of the working tree is read while it runs (CMP-3-03).
+    route.pinned(commit, "compare.py", ["--commit", commit, *(["--seed", str(args.seed)] if args.seed is not None else [])])
     print(json.dumps(run(commit, seed=args.seed), indent=1, ensure_ascii=False, default=str))

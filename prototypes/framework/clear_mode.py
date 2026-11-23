@@ -33,11 +33,12 @@ import allowlist as al
 import fixture as fx_mod
 import inspect_output as io_
 import npm_offline as npm
+import roots
 import sandbox as sb
 import trees
 
 HERE = pathlib.Path(__file__).resolve().parent
-CLEAR = HERE / "clear"
+CLEAR = roots.CLEAR
 #: The clear-mode fixture's seed: its own, never the measured fixture's (§2.1).
 CLEAR_SEED = 20261121
 

@@ -25,6 +25,8 @@ import socket
 import subprocess
 import sys
 
+import roots
+
 HERE = pathlib.Path(__file__).resolve().parent
 PROBE = HERE / "sandbox_probe.py"
 WORK = "/work"
@@ -164,13 +166,13 @@ if __name__ == "__main__":
 
     with tempfile.TemporaryDirectory(prefix="bice-sandbox-") as tmp, \
             planted(pathlib.Path(tmp) / "sentinel") as sentinel, \
-            planted(HERE / "clear" / f"planted-{secrets.token_hex(4)}") as clear_sentinel:
+            planted(roots.CLEAR / f"planted-{secrets.token_hex(4)}") as clear_sentinel:
         out = {}
         for variant in [None, *VARIANTS]:
             work = pathlib.Path(tmp) / f"work-{variant}"
             work.mkdir()
             options = Options() if variant is None else dataclasses.replace(Options(), **{variant: False})
-            proof = prove(work, absent=host_absent(HERE.parents[1], sentinel, clear_sentinel), options=options)
+            proof = prove(work, absent=host_absent(roots.CHECKOUT, sentinel, clear_sentinel), options=options)
             out[variant or "the wrapper"] = ({"passed": proof.passed, "checks": proof.checks} if variant is None else
                                              {"without": variant, "check": VARIANTS[variant], "check_holds": proof.checks.get(VARIANTS[variant]), "passed": proof.passed})
         print(json.dumps(out, indent=2))

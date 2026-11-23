@@ -6,7 +6,9 @@ the draw, both artifacts and every measure; so does a change of the harness."""
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import subprocess
 
 import pytest
 
@@ -181,3 +183,47 @@ def test_another_thread_of_the_same_process_is_another_invocation(tmp_path):
     assert seen == {"nested": True}
     with route.exclusive(tmp_path):  # free again
         pass
+
+
+# --- CMP-3-03: the harness from its objects, run from a snapshot ---------------------------
+
+
+def test_a_head_with_the_same_harness_objects_is_the_same_harness(monkeypatch):
+    """A commit of documents only on top of the harness's commit changes no harness object:
+    it was refused because HEAD was another commit."""
+    real = route._git
+
+    def git(*args):
+        if args[:1] == ("rev-parse",) and args[1].startswith("OTHER"):
+            return real("rev-parse", "HEAD" + args[1][len("OTHER"):]) if ":" in args[1] else "f" * 40
+        return real(*args)
+    monkeypatch.setattr(route, "_git", git)
+    if real("status", "--porcelain", "--untracked-files=all", "--", *route.HARNESS_PATHS):
+        pytest.skip("the working tree's harness has changes")
+    assert route.harness_inputs("OTHER") == route.harness_inputs("HEAD")
+
+
+def test_a_snapshot_is_the_commits_objects_read_only(tmp_path):
+    dest = route.snapshot(HEAD, tmp_path / "s")
+    rel = "prototypes/framework/lists/own/include.txt"
+    assert (dest / rel).read_bytes() == subprocess.run(["git", "-C", str(route.REPO), "show", f"HEAD:{rel}"],
+                                                         check=True, capture_output=True).stdout
+    assert not os.access(dest / rel, os.W_OK) and not (dest / ".git").exists()
+    assert not (dest / "prototypes/framework/runs").exists()  # nothing ignored, nothing of the runs
+    route._writable(dest)
+
+
+def test_pinned_runs_the_script_from_the_snapshot_with_the_real_roots(tmp_path):
+    """`make prototype` re-runs itself from the snapshot: its code and files there, the
+    repository, the runs and the clear mode where they are."""
+    import json
+    import sys
+    env = {**os.environ, "BICE_RUNS": str(tmp_path / "runs")}
+    env.pop("BICE_SNAPSHOT", None)
+    code = f"import sys; sys.path.insert(0, {str(route.HERE)!r}); import route; route.pinned({HEAD!r}, 'roots.py', [])"
+    done = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=120)
+    seen = json.loads(done.stdout)
+    assert seen["pinned"] and seen["here"].startswith(str(tmp_path / "runs" / "harness"))
+    assert seen["checkout"] == str(route.REPO) and seen["runs"] == str(tmp_path / "runs") and seen["clear"] == str(route.roots.CLEAR)
+    for snap in (tmp_path / "runs" / "harness").iterdir():
+        route._writable(snap)

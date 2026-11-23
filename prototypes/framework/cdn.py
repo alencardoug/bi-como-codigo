@@ -27,11 +27,12 @@ import sys
 import tarfile
 
 import npm_offline as npm
+import roots
 
 HERE = pathlib.Path(__file__).resolve().parent
 JSDELIVR = "https://cdn.jsdelivr.net/npm/"
 EXTENSIONS = "https://extensions.duckdb.org/"
-TARBALLS = HERE / "runs" / "third_party"
+TARBALLS = roots.RUNS / "third_party"
 
 
 class Refused(Exception):

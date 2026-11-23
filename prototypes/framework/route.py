@@ -29,28 +29,31 @@ import contextlib
 import dataclasses
 import fcntl
 import functools
+import io
 import json
 import os
 import pathlib
 import secrets
 import shutil
-import threading
 import subprocess
+import sys
 import tempfile
+import threading
 import time
 
 import allowlist as al
 import npm_offline as npm
+import roots
 import sandbox as sb
 import trees
 import verdict as v
 
 HERE = pathlib.Path(__file__).resolve().parent
-REPO = HERE.parents[1]
-RUNS = HERE / "runs"
+REPO = roots.CHECKOUT  # the repository: its Git objects; a snapshot's files are under HERE (CMP-3-03)
+RUNS = roots.RUNS
 #: What the harness is made of, by path in the repository, at a commit (§5) — the Python
 #: dependencies too, which the inspector, the oracle and the compressors run on (CMP-1-03).
-HARNESS_PATHS = ("prototypes/framework", "src/bi_como_codigo", "web/envelope.mjs", "pyproject.toml", "uv.lock")
+HARNESS_PATHS = ("prototypes/framework", "src/bi_como_codigo", "web/envelope.mjs", "pyproject.toml", "uv.lock", "firebase.json")
 OWN_BUILD = ["/usr/bin/python3", "-I", "build.py", "package"]
 #: Evidence's encrypted build: A7's configuration, and no `evidence sources` — there is no source (§3, A3).
 EVIDENCE_BUILD = ["/usr/bin/sh", "-c", "npm run build:pinned"]
@@ -66,14 +69,60 @@ def _git(*args: str) -> str:
 
 
 def harness_inputs(commit: str, *, require_clean: bool = True) -> dict[str, str]:
-    """The Git object of each harness path at `commit`. The harness that runs is
-    the working tree, so it must be that commit's: a tracked change or an
-    untracked file under those paths refuses the run."""
-    if require_clean:
+    """The Git object of each harness path at `commit`: the harness's identity (§5).
+
+    Run from a snapshot of the commit (`pinned`), nothing of the working tree is
+    read, and the objects are all there is to it. Run from the working tree, it
+    must hold those objects: a tracked change or an untracked file under those
+    paths refuses the run, and so does a HEAD whose harness objects are not the
+    commit's — another commit with the same objects, a change of documents only,
+    is the same harness (CMP-3-03)."""
+    objects = {path: _git("rev-parse", f"{commit}:{path}") for path in HARNESS_PATHS}
+    if require_clean and not roots.PINNED:
         dirty = _git("status", "--porcelain", "--untracked-files=all", "--", *HARNESS_PATHS)
-        if dirty or _git("rev-parse", "HEAD") != _git("rev-parse", f"{commit}^{{commit}}"):
-            raise Refused(f"the harness is not {commit} as committed:\n{dirty or 'HEAD is another commit'}")
-    return {path: _git("rev-parse", f"{commit}:{path}") for path in HARNESS_PATHS}
+        head = {path: _git("rev-parse", f"HEAD:{path}") for path in HARNESS_PATHS}
+        if dirty or head != objects:
+            raise Refused(f"the harness is not {commit} as committed:\n{dirty or 'HEAD holds other harness objects'}")
+    return objects
+
+
+def snapshot(commit: str, dest: pathlib.Path) -> pathlib.Path:
+    """Every harness path's tracked files at `commit`, from its Git objects, into `dest`, read-only."""
+    import tarfile
+    data = subprocess.run(["git", "-C", str(REPO), "archive", "--format=tar", commit, "--", *HARNESS_PATHS],
+                          check=True, capture_output=True).stdout
+    dest.mkdir(parents=True)
+    with tarfile.open(fileobj=io.BytesIO(data)) as tar:
+        tar.extractall(dest, filter="data")
+    for p in sorted(dest.rglob("*"), reverse=True):
+        p.chmod(p.stat().st_mode & ~0o222)
+    return dest
+
+
+def _writable(root: pathlib.Path) -> None:
+    for p in [root, *root.rglob("*")]:
+        if not p.is_symlink():
+            p.chmod(p.stat().st_mode | 0o200)
+
+
+def pinned(commit: str, script: str, argv: list[str]) -> None:
+    """Run `script` again from a snapshot of `commit` — its code, lists, declarations and
+    drivers exported from Git, read-only —, with the repository, the runs and the clear
+    mode named by the environment: an edit of the working tree during a run, restored or
+    not, reaches nothing the run reads (CMP-3-03). Inside a snapshot, nothing to do."""
+    if roots.PINNED:
+        return
+    base = RUNS / "harness"
+    base.mkdir(parents=True, exist_ok=True)
+    for old in base.iterdir():  # snapshots of earlier invocations, a day old or more
+        if time.time() - old.stat().st_mtime > 86400:
+            _writable(old)
+            shutil.rmtree(old)
+    dest = snapshot(commit, base / f"{commit[:12]}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}-{secrets.token_hex(3)}")
+    env = {**os.environ, "BICE_SNAPSHOT": "1", "BICE_REPO": str(REPO), "BICE_RUNS": str(RUNS), "BICE_CLEAR": str(roots.CLEAR),
+           "PYTHONPATH": os.pathsep.join([str(dest / "src"), *filter(None, [os.environ.get("PYTHONPATH")])])}
+    target = dest / "prototypes" / "framework" / script
+    os.execve(sys.executable, [sys.executable, str(target), *argv], env)
 
 
 def still(commit: str, inputs: dict[str, str], *, require_clean: bool = True) -> None:
@@ -201,7 +250,7 @@ def prove_sandbox() -> sb.Proof:
     """§5: the probe through the wrapper the phase uses, before the phase."""
     with tempfile.TemporaryDirectory(prefix="bice-route-") as tmp, \
             sb.planted(pathlib.Path(tmp) / "sentinel") as sentinel, \
-            sb.planted(HERE / "clear" / f"planted-{secrets.token_hex(4)}") as clear_sentinel:
+            sb.planted(roots.CLEAR / f"planted-{secrets.token_hex(4)}") as clear_sentinel:
         work = pathlib.Path(tmp) / "probe-work"
         work.mkdir()
         return sb.prove(work, absent=sb.host_absent(REPO, sentinel, clear_sentinel))
@@ -383,6 +432,7 @@ if __name__ == "__main__":
         raise SystemExit(0)
     if not args.commit:
         parser.error("--commit is required for a build")
+    pinned(args.commit, "route.py", sys.argv[1:])
     result = (build_own if args.candidate == "own" else build_evidence)(args.commit)
     print(json.dumps(result, indent=1))
     raise SystemExit(0 if result["status"] == "archived" else 1)

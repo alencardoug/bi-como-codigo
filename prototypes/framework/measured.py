@@ -35,6 +35,7 @@ import json
 import pathlib
 import secrets
 import shutil
+import sys
 import time
 
 import allowlist as al
@@ -42,12 +43,13 @@ import calibrate
 import fixture as fx_mod
 import harness as h
 import inspect_output as io_
+import roots
 import route
 import trees
 import verdict as v
 
 HERE = route.HERE
-MEASURED = HERE / "clear" / "measured"
+MEASURED = roots.CLEAR / "measured"
 LISTS = HERE / "lists"
 CANDIDATES = ("own", "evidence")
 
@@ -347,6 +349,7 @@ if __name__ == "__main__":
     parser.add_argument("--commit", required=True, help="the commit whose harness runs, as the builds were")
     parser.add_argument("--seed", type=int, help="the draw's seed; drawn at random and recorded when omitted")
     args = parser.parse_args()
+    route.pinned(args.commit, "measured.py", sys.argv[1:])
     seed = args.seed if args.seed is not None else secrets.randbelow(2**31)
     result = run(args.commit, seed)
     state = route.load()

@@ -29,11 +29,12 @@ import urllib.request
 
 import brotli
 
+import roots
 import serve
 import trees
 
 HERE = pathlib.Path(__file__).resolve().parent
-REPO = HERE.parents[1]
+REPO = roots.CHECKOUT  # its Git objects (CMP-3-03)
 DRIVER = HERE / "browser" / "journey.mjs"
 PASSWORD = "senha_complexa_123"  # the showcase's public password (N22)
 COLD = WARM = 5

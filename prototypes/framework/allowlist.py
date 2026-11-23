@@ -18,7 +18,9 @@ import os
 import pathlib
 import subprocess
 
-REPO = pathlib.Path(__file__).resolve().parents[2]
+import roots
+
+REPO = roots.CHECKOUT  # its Git objects (CMP-3-03)
 
 
 class Refused(Exception):
