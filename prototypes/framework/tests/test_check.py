@@ -33,7 +33,7 @@ def _seen(o: check.Oracle) -> dict:
     return {
         "url": "http://127.0.0.1:1/", "wrong": {"error_ms": 10, "opened": False},
         "by_filter": {f: {"summary": {"header": list(check.SUMMARY_HEADER), "rows": copy.deepcopy(rows),
-                                      "notices": [{"at": len(rows) - 5, "text": check.NOTICE}]},
+                                      "notices": [{"at": len(rows) - 5, "text": check.NOTICE}], "shown": []},
                           "detail": {m: detail(f, m) for m in o.months}} for f, rows in o.summary.items()},
         "history_at_login": 2, "history_before_logout": 2,
         "after_logout": {"login_ms": 5, "summary": False, "history": 2, "back": {"summary": False, "url": "about:blank"},
@@ -153,3 +153,10 @@ def test_an_empty_footer_cell_and_an_amount_beside_the_table_are_accepted(oracle
     seen["by_filter"]["todos"]["summary"]["notices"].append({"at": "foot", "text": ""})
     seen["by_filter"]["todos"]["summary"]["shown"] = [f"R$ {_a_sum(oracle)},00", "Mostrando 60 linhas"]
     assert check.compare(seen, oracle, cdn_urls=frozenset(seen["third_party_urls"])) == []
+
+
+def test_a_summary_whose_rendered_text_was_not_read_is_refused(oracle):
+    """CMP-3-04: a reading with no rendered text cannot say no sum is shown."""
+    seen = _seen(oracle)
+    del seen["by_filter"]["todos"]["summary"]["shown"]
+    assert "summary unread" in {r["reason"] for r in check.compare(seen, oracle, cdn_urls=frozenset(seen["third_party_urls"]))}

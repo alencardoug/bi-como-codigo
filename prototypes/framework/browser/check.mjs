@@ -106,16 +106,14 @@ const read = (bice) => ev(`(() => {
   const t = wrapper.tagName === 'TABLE' ? wrapper : [...wrapper.querySelectorAll('table')].find((x) => !x.closest('dialog'));
   const beside = [...wrapper.querySelectorAll('p[data-bice=partial], p[data-bice=empty], div[data-bice=partial], div[data-bice=empty]')]
     .map((e) => ({ at: 'beside', text: text(e), ...(e.dataset.bice === 'empty' ? { empty_table: true } : {}) }));
-  // Everything the wrapper shows, outside the full-screen copy: no summary element may hold a summed
-  // count, in a cell or beside the table (§2.6, CMP-2-04).
-  const shown = [];
-  const walk = document.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT);
-  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
-    const e = n.parentElement;
-    if (!e || e.closest('dialog, script, style, template') || (e.checkVisibility && !e.checkVisibility())) continue;
-    const s = n.textContent.replace(/\\u00a0|\\u202f/g, ' ').trim();
-    if (s) shown.push(s);
-  }
+  // Everything the wrapper shows, as rendered: its innerText — text across inline boundaries joined,
+  // cells and rows kept apart, what is hidden or not rendered (a closed dialog's copy) left out, an
+  // open dialog in — and the text CSS generates: no summary element may hold a summed count, in a
+  // cell or beside the table (§2.6, CMP-2-04, CMP-3-04).
+  const generated = [wrapper, ...wrapper.querySelectorAll('*')].flatMap((e) => ['::before', '::after']
+    .map((p) => getComputedStyle(e, p).content)).filter((c) => c && c !== 'none' && c !== 'normal')
+    .map((c) => c.replace(/^["']|["']$/g, ''));
+  const shown = [wrapper.innerText.replace(/\\u00a0|\\u202f/g, ' '), ...generated];
   if (!t) return { header: [], rows: [], notices: beside, shown };
   const rows = [], notices = [...beside];
   for (const tr of [...t.querySelectorAll('tr')].filter((r) => !r.closest('thead, tfoot'))) {  // Evidence's rows sit in no tbody

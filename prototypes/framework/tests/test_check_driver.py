@@ -48,7 +48,11 @@ function report() {
   const show = () => {
     const f = $("[data-bice=filter]").value, m = $("[data-bice=month]").value;
     $("[data-bice=summary]").innerHTML = table("summary-table", D.summary_header, D.summary[f], V.blank_foot ? "" : D.notice)
-      + (V.blank_foot ? `<p data-bice="partial">${esc(D.notice)}</p>` : "") + (V.sum_beside ? `<p>Total de pedidos: ${esc(V.sum_beside)}</p>` : "");
+      + (V.blank_foot ? `<p data-bice="partial">${esc(D.notice)}</p>` : "") + (V.sum_beside ? `<p>Total de pedidos: ${esc(V.sum_beside)}</p>` : "")
+      + (V.split ? `<p>Total de pedidos: <strong>${V.split[0]}</strong>${V.split[1]}</p>` : "")
+      + (V.hidden ? `<p style="visibility:hidden">Total de pedidos: ${esc(V.hidden)}</p><dialog><p>${esc(V.hidden)}</p></dialog>` : "")
+      + (V.open_dialog ? `<dialog open><p>Total: ${esc(V.open_dialog)}</p></dialog>` : "")
+      + (V.generated ? `<p class="g"></p><style>.g::before { content: "Total: ${V.generated}"; }</style>` : "");
     const rows = D.detail[f][m], last = m === D.last;
     $("[data-bice=detail]").innerHTML = rows.length ? table("detail-table", D.detail_header, rows, last ? D.notice : null)
       : `<p data-bice="empty">${esc(D.empty)}</p>` + (last ? `<p data-bice="partial">${esc(D.notice)}</p>` : "");
@@ -99,3 +103,13 @@ def test_a_websocket_to_another_origin_is_refused(oracle, tmp_path):
         s.bind(("127.0.0.1", 0)); s.listen(1)
         port = s.getsockname()[1]
         assert _reasons(oracle, tmp_path, "ws", socket=f"ws://127.0.0.1:{port}/session") == {"undeclared URL"}
+
+
+def test_a_sum_split_by_markup_open_or_generated_is_refused_and_a_hidden_one_is_not(oracle, tmp_path):
+    """CMP-3-04: the summary's rendered text, across inline boundaries, an open dialog and
+    CSS-generated text; a hidden paragraph and a closed dialog are not shown."""
+    a_sum = sorted(s for s in oracle.order_sums if "." in s)[0]
+    assert _reasons(oracle, tmp_path, "split", split=[a_sum[0], a_sum[1:]]) == {"order_count summed"}
+    assert _reasons(oracle, tmp_path, "open", open_dialog=a_sum) == {"order_count summed"}
+    assert _reasons(oracle, tmp_path, "css", generated=a_sum) == {"order_count summed"}
+    assert _reasons(oracle, tmp_path, "hidden", hidden=a_sum) == set()
