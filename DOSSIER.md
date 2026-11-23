@@ -89,6 +89,36 @@ is in the table at the end; the fixes are in 13 code commits, each with its test
 counter-proof that fails on the code before it; and whether §10 of the plan, rewritten from the
 full run, says only what the run's results hold.
 
+### Round 3 — the corrections of round 2, and the full run again
+
+Range of round 3: from `17c7747` to the commit that adds this hand-off — its SHA is in the round's prompt —, the corrections of CMP-2-01 to CMP-2-10 and the full run
+they asked for. `17c7747` is the top round 2 reviewed; both ends are fixed.
+
+```
+a6993c8 docs: record round 2 of the review of stage 2.3's comparison
+ba1d612 fix(prototype): explain a broken script only by its own reading (CMP-2-03)
+938c6ed fix(prototype): refuse another thread on the run's lock (CMP-2-09)
+47f15be fix(prototype): keep each judged stage as it completes, at its harness (CMP-2-01, CMP-2-02)
+c4e4f93 fix(prototype): judge every summary element and logout's document (CMP-2-04)
+b40f1b7 fix(prototype): refuse a page's WebSocket to an undeclared origin (CMP-2-06)
+ec3fcf5 fix(prototype): bind the comparison's results to their draw and survive a failure (CMP-2-05)
+2c6f468 fix(prototype): count a worker's script as the request it is (CMP-2-07)
+ecbb7c3 fix(prototype): group warm samples by full URLs and the engine's own module (CMP-2-08)
+5fdaa02 docs: answer round 2 of the review of stage 2.3's comparison
+814b80a docs: record stage 2.3's full comparison run at 5fdaa02 (CMP-2-10)
+(this)   docs: hand round 3 of stage 2.3's comparison review to Codex
+```
+
+`a6993c8`, `5fdaa02` and the top change only this file; `814b80a` only `PLAN.md` and
+`docs/framework_prototype.md`. The full run's harness is `5fdaa02`'s, the code of `ecbb7c3`:
+`git diff ecbb7c3 <the hand-off> -- prototypes src web pyproject.toml uv.lock` is empty. The status of each
+round 2 finding is in the table at the end.
+
+**Where to spend effort in round 3**: whether each fix closes its finding at the root — the
+resume of an unfinished draw (`measured._carry`) and `route.still` are the largest new code —;
+whether the new rules refuse a correct run (the logout's worker rule leaves service workers to the
+diagnostic, section 7); and whether §10 says only what the run's results hold.
+
 ## 2. Review map
 
 Where to spend effort. **An error in derived output is a symptom: fix it in the declaration.**
@@ -312,11 +342,133 @@ evidence OK  a label in a second manifest.json FORM ['INSPECT_TEXT'] [] 0 fails 
 evidence OK  assembly form: a package/ of the builder's None None None 0 a cost None
 ```
 
+### Round 3 — at `814b80a`, with this hand-off
+
+`make check`, exit 0 (the tail):
+
+```
+ℹ tests 157
+ℹ suites 0
+ℹ pass 156
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 3495.965596
+```
+
+`make prototype-test` at `ecbb7c3` — the code of the run, see section 1:
+
+```
+$ make prototype-test
+468 passed in 898.28s (0:14:58)
+```
+
+`make prototype` at `5fdaa02`, run once, 03:13 to 06:48:50 UTC, exit 0 — `report.json` of
+`runs/draws/draw-20261123T031704Z-1e0db08a/results/`, its verdicts, results and draw:
+
+```
+{
+ "commit": "5fdaa02e593a5b32708a3af6b9e88bb407c98943",
+ "built": [
+  "own",
+  "evidence"
+ ],
+ "verdicts": {
+  "own": "passes: own-20261123T031334Z-80321283: every stage complete, verify passed, nothing found",
+  "evidence": "passes: evidence-20261123T031335Z-09d44912: every stage complete, verify passed, nothing found"
+ },
+ "results": {
+  "own": {
+   "result": "draws/draw-20261123T031704Z-1e0db08a/results/own/result.json",
+   "check_passed": true
+  },
+  "evidence": {
+   "result": "draws/draw-20261123T031704Z-1e0db08a/results/evidence/result.json",
+   "check_passed": true
+  }
+ },
+ "draw": {
+  "id": "draw-20261123T031704Z-1e0db08a",
+  "status": "clean",
+  "draws": 22,
+  "rejections": 561,
+  "seconds": 467.0,
+  "seed": 1245211059,
+  "started": "2026-11-23T03:17:20Z",
+  "finished": "2026-11-23T03:37:42Z"
+ },
+ "history": [
+  {
+   "closed": "2026-11-23T03:13:34Z",
+   "verdicts": {
+    "own": "passes: own-20261122T173008Z-1627d431: every stage complete, verify passed, nothing found",
+    "evidence": "passes: evidence-20261122T173008Z-70b18d9a: every stage complete, verify passed, nothing found"
+   }
+  }
+ ]
+}
+```
+
+The controls, as `compare.py` ran them (columns as in round 2):
+
+```
+own OK  clean metadata PASS [] [] 0 passes 3.682
+own OK  a count in a JSON CONTENT ['INSPECT_NUMBER'] [] 0 fails the criterion 1.496
+own OK  package only, with a form refusal FORM [] [] 0 a cost 0.009
+own OK  a fixed label CONTENT ['INSPECT_TEXT'] [] 0 fails the criterion 1.489
+own OK  an amount in pt-BR CONTENT ['INSPECT_TEXT'] [] 0 fails the criterion 1.545
+own OK  an amount in its JavaScript spelling PASS ['INSPECT_NUMBER'] [] 0 fails the criterion 3.635
+own OK  Arrow IPC PASS ['INSPECT_ARROW'] [] 0 fails the criterion 3.668
+own OK  Parquet with rows CONTENT ['INSPECT_PARQUET'] [] 0 fails the criterion 1.02
+own OK  schema only SCHEMA_ONLY [] [] 0 a cost 1.02
+own OK  gzip of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 3.692
+own OK  brotli of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 3.7
+own OK  base64 of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 3.69
+own OK  JSON-escaped text PASS ['INSPECT_TEXT'] [] 0 fails the criterion 3.663
+own OK  a base64 payload in a service worker PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 3.678
+own OK  a label in a .map FORM ['INSPECT_TEXT'] [] 0 fails the criterion 0.009
+own OK  a label in a second manifest.json FORM ['INSPECT_TEXT'] [] 0 fails the criterion 0.01
+own OK  assembly form: a package/ of the builder's None None None 0 a cost None
+evidence OK  clean metadata PASS [] [] 0 passes 704.451
+evidence OK  a count in a JSON CONTENT ['INSPECT_NUMBER'] [] 0 fails the criterion 700.164
+evidence OK  package only, with a form refusal FORM [] [] 0 a cost 0.145
+evidence OK  a fixed label CONTENT ['INSPECT_TEXT'] [] 0 fails the criterion 701.362
+evidence OK  an amount in pt-BR CONTENT ['INSPECT_TEXT'] [] 0 fails the criterion 700.406
+evidence OK  an amount in its JavaScript spelling PASS ['INSPECT_NUMBER'] [] 0 fails the criterion 703.148
+evidence OK  Arrow IPC PASS ['INSPECT_ARROW'] [] 0 fails the criterion 703.819
+evidence OK  Parquet with rows CONTENT ['INSPECT_PARQUET'] [] 0 fails the criterion 1.229
+evidence OK  schema only SCHEMA_ONLY [] [] 0 a cost 1.237
+evidence OK  gzip of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 702.737
+evidence OK  brotli of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 704.161
+evidence OK  base64 of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 703.138
+evidence OK  JSON-escaped text PASS ['INSPECT_TEXT'] [] 0 fails the criterion 703.653
+evidence OK  a base64 payload in a service worker PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 703.371
+evidence OK  a label in a .map FORM ['INSPECT_TEXT'] [] 0 fails the criterion 0.144
+evidence OK  a label in a second manifest.json FORM ['INSPECT_TEXT'] [] 0 fails the criterion 0.145
+evidence OK  assembly form: a package/ of the builder's None None None 0 a cost None
+```
+
 ## 4. What was NOT verified
 
 The most useful section of the dossier, and the one the author least wants to write.
 Every claim with no command output in section 3 belongs here.
 
+- **Round 3: `make prototype` ran once more, at `5fdaa02`, again on its successful path**: no
+  stage was interrupted, so `measured._carry`'s resume ran in the tests alone (an `OSError`
+  injected in an inspection and in the mutant's assembly); `route.still` never refused; no
+  candidate's measuring failed, so `compare.py`'s per-candidate failure ran in a test alone.
+- **Round 3: the archives are kept**: unlike round 2, I deleted nothing — the build and draw of
+  `356bec1` (`evidence-20261122T173008Z-70b18d9a`, `draw-20261122T173353Z-f4f26398`) are still
+  under `runs/`, named only in `discarded` and `history`.
+- **Round 3: the timings moved between sittings**, on byte-identical third-party bodies: B's cold
+  navigation to summary 4.70 s at `356bec1` and 5.12 s now, Evidence's 6.94 s and 4.67 s. I did not
+  find out why; §10 now says one sitting is no basis for a ranking within a second.
+- **Round 3: Evidence's 4 HTTP cache findings** are named by their keys (artifact files); their
+  bodies were not compared with the artifact's representations.
+- **Round 3: the engine's WASM class is an inference by time** (CMP-2-08): no trace event names the
+  module; the basis is kept per sample, and an unrelated module compiled in the engine's window would
+  still be taken for it.
 - **Round 2: `make prototype` ran once, at `356bec1`** (section 3). It ran each stage of the
   comparison on its successful path only: no build failed, the draw was clean, no assembly was
   refused, so the failure paths of CMP-1-04 and CMP-1-05 ran in the tests alone, on hand-made
@@ -445,7 +597,7 @@ in eng_dados is not needed and should not be run. What it needs, all on this mac
 | The prototype's dependency group | `uv sync --frozen --group prototype` | `make prototype-test` |
 | Node 20+ and Google Chrome, for the browser checks | installed | `node --version`; `google-chrome --version` |
 | `bubblewrap`, for a build | installed | `bwrap --version` |
-| The archived builder outputs, the draw and its results | already under `prototypes/framework/runs/` (ignored by Git) | `runs/state.json`; `runs/draws/draw-20261122T173353Z-f4f26398/results/` |
+| The archived builder outputs, the draw and its results | already under `prototypes/framework/runs/` (ignored by Git) | `runs/state.json`; `runs/draws/draw-20261123T031704Z-1e0db08a/results/` |
 
 **Do not run** `make prototype`, `make prototype-build-own` or `make prototype-build-evidence`: each
 writes `runs/state.json`; at `4a32977` the harness is the full run's, and a second run would
@@ -477,6 +629,18 @@ Decisions that could have gone the other way, with the reason they went this one
   adaptations to Evidence's markup (`%` for "all", the full-screen copy of a DataTable). The risk is
   that the reader is shaped to pass Evidence; the comparator's proofs refuse altered readings, but
   they alter the reading, not the markup.
+- **Round 3: service workers are left to the diagnostic in the logout's rule** (CMP-2-04): the
+  check requires every worker alive at the logout's click to end, but a service worker is not one
+  the session created — Evidence registers its own on every page —; counting it would fail
+  Evidence's check on §2.3 item 8, which N96 leaves to the diagnostic, reported. The alternative
+  changes the comparison's outcome and is the Owner's.
+- **Round 3: one candidate's failure is caught, not raised** (`compare.py`, CMP-2-05): any exception
+  but a refusal is reported as `not_measured` with its type and message, and no pointer is saved,
+  so the next invocation measures it again. The risk is a harness bug read as a candidate's
+  failure; the report names it either way.
+- **Round 3: the resume carries on from the stages still open**, in a record of its own, rather
+  than repeating the whole run on the same fixture: the verdict's resumes already close an
+  interrupted stage on the same subject (§2.5.4).
 - **Round 2: §10 replaced, not amended**: the old numbers stand for a harness the review changed, so
   §10 now holds only the run at `356bec1`, and the run of `344d525` survives in `report.json`'s
   `history` and in Git. The alternative, both runs side by side, would invite comparing numbers
@@ -516,7 +680,7 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | CMP-2-07 | `browser/journey.mjs:96–168`, `measure.py:115–199` | A served worker bootstrap is counted as neither complete nor unobserved | adjustment | Fixed, `2c6f468`: reproduced (362 s, not quiet): the worker's script is sent in the page's session and answered in the worker's under one request id. Events now join their request by id across sessions, each with its session's clock; a worker's script answered with no completion is never waited for, and an answered request with no completion is reported as `bytes unknown` in the reconciliation. Live tests, HTTP and blob workers, end in seconds with their bytes; unit tests fail on the code before. A cold journey on each archived artifact counts the full run's bytes. |
 | CMP-2-08 | `measure.py:87–105,119–165` | Warm grouping drops cache keys and accepts unattributed WASM | adjustment | Fixed, `ecbb7c3`: the signature keeps each URL with its query (loopback port aside) and the code cache's URLs whole; the engine's module is taken from the WASM events after the `duckdb-eh.wasm` request and before the first extension request, one monotonic clock, with `wasm_basis` kept; no event there is `unattributed`, out of every series. Tests fail on the code before; the 20 archived journeys replay into the same two series of five. |
 | CMP-2-09 | `route.py:85–125` | Same-process callers bypass the state lock | adjustment | Fixed, `938c6ed`: the lock's reentrancy belongs to the thread that took it; another thread is refused like another process, through the lock, `measured.run` and a build, while the owner nests. Test fails on the code before (the second thread entered). |
-| CMP-2-10 | `docs/framework_prototype.md` §7 and §10, `PLAN.md` | The write-up exceeds the retained run evidence | adjustment | Accepted: applied with the next §10, rewritten from the full run after these fixes — publication time from the report's file, the old draw counts attributed to Git and round 1, the WASM basis, the controls' scope, the search timer against the draw's window, and the stale step 3 marks of §7 and the PLAN status. |
+| CMP-2-10 | `docs/framework_prototype.md` §7 and §10, `PLAN.md` | The write-up exceeds the retained run evidence | adjustment | Fixed, `814b80a`: §10 rewritten from the run at `5fdaa02` — the span from the first build record (03:13 UTC) to `report.json` (06:48:50 UTC); the old draw counts attributed to their runs' records in Git and rounds 1–2; the WASM classing stated as an inference by time with its basis per sample; the controls' verdict counts (13 fail, 3 costs, 1 passes) and the assembly-form row with no `verify`; the search's 467 s told from the draw record's span. §7 marks step 3 done and step 5 tells A4/A5 apart; the PLAN status says step 3 is done; PLAN revision 54. |
 
 ### Round 1 — batch CMP
 
