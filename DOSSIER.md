@@ -119,6 +119,33 @@ resume of an unfinished draw (`measured._carry`) and `route.still` are the large
 whether the new rules refuse a correct run (the logout's worker rule leaves service workers to the
 diagnostic, section 7); and whether §10 says only what the run's results hold.
 
+### Round 4 — the last, regressions only (N103)
+
+The Owner decided on 2026-11-23 (N103, PLAN.md §2) that round 4 closes the review: it counts only
+regressions of round 3's corrections, failures on the real artifacts or results, previous findings
+left open, and claims the code or results do not honour; whatever else stays open is a declared limit.
+No further full run is made unless a regression changes a verdict.
+
+Range of round 4: from `74785f2` (the top round 3 reviewed) to the commit that adds this hand-off.
+
+```
+d6d634d docs: record round 3 of the review of stage 2.3's comparison
+6f1d33a fix(prototype): class the engine's WASM by terminal events after its request (CMP-3-08)
+2c0f19c fix(prototype): wait for every request but a worker's own script (CMP-3-07)
+9f0ed33 fix(prototype): read the summary's rendered text for summed counts (CMP-3-04)
+6d5965e fix(prototype): bind each control to the reason of its refusal (CMP-3-05)
+0e0230d fix(prototype): keep a mutant's failure local and reuse only whole results (CMP-3-06)
+fe613b2 fix(prototype): resume a draw on its archived seal, its clean draw and its errors (CMP-3-01, CMP-3-02)
+69190b4 fix(prototype): run the comparison from a snapshot of its commit (CMP-3-03)
+a4f333f docs: answer round 3 of the review of stage 2.3's comparison
+42daa01 docs: record N103, how the review of stage 2.3's comparison closes
+2ed7b2d docs: record stage 2.3's last full comparison run at a4f333f (CMP-3-09)
+(this)   docs: hand round 4 of stage 2.3's comparison review to Codex
+```
+
+The last full run's harness is `a4f333f`'s, the code of `69190b4`; it ran from the snapshot under
+`prototypes/framework/runs/harness/`.
+
 ## 2. Review map
 
 Where to spend effort. **An error in derived output is a symptom: fix it in the declaration.**
@@ -449,11 +476,119 @@ evidence OK  a label in a second manifest.json FORM ['INSPECT_TEXT'] [] 0 fails 
 evidence OK  assembly form: a package/ of the builder's None None None 0 a cost None
 ```
 
+### Round 4 — at `2ed7b2d`, with this hand-off
+
+`make check`, exit 0 (the tail):
+
+```
+ℹ tests 157
+ℹ suites 0
+ℹ pass 156
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 3996.669465
+```
+
+`make prototype-test` at `69190b4`, the code of the run:
+
+```
+$ make prototype-test
+485 passed in 1201.57s (0:20:01)
+```
+
+`make prototype` at `a4f333f`, run once from its snapshot, 19:09 to 22:44:17 UTC, exit 0 —
+`report.json` of `runs/draws/draw-20261123T191327Z-4fb760ca/results/`:
+
+```
+{
+ "commit": "a4f333fdb779758c2c29cb906e8c946b2226eea0",
+ "built": [
+  "own",
+  "evidence"
+ ],
+ "verdicts": {
+  "own": "passes: own-20261123T190942Z-6d56a4fd: every stage complete, verify passed, nothing found",
+  "evidence": "passes: evidence-20261123T190942Z-187843ea: every stage complete, verify passed, nothing found"
+ },
+ "results": {
+  "own": {
+   "result": "draws/draw-20261123T191327Z-4fb760ca/results/own/result.json",
+   "check_passed": true
+  },
+  "evidence": {
+   "result": "draws/draw-20261123T191327Z-4fb760ca/results/evidence/result.json",
+   "check_passed": true
+  }
+ },
+ "draw": {
+  "id": "draw-20261123T191327Z-4fb760ca",
+  "status": "clean",
+  "draws": 11,
+  "rejections": 576,
+  "seconds": 236.4,
+  "seed": 853985153,
+  "started": "2026-11-23T19:13:34Z",
+  "finished": "2026-11-23T19:30:06Z",
+  "open": null
+ }
+}
+```
+
+The controls (columns as before, then `verify`'s message):
+
+```
+own OK  clean metadata PASS [] [] 0 passes 3.672 | verified
+own OK  a count in a JSON CONTENT ['INSPECT_NUMBER'] [] 0 fails the criterion 1.525 | clear_value (in bice-control/count.json)
+own OK  package only, with a form refusal FORM [] [] 0 a cost 0.009 | 2 package manifests in the artifact; exactly one is expected
+own OK  a fixed label CONTENT ['INSPECT_TEXT'] [] 0 fails the criterion 1.496 | clear_value (in bice-control/label.txt)
+own OK  an amount in pt-BR CONTENT ['INSPECT_TEXT'] [] 0 fails the criterion 1.565 | clear_value (in bice-control/v.js)
+own OK  an amount in its JavaScript spelling PASS ['INSPECT_NUMBER'] [] 0 fails the criterion 3.646 | verified
+own OK  Arrow IPC PASS ['INSPECT_ARROW'] [] 0 fails the criterion 3.691 | verified
+own OK  Parquet with rows CONTENT ['INSPECT_PARQUET'] [] 0 fails the criterion 1.008 | bice-control/p.parquet holds a Parquet magic outside an envelope
+own OK  schema only SCHEMA_ONLY [] [] 0 a cost 1.014 | bice-control/s.parquet holds a Parquet magic outside an envelope
+own OK  gzip of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 3.651 | verified
+own OK  brotli of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 3.657 | verified
+own OK  base64 of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 3.681 | verified
+own OK  JSON-escaped text PASS ['INSPECT_TEXT'] [] 0 fails the criterion 3.655 | verified
+own OK  a base64 payload in a service worker PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 3.662 | verified
+own OK  a label in a .map FORM ['INSPECT_TEXT'] [] 0 fails the criterion 0.009 | bice-control/app.js.map is a source map
+own OK  a label in a second manifest.json FORM ['INSPECT_TEXT'] [] 0 fails the criterion 0.01 | 2 package manifests in the artifact; exactly one is expected
+own OK  assembly form: a package/ of the builder's None None None 0 a cost None | 
+evidence OK  clean metadata PASS [] [] 0 passes 706.332 | verified
+evidence OK  a count in a JSON CONTENT ['INSPECT_NUMBER'] [] 0 fails the criterion 745.847 | clear_value (in bice-control/count.json)
+evidence OK  package only, with a form refusal FORM [] [] 0 a cost 0.146 | 2 package manifests in the artifact; exactly one is expected
+evidence OK  a fixed label CONTENT ['INSPECT_TEXT'] [] 0 fails the criterion 727.371 | clear_value (in bice-control/label.txt)
+evidence OK  an amount in pt-BR CONTENT ['INSPECT_TEXT'] [] 0 fails the criterion 718.392 | clear_value (in bice-control/v.js)
+evidence OK  an amount in its JavaScript spelling PASS ['INSPECT_NUMBER'] [] 0 fails the criterion 705.898 | verified
+evidence OK  Arrow IPC PASS ['INSPECT_ARROW'] [] 0 fails the criterion 707.088 | verified
+evidence OK  Parquet with rows CONTENT ['INSPECT_PARQUET'] [] 0 fails the criterion 1.231 | bice-control/p.parquet holds a Parquet magic outside an envelope
+evidence OK  schema only SCHEMA_ONLY [] [] 0 a cost 1.234 | bice-control/s.parquet holds a Parquet magic outside an envelope
+evidence OK  gzip of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 711.055 | verified
+evidence OK  brotli of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 708.005 | verified
+evidence OK  base64 of a JSON of rows PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 707.176 | verified
+evidence OK  JSON-escaped text PASS ['INSPECT_TEXT'] [] 0 fails the criterion 708.861 | verified
+evidence OK  a base64 payload in a service worker PASS ['INSPECT_NUMBER', 'INSPECT_TEXT'] [] 0 fails the criterion 747.448 | verified
+evidence OK  a label in a .map FORM ['INSPECT_TEXT'] [] 0 fails the criterion 0.148 | bice-control/app.js.map is a source map
+evidence OK  a label in a second manifest.json FORM ['INSPECT_TEXT'] [] 0 fails the criterion 0.146 | 2 package manifests in the artifact; exactly one is expected
+evidence OK  assembly form: a package/ of the builder's None None None 0 a cost None | 
+```
+
+A pinned `measured.py` against the real state before the run, to see the snapshot work: it ran from
+`runs/harness/69190b462472-…` and refused ("the state's harness is not this one"), `state.json`'s
+MD5 the same before and after.
+
 ## 4. What was NOT verified
 
 The most useful section of the dossier, and the one the author least wants to write.
 Every claim with no command output in section 3 belongs here.
 
+- **Round 4: the last run, at `a4f333f`, on its successful path again**: no stage interrupted or
+  errored, no seal resealed, no live edit made during it — the resume, retry and snapshot paths ran in
+  the tests and in the one pinned refusal above.
+- **Round 4: Evidence's builder output differs between builds** (§10): I did not find which files
+  change; the draw is made against the build of its sitting, so no verdict depends on it.
 - **Round 3: `make prototype` ran once more, at `5fdaa02`, again on its successful path**: no
   stage was interrupted, so `measured._carry`'s resume ran in the tests alone (an `OSError`
   injected in an inspection and in the mutant's assembly); `route.still` never refused; no
@@ -597,7 +732,7 @@ in eng_dados is not needed and should not be run. What it needs, all on this mac
 | The prototype's dependency group | `uv sync --frozen --group prototype` | `make prototype-test` |
 | Node 20+ and Google Chrome, for the browser checks | installed | `node --version`; `google-chrome --version` |
 | `bubblewrap`, for a build | installed | `bwrap --version` |
-| The archived builder outputs, the draw and its results | already under `prototypes/framework/runs/` (ignored by Git) | `runs/state.json`; `runs/draws/draw-20261123T031704Z-1e0db08a/results/` |
+| The archived builder outputs, the draw and its results | already under `prototypes/framework/runs/` (ignored by Git) | `runs/state.json`; `runs/draws/draw-20261123T191327Z-4fb760ca/results/` |
 
 **Do not run** `make prototype`, `make prototype-build-own` or `make prototype-build-evidence`: each
 writes `runs/state.json`; at `4a32977` the harness is the full run's, and a second run would
@@ -689,7 +824,7 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | CMP-3-06 | `compare.py` | Candidate-local refusals and incomplete saved results still abort the comparison | adjustment | Fixed, `0e0230d`: a mutant whose cells or archive refuse their digest is B's missing proof, reported; a kept result is reused only with every part the report reads, in its shape. Tests fail on the code before; both results of the last run are whole. |
 | CMP-3-07 | `browser/journey.mjs`, `measure.py` | A second transfer of a worker's URL can make an unfinished primer look complete | adjustment | Fixed, `2c0f19c`: only the first request of type `Script` at an attached worker's URL is its bootstrap; any other request is in flight to its end; redirect hops keep their session's clock. A live test with a slow fetch of the worker's URL and a unit test of a hop from another session fail on the code before. |
 | CMP-3-08 | `measure.py` | The WASM classifier can drop a valid warm sample | adjustment | Fixed, `6f1d33a`: only terminal events class the module (BaselineFinished or compiledModule; a cache hit or deserialization), and the window closes at the first extension requested after the engine. Tests fail on the code before; the archived warm journeys of both runs replay into the same series, compiled. |
-| CMP-3-09 | `docs/framework_prototype.md` §10 | §10 overstates artifact identity, binary exemptions and test coverage | adjustment | Accepted: applied with §10 after the next full run — artifact, fixture, package and builder digests per sitting, the 76 builder notes as 70 binaries and 6 explained scripts, the history's five entries as they are, the live tests' actual scope, and the old draw counts as historical evidence. |
+| CMP-3-09 | `docs/framework_prototype.md` §10 | §10 overstates artifact identity, binary exemptions and test coverage | adjustment | Fixed, `2ed7b2d`: §10 rewritten from the last run (`a4f333f`) — each sitting's builder, artifact, fixture and package digests; Evidence's 76 builder notes as 70 dependency binaries and 6 explained scripts (re-inspected); the history's six entries, one a builder record alone; the live tests' actual scope (synthetic cutoff and redirect records, live pages that wait for the transfer); the old draw counts as historical evidence. |
 
 ### Round 1 — batch CMP
 
