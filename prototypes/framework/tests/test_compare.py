@@ -118,18 +118,20 @@ def test_the_controls_take_the_package_the_artifact_holds(tmp_path, monkeypatch)
     assert given["package"].parts[-3:] == ("bound", "artifact", "package")
 
 
-@pytest.mark.parametrize("change", ["fixture_digest", "package", "draw", "harness", "malformed", "not a dict"])
+@pytest.mark.parametrize("change", ["fixture_digest", "package", "draw", "harness", "malformed", "not a dict", "header only"])
 def test_a_kept_result_of_another_draw_harness_or_unreadable_is_measured_again(tmp_path, change):
     state = route.load(tmp_path)
     draw = {"id": "d1", "fixture_digest": "f", "package": {"P01.bice": "p"}, "harness": {"x": "h"}}
     state.update(draw=draw, artifacts={"own": {"artifact_digest": "a1"}},
                  measures={"own": {"artifact_digest": "a1", "results": "draws/d1/results/own"}})
-    good = {"artifact_digest": "a1", "fixture_digest": "f", "package": {"P01.bice": "p"}, "draw": "d1", "harness": {"x": "h"}}
+    good = {"artifact_digest": "a1", "fixture_digest": "f", "package": {"P01.bice": "p"}, "draw": "d1", "harness": {"x": "h"},
+            "check": {"passed": True}, "controls": [], "diagnostic": {}, "measures": {}, "static": {}}
     folder = tmp_path / "draws" / "d1" / "results" / "own"
     folder.mkdir(parents=True)
     (folder / "result.json").write_text(json.dumps(good))
     assert compare._kept(state, "own", tmp_path) == good
-    bad = {"malformed": "{not json", "not a dict": "[1]"}.get(change) or json.dumps({**good, change: "other"})
+    header = {k: good[k] for k in ("artifact_digest", "fixture_digest", "package", "draw", "harness")}  # CMP-3-06: no body
+    bad = {"malformed": "{not json", "not a dict": "[1]", "header only": json.dumps(header)}.get(change) or json.dumps({**good, change: "other"})
     (folder / "result.json").write_text(bad)
     assert compare._kept(state, "own", tmp_path) is None
 
@@ -150,3 +152,20 @@ def test_one_candidates_failure_leaves_the_others_results_and_a_report(tmp_path,
     assert report["results"]["own"] == {"not_measured": "failed: RuntimeError: the browser crashed"}
     assert report["results"]["evidence"]["check_passed"] is True
     assert "own" not in route.load(tmp_path)["measures"]  # no pointer: measured again next time
+
+
+def test_a_mutant_that_does_not_bind_is_a_missing_proof_not_an_abort(tmp_path, monkeypatch):
+    """CMP-3-06: B's mutant cells replaced by the canonical ones refuse their digest; B is
+    checked with its proof missing, and the comparison goes on."""
+    runs, draw, artifacts, given = _measurable(tmp_path, monkeypatch, mutant_archive=True)
+    fx, _ = fx_mod.generate(7)
+    folder = tmp_path / "m" / "d1-mutant"
+    folder.mkdir()
+    (folder / "cells.json").write_text(json.dumps(fx.dump()))  # the canonical cells under the mutant's name
+    mutant_dir = tmp_path / "mut"
+    mutant_dir.mkdir()
+    (mutant_dir / "index.html").write_text("ok")
+    artifacts["own-mutant"] = {"artifact_archive": "m.tar.gz", "artifact_digest": trees.archive(mutant_dir, runs / "m.tar.gz"),
+                               "fixture_digest": fx_mod.mutant(fx).digest()}
+    result = compare.measure_candidate("own", draw, artifacts, tmp_path / "out", runs)
+    assert "does not bind" in result["mutant_missing"] and given["check"] == {}

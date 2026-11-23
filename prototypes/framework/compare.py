@@ -87,8 +87,12 @@ def measure_candidate(name: str, draw: dict, artifacts: dict, out: pathlib.Path,
     if name == "own":
         m = artifacts.get("own-mutant", {})
         if "artifact_archive" in m:
-            mutant = {"mutant_artifact": _bound(runs, m["artifact_archive"], m["artifact_digest"], out / "bound" / "mutant"),
-                      "mutant": _fixture(draw, mutant=True, digest=m["fixture_digest"])}
+            try:  # the mutant is B's proof alone: a mutant that does not bind is a proof missing (CMP-3-06)
+                mutant = {"mutant_artifact": _bound(runs, m["artifact_archive"], m["artifact_digest"], out / "bound" / "mutant"),
+                          "mutant": _fixture(draw, mutant=True, digest=m["fixture_digest"])}
+            except (route.Refused, ValueError, OSError) as refusal:
+                mutant = {}
+                result["mutant_missing"] = f"B's G mutant does not bind: {refusal}"[:500]
         else:  # the check runs, and says its mutant proof is missing; the rest is measured (CMP-2-05)
             result["mutant_missing"] = f"B's G mutant has no artifact: assembly {m.get('assembly')}"
     result["check"] = check.run(name, artifact, fx, out / "check", **mutant)
@@ -111,6 +115,14 @@ def measure_candidate(name: str, draw: dict, artifacts: dict, out: pathlib.Path,
     return result
 
 
+#: What a measured result holds, every part with the shape the report reads (CMP-3-06).
+_PARTS = {"check": dict, "controls": list, "diagnostic": dict, "measures": dict, "static": dict, "package": dict}
+
+
+def _complete(result: dict) -> bool:
+    return all(isinstance(result.get(k), kind) for k, kind in _PARTS.items()) and "passed" in result["check"]
+
+
 def _kept(state: dict, name: str, runs: pathlib.Path) -> dict | None:
     """A measured result reused only when its file exists, reads, and is of this artifact, this
     draw — its fixture and package — and this harness; anything else is measured again (CMP-1-05,
@@ -125,7 +137,7 @@ def _kept(state: dict, name: str, runs: pathlib.Path) -> dict | None:
         result = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    if not isinstance(result, dict):
+    if not isinstance(result, dict) or not _complete(result):
         return None
     same = {"artifact_digest": art.get("artifact_digest"), "fixture_digest": draw.get("fixture_digest"),
             "package": draw.get("package"), "draw": draw.get("id"), "harness": draw.get("harness")}
