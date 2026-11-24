@@ -23,7 +23,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-24 — revision 6: step 2 done — the catalogue read in a short window, `release/views.json` reviewed and approved by the Owner, the migration of §11 (§16). Revision 5: step 3 built, and what it measured and changed (§16). Revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
+| Date | 2026-11-24 — revision 7: round 1 of Codex's review of the code answered (XIMPL-1-01 to -13), with the Owner's N111 and N112 (§3, §9, §10, §16). Revision 6: step 2 done — the catalogue read in a short window, `release/views.json` reviewed and approved by the Owner, the migration of §11 (§16). Revision 5: step 3 built, and what it measured and changed (§16). Revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
 | Author | Claude Code |
 | Status | **Plan, reviewed: closed after round 3 of Codex's review (N110)** — 33 findings in three rounds, 20 blocking, all answered. **Steps 2 and 3 of §15 are done** on the branch `exporter-2.4`: the exporter over the fake warehouse, probed against an isolated PostgreSQL, the catalogue read and the declarations migrated (§16); steps 4 and 5 are not. Its reads of the warehouse need a read window the Owner opens ([UQ-05](upstream_questions.md#answers)) |
 
@@ -178,7 +178,11 @@ an extra row refuses.
    equal the witness's: from `pg_database`, `datlocprovider`, `datcollate`, `datctype`,
    `daticulocale` and `daticurules`, and the **effective** version,
    `pg_database_collation_actual_version(oid)`, which must also equal the stored `datcollversion`.
-   A library updated under a stored version is caught this way (EXP-3-03).
+   A library updated under a stored version is caught this way (EXP-3-03). **A collation with no
+   version** (N111) — the warehouse's libc `en_US.utf8` on Alpine reports none, stored or effective —
+   passes only when the accepted build declares none, and the receipt records the version as
+   `unavailable`; a version that appears, or a stored and an effective that differ, refuses. Each
+   `set_config` must return exactly one non-null row (XIMPL-1-03).
 
 **The witness [planned].** Each accepted build carries a witness:
 
@@ -186,9 +190,13 @@ an extra row refuses.
 - the 16 views' row counts and fingerprints, one entry per view, each view exactly once.
 
 Every run computes the fingerprints inside its transaction, under that policy, with M55's exact
-expression: `md5(coalesce(string_agg(t::text, E'\n' order by t::text), ''))` over
-`consumption.<view> t`. Every count and fingerprint must equal the witness's. A missing entry, a
-duplicate entry or one difference refuses, whatever the provenance row says.
+expression: `md5(coalesce(string_agg(t::text, E'\n' order by t::text), ''))`. **It is computed over
+the very rows the run freezes** (N112): one statement materializes the view once and returns its
+rows with that expression over them (the rows, below), so a view whose evaluation differs between
+two statements cannot export one set of rows under another's fingerprint. The contract's columns are
+every column of the view (check 7), so each row's record text is the view's own. Every count and
+fingerprint must equal the witness's. A missing entry, a duplicate entry or one difference refuses,
+whatever the provenance row says.
 
 M59's session settings were not recorded. The witness of `bcc2d5c` therefore declares the policy M59
 is assumed to have run under: the warehouse's defaults as `psql` sees them inside the container
@@ -207,11 +215,14 @@ binds them to its fingerprints, so they cannot authenticate a replacement. Revis
 **The rows [planned].** For each view, in the contract's order:
 
 - `SELECT count(*)`, refused above the view's `max_rows` (§4.1) before any row is fetched;
-- `SELECT <the contract's columns, quoted, in source order> FROM consumption.<view>`, with no
-  `ORDER BY`: the comparison of §7 is by grain key, not by position;
+- `WITH t AS MATERIALIZED (SELECT <the contract's columns, quoted, in source order> FROM
+  consumption.<view>) SELECT <the same columns>, (SELECT <M55's expression> FROM t AS w) AS
+  bice_fingerprint FROM t` (N112), with no `ORDER BY`: the comparison of §7 is by grain key, not by
+  position. The fingerprint column must be the same on every row; an empty view's is M55's
+  expression over no row, `md5('')`;
 - the result's own metadata, from psycopg's public result object — `cursor.pgresult.fname(i)`,
-  `ftype(i)` and `fmod(i)`, by position — compared with the contract, independently of check 7,
-  before any row is read. `cursor.description`'s `Column` does not expose the raw modifier
+  `ftype(i)` and `fmod(i)`, by position — compared with the contract's columns followed by the
+  fingerprint's, `text` with no modifier, independently of check 7, before any row is read. `cursor.description`'s `Column` does not expose the raw modifier
   (EXP-3-02);
 - the rows **frozen** into the reference of §7, by the validated positions of the raw result,
   before any mapping to the writer's columns.
@@ -452,17 +463,20 @@ which is N82's reason.
 of `release/profiles.json`: Diretoria all 16, Logística P13. The result holds the manifest and the
 16 envelopes, under content-hashed names, and the **receipt**, `run.json`.
 
-**The receipt** has a fixed schema, read back strictly: every field required, typed and
-allow-listed, and no free text from a driver or an exception. It holds no value of any row:
+**The receipt** has a fixed schema, read back strictly **against the view contract** it was made
+under: every field required, typed and allow-listed, and every value either fixed, a digest, a
+count within its bound, or equal to what the contract and the accepted build declare — what each
+fact compared once it passed is fully determined by them (XIMPL-1-02). It holds no free text from a
+driver, an exception or the metadata package, and no value of any row:
 
 | Part | Fields |
 |---|---|
 | Identity | The pin, `metadata_blob` and the SHA-256 of the metadata; the receipt's schema version |
-| The read | `read_at`; the provenance row; the metadata's own `provenance`, kept apart; the text-form policy and collation read back (§3 check 8); the `sslmode`, and whether a root certificate and a CRL were given |
+| The read | `read_at`; the provenance row; the SHA-256 of the metadata's own `provenance`, kept apart — its text is the metadata's, beside the receipt; the text-form policy and collation read back (§3 check 8), with the collation's version `verified` or `unavailable` (N111); the `sslmode`, and whether a root certificate and a CRL were given |
 | The facts | For each check of §3, its code and `passed`, with the non-sensitive values it compared: isolation, read-only, the two users, the role closure with its options, the 16 view names and kinds, the access booleans, the source schema's OIDs and modifiers |
 | Per view | Row count; fingerprint; whether count and fingerprint equal the witness; the reference digest; the Parquet's SHA-256 |
 | Per envelope | Its file name and SHA-256 |
-| The candidate | The digest of the private candidate's deploy listing; each included file's path and SHA-256; the SHA-256 of each trusted declaration as the rehearsal read it — `views.json`, `contract.json`, `profiles.json`, `public_values.json`, `include.txt`, `media_types.txt`; `verify`'s result for each live mode run (§10), with which live it compared — `none` or the stand-in's digest; the collisions approved, by entry of `public_values.json` |
+| The candidate | The digest of the private candidate's deploy listing; each included file's path and SHA-256; the SHA-256 of each trusted declaration as the rehearsal read it — `views.json`, `contract.json`, `profiles.json`, `public_values.json`, `include.txt`, `media_types.txt`; `verify`'s result for each live mode run (§10), with which live it compared — `none` or the stand-in's digest; the exemptions of `public_values.json`, by entry index, `used` — one that exempted a value of this package — or `unused`. The listing must hold the manifest and exactly the sealed envelopes; the digests are of the declarations as read once at the start, from which the candidate is built (XIMPL-1-09) |
 | Time | The duration of each phase: connect, facts, read, checks, write, read-back, seal, candidate |
 
 `export evidence` reads the receipt strictly and refuses an incomplete or ill-typed one before it
@@ -538,11 +552,15 @@ The receipt says which ran. CI still makes the authoritative comparison against 
 live, when stage 2.5's PR brings the real package.
 
 **The collisions (N108, EXP-2-08).** `verify` stops at the first clear value and prints only its
-code and file, as it must. So `export collisions` is a separate, Owner-local diagnostic. It uses
-the gate's own matching — `contract.needles` and its spellings — over the **committed** bytes of
-the included public files, read with `git show HEAD:<path>`, and over the profile labels of the
-committed `release/profiles.json`, which `verify` searches in the manifest (N83). It does not read
-the candidate's copy, nor the package's envelopes. It reports **every** hit. For each hit it gives:
+code and file, as it must. So `export collisions` is a separate, Owner-local diagnostic. It runs the
+read and the round trip itself, inside the run directory, and stops before sealing: a run with an
+unapproved collision is refused by `verify` and leaves no result to read. It uses the gate's own
+matching unchanged — the values `contract.check_payload` collects, instants in UTC, and
+`contract.needles` with its spellings and eligibility, the whole totals object included — over the
+**committed** bytes of **one commit**: the inclusion list, the profile labels of
+`release/profiles.json`, which `verify` searches in the manifest (N83), and every included public
+file, all read at the same `HEAD` (XIMPL-1-01). It does not read the working tree, the candidate's
+copy, nor the package's envelopes. It reports **every** hit. For each hit it gives:
 
 - the canonical value, which is what `release/public_values.json` would list;
 - the spelling found and the public file it was found in;
@@ -819,4 +837,30 @@ the 16 shapes, written by `tests/site_fixture.py`, which now invents rows from a
 invented integer equal to 2026, a year `site/releases.md` cites, so the fixture's integers have five
 digits.
 
-**Not done**: Codex's review of the code (step 4); the live run (step 5).
+**Round 1 of Codex's review of the code** (XIMPL-1-01 to -13, seven blocking) changed, besides
+what §3, §9 and §10 now say:
+
+- a failed statement refuses `statement_failed` naming the statement — `transaction` to
+  `collation`, then `count` and `rows` for each view —, and a result of the wrong shape refuses
+  with its fact's code;
+- an argument the command line refuses prints one fixed line, `refused: usage_invalid`, never the
+  argument (XIMPL-1-05);
+- the run directory is removed first, whatever else fails; while cleaning, SIGINT and SIGTERM are
+  only noted and raised again afterwards — a signal mask would not hold them, since the kernel may
+  deliver a signal to any thread and Python runs its handler in the main one, which a test
+  measured —; a directory that could not be removed refuses `cleanup_failed`; a vanished caller
+  directory leaves the process in the staging root (XIMPL-1-04);
+- the result is renamed with `renameat2(RENAME_NOREPLACE)`, never over a destination that appeared
+  after the check (XIMPL-1-13);
+- TLS files named relative to the caller are resolved before the run changes directory; libpq's
+  `system` root stays as it is (XIMPL-1-10);
+- the fake quotes a record field on ASCII whitespace only, as PostgreSQL's `record_out` does.
+
+**[measured] The probe, again**, after round 1
+([`exporter_probe.out.txt`](../evidence/20261124/exporter_probe.out.txt)): the fake's record text
+equals PostgreSQL's on 14 of 14 UTF-8 cases, no-break and em spaces among them; on a volatile view,
+the statement of N112 attests the rows it returns and two statements do not; and the export, whose
+fingerprints come from N112's statement, matches the 16 the probe computed with M55's statement over
+the views — so N112's form reproduces M55's hashes on these views.
+
+**Not done**: the closing round of the code's review (step 4); the live run (step 5).

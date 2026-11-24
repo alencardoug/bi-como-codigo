@@ -113,11 +113,35 @@ def main() -> int:
         print("catalogue: type OIDs", oids, "modifiers", sorted(typmods))
         print("catalogue: defaults", catalogue["defaults"], "encodings", catalogue["encodings"])
         print("catalogue: collation", catalogue["collation"], "actual", catalogue["collation_actual_version"])
-        invented = json.loads(xw.ROOT.joinpath("tests", "exporter", "catalogue.json").read_text())
+        real = json.loads(xw.ROOT.joinpath("evidence", "20261124", "catalogue.json").read_text())  # the warehouse's
         same = all(
             [(c["name"], c["oid"], c["typmod"]) for c in a["columns"]] == [(c["name"], c["oid"], c["typmod"]) for c in b["columns"]]
-            for a, b in zip(sorted(catalogue["views"], key=lambda v: v["view"]), sorted(invented["views"], key=lambda v: v["view"])))
-        print("catalogue: columns, OIDs and modifiers equal to the invented catalogue's:", same)
+            for a, b in zip(sorted(catalogue["views"], key=lambda v: v["view"]), sorted(real["views"], key=lambda v: v["view"])))
+        print("catalogue: columns, OIDs and modifiers equal to the warehouse's catalogue:", same)
+
+        # PostgreSQL's record text against the fake's, on UTF-8 cases (XIMPL-1-11)
+        texts = ["", " ", "a b", "a,b", 'a"b', "a\\b", "(x)", "a\u00a0b", "a\u2003b", "a\tb", "a\nb", "ç", "🙂", "x"]
+        with psycopg.connect(**ADMIN) as admin:
+            admin.execute("CREATE SCHEMA probe")
+            admin.execute("CREATE TABLE probe.texts (k int, v text)")
+            admin.cursor().executemany("INSERT INTO probe.texts VALUES (%s, %s)", list(enumerate(texts)))
+            got = dict(admin.execute("SELECT k, (SELECT t FROM (SELECT x.v) AS t)::text FROM probe.texts x").fetchall())
+            one = V.View("texts", "P01", 1, 100, False, ("v",), (V.ViewColumn("v", "text", 25, -1, False, max_length=9),))
+            agree = sum(1 for k, v in enumerate(texts) if got[k] == fw.record_text(one, (v,)))
+            print(f"record text: the fake's equals PostgreSQL's for {agree} of {len(texts)} UTF-8 cases")
+
+            # one evaluation (N112): a volatile view, its rows and their fingerprint from one statement
+            admin.execute("CREATE VIEW probe.volatile AS SELECT g AS i, (random() * 1000000)::int AS r FROM generate_series(1, 50) g")
+            one_statement = admin.execute(
+                f"WITH t AS MATERIALIZED (SELECT i, r FROM probe.volatile) SELECT t::text, (SELECT {S.m55_expression('w')} FROM t AS w) FROM t ORDER BY t::text"
+            ).fetchall()
+            import hashlib
+            joined = hashlib.md5("\n".join(r[0] for r in one_statement).encode()).hexdigest()
+            fetched = admin.execute("SELECT t::text FROM probe.volatile t ORDER BY t::text").fetchall()
+            second = admin.execute(f"SELECT {S.m55_expression('t')} FROM probe.volatile t").fetchone()[0]
+            print("witness: one statement attests its own rows:", joined == one_statement[0][1],
+                  "| two statements attest the rows fetched:", hashlib.md5("\n".join(r[0] for r in fetched).encode()).hexdigest() == second)
+            admin.execute("DROP SCHEMA probe CASCADE")
 
         # the adapter's types, and the result's modifiers by position
         with psycopg.connect(**{**ADMIN}) as admin:
