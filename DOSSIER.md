@@ -158,6 +158,18 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | EXP-1-11 | `docs/exporter.md` §§4.1, 4.3 | The proposal write boundary and the contract agreement check are underspecified. | adjustment | Done, §4.4: `contract.json` is generated from `views.json` and checked byte for byte in `make check` and before connecting; `export propose` writes only into staging and refuses `release/` |
 | EXP-1-12 | `docs/exporter.md` §§2–3, 5 | M59 has 188 columns, and the environment-key and null-profile claims lack committed measurement. | adjustment | Done, §2: 188 columns (my 226 was wrong); the `.env` key claim removed; `encrypt_package` cites PR #30's committed run; the null profile, the decimal extrema and the grain's uniqueness now measured, without values, in `evidence/20261124/m59_profile.py` |
 | EXP-1-13 | `docs/exporter.md` Q1 | One client alternative requires a container operation forbidden from this repository. | adjustment | Done with the Owner's N105: psycopg 3; the alternatives recorded with their real constraints, the container's `psql` no longer allowed from here (§13) |
+| EXP-2-01 | `docs/exporter.md:120–134` | The access check misses changed membership options, indirect ownership and column write grants. | blocking | Done in revision 3, §3 checks 4 and 6: each membership edge's `admin_option`, `inherit_option` and `set_option`; the attributes of every reached role; ownership by `pg_has_role(login, relowner, 'MEMBER')`; `has_any_column_privilege` for column writes; schema `USAGE` and `CREATE`; complete rows with non-null booleans. Each in §12 against a passing baseline |
+| EXP-2-02 | `docs/exporter.md:102–119,135–148` | Session reset values can drift from the witness settings while the preflight passes. | blocking | Done, §3 check 2 and the witness: the four settings are `SET LOCAL` to the witness's policy and read back, so no role or database default applies; the collation's provider and version are part of the witness; every libpq `PG*` variable is removed and only explicit parameters are passed; a witness entry missing or twice refuses. M59's unrecorded policy is assumed and settled by the first run, with `export witness` for a row-level replacement (§14) |
+| EXP-2-03 | `docs/exporter.md:128–129,150–155,175–183,303–312,463` | The explicit projection can hide source schema changes, and its description cannot detect a value-only mapping error. | blocking | Done, §3 check 7 and §7: the source schema from `pg_attribute` — names, type OIDs and modifiers, in order — checked apart from the result's description; the contract keeps the source modifier apart from the export type; the reference frozen from raw positions before mapping. A trailing column on an empty view, a modifier change and a writer-side swap are in §12 |
+| EXP-2-04 | `docs/exporter.md:319–332` | The locked Parquet reader requires a supported path or filesystem for the frozen bytes. | blocking | Done, §7: the retained buffer is written to an exclusive file and read by bound path; its digest is checked after the read and again at sealing; `check_payload` and the seal take the retained buffer. M19 between write and buffer, and both substitutions, in §12 |
+| EXP-2-05 | `docs/exporter.md:118–119,153,319–327` | PostgreSQL and DuckDB can order the same text grain differently. | blocking | Done, §7: no `ORDER BY`; both sides become maps from the canonical grain key, each key once, with equal key sets and cell-by-cell equality. Accented multi-column keys in different orders pass in §12 |
+| EXP-2-06 | `docs/exporter.md:373–397` | Git discovery failures admit unsafe staging, and the sealed destination can write to an upstream checkout. | blocking | Done, §10: every destination checked by the filesystem — no `.git` in the path or its ancestors, nothing under either eng_dados checkout or this repository, and a safe character set — without asking Git; the sealed result follows the same rule. Cases with `GIT_CEILING_DIRECTORIES`, a symlink and an ignored upstream path in §12 |
+| EXP-2-07 | `docs/exporter.md:381–387`, `src/bi_como_codigo/contract.py:256–288` | The gate's DuckDB spill path escapes the staging rule, and an apostrophe in staging breaks the gate's Parquet read. | blocking | Done, §10, with no change to the protected gate: the process's working directory is the run directory, so the gate's in-memory DuckDB spills inside it; `TMPDIR` covers `check_payload`; a path outside `[A-Za-z0-9._/-]` is refused, so the gate's interpolated path is safe. A forced spill and an apostrophe in §12 |
+| EXP-2-08 | `docs/exporter.md:399–419` | The verifier's refusal lacks the value and full collision list required for N108 approval. | blocking | Done, §10: `export collisions`, Owner-local, runs the gate's needles and spellings over the committed bytes of the included files and reports every hit with its canonical value, spelling, file, reports and columns; a planted value is not printed and `verify` refuses it. Cases in §12 |
+| EXP-2-09 | `docs/exporter.md:399–404,440–442` | The private candidate skips the live comparison that the first ordinary PR can encounter. | adjustment | Done, §10 and §11: the candidate is built by `release.build` from a copy of `site/`; `verify` runs with no live and against the invented fixture as stand-in; the receipt records the site's and declarations' digests and which live ran; the live negative cases are in §12 |
+| EXP-2-10 | `docs/exporter.md:246–248,444–478` | Several proposed mutations miss their named check or leave a declaration predicate unproved. | adjustment | Done, §6 and §12: the matrix gives each mutation its exact code, a positive control and its level, regenerates downstream facts so each reaches its check, moves the null grain to Nulls, checks size before fetch, adds encoding, schema `USAGE`/`CREATE`, ownership, incomplete witness, metadata format and columns, and the strict loader of `views.json` for exporter-only fields; §4.4 no longer claims the agreement test covers them |
+| EXP-2-11 | `docs/exporter.md:360–369,422–423,480–489` | The allow-listed run record omits evidence the stage promises to produce. | adjustment | Done, §9: the receipt's fixed schema now holds each fact's outcome and compared values, the witness comparison, the candidate's digest and `verify`'s results with their live mode, and the phase times; `export evidence` refuses an incomplete or ill-typed receipt before writing |
+| EXP-2-12 | `docs/exporter.md:250–253,381–391` | The cleanup rule deletes the proposal before its planned manual review. | adjustment | Done, §10: drafts go to `<staging>/drafts/`, which outlives the run, under the same path rules; a successful proposal is found there after exit with both contracts unchanged (§12) |
 
 ### Round 1 — evidence
 
@@ -463,3 +475,275 @@ promotion checks belong to the existing publication procedure.
 - [ ] **EXP-1-12** Correct the counts and attach committed evidence or mark unsupported measurements
   pending.
 - [ ] **EXP-1-13** Give the Owner two actionable client options with their real constraints and costs.
+
+### Round 2 — evidence
+
+#### Conclusion
+
+**Changes required.** Revision 2 closes the same-commit rebuild bypass and fixes the numeric and
+instant bindings. The plan still permits access and schema checks to pass after relevant changes.
+Its read-back, clear-file containment and collision approval also need corrections before an
+end-to-end run can establish stage 2.4's criterion. Batch EXP remains open.
+
+#### Reviewed scope and version
+
+`main` at `f190b7a499e981212043e18b4ca38b98d31503b1`, four commits ahead of the local
+`origin/main` reference. The explicit baseline is `f5a32f163eec04d43e5c1a6d3efcd4512406838a`.
+The range contains one commit and covers exporter revision 2, PLAN revision 62, the M59 profile
+and the dossier updates. The two new tracked files are `evidence/20261124/m59_profile.py` and
+`evidence/20261124/m59_profile.out.txt`. The index and worktree were clean at entry with no
+untracked files reported. This review changes only `DOSSIER.md`.
+
+#### Round 1 status reassessment
+
+| ID | Reassessment | Evidence |
+|---|---|---|
+| EXP-1-01 | Resolved | §5 distinguishes the pinned blob from live provenance. In the upstream blob at `b0ef66e`, all 16 question-to-view pairs are distinct, P13 maps to `on_time_delivery_rate_by_carrier`, and both column-name sets agree with M59. §12's metadata test matrix still needs the coverage in EXP-2-10. |
+| EXP-1-02 | Partially resolved | One transaction, both identities, the recursive role-name closure and the grant-independent `pg_class` inventory address the original gaps. Access can still drift silently under the specified predicates. See EXP-2-01. |
+| EXP-1-03 | Partially resolved | §3 requires one accepted build tuple and all 16 witness comparisons on every run. M59 and M61 support the current tuple and pin. The session predicate does not establish a reproducible text form. See EXP-2-02. |
+| EXP-1-04 | Resolved | §4.3 uses finite digit/exponent checks and explicit casts from fixed-point strings. DuckDB 1.5.6 returned the exact invented signed `DECIMAL(18,5)` extremes, near-zero values and null. |
+| EXP-1-05 | Resolved | §4.3's UTC integer binding and `epoch_us` read-back preserved the invented fold, pre-epoch and range cases. The probe also reproduced failure of direct Python timestamp fetch. |
+| EXP-1-06 | Resolved | N106 and N107 fit N82. All 46 proposed precisions are at most 12, every view including P16 has eligible sums, and empty and all-null decimal sums return zero at scale. §8 applies to the types at this pin, which contains no `SMALLINT`. |
+| EXP-1-07 | Partially resolved | N108's protected exemption is specified, and §12 requires both approval outcomes. The verifier cannot supply the planned diagnostic by itself, and the rehearsal omits the live comparison. See EXP-2-08 and EXP-2-09. |
+| EXP-1-08 | Resolved | §11 follows N109 and the protected-path admission rule. An offline 16-shape invented package verified under migrated declarations, including against the older three-envelope fixture. The actual fixture and suite migration is implementation work. |
+| EXP-1-09 | Partially resolved | §7 freezes a reference and places M19 after the write, with the original M19 evidence showing 761 differences. The source mapping, byte reader, comparator and some mutation prerequisites remain open. See EXP-2-03 through EXP-2-05 and EXP-2-10. |
+| EXP-1-10 | Partially resolved | §10 adds private staging, an exception boundary and a destination rule. The invoked gate can still spill elsewhere, and the worktree and evidence rules are incomplete. See EXP-2-06, EXP-2-07 and EXP-2-11. |
+| EXP-1-11 | Partially resolved | §4.4 sets the intended draft boundary and full generated report-contract comparison before connecting and in `make check`. The shared path boundary and exporter-only fields need the checks in EXP-2-06 and EXP-2-10. The draft has no handoff after cleanup. See EXP-2-12. |
+| EXP-1-12 | Resolved | §2 corrects the counts and describes the historical out-of-transaction inventory. The profile output supports the null and grain claims, subject to its stated empty-text/NULL ambiguity. The local `.env` claim is removed and PR #30 has committed producer-run evidence. |
+| EXP-1-13 | Resolved | N105 and §§3, 13 select psycopg 3 over the documented host-side alternatives. This review found no host `psql` on PATH and used neither upstream project commands nor containers. |
+
+#### High severity
+
+**EXP-2-01 — Access drift can pass the catalogue checks** (*high, blocking*,
+`docs/exporter.md:120–134`). **Static.** PostgreSQL 16 can provide the login identities, role
+attributes, recursive memberships and all `consumption` relation names/kinds. The planned role-name
+set is unchanged when the existing membership acquires `admin_option`, which the pinned upstream
+access test explicitly forbids. Changing the owning role of a view to an inherited or settable role
+can also leave the login's name different from `relowner` and its direct write ACLs absent while
+exposing ownership powers. Finally, `has_table_privilege` misses column-only INSERT or UPDATE
+grants. These are changes a preflight claiming the N4 access boundary must catch, even within a
+read-only export transaction. Check relevant membership options and attributes of reachable roles,
+effective or settable ownership, schema USAGE and CREATE, and column write grants on the OIDs from
+the inventory. Require complete rows and explicit Boolean results. Leave other schemas to the
+custodian as planned. Mutate each access fact against a passing baseline. **Origin** Residual
+EXP-1-02 gap in the revision 2 predicates. [PostgreSQL 16 membership
+columns](https://www.postgresql.org/docs/16/catalog-pg-auth-members.html) · [Privilege
+functions](https://www.postgresql.org/docs/16/functions-info.html) · [Ownership
+rules](https://www.postgresql.org/docs/16/ddl-priv.html) · [Pinned upstream access
+tests](https://github.com/alencardoug/mvp_eng_dados_2/blob/b0ef66e/tests/test_acesso.py#L286)
+
+**EXP-2-02 — The witness settings are session-dependent** (*high, blocking*,
+`docs/exporter.md:102–119,135–148`). **Static.** `pg_settings.reset_val` is the value RESET would
+restore in the current session. A changed role or database TimeZone default can therefore pass
+check 2 and change P12's timestamp text for the same instant. Recording `datcollate` alone also
+leaves the sort policy dependent on the database's collation provider and version. The 16 required
+fingerprints still make a mismatch refuse. The missing proof is a runnable, reproducible positive
+case. Bind the witness to one explicit serialization and ordering policy and apply or verify that
+policy in the same transaction. Require exact unique coverage of all 16 counts and hashes.
+In the authorized read window, record the effective settings and demonstrate that they reproduce
+M59, or produce a replacement witness with the same provenance and an approved equivalence check.
+Test a role/database default that equals its own `reset_val` but differs from the witness setting,
+and a missing witness entry. Define the libpq allowlist too. The four listed variables, if cleared
+in isolation, leave defaults such as `PGHOSTADDR` active, so test that a conflicting host address
+cannot override the configured endpoint. **Origin** New preflight predicate and a preexisting
+measurement limit. [M55 capture
+query](evidence/20261117/capture.sh#L53) · [M59 capture](evidence/20261119/capture.out.txt#L1) ·
+[PostgreSQL 16 settings](https://www.postgresql.org/docs/16/view-pg-settings.html) ·
+[Collation](https://www.postgresql.org/docs/16/collation.html) ·
+[libpq defaults](https://www.postgresql.org/docs/16/libpq-envars.html)
+
+**EXP-2-03 — Check the full source schema and preserve raw result positions** (*high, blocking*,
+`docs/exporter.md:128–129,150–155,175–183,303–312,463`). **Static.** A trailing source column on an
+accepted empty view leaves the relation inventory, explicit projection description and empty
+count/fingerprint unchanged. Source order is likewise hidden by the projection. Also, the
+contract stores the target decimal precision/scale but gives no separate source modifier field.
+All 46 source numerics in M59 have an unspecified modifier, distinct from their generated
+`DECIMAL(p,s)`. Finally, a positional mapping swap with an intact description cannot trigger the
+schema check. If mapping precedes freezing, both reference and writer can share the wrong values,
+while the separately calculated server fingerprint still matches. Validate all source columns in
+catalogue order by name, OID and source modifier, then also validate the query description. Freeze
+reference values from the validated raw result positions before writer mapping. Exercise a trailing
+column on an accepted empty view, a modifier-only change and a writer-side value swap with the
+original description. The value swap must fail row equality. **Origin** Residual EXP-1-09 gap and
+regression introduced by relying on the narrower query description as the source schema.
+[PostgreSQL 16 column catalogue](https://www.postgresql.org/docs/16/catalog-pg-attribute.html) ·
+[Psycopg column description](https://www.psycopg.org/psycopg3/docs/api/objects.html#the-description-column-object)
+
+**EXP-2-04 — Give the byte-identity check a supported Parquet reader** (*high, blocking*,
+`docs/exporter.md:319–332`). **Executed.** With DuckDB 1.5.6, the same invented Parquet passed
+`read_parquet` by path. A bound `bytes` argument produced `BinderException`, a bound
+`BytesIO` produced `NotImplementedException`, and the connection's `read_parquet` also refused
+both objects. Specify a supported read path, such as materializing the frozen buffer at an
+exclusive path inside the private directory, binding that path and checking its digest at read-back.
+Seal the retained buffer that passed equality and `check_payload`. Prove honest path and buffer
+identity, M19 after writing but before freezing the bytes, and replacement of the bytes offered
+to sealing after verification. **Origin** Revision 2 introduces an unspecified in-memory
+read-back step. **Scope** The probe covered the two direct buffer forms and the supported
+filesystem path.
+
+**EXP-2-05 — Use one grain comparator for both sides** (*high, blocking*,
+`docs/exporter.md:118–119,153,319–327`). **Static plus executed DuckDB control.** PostgreSQL
+`ORDER BY` on text uses its applicable collation. DuckDB's unset collation sorted invented
+`('Z', 'ação', 'ø')` in that order. A language collation can put the accented word before
+`Z`, so the current plan can refuse equal rows after a normal locale change. M59 does not
+establish cross-engine sort equivalence. Compare by canonical typed grain key, checking each side
+for uniqueness and equal key sets, or explicitly use a single ordering on both sides. An accented
+multi-column positive control with differing input order must pass, while a changed cell or
+duplicate must refuse. **Origin** Residual EXP-1-09 comparator gap. [PostgreSQL 16
+collation](https://www.postgresql.org/docs/16/collation.html)
+
+**EXP-2-06 — Resolve and check every destination before writing** (*high, blocking*,
+`docs/exporter.md:373–397`). **Executed plus static.** A temporary in-worktree path returned
+`true` and exit 0 with ordinary Git discovery. With `GIT_CEILING_DIRECTORIES` set to the
+checkout root it returned 128, the same as an external path. The stated rule admits both failures.
+Separately, an ignored destination in either upstream checkout meets §10's sealed-output rule
+and violates CLAUDE.md §5. Neutralize Git discovery overrides and distinguish confirmed
+non-membership from discovery errors, including ownership and filesystem-boundary cases.
+Reject all resolved write destinations in either upstream checkout, including the result's
+sibling temporary directory and paths reached through symlinks. Test a discovery error inside
+a worktree, an upstream ignored destination, a symlinked parent and a valid external destination.
+**Origin** New failure mode in the revision 2 worktree predicate and an unclosed round 1 output
+boundary. [Git discovery variables](https://git-scm.com/docs/git#Documentation/git.txt-GITCEILINGDIRECTORIES)
+
+**EXP-2-07 — Contain all DuckDB spill and Parquet paths** (*high, blocking*,
+`docs/exporter.md:381–387`, `src/bi_como_codigo/contract.py:256–288`). **Executed.** With
+`TMPDIR` pointed at private scratch, the actual locked gate connection still reported `.tmp`.
+A separate 16 MB in-memory DuckDB control forced an invented query to create spill files in
+its working directory's `.tmp`. Spilling on M59 remains unmeasured. Confining
+`TemporaryDirectory` alone leaves the spill path unchanged. The gate also interpolates its
+temporary path into SQL. An invented valid payload returned `parquet_unreadable` when the staging
+ancestor held an apostrophe. Give each gate connection an explicit staging-local spill setting
+before configuration locks, or run the verifier with an isolated staging-local working directory.
+Bind the Parquet path. Exercise forced spilling and a staging path with an apostrophe, and verify
+the paths and cleanup on success and refusal. **Origin** Preexisting gate defaults and path
+interpolation become relevant when revision 2 invokes the gate on clear real data.
+
+**EXP-2-08 — N108 needs a separate local collision diagnostic** (*high, blocking*,
+`docs/exporter.md:399–419`, `src/bi_como_codigo/contract.py:354–376`,
+`src/bi_como_codigo/release.py:332–335`). **Executed plus static.** Two invented inputs with
+different needles in `index.html` returned the same `clear_value` code and file, with no value
+or column. Inspection stops at the first hit, and `verify` carries only the sanitized message.
+The intended one-by-one approval requires the canonical exemption value and its matched public
+spelling, which may differ. Provide an Owner-local diagnostic that uses the same matching rules,
+accounts for all hits and shows only matches established in known public bytes. Keep `verify`'s
+refusal output unchanged. Test two collisions, a numeric alternate spelling, an unrelated clear
+value planted in a candidate, and a successful rerun with only the approved exemptions.
+**Origin** Revision 2 assigns a new diagnostic responsibility to the preexisting sanitized gate.
+[Inspection and refusal rules](docs/package_gate.md#6-the-inspection-for-clear-report-values-n81)
+
+#### Medium severity
+
+**EXP-2-09 — Qualify the rehearsal and exercise the existing live-package path** (*medium,
+adjustment*, `docs/exporter.md:399–404,440–442`). **Static plus executed offline.**
+`NO_LIVE` skips package ID, DEK, IV and salt comparisons with live. PR #30's committed record
+shows a fixture was promoted, and a protected PR leaves live at the previously served version.
+The present live state is unverified. An invented 16-shape package passed both `NO_LIVE` and a
+comparison against the three checked-in fixture envelopes with migrated profiles, so there is no
+inherent old-to-new contract incompatibility. Document the exact site snapshot and trusted
+declarations used for the rehearsal and its no-live limit. Use `release.build` to construct the
+same deploy layout as the candidate workflow. Exercise `verify` with an old fixture as live and
+preserve the existing live negative controls. CI still makes the authoritative comparison
+against whatever is actually live and the artifact stage 2.5 submits. **Origin** New rehearsal
+scope in revision 2. [Recorded fixture promotion](evidence/20261106/t22b_real_prs.out.txt#L22) ·
+[Live predicates](docs/package_gate.md#51-in-verify--the-predicates-against-what-live-serves-envelope-64)
+
+**EXP-2-10 — Prove the intended refusal, including the predicates the matrix skips** (*medium,
+adjustment*, `docs/exporter.md:246–248,288–299,444–478`). **Static.** A null grain column first
+violates §6's preceding null check, with the non-nullable grain required by `contract.py`.
+A real row-count change can stop at the witness before the size check. A change to
+`max_rows` or `may_be_empty` leaves the generated report contract identical, so the claim that
+every hand edit to `views.json` fails the agreement test is false. §12 also lacks explicit cases
+for encoding, schema USAGE/CREATE and ownership, an incomplete witness, wrong metadata format or
+column set, and an exporter-only declaration with an invalid bound. Near-limit accepted decimal,
+exact text-length and proper allowed-empty controls should pass through the respective writers,
+not only the fake adapter. Specify which checks are unit-tested at their boundary and which run
+through the full adapter and verifier. Test positive, isolated negative and expected exact code
+at each boundary. Check limits before fetch or aggregation where they are meant to bound work.
+Keep injected artifacts otherwise valid and recalculate the integrity metadata needed to reach
+the intended gate, as the existing MUT-15 and key/IV tests do. **Origin** Residual EXP-1-09 test
+gap and new overstatement of the generated agreement check.
+[Existing gate mutation targets](docs/package_gate.md#9-the-mutations-and-their-tests-n76)
+
+**EXP-2-11 — Align the run record with the evidence command** (*medium, adjustment*,
+`docs/exporter.md:360–369,422–423,480–489`). **Static.** §12 promises check facts, witness
+comparisons, the private verifier result and phase times. §10 derives the Git evidence only from
+`run.json`, whose fixed schema specifies settings, provenance, actual counts and digests but
+omits those check results, comparison outcomes and timings. A successful export can therefore
+leave the promised exit evidence unavailable. Define a strict typed schema for the missing
+non-value fields, including the verifier's candidate digest and whether live was compared.
+Run `export evidence` from a complete invented receipt, then require an incomplete or wrong-type
+receipt to refuse before any Git write. Keep free-form driver or exception text out of the receipt.
+**Origin** New inconsistency between revision 2's allowlist and evidence requirements.
+
+**EXP-2-12 — Make the proposal available for manual review** (*medium, adjustment*,
+`docs/exporter.md:250–253,381–391`). **Static.** §4.4 requires review of the draft after
+`export propose` writes it in private staging. §10 puts it inside the per-run directory
+that is deleted on every exit, so no draft survives a successful command. Define a
+staging-local handoff for the declaration-only draft, distinct from disposable clear-data
+scratch and subject to the same path checks. Test that a successful proposal is available
+after exit and leaves both trusted contracts untouched. **Origin** New interaction between
+the revision 2 draft and cleanup rules.
+
+#### Checks executed and results
+
+- Reviewed the exact Git range, its added files and the pinned upstream metadata and access tests
+  via Git. Compared the committed summaries in memory. The 16 question and grain mappings,
+  188 columns, 14,244 rows, 9 nullable numeric columns and the precision maximum of 12 all
+  reconciled. M19 supplies the row oracle, M55 supplies the fingerprint SQL, M56 describes the
+  historical comparison limit, and M59/M61 supply the witness and its relationship to the pin.
+  [M19 output](evidence/20261023/r4_label_swap.out.txt) ·
+  [M56 evidence](evidence/20261117/README.md) (its paragraph "The before this repository does not have") ·
+  [M59 profile](evidence/20261124/m59_profile.out.txt) ·
+  [M61 source comparison](evidence/20261120/source_diff.out.txt)
+- Used `uv run --frozen --no-sync python` and DuckDB 1.5.6 on invented data under `/tmp`.
+  Six rows round-tripped exactly through a Parquet path with explicit `DECIMAL(18,5)` casts
+  and `make_timestamp(?)::TIMESTAMPTZ` in UTC plus `epoch_us` on read-back. The two fold
+  instants differed by 3,600,000,000 microseconds. Nulls, a negative epoch, both Python datetime
+  endpoints, Unicode and a 400,000-character string survived. DuckDB also preserved a NUL,
+  confirming that the exporter must enforce its text rule. Empty and all-null Parquet preserved
+  the decimal and timestamp types and returned sums of `0.00000`.
+- Exercised Git discovery, gate spill settings and forced spilling in scratch, and the gate on
+  invented rows in all 16 declared shapes with and without the old fixture as live. Also
+  reproduced the exception for an apostrophe in the private path and the first-collision-only
+  diagnostic. Results and their limits are recorded under the corresponding findings.
+- Claude Code reported that `make check` at `f190b7a` exited 0, with 475 Python tests passed
+  and JavaScript at 156 passed and one skipped. This review used targeted probes because the
+  change is a plan and the current suite contains no exporter implementation.
+
+#### Limitations and open questions
+
+Database access, container operations, upstream project commands, `.env` files and the clear
+captures under `data/` were outside review execution. The profile was checked against committed
+output, and its CSV was left unread. The exact role options, host connectivity, server-side wire
+types, witness settings and real candidate collisions still require evidence from the authorized
+first run. The offline candidate used the checked-in site and invented values, with the
+checked-in old fixture as a stand-in for live. The actual live endpoint and the future stage 2.5
+artifact were outside the probe. N105–N109 stand as Owner decisions. The open work concerns their
+implementation and proof. No change to metric definitions is needed.
+
+#### Handoff to Claude Code
+
+- [ ] **EXP-2-01** A passing access baseline changes to the expected refusal for column writes,
+  membership option drift, effective ownership and schema privilege drift.
+- [ ] **EXP-2-02** An authorized run reproduces all 16 witness entries under a declared policy,
+  and a mismatched setting, incomplete witness or conflicting libpq default fails closed.
+- [ ] **EXP-2-03** Catalogue shape and projection shape are checked independently. An extra column
+  in an empty view and a modifier-only change fail schema, and a value-only swap fails equality.
+- [ ] **EXP-2-04** A supported read-back binds the frozen bytes to payload checking and sealing.
+  M19 and a post-read byte substitution fail at their respective checks.
+- [ ] **EXP-2-05** Differently ordered copies of the same multilingual grain pass. A duplicate key
+  or changed cell fails.
+- [ ] **EXP-2-06** Discovery failure under a worktree, a symlink escape and an ignored upstream
+  output all refuse before any write. Confirm the positive external path case.
+- [ ] **EXP-2-07** The exporter and verifier use staging-local clear paths, including under forced
+  spill. A private path containing an apostrophe passes and cleanup is verified.
+- [ ] **EXP-2-08** The local diagnostic records each verified public match and exact exemption
+  candidate while the unchanged verifier still rejects unapproved and injected data.
+- [ ] **EXP-2-09** Record the rehearsal inputs and its live scope. Verify the migrated fixture
+  against old fixture live and prove a failing live comparison still refuses.
+- [ ] **EXP-2-10** Update the mutation matrix with passing baselines, injection points and exact
+  refusal codes. Cover exporter-only declarations separately from generated report equality.
+- [ ] **EXP-2-11** An invented successful receipt produces all declared safe evidence fields.
+  Missing or invalid fields fail before evidence is written.
+- [ ] **EXP-2-12** A successful proposal leaves the declaration draft available in private
+  staging for manual review, and both trusted contracts keep their original bytes.
