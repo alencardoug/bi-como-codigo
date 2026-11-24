@@ -141,9 +141,12 @@ def _evidence(args, _environ) -> int:
     body = rc.load(pathlib.Path(args.receipt).read_bytes(), contract)
     from . import run
 
-    public_names = run.committed_paths(ROOT, run.rehearsed_commit(ROOT))
+    # XIMPL-2-01, -3-03: every name is a regular file of site/ at the commit the run
+    # rehearsed — public in Git then, whatever was renamed since — or one of the
+    # sealed package's, which the strict loader already bound to the envelopes.
+    public_names = run.committed_paths(ROOT, body["candidate"]["commit"])
     if any(not rel.startswith("site/package/") and rel not in public_names for rel in body["candidate"]["included"]):
-        raise Refused("receipt_invalid", check="uncommitted_file")  # XIMPL-2-01: only names already public in Git
+        raise Refused("receipt_invalid", check="uncommitted_file")
     target = pathlib.Path(args.out).resolve()
     if ROOT / "evidence" not in target.parents:
         raise Refused("path_refused", check="evidence")

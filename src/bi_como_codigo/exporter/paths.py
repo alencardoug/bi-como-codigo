@@ -175,7 +175,13 @@ def rename_noreplace(source: pathlib.Path, target: pathlib.Path) -> None:
 
 def publish(destination: str | None, files: dict[str, bytes], protected: list[pathlib.Path]) -> pathlib.Path:
     """§10, the result: written into a sibling temporary directory, then
-    renamed into place in one step. The destination must not exist."""
+    renamed into place in one step. The destination must not exist.
+
+    Signals have a defined outcome here too (XIMPL-3-02): while the files are
+    written, SIGTERM refuses `interrupted`, check `publish`, and the sibling is
+    removed — no result, nothing partial; around the rename, SIGINT and SIGTERM
+    are noted, and one noted ends the command with `interrupted`, check
+    `published`: the result is complete, in place."""
     if not destination:
         raise Refused(PATH_REFUSED, check="BICE_EXPORT_DIR")
     target = check(destination, protected)
@@ -183,19 +189,37 @@ def publish(destination: str | None, files: dict[str, bytes], protected: list[pa
         raise Refused(PATH_EXISTS)
     if not target.parent.is_dir():
         raise Refused(PATH_REFUSED, check="BICE_EXPORT_DIR")
-    tmp = check(tempfile.mkdtemp(prefix=RESULT_PREFIX, dir=target.parent), protected)
+    saved_term = signal.signal(signal.SIGTERM, _interrupt_publication)
+    tmp = None
     try:
+        tmp = check(tempfile.mkdtemp(prefix=RESULT_PREFIX, dir=target.parent), protected)
         for rel, data in files.items():
             dest = tmp / rel
             check(dest.parent, protected)
             dest.parent.mkdir(parents=True, exist_ok=True)
             with open(dest, "xb") as f:
                 f.write(data)
-        rename_noreplace(tmp, target)
+        noted: list[int] = []
+        signal.signal(signal.SIGTERM, lambda signum, _frame: noted.append(signum))
+        saved_int = signal.signal(signal.SIGINT, lambda signum, _frame: noted.append(signum))
+        try:
+            rename_noreplace(tmp, target)
+            tmp = None
+        finally:
+            signal.signal(signal.SIGINT, saved_int)
     except BaseException:
-        shutil.rmtree(tmp, ignore_errors=True)
+        if tmp is not None:
+            shutil.rmtree(tmp, ignore_errors=True)
         raise
+    finally:
+        signal.signal(signal.SIGTERM, saved_term)
+    if noted:
+        raise Refused(INTERRUPTED, check="published")
     return target
+
+
+def _interrupt_publication(_signum, _frame):
+    raise Refused(INTERRUPTED, check="publish")
 
 
 def draft_path(staging: pathlib.Path, protected: list[pathlib.Path], stem: str, now: dt.datetime | None = None) -> pathlib.Path:

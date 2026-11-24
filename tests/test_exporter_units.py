@@ -452,7 +452,8 @@ def test_the_psycopg_adapter_reads_the_modifier_from_the_result_object():
 
 
 @pytest.fixture(scope="module")
-def honest_receipt():
+def honest():
+    """An honest receipt, and the repository it was rehearsed in."""
     import functools
     import exporter_world as xw
     from bi_como_codigo import envelope as e
@@ -464,10 +465,15 @@ def honest_receipt():
     try:
         fake = w.fake()
         run.export(w.root, dict(w.environ), connect=lambda _s, _a: fake, fetch_metadata=w.fetch_metadata())
-        yield (w.out / "run.json").read_bytes()
+        yield (w.out / "run.json").read_bytes(), w.root
     finally:
         w.cleanup()
         e.derive_kek = original
+
+
+@pytest.fixture(scope="module")
+def honest_receipt(honest):
+    return honest[0]
 
 
 def fixture_contract() -> V.ViewContract:
@@ -538,21 +544,15 @@ def test_the_receipt_refuses_a_non_finite_duration(honest_receipt):
 
 
 @pytest.fixture
-def evidence_root(outside, monkeypatch):
-    """A repository root with the fixture's view contract and an evidence/
-    folder, so that the destination is valid and only the receipt decides."""
-    import exporter_world as xw
+def evidence_root(honest, outside, monkeypatch):
+    """A copy of the repository the honest receipt was rehearsed in — its view
+    contract and its commits — with an evidence/ folder, so that the
+    destination is valid and only the receipt decides."""
+    import shutil
 
     root = outside / "repo"
-    (root / "release").mkdir(parents=True)
-    (root / "evidence").mkdir()
-    (root / "site").mkdir()
-    (root / "release" / "views.json").write_bytes(fw.contract_bytes(fw.load_fixture()))
-    for name in ("index.html", "releases.md"):  # the site's committed names, which the receipt may cite
-        (root / "site" / name).write_bytes((ROOT / "site" / name).read_bytes())
-    xw.git(root, "init", "-q")
-    xw.git(root, "add", "-A")
-    xw.git(root, "commit", "-qm", "the evidence root")
+    shutil.copytree(honest[1], root, symlinks=True)
+    (root / "evidence").mkdir(exist_ok=True)
     monkeypatch.setattr(cli, "ROOT", root)
     return root
 
@@ -949,3 +949,88 @@ def test_a_signal_noted_while_cleaning_ends_the_run_with_both_handlers_restored(
     os.chdir(cwd)
     monkeypatch.setattr(paths.signal, "signal", real)
     assert (sig.getsignal(sig.SIGINT), sig.getsignal(sig.SIGTERM)) == before and not list(staging.glob("run-*"))
+
+
+# --- round 3 (XIMPL-3-01 to -03) -------------------------------------------------------------------
+
+
+def _with_extra_path(raw: bytes, path: str) -> dict:
+    from bi_como_codigo import release
+
+    body = json.loads(raw)
+    body["candidate"]["files"].append({"path": path, "sha256": "0" * 64})
+    body["candidate"]["files"].sort(key=lambda f: pathlib.PurePosixPath(f["path"]).parts)
+    listing = [(f["path"], f["sha256"]) for f in body["candidate"]["files"]]
+    body["candidate"]["listing_digest"] = release.canonical_digest(listing)
+    body["candidate"]["included"] = sorted((f"site/{p}" for p, _ in listing), key=lambda p: pathlib.PurePosixPath(p).parts)
+    return body
+
+
+@pytest.mark.parametrize("path", [f"package/{MARKER}.md", f"{MARKER}.md"], ids=["under_package", "at_the_root"])
+def test_an_extra_path_never_reaches_the_evidence(honest_receipt, outside, evidence_root, path):
+    """XIMPL-3-01: under package/ only the manifest and the sealed envelopes;
+    elsewhere only names committed at the rehearsed commit."""
+    bad = outside / "named.json"
+    bad.write_text(json.dumps(_with_extra_path(honest_receipt, path)))
+    target = evidence_root / "evidence" / "20261124"
+    assert cli.main(["evidence", str(bad), str(target)], {}) == 1
+    assert not target.exists()
+
+
+def test_an_honest_receipt_survives_a_later_committed_rename(honest_receipt, outside, evidence_root):
+    """XIMPL-3-03: names are checked at the commit the run rehearsed."""
+    import exporter_world as xw
+
+    good = outside / "good.json"
+    good.write_bytes(honest_receipt)
+    assert cli.main(["evidence", str(good), str(evidence_root / "evidence" / "a")], {}) == 0
+    xw.git(evidence_root, "mv", "site/releases.md", "site/publicacoes.md")
+    include = evidence_root / "release" / "include.txt"
+    include.write_text(include.read_text().replace("site/releases.md", "site/publicacoes.md"))
+    xw.git(evidence_root, "commit", "-qam", "a rename")
+    assert cli.main(["evidence", str(good), str(evidence_root / "evidence" / "b")], {}) == 0
+
+
+_PUBLISH = """
+import os, pathlib, signal, sys
+from bi_como_codigo.exporter import Refused, paths
+target, when = pathlib.Path(sys.argv[1]), sys.argv[2]
+original_check, original_rename = paths.check, paths.rename_noreplace
+seen = []
+def check(path, protected):
+    out = original_check(path, protected)
+    if when == "writing" and pathlib.Path(path).name == "package":  # called once per file, before its write
+        seen.append(1)
+        if len(seen) == 2:
+            os.kill(os.getpid(), signal.SIGTERM)  # before the second envelope is written
+    return out
+def rename(source, dest):
+    original_rename(source, dest)
+    if when == "renamed":
+        os.kill(os.getpid(), signal.SIGTERM)  # right after the rename
+paths.check, paths.rename_noreplace = check, rename
+files = {"package/manifest.json": b"{}", **{f"package/P{i:02d}.0000000000000000.bice": b"x" for i in range(1, 17)},
+         "metadata.json": b"{}", "run.json": b"{}"}
+try:
+    paths.publish(str(target), files, [])
+    print("published")
+except Refused as refusal:
+    print(refusal.code, refusal.check)
+"""
+
+
+@pytest.mark.parametrize("when, printed, complete", [("writing", "interrupted publish", False), ("renamed", "interrupted published", True)])
+def test_a_real_sigterm_during_publication_has_a_defined_outcome(outside, when, printed, complete):
+    """XIMPL-3-02, with a real signal in a process of its own: while writing, a
+    fixed refusal and nothing left; right after the rename, a fixed refusal that
+    says the result is published, all 19 files in place."""
+    import subprocess
+
+    target = outside / "out"
+    done = subprocess.run([sys.executable, "-c", _PUBLISH, str(target), when], capture_output=True, text=True, timeout=60)
+    assert (done.returncode, done.stdout.strip(), done.stderr) == (0, printed, "")
+    assert not list(outside.glob(paths.RESULT_PREFIX + "*")), "no partial sibling"
+    if complete:
+        assert sum(1 for p in target.rglob("*") if p.is_file()) == 19
+    else:
+        assert not target.exists()

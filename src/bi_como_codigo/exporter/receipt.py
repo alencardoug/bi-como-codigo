@@ -225,7 +225,8 @@ def load(raw: bytes, views: ViewContract) -> dict:
     if reports != {v.report for v in views.views} or len(shas) != VIEW_COUNT:
         raise _bad()
 
-    cand = _obj(top["candidate"], ("listing_digest", "files", "included", "verify", "collisions_approved", "declarations"))
+    cand = _obj(top["candidate"], ("commit", "listing_digest", "files", "included", "verify", "collisions_approved", "declarations"))
+    _match(cand["commit"], re.compile(r"[0-9a-f]{40}"))  # the rehearsed commit: its names are the inventory
     files = cand["files"]
     if not isinstance(files, list) or not files:
         raise _bad()
@@ -242,8 +243,9 @@ def load(raw: bytes, views: ViewContract) -> dict:
     for item in envelopes:
         if deployed.get(f"package/{item['file']}") != item["sha256"]:
             raise _bad()  # the candidate deployed exactly the sealed envelopes
-    if sum(1 for p in deployed if p.startswith("package/") and p.endswith(".bice")) != VIEW_COUNT:
-        raise _bad()
+    sealed = {"package/manifest.json"} | {f"package/{item['file']}" for item in envelopes}
+    if {p for p in deployed if p.startswith("package/")} != sealed:
+        raise _bad()  # nothing else under package/: no other name can enter the evidence (XIMPL-3-01)
     included = cand["included"]
     if not isinstance(included, list) or [_match(i, _PATH) for i in included] != sorted({f"site/{p}" for p in deployed}, key=_parts):
         raise _bad()

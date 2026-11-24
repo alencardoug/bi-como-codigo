@@ -158,6 +158,7 @@ def candidate(root: pathlib.Path, run_dir: pathlib.Path, manifest: bytes, files:
         results.append({"live": live_digest, "passed": True})
     used = [i for i, value in enumerate(public) if value in searched]  # XIMPL-2-07: only what the gate would search
     return {
+        "commit": commit,  # XIMPL-3-03: the inventory of names the candidate was checked against
         "listing_digest": release.canonical_digest(listing),
         "files": [{"path": rel, "sha256": sha} for rel, sha in listing],
         "included": included,
