@@ -570,8 +570,8 @@ DuckDB over the clear fixture:
   has exactly the columns of §2.3 item 4, and no summary element holds any of the sums §2.1 made
   distinct;
 - logs out, and runs the after-logout part of the diagnostic (§2.5.3);
-- records every network request of every target: only the local origin and `cdn.jsdelivr.net` at
-  the declared URLs.
+- records every network request of every target: only the local origin, and `cdn.jsdelivr.net` and
+  `extensions.duckdb.org` (N98) at the declared URLs.
 
 **The check is proved to fail**: its comparator runs again on altered copies of the DOM it read —
 G's cell turned to `R$ 0,00`, G's notice blanked, Z's cell turned to the notice, a summed count
@@ -1147,8 +1147,9 @@ three — the two form refusals and the schema —, and fails the criterion for 
 **The gate's time, measured** (CMP-1-12). The gate searches each of the fixture's needles over each
 file, so its time grows with the artifact. One `verify` of the draw's artifact took 3.6 s for B and
 704 s — 11 min 44 s — for Evidence. On the controls: B's 16 runs of `verify` took 36.0 s in all, none
-over 3.7 s; Evidence's took 7,896 s — 2 h 12 min —, each of the eleven that search the whole artifact
-between 706 and 747 s, the five that stop on form or on a Parquet magic under 1.3 s.
+over 3.7 s; Evidence's took 7,896 s — 2 h 12 min —: eleven reach the gate's value search, between 706
+and 747 s each — eight of them pass it, three refuse at their added file —, and five stop on form or
+on a Parquet magic before it, under 1.3 s each.
 
 **The browser's behaviour (§2.5.3, N96: reported, not judged).** Neither decrypts before a submission
 or in the wrong attempt: five WebCrypto calls each, all as the reader allows. Nothing the journey
@@ -1194,17 +1195,21 @@ navigation times moved: B's cold navigation to summary was 4.70, 5.12 and 5.10 s
 candidate share their cache evidence and form one series, none set apart; none had an incomplete
 trace, and every sample's bytes reconciled, none unknown. **How the engine's WASM is classed**: the
 trace's WebAssembly events name no module, so the engine's are taken by time and by terminal events
-(CMP-2-08, CMP-3-08) — in every warm sample a streaming compilation finished in baseline, after the
-engine's `duckdb-eh.wasm` request was sent and before the extension was requested: for B 548 to 575 ms
-after it and 918 to 928 ms before the extension; for Evidence 0.2 to 0.3 ms after it and 1.46 to
-1.62 s before. That is an inference from the order of events, recorded with each sample, not an
-attribution the trace makes. Evidence's warm samples also carry two requests its client makes for
+(CMP-2-08, CMP-3-08, CMP-4-05) — in every warm sample one streaming compilation, started and finished
+in baseline after the engine's `duckdb-eh.wasm` request was sent and before the extension was
+requested: for B started 548 to 575 ms after the request and first `BaselineFinished` at 643 to 671 ms,
+819 to 833 ms before the extension; for Evidence started 0.2 to 0.3 ms after it and first
+`BaselineFinished` at 74 to 82 ms, 1.39 to 1.55 s before the extension. Those offsets are the ten
+archived traces replayed by the basis of CMP-4-05, which names the terminal event apart from the start;
+the run recorded the start alone. It is an inference from the order of events, not an attribution the
+trace makes. Evidence's warm samples also carry two requests its client makes for
 data it does not ship on the encrypted route — `data/manifest.json` and an `all-queries.json`, each
 `404` and aborted. Evidence's samples are ten and a half minutes apart, each priming waiting for its
 service worker to stop (§2.7). No transfer of a worker spanned a cutoff and no navigation was
 redirected in this run; the tests exercise those branches of the byte accounting on synthetic records
-(`tests/test_measure.py`), and their live pages — an HTTP and a blob worker, a slow fetch of a
-worker's URL — wait for the transfer before showing the summary, so a transfer spanning a cutoff on a
+(`tests/test_measure.py`). Their live pages exercise a worker's bootstrap, HTTP and blob, which finishes
+before the summary is shown, and a page's slow fetch of a worker's URL, which delivers no body before
+the cutoff and checks only that the journey waits for it; a worker's transfer spanning a cutoff on a
 live page was seen only in round 2's probes, the reviewer's. The warm revalidation was exercised
 (`304`, 280 wire bytes, the body's `Content-Length` reported apart).
 
