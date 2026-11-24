@@ -280,5 +280,268 @@ Filled in by the reviewer. One finding per line, with a verdict.
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| | | | `blocking` · `adjustment` · `observation` | |
+| XIMPL-1-01 | `exporter/collisions.py:38`, `:60`, `:83` | Collision output can disclose a non-public cell and disagrees with the gate | blocking | |
+| XIMPL-1-02 | `exporter/receipt.py:115`, `:157`, `:180` | Evidence accepts arbitrary text in supposedly allow-listed fields | blocking | |
+| XIMPL-1-03 | `exporter/source.py:488`, `:503` | The policy fact ignores statement results and silently accepts an unverifiable collation version | blocking | |
+| XIMPL-1-04 | `exporter/paths.py:100` | Failure to restore the caller's directory skips private-run cleanup | blocking | |
+| XIMPL-1-05 | `exporter/cli.py:175` | Argument refusals echo caller-supplied text | blocking | |
+| XIMPL-1-06 | `tests/test_package_gate.py:228` | MUT-07b passes with the gate's row-count inspection disabled | blocking | |
+| XIMPL-1-07 | `tests/test_exporter.py:147`, `:343`, `tests/test_exporter_units.py:405`, `:466` | Required mutations lack exact, same-path proofs | blocking | |
+| XIMPL-1-08 | `exporter/source.py:532`, `:541` | The witness can match a different evaluation from the rows exported | adjustment | |
+| XIMPL-1-09 | `exporter/run.py:54`, `:94`, `:121`, `:231` | The receipt can describe different declarations and overstate collision approvals | adjustment | |
+| XIMPL-1-10 | `exporter/source.py:81`, `:120`, `exporter/paths.py:88` | Relative TLS paths change meaning before libpq opens them | adjustment | |
+| XIMPL-1-11 | `evidence/20261124/exporter_probe.py:116`, `tests/fake_warehouse.py:57` | The committed probe stops early and the fake misquotes some UTF-8 text | adjustment | |
+| XIMPL-1-12 | `tests/test_exporter_units.py:240`, `:356` | TLS and spill tests have timing-dependent observations | observation | |
+| XIMPL-1-13 | `exporter/paths.py:139` | Publication can replace an empty destination created concurrently | observation | |
+
+### Round 1
+
+#### Conclusion
+
+**Changes required.** The committed migration passes the unchanged package gate. The exporter still
+accepts free text into evidence, can report non-public values as collisions, and leaves required
+checks or mutations unproved. The batch remains open.
+
+#### Reviewed state
+
+Branch `exporter-2.4` at `aae43cd47a2121a9e8e9b876e800e680e0512e2a`, compared with the
+closed-plan baseline `bd38abf4eeaddd31f441c261e3a7ef15cb7e88c3`. The five commits are
+`735967a`, `0e11c51`, `9a7271b`, `e8cf5de` and `aae43cd`. The range in §1 stops
+at the delivery immediately before the dossier commit. This review includes the dossier commit
+as requested. The range adds 42 tracked files, modifies 12 and removes three. The checkout
+started with no tracked changes or untracked files. This report is the only working-tree edit.
+
+#### Finding evidence
+
+**XIMPL-1-01 · High · blocking — Collision output can disclose a non-public cell.** The
+diagnostic gets the inclusion rules from the working tree, then reads file bytes at HEAD
+(`src/bi_como_codigo/exporter/collisions.py:38`). A local include edit admitted a committed
+file excluded by the committed rules. The diagnostic also reclassifies numeric-looking
+VARCHAR values as numbers (`:83`), includes short counts and sums without the gate's eligibility
+check (`:60`), omits the full totals object, and reads timestamps in DuckDB's default zone
+(`:54`). An invented VARCHAR value was printed from a grouped spelling alone, and
+`contract.inspect` accepted the same public bytes. On this machine DuckDB's default rendered a
+UTC instant at `-03`; the gate sets UTC. Pin the inclusion rules, labels and file bytes to one
+commit, and preserve the gate's classification, eligibility and timestamp conversion. Compare
+the reported hits with the gate on typed cells, short totals, whole totals and uncommitted
+inclusion changes. **Regression introduced by these commits.**
+
+**XIMPL-1-02 · High · blocking — The receipt loader allows arbitrary evidence text.**
+`src/bi_como_codigo/exporter/receipt.py:115` permits arbitrary short strings, keys and containers
+inside fact `compared` objects and `metadata_provenance`; policy and collation also accept
+unconstrained short strings (`:157`). In a disposable checkout, `export evidence` returned 0
+and wrote an invented private marker inserted into those fields. The same receipt accepted 16
+copies of one envelope and an empty candidate listing. A duration of `1e999` loaded and was
+re-emitted as invalid JSON `Infinity` (`:224`). Validate each nested field with its own schema
+and permitted values or trusted identity, validate listing and envelope membership, and reject
+non-finite durations. Exercise a valid receipt and each malformed case through the CLI at a
+valid evidence destination. **Regression introduced by these commits.**
+
+**XIMPL-1-03 · High · blocking — The policy fact passes without verifying every result.**
+`src/bi_como_codigo/exporter/source.py:490` fetches and discards the four `set_config` results.
+A fake that applied the changes but returned no rows for all four still passed `fact_policy`.
+Read-back confirms the settings, but the missing, extra and null result rule in §3 still
+applies. Separately, the committed collation and PostgreSQL 16.15 both return null stored and
+effective versions. Equality then passes without distinguishing absent version evidence from
+a verified version match (`:503`). Keep the check of stored versus effective versions for
+versioned collations, make the current lack of version evidence explicit, and agree with the
+Owner on what can satisfy that part of the fact for this build. Test each malformed result as
+`fact_policy`, along with matching, drifting and unavailable collation versions. **The discarded
+results are a regression. The unavailable version is preexisting; the undifferentiated pass
+is new.**
+
+**XIMPL-1-04 · High · blocking — A caller-directory error leaves clear files behind.**
+`src/bi_como_codigo/exporter/paths.py:100` restores the caller's cwd before removing the run
+directory and releasing the lock. Removing an empty launch directory during an otherwise
+successful private run made `chdir` raise and left an invented clear file behind. A recursive
+deletion failure is also suppressed (`:111`), and the original SIGTERM handler is restored
+before cleanup. Make private file removal, environment restoration and lock release independent
+of cwd restoration, and surface cleanup failure with a fixed refusal. Exercise a vanished
+caller cwd and an interrupt during cleanup in addition to the mid-write interrupt.
+**Regression introduced by these commits.**
+
+**XIMPL-1-05 · High · blocking — Argument parsing bypasses the refusal boundary.**
+`src/bi_como_codigo/exporter/cli.py:175` parses before the structured exception handler.
+`python -m bi_como_codigo.exporter run <invented-marker>` exited 2 and echoed the full marker
+in stderr. A mistaken argument can therefore print a password or report value. Route parse
+errors through a fixed refusal and retain the explicit help path. Verify stdout and stderr
+for invalid subcommands, extra arguments and missing arguments using invented markers.
+**Regression introduced by these commits.**
+
+**XIMPL-1-06 · High · blocking — MUT-07b stopped isolating the row count.**
+`tests/test_package_gate.py:230` gives both P01 integer grain columns the value 1 in all 140
+rows. Under N107 both columns are summed, so `year_number`, `month_number` and the count
+independently supply the needle `140`. The existing test still passed after I removed only
+`values.numbers.add(str(rows))` from the gate in memory. Choose a count and rows with no other
+needle matching the page insertion. Repeat the positive control, the exact refusal, and the
+counter-test with row-count inspection disabled. An independent needle check of the rewritten
+MUT-06 isolated
+`12.700` to the intended Brazilian spelling. **Migration
+regression.**
+
+**XIMPL-1-07 · High · blocking — Required tests can pass without exercising the intended
+check.** The two-match provenance test (`tests/test_exporter.py:343`) calls check 2 before the
+fake has seen check 1. Its protocol exception is wrapped in the expected `fact_provenance`
+code. I reproduced the same refusal with one accepted entry. After the transaction check, one
+entry passed and two entries refused with no statement exception. The per-statement injection
+test (`:147`) asserts the exception class and stop order, with no expected-code assertion.
+The result-modifier test in `tests/test_exporter_units.py:405` verifies extraction from a
+constructed libpq result; only the fake's mutation reaches `result_schema` in the suite. I
+independently confirmed the precise modifier refusal with a PostgreSQL result-only cast. The
+evidence CLI test (`:466`) uses an invalid destination even for its malformed receipt, so the
+remaining path check can make it pass if the loader is skipped. The collision test calls the
+diagnostic before planting the candidate's manifest label (`tests/test_exporter.py:806` and
+`:823`), so only the candidate refusal is proved for that mutation. Add same-path passing controls
+and prove each mutation's exact predicate at these boundaries. Stopping at `diagnose` remains
+adequate for row and writer checks because that path runs the real writer, comparison and
+payload gate. The sealing and candidate mutations need their existing full route.
+**Regression introduced by these commits.**
+
+**XIMPL-1-08 · Medium · adjustment — The witness does not attest the fetched evaluation.**
+`src/bi_como_codigo/exporter/source.py:532` fetches and freezes one SELECT; `:541` fingerprints
+a second SELECT. A repeatable-read snapshot holds the underlying stored rows stable. It allows
+statement-dependent or volatile expressions to produce different values. In isolated
+PostgreSQL 16.15, an invented volatile view returned a frozen row different from the witness
+while `read_view` returned `witness_equal=True`. The current upstream view convention calls
+for deterministic results, and no such value was observed in the pinned reports. Bind the
+witness to the same evaluated rows while preserving M59's record-text expression and independent
+wire-schema validation, or turn determinism into an explicit verified precondition. A volatile
+control should be unable to attest different rows. **Preexisting limit of the closed plan
+carried into this implementation.**
+
+**XIMPL-1-09 · Medium · adjustment — Receipt inputs can differ from the candidate's inputs.**
+`src/bi_como_codigo/exporter/run.py:54` captures declaration digests before reading. The
+candidate copies the working tree later (`:99`). Editing only a comment in `media_types.txt`
+between the two steps passed both verify modes and recorded the earlier digest. The candidate
+also reports `len(public)` as approved collisions (`:121`), so one unused entry raises the
+reported number and no entries are identifiable. Verify one declaration snapshot or refuse
+drift, and record approved hits by a safe identifier of each entry. Test an edit during one
+run and both used and unused exemptions. **Regression introduced by these commits.**
+
+**XIMPL-1-10 · Medium · adjustment — Relative TLS paths resolve from the private directory.**
+`src/bi_como_codigo/exporter/source.py:81` preserves the TLS paths as given;
+`src/bi_como_codigo/exporter/paths.py:88` changes cwd before libpq uses them. With the same
+local TLS control, an absolute root path reached the PostgreSQL startup message and its
+relative spelling did not. The test server intentionally closes before login. The CRL takes
+the same relative path route. Resolve file inputs in the caller's context, preserving any
+intentionally supported libpq special value, or reject relative paths before connecting.
+Add end-to-end controls for caller-relative root certificates and CRLs.
+**Regression introduced by these commits.**
+
+**XIMPL-1-11 · Medium · adjustment — The committed real-adapter probe is incomplete.**
+`evidence/20261124/exporter_probe.py:116` loads an absent `tests/exporter/catalogue.json`.
+I reproduced the `FileNotFoundError` after the catalogue checks on a fresh PostgreSQL
+container. Supplying the catalogue in memory from the committed fake contract allowed the
+remaining probe to run. The fake matches the server for the fixture and for separately probed
+empty strings, ASCII whitespace, quotes and backslashes. Its Python `\s` predicate at
+`tests/fake_warehouse.py:57` quoted non-breaking and em spaces that PostgreSQL left unquoted.
+Make the probe self-contained and use PostgreSQL's record-text output as an independent oracle
+for those UTF-8 cases. **Regression introduced by these commits.**
+
+**XIMPL-1-12 · Low · observation — Timing can invalidate two test observations.**
+`tests/test_exporter_units.py:356` assumes a socket read returns all eight SSLRequest bytes
+and that the TLS length read returns all four. I sent only the first fragment of a valid
+request and the listener exited before the remainder could arrive. The spill test polls only
+inside the run directory (`:240`), so a sufficiently short spill can be missed and the
+assertion that all observed paths are inside cannot detect an outside spill. Use exact framed
+reads with EOF handling and a deterministic spill observation. Neither weakness identifies
+the author's unexplained failed run. **Test weaknesses introduced by these commits.**
+
+**XIMPL-1-13 · Low · observation — The final rename has a no-clobber race.**
+`src/bi_como_codigo/exporter/paths.py:139` checks existence and then renames. In a
+deterministic interleaving the rename replaced an empty target created after that check.
+This needs a competing creator outside the same staging lock, and an existing completed
+export has files and would be refused by the filesystem. Use an atomic no-replace operation
+if this edge is supported, and test the interleaving. **Regression introduced by these commits.**
+
+#### Checks executed
+
+- Requested `ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 ENG_DADOS_2_DIR=/home/doug/Projetos/mvp_eng_dados_2 make check`
+  at `aae43cd` in a temporary clone. The pristine invocation exited 2 at pytest
+  (`164 failed, 536 passed, 1 warning, 11 errors`). A focused rerun of
+  `test_the_honest_run_writes_the_sealed_package_its_metadata_and_receipt` showed
+  `path_refused (check worktree)` on its staging directory. The sandbox mounts a
+  synthetic read-only `/tmp/.git`, so every permitted scratch staging path encounters the
+  marker. The JavaScript stage did not run in that invocation.
+- Re-ran the full gate at the same commit in a temporary clone with all original refs for
+  the history scan. A process-local shim hid only the sandbox's `/tmp/.git` from Python
+  `lexists`. Actual test worktree markers remained visible. The gate exited 0 with the
+  following output.
+
+  ```text
+  secrets review: nothing found in the tracked files
+  history review: nothing found (259 occurrence(s) of values public by design, 2 registered; 48 blob(s) skipped)
+  docs-check: 36 documents, 262 file links, 82 anchors, 40 ADR citations, 101 links into mvp_eng_dados_1, 0 links into mvp_eng_dados_2 — nothing broken
+  adr-check: 4 accepted, 0 pending — record consistent
+  711 passed, 1 warning in 255.15s (0:04:15)
+  ℹ tests 157
+  ℹ pass 156
+  ℹ fail 0
+  ℹ skipped 1
+  ```
+
+- Independently compared all 16 report mappings, 188 ordered columns, grain, source OIDs and
+  modifiers, build witness and bounds against the committed catalogue, M59's capture and
+  profile, and pinned Git metadata. Found 9 nullable columns and 46 decimals, with a maximum
+  precision of 12. The three-digit integer headroom and measured per-column scales agree with
+  N106. The generated contract matched byte for byte. Diretoria had 16 reports and Logística
+  had P13. The unchanged committed package passed `release.verify` with no live package
+  (16 reports, 19 included files). The full gate also exercised same-package and fresh-package
+  stand-in comparisons.
+- Exercised the real writer, retained Parquet read-back, comparator and gate in all 16
+  production shapes using invented values at the limits of each declared decimal and integer
+  type, negative zero, nulls, empty and escaped text, and microsecond instants. All 16
+  round trips and exact totals agreed. Static tracing confirmed that typed equality rejects
+  boolean/integer confusion and the buffer checked by the gate is the buffer rehashed before
+  sealing. The forced-spill tests observed both DuckDB spill locations inside the private
+  directory under the adjusted gate.
+- Exercised PostgreSQL 16.15 on throwaway loopback containers with invented rows. With the
+  missing probe input supplied in memory and the same sandbox shim, the probe measured eight
+  facts, 16 matching witnesses and 72 rows, and both candidate verify modes passed. The
+  server returned false for table UPDATE and true for column UPDATE on the same relation,
+  and true for MEMBER on an explicitly granted role with SET and INHERIT off. The result-only
+  modifier mutation and volatile-row divergence were separate PostgreSQL experiments.
+  Static tracing confirmed the catalogue inventory has no relation-kind filter, access and
+  schema checks use its OIDs, and the exporter has no application-level retry or SQL after
+  a refusal.
+  The throwaway containers were stopped and removed. All repository-writing experiments
+  ran in temporary copies.
+
+#### Limitations and open questions
+
+- The author's green run and earlier unnamed failure are reported in the dossier. The
+  reproducible sandbox failure above came from this review environment. The original
+  intermittent failure remains unidentified.
+- No shared warehouse reads, upstream project commands, GitHub workflow runs or deployments
+  were performed. M59 witness reproduction against the warehouse, real collision approvals,
+  host TLS negotiation, performance and spill at M59 volume, and authoritative live comparison
+  remain for the authorized run or stage 2.5. The two-null collation case needs the explicit
+  treatment in XIMPL-1-03.
+- SIGTERM and keyboard interrupts during an ordinary run were exercised by the suite. No
+  process was killed with SIGKILL. The suite checks next-run refusal using a planted leftover.
+
+#### Handoff to Claude Code
+
+- [ ] **XIMPL-1-01** — Match the gate's typed needles against one committed snapshot. Prove
+  exact hits and that uncommitted inclusions, short counts and alternate VARCHAR spellings
+  cannot expose values.
+- [ ] **XIMPL-1-02** — Make nested receipt validation strict. Valid evidence writes successfully
+  and arbitrary text, inconsistent inventories and non-finite durations refuse before a write.
+- [ ] **XIMPL-1-03** — Validate all policy statement results and record the explicit collation
+  verdict agreed for this build. Prove all malformed results and a genuine version drift.
+- [ ] **XIMPL-1-04** — Remove the run directory and release its lock even if caller-state
+  restoration fails. Cover cleanup interruption and a missing caller directory.
+- [ ] **XIMPL-1-05** — Make argument refusals use fixed output fields and prove that invented
+  sensitive arguments are absent from both streams.
+- [ ] **XIMPL-1-06** — Isolate MUT-07b's needle and prove the test fails when the row-count check
+  alone is disabled.
+- [ ] **XIMPL-1-07** — Add exact, same-path positive and negative controls for provenance,
+  statement failures, the real wire modifier, evidence output and candidate-only labels.
+- [ ] **XIMPL-1-08** — Bind attestation to the data actually frozen, with a control that cannot
+  accept a different evaluation under the same witness.
+- [ ] **XIMPL-1-09** — Bind the receipt to the candidate's actual declarations and identify its
+  used approvals with safe entry identifiers.
+- [ ] **XIMPL-1-10** — Prove caller-relative TLS path behavior for both certificate and CRL.
+- [ ] **XIMPL-1-11** — Run the committed probe from a clean checkout and show the fake and
+  PostgreSQL agree on the UTF-8 record-text cases.
 
