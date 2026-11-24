@@ -78,14 +78,25 @@ def settings(environ: dict[str, str]) -> Settings:
         user=need("BICE_WAREHOUSE_USER"),
         password=need("BICE_WAREHOUSE_PASSWORD"),
         sslmode=need("BICE_WAREHOUSE_SSLMODE"),
-        sslrootcert=environ.get("BICE_WAREHOUSE_SSLROOTCERT") or None,
-        sslcrl=environ.get("BICE_WAREHOUSE_SSLCRL") or None,
+        sslrootcert=_tls_path(environ.get("BICE_WAREHOUSE_SSLROOTCERT"), allow_system=True),
+        sslcrl=_tls_path(environ.get("BICE_WAREHOUSE_SSLCRL")),
     )
     if not found.port.isdigit() or found.sslmode not in SSLMODES:
         raise Refused(ENVIRONMENT_INVALID, check="BICE_WAREHOUSE_PORT" if not found.port.isdigit() else "BICE_WAREHOUSE_SSLMODE")
     if found.sslmode in VERIFYING and not found.sslrootcert:
         raise Refused(TLS_ROOT_REQUIRED)
     return found
+
+
+def _tls_path(value: str | None, allow_system: bool = False) -> str | None:
+    """A TLS file the Owner names, resolved where it was named: the run changes
+    its working directory before libpq opens it (XIMPL-1-10). libpq's special
+    root `system` stays as it is."""
+    if not value:
+        return None
+    if allow_system and value == "system":
+        return value
+    return os.path.abspath(value)
 
 
 def scrub_environment(environ) -> list[str]:
@@ -259,16 +270,33 @@ def q_count(view: str) -> str:
     return f"SELECT count(*) FROM {SCHEMA}.{_ident(view)}"
 
 
+#: The column the rows statement adds: M55's fingerprint over the same rows.
+FINGERPRINT_COLUMN = ("bice_fingerprint", 25, -1)  # text, no modifier
+EMPTY_FINGERPRINT = "d41d8cd98f00b204e9800998ecf8427e"  # md5(''): M55's expression over no row
+
+
+def m55_expression(alias: str) -> str:
+    """M55's exact expression (§3, the witness), over a row alias."""
+    return f"md5(coalesce(string_agg({alias}::text, E'\\n' ORDER BY {alias}::text), ''))"
+
+
 def q_rows(view: View) -> str:
-    return f"SELECT {', '.join(_ident(n) for n in view.names)} FROM {SCHEMA}.{_ident(view.view)}"
+    """N112: one statement materializes the view once and returns its rows, in
+    the contract's column order, with M55's fingerprint computed over those same
+    rows — so the witness attests exactly what is frozen. The contract's columns
+    are every column of the view (check 7), so each row's record text is the
+    view's own."""
+    columns = ", ".join(_ident(n) for n in view.names)
+    return (
+        f"WITH t AS MATERIALIZED (SELECT {columns} FROM {SCHEMA}.{_ident(view.view)}) "
+        f"SELECT {columns}, (SELECT {m55_expression('w')} FROM t AS w) AS {FINGERPRINT_COLUMN[0]} FROM t"
+    )
 
 
 def q_fingerprint(view: str) -> str:
-    """M55's exact expression, under the policy check 8 set (§3, the witness)."""
-    return (
-        "SELECT count(*), md5(coalesce(string_agg(t::text, E'\\n' ORDER BY t::text), ''))"
-        f" FROM {SCHEMA}.{_ident(view)} t"
-    )
+    """M55's statement as M59 ran it, over the view itself: the probe compares it
+    with the fingerprint of `q_rows`, never the exporter."""
+    return f"SELECT count(*), {m55_expression('t')} FROM {SCHEMA}.{_ident(view)} t"
 
 
 # --- the read ---------------------------------------------------------------------------------
@@ -303,30 +331,30 @@ class Read:
 
 
 class _Session:
-    """Every statement through one place: a failure refuses with its code and
-    the run issues nothing after it."""
+    """Every statement through one place. A statement that fails refuses with
+    `statement_failed` and the name of the statement, and the run issues
+    nothing after it; a result of the wrong shape refuses with its fact's code."""
 
     def __init__(self, source: Source):
         self.source = source
 
-    def query(self, sql: str, params: tuple = (), *, code: str = STATEMENT_FAILED, view: str | None = None) -> list[tuple]:
+    def query(self, sql: str, params: tuple = (), *, check: str, view: str | None = None) -> list[tuple]:
         try:
             self.source.execute(sql, params)
             return self.source.fetchall()
         except Refused:
             raise
         except Exception as exc:
-            raise Refused(code, view, "statement", type(exc).__name__) from None
+            raise Refused(STATEMENT_FAILED, view, check, type(exc).__name__) from None
 
-    def described(self, sql: str, view: str) -> tuple[list[tuple[str, int, int]], list[tuple]]:
+    def described(self, sql: str, view: str) -> list[tuple[str, int, int]]:
         try:
             self.source.execute(sql)
-            fields = self.source.fields()
+            return self.source.fields()
         except Refused:
             raise
         except Exception as exc:
-            raise Refused(STATEMENT_FAILED, view, "statement", type(exc).__name__) from None
-        return fields, []
+            raise Refused(STATEMENT_FAILED, view, "rows", type(exc).__name__) from None
 
     def fetch(self, view: str) -> list[tuple]:
         try:
@@ -334,7 +362,7 @@ class _Session:
         except Refused:
             raise
         except Exception as exc:
-            raise Refused(STATEMENT_FAILED, view, "statement", type(exc).__name__) from None
+            raise Refused(STATEMENT_FAILED, view, "rows", type(exc).__name__) from None
 
 
 def _bools(row: tuple, start: int, code: str) -> None:
@@ -349,7 +377,7 @@ def _one(rows: list[tuple], code: str) -> tuple:
 
 
 def check_transaction(s: _Session) -> tuple[Fact, dt.datetime]:
-    isolation, read_only, read_at = _one(s.query(Q_TRANSACTION), FACT_TRANSACTION)
+    isolation, read_only, read_at = _one(s.query(Q_TRANSACTION, check="transaction"), FACT_TRANSACTION)
     if isolation != "repeatable read" or read_only != "on" or not isinstance(read_at, dt.datetime) or read_at.tzinfo is None:
         raise Refused(FACT_TRANSACTION)
     return Fact(FACT_TRANSACTION, True, {"isolation": isolation, "read_only": read_only}), read_at
@@ -357,7 +385,7 @@ def check_transaction(s: _Session) -> tuple[Fact, dt.datetime]:
 
 def provenance_row(s: _Session) -> dict:
     """Exactly one row of `governance.warehouse_provenance`, `verified`."""
-    status, invocation, commit, sequence = _one(s.query(Q_PROVENANCE, code=FACT_PROVENANCE), FACT_PROVENANCE)
+    status, invocation, commit, sequence = _one(s.query(Q_PROVENANCE, check="provenance"), FACT_PROVENANCE)
     if status != "verified" or not isinstance(invocation, str) or not isinstance(commit, str) or type(sequence) is not int:
         raise Refused(FACT_PROVENANCE)
     return {"status": status, "built_from_commit": commit, "invocation_id": invocation, "sequence": sequence}
@@ -378,7 +406,7 @@ def check_provenance(s: _Session, contract: ViewContract) -> tuple[Fact, Build, 
 
 
 def check_login(s: _Session, login: str) -> Fact:
-    session_user, current_user = _one(s.query(Q_LOGIN), FACT_LOGIN)
+    session_user, current_user = _one(s.query(Q_LOGIN, check="login"), FACT_LOGIN)
     if session_user != login or current_user != login:
         raise Refused(FACT_LOGIN)
     return Fact(FACT_LOGIN, True, {"session_user": session_user, "current_user": current_user})
@@ -389,7 +417,7 @@ def measure_roles(s: _Session) -> tuple[list[tuple[str, str, bool, bool]], dict[
     with each edge's options, and each role's `rolcanlogin`. An edge with
     `admin_option`, or a role with superuser, CREATEROLE, CREATEDB, REPLICATION
     or BYPASSRLS, refuses here, whatever the contract says."""
-    edges = s.query(Q_MEMBERSHIPS, code=FACT_ROLES)
+    edges = s.query(Q_MEMBERSHIPS, check="memberships")
     for row in edges:
         if len(row) != 5 or not all(isinstance(v, str) for v in row[:2]):
             raise Refused(FACT_ROLES)
@@ -397,7 +425,7 @@ def measure_roles(s: _Session) -> tuple[list[tuple[str, str, bool, bool]], dict[
         if row[2]:
             raise Refused(FACT_ROLES)  # admin_option is never true
     found = sorted((m, r, inherit, set_) for m, r, _admin, inherit, set_ in edges)
-    attributes = s.query(Q_ROLE_ATTRIBUTES, code=FACT_ROLES)
+    attributes = s.query(Q_ROLE_ATTRIBUTES, check="role_attributes")
     can_login: dict[str, bool] = {}
     for row in attributes:
         if len(row) != 7 or not isinstance(row[0], str):
@@ -428,7 +456,7 @@ def check_roles(s: _Session, contract: ViewContract) -> Fact:
 
 
 def check_inventory(s: _Session, names: set[str]) -> tuple[Fact, dict[str, int]]:
-    rows = s.query(Q_INVENTORY, (SCHEMA,), code=FACT_INVENTORY)
+    rows = s.query(Q_INVENTORY, (SCHEMA,), check="inventory")
     found: dict[str, tuple[int, str]] = {}
     for row in rows:
         if len(row) != 3 or type(row[0]) is not int or not isinstance(row[1], str) or not isinstance(row[2], str) or row[1] in found:
@@ -441,7 +469,7 @@ def check_inventory(s: _Session, names: set[str]) -> tuple[Fact, dict[str, int]]
 
 
 def check_access(s: _Session, oids: dict[str, int]) -> Fact:
-    rows = s.query(Q_ACCESS, (sorted(oids.values()),), code=FACT_ACCESS)
+    rows = s.query(Q_ACCESS, (sorted(oids.values()),), check="access")
     by_oid = {}
     for row in rows:
         if len(row) != 1 + len(TABLE_PRIVILEGES) + len(COLUMN_PRIVILEGES) + 1 or type(row[0]) is not int or row[0] in by_oid:
@@ -459,14 +487,14 @@ def check_access(s: _Session, oids: dict[str, int]) -> Fact:
         if not table["SELECT"] or any(table[p] for p in TABLE_PRIVILEGES[1:]) or any(column.values()) or owner_reachable:
             raise Refused(FACT_ACCESS, name)
         compared[name] = {"table": table, "any_column": column, "owner_reachable": owner_reachable}
-    usage, create = _one(s.query(Q_SCHEMA_ACCESS, (SCHEMA, SCHEMA), code=FACT_ACCESS), FACT_ACCESS)
+    usage, create = _one(s.query(Q_SCHEMA_ACCESS, (SCHEMA, SCHEMA), check="schema_access"), FACT_ACCESS)
     if type(usage) is not bool or type(create) is not bool or not usage or create:
         raise Refused(FACT_ACCESS, check="schema")
     return Fact(FACT_ACCESS, True, {"views": compared, "schema": {"USAGE": usage, "CREATE": create}})
 
 
 def read_attributes(s: _Session, oids: dict[str, int], code: str = FACT_SCHEMA) -> dict[str, list[tuple[str, int, int]]]:
-    rows = s.query(Q_ATTRIBUTES, (sorted(oids.values()),), code=code)
+    rows = s.query(Q_ATTRIBUTES, (sorted(oids.values()),), check="attributes")
     names = {oid: name for name, oid in oids.items()}
     found: dict[str, list[tuple[str, int, int]]] = {name: [] for name in oids}
     for row in rows:
@@ -485,25 +513,42 @@ def check_schema(s: _Session, contract: ViewContract, oids: dict[str, int]) -> F
     return Fact(FACT_SCHEMA, True, {"views": {name: [list(c) for c in cols] for name, cols in sorted(found.items())}})
 
 
+def collation_verdict(collation: dict, actual, build: Build) -> str:
+    """N111: the build's collation exactly, and its version explicit — `verified`
+    when the stored and the effective versions are present and equal, and
+    `unavailable` when the build declares none and neither is reported. A
+    version that appears where the build declares none, or a stored and an
+    effective that differ, refuses."""
+    if collation != build.collation:
+        raise Refused(FACT_POLICY, check="collation")
+    stored = collation["datcollversion"]
+    if stored is None and actual is None:
+        return "unavailable"
+    if stored is not None and actual == stored:
+        return "verified"
+    raise Refused(FACT_POLICY, check="collation_version")  # drifted, or appeared under a build with none
+
+
 def check_policy(s: _Session, build: Build) -> tuple[Fact, dict, dict]:
     for key in POLICY_KEYS:
-        s.query(Q_SET_POLICY, (key, build.policy[key]), code=FACT_POLICY)
-    row = _one(s.query(Q_POLICY, code=FACT_POLICY), FACT_POLICY)
+        result = s.query(Q_SET_POLICY, (key, build.policy[key]), check="set_policy")
+        if len(result) != 1 or len(result[0]) != 1 or not isinstance(result[0][0], str):
+            raise Refused(FACT_POLICY, check="set_policy")  # missing, extra or null
+    row = _one(s.query(Q_POLICY, check="policy"), FACT_POLICY)
     if len(row) != len(POLICY_KEYS) + 2 or any(not isinstance(v, str) for v in row):
         raise Refused(FACT_POLICY)
     policy = dict(zip(POLICY_KEYS, row[: len(POLICY_KEYS)]))
     server_encoding, client_encoding = row[len(POLICY_KEYS) :]
     if policy != build.policy or server_encoding != "UTF8" or client_encoding != "UTF8":
         raise Refused(FACT_POLICY, check="settings")
-    collation_row = _one(s.query(Q_COLLATION, code=FACT_POLICY), FACT_POLICY)
-    if len(collation_row) != len(COLLATION_KEYS) + 1:
+    collation_row = _one(s.query(Q_COLLATION, check="collation"), FACT_POLICY)
+    if len(collation_row) != len(COLLATION_KEYS) + 1 or any(v is not None and not isinstance(v, str) for v in collation_row):
         raise Refused(FACT_POLICY)
     collation = dict(zip(COLLATION_KEYS, collation_row[: len(COLLATION_KEYS)]))
     actual = collation_row[-1]
-    if collation != build.collation or actual != collation["datcollversion"]:
-        raise Refused(FACT_POLICY, check="collation")  # a library updated under a stored version
+    verdict = collation_verdict(collation, actual, build)
     read_back = {**policy, "server_encoding": server_encoding, "client_encoding": client_encoding}
-    collation_read = {**collation, "actual_version": actual}
+    collation_read = {**collation, "actual_version": actual, "version": verdict}
     return Fact(FACT_POLICY, True, {"settings": read_back, "collation": collation_read}), read_back, collation_read
 
 
@@ -522,29 +567,32 @@ def facts(s: _Session, contract: ViewContract):
 
 def read_view(s: _Session, view: View, build: Build, freeze: Callable) -> ViewRead:
     """§3, the rows, then §6 on the frozen reference, then the witness."""
-    (count,) = _one(s.query(q_count(view.view), view=view.view), STATEMENT_FAILED)
+    (count,) = _one(s.query(q_count(view.view), check="count", view=view.view), SIZE_OVER)
     if type(count) is not int:
-        raise Refused(STATEMENT_FAILED, view.view)
+        raise Refused(SIZE_OVER, view.view, "size")
     if count > view.max_rows:
         raise Refused(SIZE_OVER, view.view, "size")  # before any row is fetched
     if count == 0 and not view.may_be_empty:
         raise Refused(SIZE_EMPTY, view.view, "size")
-    fields, _ = s.described(q_rows(view), view.view)
+    fields = s.described(q_rows(view), view.view)
     declared = [(col.name, col.source_oid, col.source_typmod) for col in view.columns]
-    if fields != declared:
+    if fields != [*declared, FINGERPRINT_COLUMN]:
         raise Refused(RESULT_SCHEMA, view.view, "schema")  # before any row is read
-    rows = s.fetch(view.view)
-    if len(rows) != count:
-        raise Refused(SIZE_OVER if len(rows) > count else SIZE_EMPTY, view.view, "size")
-    frozen = freeze(view, rows)
-    witness_rows, witness_md5 = build.witness[view.view]
-    got_rows, got_md5 = _one(s.query(q_fingerprint(view.view), view=view.view), STATEMENT_FAILED)
-    if type(got_rows) is not int or not isinstance(got_md5, str):
-        raise Refused(STATEMENT_FAILED, view.view)
-    equal = got_rows == witness_rows and got_md5 == witness_md5 and got_rows == count
-    if not equal:
+    raw = s.fetch(view.view)
+    if len(raw) != count:
+        raise Refused(SIZE_OVER if len(raw) > count else SIZE_EMPTY, view.view, "size")
+    width = len(view.columns)
+    if any(not isinstance(r, tuple) or len(r) != width + 1 for r in raw):
+        raise Refused(RESULT_SCHEMA, view.view, "schema")
+    fingerprints = {r[width] for r in raw}
+    if raw and (len(fingerprints) != 1 or not isinstance(next(iter(fingerprints)), str)):
         raise Refused(WITNESS_MISMATCH, view.view, "witness")
-    return ViewRead(view, count, got_md5, equal, frozen)
+    got_md5 = next(iter(fingerprints)) if raw else EMPTY_FINGERPRINT
+    frozen = freeze(view, [r[:width] for r in raw])
+    witness_rows, witness_md5 = build.witness[view.view]
+    if len(raw) != witness_rows or got_md5 != witness_md5:
+        raise Refused(WITNESS_MISMATCH, view.view, "witness")  # after §6, so a row's own check comes first
+    return ViewRead(view, len(raw), got_md5, True, frozen)
 
 
 def read(source: Source, contract: ViewContract, freeze: Callable, clock=None) -> Read:
@@ -584,10 +632,10 @@ def catalogue(source: Source, login: str, names: set[str], provenance: dict) -> 
     _fact, oids = check_inventory(s, names)
     check_access(s, oids)
     attributes = read_attributes(s, oids)
-    settings_row = _one(s.query(Q_POLICY, code=FACT_POLICY), FACT_POLICY)
+    settings_row = _one(s.query(Q_POLICY, check="policy"), FACT_POLICY)
     if len(settings_row) != len(POLICY_KEYS) + 2 or any(not isinstance(v, str) for v in settings_row):
         raise Refused(FACT_POLICY)
-    collation_row = _one(s.query(Q_COLLATION, code=FACT_POLICY), FACT_POLICY)
+    collation_row = _one(s.query(Q_COLLATION, check="collation"), FACT_POLICY)
     if len(collation_row) != len(COLLATION_KEYS) + 1:
         raise Refused(FACT_POLICY)
     try:

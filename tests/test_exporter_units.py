@@ -19,7 +19,6 @@ import struct
 import sys
 import tempfile
 import threading
-import time
 from decimal import Decimal
 
 import pytest
@@ -237,46 +236,28 @@ def test_publish_renames_into_place_and_refuses_an_existing_destination(outside)
     assert not list(outside.glob(paths.RESULT_PREFIX + "*"))
 
 
-def _spill(con_factory, run_dir: pathlib.Path, watched: list[pathlib.Path]) -> set[pathlib.Path]:
-    """Runs a sort that cannot fit in memory and polls for spilled files."""
-    seen: set[pathlib.Path] = set()
-    done = threading.Event()
-
-    def poll():
-        while not done.is_set():
-            for root in watched:
-                for dirpath, _d, files in os.walk(root):
-                    for f in files:
-                        seen.add(pathlib.Path(dirpath) / f)
-            time.sleep(0.005)
-
-    t = threading.Thread(target=poll)
-    t.start()
-    try:
-        con = con_factory()
-        con.execute("SELECT i, s FROM (SELECT range AS i, md5(range::VARCHAR) || md5((range * 7)::VARCHAR) AS s FROM range(600000)) ORDER BY s").fetchall()
-        con.close()
-    finally:
-        done.set()
-        t.join()
-    return seen
+def _spilled(con) -> list[pathlib.Path]:
+    """DuckDB's own list of its temporary files, while a temporary table larger
+    than the memory limit holds them: deterministic, no polling (XIMPL-1-12)."""
+    con.execute("CREATE TEMP TABLE big AS SELECT range AS i, md5(range::VARCHAR) || md5((range * 7)::VARCHAR) AS s FROM range(1500000)")
+    return [pathlib.Path(os.path.realpath(p)) for (p,) in con.execute("SELECT path FROM duckdb_temporary_files()").fetchall()]
 
 
 def test_a_forced_spill_stays_inside_the_run_directory_in_the_exporter_and_in_the_gate(outside, monkeypatch):
     staging = outside / "staging"
     staging.mkdir()
-    elsewhere = pathlib.Path(tempfile.gettempdir())
-    before = {p for p in elsewhere.glob("*.tmp")} | {p for p in pathlib.Path.cwd().glob(".tmp")}
     with paths.RunDirectory(staging, [ROOT]) as run_dir:
-        spilled = _spill(lambda: W.connect(run_dir, memory_limit="32MB"), run_dir, [run_dir])
-        assert any("duckdb.tmp" in p.parts for p in spilled), "the exporter's DuckDB spilled into its temp_directory"
+        exporter = W.connect(run_dir, memory_limit="32MB")
+        spilled = _spilled(exporter)
+        assert spilled and all(run_dir / "duckdb.tmp" in p.parents for p in spilled), spilled
         monkeypatch.setattr(c, "MEMORY_LIMIT", "32MB")
-        gate = _spill(c._connect, run_dir, [run_dir])
-        assert any(".tmp" in p.parts for p in gate), "the gate's in-memory DuckDB spilled under the working directory"
-        assert all(run_dir in p.parents for p in spilled | gate)
-    assert not run_dir.exists()
-    after = {p for p in elsewhere.glob("*.tmp")} | {p for p in pathlib.Path.cwd().glob(".tmp")}
-    assert after <= before
+        gate = c._connect()  # the gate's own connection: in memory, spilling under the working directory
+        gate_spilled = _spilled(gate)
+        assert gate_spilled and all(run_dir / ".tmp" in p.parents for p in gate_spilled), gate_spilled
+        assert all(p.exists() for p in spilled + gate_spilled)
+        exporter.close()
+        gate.close()
+    assert not run_dir.exists() and not any(p.exists() for p in spilled + gate_spilled)
 
 
 # --- §3: the environment, the parameters, TLS -------------------------------------------------------
@@ -353,20 +334,29 @@ class TlsServer:
         self.thread = threading.Thread(target=self._serve, daemon=True)
         self.thread.start()
 
+    @staticmethod
+    def _exactly(sock, n: int) -> bytes:
+        """`n` bytes, however the stream splits them; EOF first is an error (XIMPL-1-12)."""
+        out = b""
+        while len(out) < n:
+            chunk = sock.recv(n - len(out))
+            if not chunk:
+                raise EOFError
+            out += chunk
+        return out
+
     def _serve(self):
         with contextlib.suppress(Exception):
             conn, _ = self.sock.accept()
             conn.settimeout(5)
-            head = conn.recv(8)
+            head = self._exactly(conn, 8)
             if struct.unpack("!II", head) == (8, 80877103):
                 conn.sendall(b"S")
                 tls = self.ctx.wrap_socket(conn, server_side=True)
                 self.seen["tls"] = True
                 self.seen["peer_cert"] = tls.getpeercert()
-                length = struct.unpack("!I", tls.recv(4))[0]
-                body = b""
-                while len(body) < length - 4:
-                    body += tls.recv(length - 4 - len(body))
+                length = struct.unpack("!I", self._exactly(tls, 4))[0]
+                body = self._exactly(tls, length - 4)
                 parts = body[4:].split(b"\0")
                 self.seen["startup"] = {parts[i].decode(): parts[i + 1].decode() for i in range(0, len(parts) - 2, 2) if parts[i]}
                 tls.close()
@@ -402,6 +392,51 @@ def test_libpq_reads_no_home_file_sends_no_client_certificate_and_no_pg_options(
     assert "evil" not in startup.get("options", "")
 
 
+def test_relative_tls_files_are_the_ones_named_before_the_run_changes_directory(outside, monkeypatch):
+    """XIMPL-1-10: a root certificate and a CRL named relative to the caller
+    verify the server after the run's change of directory."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+
+    certs = outside / "certs"
+    certs.mkdir()
+    key, cert = _certificate("server")
+    k, ct = _pem(key, cert, certs, "server")
+    now = dt.datetime.now(dt.timezone.utc)
+    crl = (x509.CertificateRevocationListBuilder().issuer_name(cert.subject).last_update(now - dt.timedelta(days=1))
+           .next_update(now + dt.timedelta(days=1)).sign(key, hashes.SHA256()))
+    (certs / "root.crl").write_bytes(crl.public_bytes(serialization.Encoding.PEM))
+    client_ca_key, client_ca = _certificate("client-ca", ca=True)
+    _pem(client_ca_key, client_ca, certs, "client-ca")
+
+    class Server(TlsServer):
+        def __init__(self):
+            self.key, self.cert = k, ct
+            self.ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            self.ctx.load_cert_chain(ct, k)
+            self.sock = socket.socket()
+            self.sock.bind(("127.0.0.1", 0))
+            self.sock.listen(4)
+            self.port = self.sock.getsockname()[1]
+            self.seen = {"tls": False, "peer_cert": None, "startup": None}
+            self.thread = threading.Thread(target=self._serve, daemon=True)
+            self.thread.start()
+
+    server = Server()
+    monkeypatch.setenv("HOME", str(outside / "nohome"))
+    monkeypatch.chdir(outside)
+    try:
+        found = S.settings(environ(BICE_WAREHOUSE_PORT=str(server.port), BICE_WAREHOUSE_SSLMODE="verify-ca",
+                                   BICE_WAREHOUSE_SSLROOTCERT="certs/server.crt", BICE_WAREHOUSE_SSLCRL="certs/root.crl"))
+        elsewhere = outside / "run"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)  # as the run does before connecting
+        assert code_of(S.connect, found, elsewhere / "absent", environ={}) == X.CONNECT_FAILED
+    finally:
+        server.close()
+    assert server.seen["tls"] and server.seen["startup"] is not None, "the root and the CRL named were read: the handshake verified"
+
+
 def test_the_psycopg_adapter_reads_the_modifier_from_the_result_object():
     from psycopg import pq
 
@@ -435,44 +470,104 @@ def honest_receipt():
         e.derive_kek = original
 
 
+def fixture_contract() -> V.ViewContract:
+    return V.load(fw.contract_bytes(fw.load_fixture()))
+
+
 def test_the_receipt_reads_back_and_holds_no_row_value(honest_receipt):
-    body = rc.load(honest_receipt)
+    body = rc.load(honest_receipt, fixture_contract())
     fx = fw.load_fixture()
-    # the fixture's texts with a letter outside hex, so a digest cannot hold one by chance
-    texts = {v for rows in fx["rows"].values() for r in rows for v in r
-             if isinstance(v, str) and len(v) >= 3 and not v.startswith("20") and set(v) - set("0123456789abcdef")}
+    contract = fixture_contract()
+    # the fixture's texts — of text columns — with a letter outside hex, so a digest cannot hold one by chance
+    texts = {r[i] for v in contract.views for r in fx["rows"][v.view] for i, col in enumerate(v.columns)
+             if col.is_text and isinstance(r[i], str) and len(r[i]) >= 3 and set(r[i]) - set("0123456789abcdef")}
+    assert texts
     assert not [t for t in texts if t.encode() in honest_receipt]
     assert [f["code"] for f in body["facts"]] == list(rc.FACT_ORDER)
+    assert body["read"]["collation"]["version"] == "unavailable"  # N111: the fixture's build declares none
+
+
+MARKER = "fx_private_marker_7731"  # an invented value standing for a row's
+
+
+def _first_envelope_twice(b):
+    b["envelopes"] = [b["envelopes"][0]] * 16
 
 
 @pytest.mark.parametrize("change", [
     lambda b: b.pop("durations"),
     lambda b: b["identity"].pop("pin"),
+    lambda b: b["identity"].update({"pin": "0" * 40}),
     lambda b: b["views"][0].update({"rows": "4"}),
+    lambda b: b["views"][0].update({"rows": b["views"][0]["rows"] + 1}),
     lambda b: b["views"][0].update({"witness_equal": False}),
+    lambda b: b["views"][0].update({"fingerprint": "0" * 32}),
     lambda b: b["facts"].reverse(),
-    lambda b: b["facts"][0]["compared"].update({"message": "a driver's text\nwith a line"}),
+    lambda b: b["facts"][0]["compared"].update({"message": MARKER}),
+    lambda b: b["facts"][3]["compared"]["can_login"].update({MARKER: True}),
+    lambda b: b["facts"][6]["compared"]["views"][next(iter(b["facts"][6]["compared"]["views"]))][0].__setitem__(0, MARKER),
+    lambda b: b["read"]["policy"].update({"TimeZone": MARKER}),
+    lambda b: b["read"]["collation"].update({"datcollate": MARKER}),
+    lambda b: b["read"]["collation"].update({"version": "verified"}),
+    lambda b: b["read"].update({"metadata_provenance": {"note": MARKER}}),
     lambda b: b["read"]["tls"].update({"sslmode": "whatever"}),
     lambda b: b.update({"extra": 1}),
+    _first_envelope_twice,
+    lambda b: b["candidate"].update({"files": []}),
+    lambda b: b["candidate"]["files"].pop(),
+    lambda b: b["candidate"].update({"listing_digest": "0" * 64}),
     lambda b: b["candidate"]["verify"].pop(),
-], ids=["missing_durations", "missing_pin", "rows_as_text", "witness_unequal", "facts_out_of_order", "free_text",
-        "sslmode", "unknown_field", "one_verify"])
-def test_the_receipt_refuses_an_incomplete_or_ill_typed_one(honest_receipt, change):
+    lambda b: b["candidate"].update({"collisions_approved": 3}),
+    lambda b: b["durations"].update({"read": -1}),
+], ids=["missing_durations", "missing_pin", "another_pin", "rows_as_text", "rows_off_witness", "witness_unequal",
+        "fingerprint_off_witness", "facts_out_of_order", "free_text_in_a_fact", "free_key_in_roles", "free_text_in_schema",
+        "free_text_in_policy", "free_text_in_collation", "version_claimed", "metadata_provenance_as_text", "sslmode",
+        "unknown_field", "one_envelope_sixteen_times", "empty_listing", "listing_short_of_an_envelope", "listing_digest",
+        "one_verify", "approvals_as_a_count", "negative_duration"])
+def test_the_receipt_refuses_an_incomplete_ill_typed_or_inconsistent_one(honest_receipt, change):
     body = json.loads(honest_receipt)
     change(body)
-    assert code_of(rc.load, rc.dump(body)) == X.RECEIPT_INVALID
+    assert code_of(rc.load, json.dumps(body, ensure_ascii=False).encode("utf-8"), fixture_contract()) == X.RECEIPT_INVALID
 
 
-def test_export_evidence_refuses_before_writing_and_writes_only_under_evidence(honest_receipt, outside, monkeypatch):
+def test_the_receipt_refuses_a_non_finite_duration(honest_receipt):
+    body = json.loads(honest_receipt)
+    text = json.dumps(body).replace('"connect": ' + json.dumps(body["durations"]["connect"]), '"connect": 1e999', 1)
+    assert '"connect": 1e999' in text
+    assert code_of(rc.load, text.encode("utf-8"), fixture_contract()) == X.RECEIPT_INVALID
+
+
+@pytest.fixture
+def evidence_root(outside, monkeypatch):
+    """A repository root with the fixture's view contract and an evidence/
+    folder, so that the destination is valid and only the receipt decides."""
+    root = outside / "repo"
+    (root / "release").mkdir(parents=True)
+    (root / "evidence").mkdir()
+    (root / "release" / "views.json").write_bytes(fw.contract_bytes(fw.load_fixture()))
+    monkeypatch.setattr(cli, "ROOT", root)
+    return root
+
+
+def test_export_evidence_writes_a_valid_receipt_and_refuses_a_bad_one_before_writing(honest_receipt, outside, evidence_root, capsys):
+    target = evidence_root / "evidence" / "20261124"
+    body = json.loads(honest_receipt)
+    body["facts"][0]["compared"]["note"] = MARKER
     bad = outside / "bad.json"
-    bad.write_bytes(honest_receipt.replace(b'"receipt_version": 1', b'"receipt_version": 2'))
-    target = outside / "evidence"
+    bad.write_text(json.dumps(body))
     assert cli.main(["evidence", str(bad), str(target)], {}) == 1
-    assert not target.exists()
+    assert not target.exists() and MARKER not in "".join(capsys.readouterr())
     good = outside / "good.json"
     good.write_bytes(honest_receipt)
-    assert cli.main(["evidence", str(good), str(target)], {}) == 1, "outside the repository's evidence/"
-    assert not target.exists()
+    assert cli.main(["evidence", str(good), str(target)], {}) == 0
+    assert rc.load((target / "export_run.json").read_bytes(), fixture_contract())
+
+
+def test_export_evidence_refuses_a_destination_outside_evidence(honest_receipt, outside, evidence_root):
+    good = outside / "good.json"
+    good.write_bytes(honest_receipt)
+    assert cli.main(["evidence", str(good), str(outside / "elsewhere")], {}) == 1
+    assert not (outside / "elsewhere").exists()
 
 
 # --- §10: what a refusal prints ------------------------------------------------------------------------
@@ -538,3 +633,179 @@ def test_export_propose_writes_its_draft_in_drafts_and_leaves_both_contracts(out
     assert before == {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in before}
     env["BICE_EXPORT_STAGING"] = str(ROOT / "release")
     assert cli.main(argv, env) == 1, "a staging root in this repository is refused"
+
+
+# --- round 1 of the review of the code (XIMPL-1-03, -04, -05, -07, -10, -13) -----------------------
+
+
+def _session_at_policy(fake=None):
+    """A session that has passed checks 1 to 7, so check 8 is the next statement."""
+    fake = fake or fw.Fake()
+    s = S._Session(fake)
+    build = fake.contract.builds[0]
+    S.check_transaction(s)
+    S.check_provenance(s, fake.contract)
+    S.check_login(s, fake.contract.login)
+    S.check_roles(s, fake.contract)
+    _f, oids = S.check_inventory(s, {v.view for v in fake.contract.views})
+    S.check_access(s, oids)
+    S.check_schema(s, fake.contract, oids)
+    return fake, s, build
+
+
+@pytest.mark.parametrize("result", [[], [("UTC",), ("UTC",)], [(None,)], [("UTC", "x")]], ids=["no_row", "two_rows", "null", "two_columns"])
+def test_check_8_refuses_a_malformed_set_config_result(result, monkeypatch):
+    fake, s, build = _session_at_policy()
+    original = fake._answer
+    monkeypatch.setattr(fake, "_answer", lambda sql, params: result if sql == S.Q_SET_POLICY else original(sql, params))
+    with pytest.raises(Refused) as caught:
+        S.check_policy(s, build)
+    assert (caught.value.code, caught.value.check) == (X.FACT_POLICY, "set_policy")
+
+
+def test_check_8_passes_on_well_formed_results_and_records_the_version_unavailable():
+    _fake, s, build = _session_at_policy()
+    fact, _settings, collation = S.check_policy(s, build)
+    assert fact.passed and collation["version"] == "unavailable" and collation["actual_version"] is None
+
+
+@pytest.mark.parametrize("declared, stored, actual, outcome", [
+    ("2.36", "2.36", "2.36", "verified"),
+    ("2.36", "2.36", "2.40", "collation_version"),
+    (None, None, None, "unavailable"),
+    (None, None, "2.36", "collation_version"),
+    (None, "2.36", "2.36", "collation"),
+    ("2.36", None, None, "collation"),
+], ids=["versioned_match", "drift_under_a_stored_version", "unavailable", "appears_effective", "appears_stored", "vanishes"])
+def test_check_8_the_collation_version_n111(declared, stored, actual, outcome):
+    import dataclasses
+
+    fake = fw.Fake()
+    build = dataclasses.replace(fake.contract.builds[0], collation={**fake.contract.builds[0].collation, "datcollversion": declared})
+    collation = {**build.collation, "datcollversion": stored}
+    if outcome in ("verified", "unavailable"):
+        assert S.collation_verdict(collation, actual, build) == outcome
+    else:
+        with pytest.raises(Refused) as caught:
+            S.collation_verdict(collation, actual, build)
+        assert (caught.value.code, caught.value.check) == (X.FACT_POLICY, outcome)
+
+
+def test_the_real_result_object_reaches_result_schema():
+    """XIMPL-1-07: the modifier read from a libpq result, through the pinned
+    adapter's extraction, refuses at `result_schema`; unchanged, it passes."""
+    from psycopg import pq
+
+    class Wire(fw.Fake):
+        modifier = None
+
+        def fields(self):
+            conn = pq.PGconn.connect_start(b"host=/nonexistent-socket-dir port=1")
+            result = conn.make_empty_result(pq.ExecStatus.TUPLES_OK)
+            described = list(self._fields)
+            if self.modifier is not None:
+                i = next(i for i, f in enumerate(described) if f[1] == 1700)
+                described[i] = (described[i][0], 1700, self.modifier)
+            result.set_attributes([pq.PGresAttDesc(n.encode(), 0, 0, 0, oid, -1, mod) for n, oid, mod in described])
+            out = S.result_fields(result)
+            conn.finish()
+            return out
+
+    for modifier, refused in ((None, False), (524296, True)):
+        fake = Wire()
+        fake.strict_order = False
+        fake.modifier = modifier
+        view = next(v for v in fake.contract.views if any(c.is_decimal for c in v.columns))
+        s = S._Session(fake)
+        if refused:
+            with pytest.raises(Refused) as caught:
+                S.read_view(s, view, fake.contract.builds[0], R.freeze)
+            assert (caught.value.code, caught.value.view) == (X.RESULT_SCHEMA, view.view)
+        else:
+            assert S.read_view(s, view, fake.contract.builds[0], R.freeze).witness_equal
+
+
+@pytest.mark.parametrize("argv", [
+    ["run", "fx_marker_secret"],
+    ["fx_marker_secret"],
+    ["--password=fx_marker_secret"],
+    ["propose", "--pin", "fx_marker_secret"],
+    ["evidence", "fx_marker_secret"],
+], ids=["extra_argument", "unknown_command", "unknown_option", "missing_argument", "one_of_two"])
+def test_argument_refusals_print_a_fixed_line_and_no_argument(argv, capsys):
+    assert cli.main(argv, environ()) == 2
+    out, err = capsys.readouterr()
+    assert (out, err) == ("", "refused: usage_invalid; class ArgumentError\n")
+
+
+def test_cleanup_survives_a_vanished_caller_directory(outside):
+    staging = outside / "staging"
+    staging.mkdir()
+    caller = outside / "caller"
+    caller.mkdir()
+    before = os.getcwd()
+    os.chdir(caller)
+    try:
+        with paths.RunDirectory(staging, [ROOT]) as run_dir:
+            (run_dir / "clear.parquet").write_bytes(b"an invented clear file")
+            os.rmdir(caller)  # the directory the run was launched from goes away
+        assert not run_dir.exists() and not list(staging.glob("run-*"))
+        assert os.getcwd() == str(staging)
+        with paths.RunDirectory(staging, [ROOT]):  # the lock was released
+            pass
+    finally:
+        os.chdir(before)
+
+
+def test_an_interrupt_during_cleanup_is_held_until_the_private_files_are_gone(outside, monkeypatch):
+    import signal as sig
+
+    staging = outside / "staging"
+    staging.mkdir()
+    original = paths.remove_tree
+
+    def interrupted(path):
+        os.kill(os.getpid(), sig.SIGINT)  # arrives mid-cleanup
+        original(path)
+
+    monkeypatch.setattr(paths, "remove_tree", interrupted)
+    before = os.getcwd()
+    with pytest.raises(KeyboardInterrupt):
+        with paths.RunDirectory(staging, [ROOT]) as run_dir:
+            (run_dir / "clear.parquet").write_bytes(b"an invented clear file")
+    os.chdir(before)
+    assert not run_dir.exists() and not list(staging.glob("run-*"))
+
+
+def test_a_run_directory_that_cannot_be_removed_refuses(outside, monkeypatch):
+    staging = outside / "staging"
+    staging.mkdir()
+    monkeypatch.setattr(paths, "remove_tree", lambda path: None)
+    before = os.getcwd()
+    with pytest.raises(Refused) as caught:
+        with paths.RunDirectory(staging, [ROOT]):
+            pass
+    os.chdir(before)
+    assert caught.value.code == X.CLEANUP_FAILED
+    assert code_of(paths.RunDirectory(staging, [ROOT]).__enter__) == X.RUN_LEFTOVER
+
+
+def test_publish_never_replaces_a_destination_that_appears_after_the_check(outside, monkeypatch):
+    target = outside / "out"
+    original = paths.rename_noreplace
+
+    def racing(source, dest):
+        dest.mkdir()  # an empty directory created between the check and the rename
+        return original(source, dest)
+
+    monkeypatch.setattr(paths, "rename_noreplace", racing)
+    assert code_of(paths.publish, str(target), {"run.json": b"{}"}, [ROOT]) == X.PATH_EXISTS
+    assert list(target.iterdir()) == [] and not list(outside.glob(paths.RESULT_PREFIX + "*"))
+
+
+def test_tls_paths_are_resolved_where_they_are_named(outside, monkeypatch):
+    monkeypatch.chdir(outside)
+    found = S.settings(environ(BICE_WAREHOUSE_SSLMODE="verify-ca", BICE_WAREHOUSE_SSLROOTCERT="certs/root.crt",
+                               BICE_WAREHOUSE_SSLCRL="certs/root.crl"))
+    assert found.sslrootcert == str(outside / "certs" / "root.crt") and found.sslcrl == str(outside / "certs" / "root.crl")
+    assert S.settings(environ(BICE_WAREHOUSE_SSLMODE="verify-full", BICE_WAREHOUSE_SSLROOTCERT="system")).sslrootcert == "system"

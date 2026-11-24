@@ -54,7 +54,10 @@ def typed_rows(view: V.View, rows: list[list]) -> list[tuple]:
     return [tuple(typed(col, v) for col, v in zip(view.columns, row)) for row in rows]
 
 
-_NEEDS_QUOTE = re.compile(r'[",\\()\s]')
+#: PostgreSQL's record_out quotes an empty field, or one holding `"`, `\`, `(`,
+#: `)`, `,` or a character C's isspace() accepts — ASCII whitespace only, so a
+#: no-break or an em space stays unquoted (XIMPL-1-11).
+_NEEDS_QUOTE = re.compile(r'[",\\()\x20\t\n\r\v\f]')
 
 
 def _field_text(col: V.ViewColumn, value) -> str:
@@ -115,8 +118,8 @@ class Fake:
         self.collation_actual = build.collation["datcollversion"]
         self.rows = {v.view: typed_rows(v, fx["rows"][v.view]) for v in self.contract.views}
         self.count_override: dict[str, int] = {}
-        self.fingerprint_override: dict[str, tuple[int, str]] = {}
-        self.fields_override: dict[str, list[tuple[str, int, int]]] = {}
+        self.fingerprint_override: dict[str, str] = {}
+        self.fields_override: dict[str, list[tuple[str, int, int]]] = {}  # the view's columns; the fingerprint's is added
         self.fail_at: int | None = None
         self.fail_commit = False
         self.committed = self.closed = False
@@ -155,7 +158,7 @@ class Fake:
     def protocol(self) -> list:
         facts = [S.Q_TRANSACTION, S.Q_PROVENANCE, S.Q_LOGIN, S.Q_MEMBERSHIPS, S.Q_ROLE_ATTRIBUTES, S.Q_INVENTORY,
                  S.Q_ACCESS, S.Q_SCHEMA_ACCESS, S.Q_ATTRIBUTES, *[S.Q_SET_POLICY] * len(V.POLICY_KEYS), S.Q_POLICY, S.Q_COLLATION]
-        per_view = [q for v in self.contract.views for q in (S.q_count(v.view), S.q_rows(v), S.q_fingerprint(v.view))]
+        per_view = [q for v in self.contract.views for q in (S.q_count(v.view), S.q_rows(v))]
         return facts + per_view
 
     def _in_order(self, index: int, sql: str) -> bool:
@@ -202,20 +205,20 @@ class Fake:
         m = re.fullmatch(r'SELECT count\(\*\) FROM consumption\."([a-z0-9_]+)"', sql)
         if m:
             return [(self.count_override.get(m[1], len(self.rows[m[1]])),)]
-        m = re.fullmatch(r'SELECT (.+) FROM consumption\."([a-z0-9_]+)"', sql)
+        m = re.fullmatch(r'WITH t AS MATERIALIZED \(SELECT (.+) FROM consumption\."([a-z0-9_]+)"\) SELECT (.+), \(SELECT (.+) FROM t AS w\) AS bice_fingerprint FROM t', sql)
         if m:
             view = self._view_by_name(m[2])
             names = [n.strip('"') for n in m[1].split(", ")]
-            assert names == list(view.names), "the reader selects the contract's columns, in order"
+            assert names == list(view.names) and m[3] == m[1], "the reader selects the contract's columns, in order"
+            assert m[4] == S.m55_expression("w"), "M55's expression, over the materialized rows"
             oid = next(o for o, n, _k in self.inventory if n == m[2])
-            self._fields = self.fields_override.get(m[2], list(self.attributes[oid]))
-            return list(self.rows[m[2]])
-        m = re.fullmatch(r"SELECT count\(\*\), md5\(.+\) FROM consumption\.\"([a-z0-9_]+)\" t", sql)
-        if m:
-            if m[1] in self.fingerprint_override:
-                return [self.fingerprint_override[m[1]]]
-            view = self._view_by_name(m[1])
-            if self.settings != self.hash_policy:
-                return [(len(self.rows[m[1]]), "0" * 32)]  # another text form, another hash
-            return [(len(self.rows[m[1]]), fingerprint(view, self.rows[m[1]]))]
+            self._fields = [*self.fields_override.get(m[2], list(self.attributes[oid])), S.FINGERPRINT_COLUMN]
+            rows = list(self.rows[m[2]])
+            if m[2] in self.fingerprint_override:
+                md5 = self.fingerprint_override[m[2]]
+            elif self.settings != self.hash_policy:
+                md5 = "0" * 32  # another text form, another hash
+            else:
+                md5 = fingerprint(view, rows)
+            return [(*r, md5) for r in rows]
         raise AssertionError(f"the fake does not know this statement: {sql}")

@@ -65,7 +65,7 @@ def test_the_honest_run_writes_the_sealed_package_its_metadata_and_receipt(world
     out = world.out
     assert sorted(p.name for p in out.iterdir()) == ["metadata.json", "package", "run.json"]
     assert (out / "metadata.json").read_bytes() == world.metadata_raw
-    assert rc.load((out / "run.json").read_bytes()) == json.loads((out / "run.json").read_bytes())
+    assert rc.load((out / "run.json").read_bytes(), fake.contract) == json.loads((out / "run.json").read_bytes())
     manifest = e.validate_manifest((out / "package" / "manifest.json").read_bytes())
     assert len(manifest.reports) == 16
     assert manifest.entitled("P13") == {"diretoria", "logistica"}
@@ -85,6 +85,7 @@ import signal  # noqa: E402
 from decimal import Decimal  # noqa: E402
 
 from bi_como_codigo.exporter import (  # noqa: E402
+    reference as R,
     source as S,
     views as V,
     writer as W,
@@ -148,7 +149,13 @@ def test_statements_out_of_order_refuse_with_nothing_after(world, monkeypatch):
 
     monkeypatch.setattr(S, "facts", swapped)
     refusal, fake = refuse(world, X.STATEMENT_FAILED)
-    assert len(fake.log) == 1 and not fake.committed and refusal.cause == "RuntimeError"
+    assert len(fake.log) == 1 and not fake.committed and refusal.cause == "RuntimeError" and refusal.check == "login"
+
+
+#: What a failed statement names, by its place in the protocol.
+_STATEMENT_NAMES = (["transaction", "provenance", "login", "memberships", "role_attributes", "inventory", "access",
+                     "schema_access", "attributes", *["set_policy"] * 4, "policy", "collation"]
+                    + ["count", "rows"] * 16)
 
 
 @pytest.mark.parametrize("at", range(1, len(fw.Fake().protocol()) + 1))
@@ -167,7 +174,10 @@ def test_a_failure_at_each_statement_refuses_with_no_further_statement(built, at
             run.export(world.root, dict(world.environ), connect=connect, fetch_metadata=world.fetch_metadata())
         assert len(fake.log) == at, "nothing is issued after the failed statement"
         assert len(connections) == 1 and not fake.committed and fake.closed
-        assert caught.value.cause == "RuntimeError"
+        assert len(_STATEMENT_NAMES) == len(fake.protocol())
+        assert (caught.value.code, caught.value.check, caught.value.cause) == (X.STATEMENT_FAILED, _STATEMENT_NAMES[at - 1], "RuntimeError")
+        view_at = (at - 16) // 2 if at > 15 else None
+        assert caught.value.view == (fake.contract.views[view_at].view if view_at is not None else None)
         assert "hunter2" not in str(caught.value)
         assert not any(world.staging.glob("run-*"))
     finally:
@@ -329,18 +339,34 @@ def test_check_2_the_provenance(world, change):
 
 
 def test_check_2_a_row_matching_two_accepted_entries():
-    """The loader refuses two equal entries; the check refuses them too, on its own."""
-    fake = fw.Fake()
+    """The loader refuses two equal entries; the check refuses them too, on its
+    own — reached in the protocol's order, and with one entry it passes (XIMPL-1-07)."""
     import dataclasses
-    contract = dataclasses.replace(fake.contract, builds=fake.contract.builds * 2)
-    with pytest.raises(Refused) as caught:
-        S.check_provenance(S._Session(fake), contract)
-    assert caught.value.code == X.FACT_PROVENANCE
+
+    for builds, passes_ in ((None, True), (2, False)):
+        fake = fw.Fake()
+        contract = fake.contract if builds is None else dataclasses.replace(fake.contract, builds=fake.contract.builds * builds)
+        s = S._Session(fake)
+        S.check_transaction(s)
+        if passes_:
+            fact, build, _row = S.check_provenance(s, contract)
+            assert fact.passed and build is contract.builds[0]
+        else:
+            with pytest.raises(Refused) as caught:
+                S.check_provenance(s, contract)
+            assert (caught.value.code, caught.value.cause) == (X.FACT_PROVENANCE, None), "the fact, not a statement's failure"
+        assert [sql for sql, _ in fake.log] == [S.Q_TRANSACTION, S.Q_PROVENANCE]
+
+
+def _one_row_more(f):
+    extra = list(f.rows[P13][0])
+    extra[col(f, P13, "carrier_name")] = "fixture_extra_row"
+    f.rows[P13] = [*f.rows[P13], tuple(extra)]
 
 
 @pytest.mark.parametrize("change", [
-    lambda f: f.fingerprint_override.update({P13: (len(f.rows[P13]), "1" * 32)}),
-    lambda f: f.fingerprint_override.update({P13: (len(f.rows[P13]) + 1, fw.fingerprint(f.contract.by_view()[P13], f.rows[P13]))}),
+    lambda f: f.fingerprint_override.update({P13: "1" * 32}),
+    _one_row_more,
 ], ids=["one_fingerprint_off", "one_count_off"])
 def test_the_witness(world, change):
     fake = world.fake()
@@ -797,6 +823,10 @@ def test_collisions_are_listed_approved_and_planted_values_never_printed(world):
     index = world.root / "site" / "index.html"
     committed_index = index.read_bytes()
     index.write_bytes(committed_index + planted.encode("utf-8"))  # in the working tree only: the candidate's copy
+    profiles = world.root / "release" / "profiles.json"
+    honest_profiles = profiles.read_bytes()
+    label_value = next(v for c, v in zip(fake.contract.by_view()[SKUS].columns, fake.rows[SKUS][1]) if c.is_text and v != planted)
+    profiles.write_bytes(honest_profiles.replace("Logística".encode("utf-8"), label_value.encode("utf-8")))  # a planted label
 
     def fresh():
         f = world.fake()
@@ -806,8 +836,10 @@ def test_collisions_are_listed_approved_and_planted_values_never_printed(world):
     lines = collisions.report(world.root, dict(world.environ), connect=lambda _s, _a: fresh(), fetch_metadata=world.fetch_metadata())
     joined = "\n".join(lines)
     assert "'Logística'" in joined and repr(text) in joined and repr(brazilian) in joined
-    assert planted not in joined, "a value planted in the candidate's copy is never printed"
-    assert lines[-1] == f"{len(lines) - 1} collision(s)" and len(lines) - 1 >= 3
+    assert planted not in joined and label_value not in joined, "values planted in the candidate's copy are never printed"
+    head = xw.git(world.root, "rev-parse", "HEAD").strip()
+    assert lines[-1] == f"{len(lines) - 1} collision(s) at {head[:12]}" and len(lines) - 1 >= 3
+    profiles.write_bytes(honest_profiles)
 
     # verify refuses the unapproved; approved, it refuses only what is planted
     public = world.root / "release" / "public_values.json"
@@ -817,15 +849,62 @@ def test_collisions_are_listed_approved_and_planted_values_never_printed(world):
     refusal, _ = refuse(world, X.CANDIDATE_REFUSED, fresh())
     assert refusal.check == C.CLEAR_VALUE
     index.write_bytes(committed_index)
-    profiles = world.root / "release" / "profiles.json"
-    honest_profiles = profiles.read_bytes()
-    label_value = fake.rows[SKUS][1][col(fake, SKUS, "warehouse_name")] if "warehouse_name" in fake.contract.by_view()[SKUS].names else planted
     profiles.write_bytes(honest_profiles.replace("Logística".encode("utf-8"), label_value.encode("utf-8")))
     refusal, _ = refuse(world, X.CANDIDATE_REFUSED, fresh())
     assert refusal.check == C.CLEAR_VALUE
     profiles.write_bytes(honest_profiles)
     body_out, _ = export(world, fresh())
-    assert body_out["candidate"]["collisions_approved"] == 3
+    assert body_out["candidate"]["collisions_approved"] == {"used": [0, 1, 2], "unused": []}
+
+
+def test_collisions_follow_the_gate_and_one_commit(world):
+    """XIMPL-1-01: what the diagnostic prints is what the gate would search,
+    against the bytes of one commit — not an uncommitted inclusion, not another
+    spelling of a text that looks like a number, not a count too short to be
+    searched; and an instant as the gate renders it, in UTC."""
+    from bi_como_codigo.exporter import collisions
+
+    fake = world.fake()
+    looks_numeric = "12345.67"
+    set_cell(fake, P13, 2, "warehouse_name", looks_numeric)  # a VARCHAR: the gate searches it as text only
+    world.rewitness(fake, P13)
+    hidden = fake.rows[P13][0][col(fake, P13, "carrier_name")]
+    count = str(len(fake.rows[P13]))
+    (world.root / "site" / "notes.txt").write_text(f"{hidden}\n")  # committed, outside the committed inclusion list
+    releases = world.root / "site" / "releases.md"
+    releases.write_text(releases.read_text() + f"\n- 12.345,67 · <p>{count}</p>\n")
+    xw.git(world.root, "add", "-A")
+    xw.git(world.root, "commit", "-qm", "public texts")
+    include = world.root / "release" / "include.txt"
+    include.write_text(include.read_text() + "site/notes.txt\n")  # an uncommitted inclusion
+
+    def fresh():
+        f = world.fake()
+        f.rows = fake.rows
+        return f
+
+    lines = collisions.report(world.root, dict(world.environ), connect=lambda _s, _a: fresh(), fetch_metadata=world.fetch_metadata())
+    joined = "\n".join(lines)
+    assert hidden not in joined and "notes.txt" not in joined
+    assert looks_numeric not in joined and "12.345,67" not in joined
+    assert f"{count!r}" not in joined
+    assert lines[-1].startswith("0 collision(s)")
+
+
+def test_collisions_render_an_instant_as_the_gate_does(world):
+    from bi_como_codigo.exporter import collisions
+    import duckdb
+
+    fake = world.fake()
+    us = R.instant_us(fake.rows[SKUS][0][col(fake, SKUS, "last_movement_at")])
+    con = duckdb.connect()
+    con.execute("SET TimeZone = 'UTC'")
+    rendered = con.execute("SELECT CAST(make_timestamp(?::BIGINT)::TIMESTAMPTZ AS VARCHAR)", [us]).fetchone()[0]
+    releases = world.root / "site" / "releases.md"
+    releases.write_text(releases.read_text() + f"\n- {rendered}\n")
+    xw.git(world.root, "commit", "-qam", "an instant on the site")
+    lines = collisions.report(world.root, dict(world.environ), connect=lambda _s, _a: world.fake(), fetch_metadata=world.fetch_metadata())
+    assert any(repr(rendered) in line and "last_movement_at" in line for line in lines), lines
 
 
 def test_a_trusted_declaration_alone_changes_the_receipts_input_identity(world):
@@ -839,3 +918,33 @@ def test_a_trusted_declaration_alone_changes_the_receipts_input_identity(world):
     assert site(first) == site(second), "no deployed byte of the site changed; the package is sealed afresh each run"
     changed = {k for k in first["candidate"]["declarations"] if first["candidate"]["declarations"][k] != second["candidate"]["declarations"][k]}
     assert changed == {"release/media_types.txt"}
+
+
+def test_a_declaration_edited_mid_run_does_not_reach_the_candidate_nor_the_receipt(world, monkeypatch):
+    """XIMPL-1-09: the declarations are read once; the candidate is built from
+    those bytes and the receipt records their digests."""
+    import hashlib
+
+    media = world.root / "release" / "media_types.txt"
+    before = media.read_bytes()
+    original = R.freeze
+    edited = []
+
+    def freeze_and_edit(view, rows):
+        if not edited:
+            media.write_bytes(before + b"# an edit made while the run reads\n")
+            edited.append(1)
+        return original(view, rows)
+
+    monkeypatch.setattr(R, "freeze", freeze_and_edit)
+    body, _ = export(world)
+    assert edited and body["candidate"]["declarations"]["release/media_types.txt"] == hashlib.sha256(before).hexdigest()
+
+
+def test_an_exemption_no_value_uses_is_recorded_as_unused(world):
+    public = world.root / "release" / "public_values.json"
+    data = json.loads(public.read_bytes())
+    data["values"] = [{"value": "fixture_never_a_value", "reason": "a test: an entry no report holds"}]
+    public.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+    body, _ = export(world)
+    assert body["candidate"]["collisions_approved"] == {"used": [], "unused": [0]}

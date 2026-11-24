@@ -225,15 +225,46 @@ def test_mut07_the_totals_in_the_page(repo):
     refused(repo, "clear_totals", where="index.html")
 
 
+def _only_the_count_says_140(repo) -> None:
+    """A report of 140 rows whose only needle `140` is its row count: its
+    integer grain columns are 0, so their sums (N107) are `0`, which is not
+    searched; no other cell or sum is 140 (XIMPL-1-06)."""
+    grain_ints = [i for i, col in enumerate(_report().columns) if col.name in _report().grain and col.type in ("INTEGER", "BIGINT")]
+    many = [tuple(0 if j in grain_ints else v for j, v in enumerate(row)) for row in sf.invent(_report(), 140)]
+    seal(repo, payloads(repo, P01=payload(repo, "P01", many)))
+    k = contract(repo)
+    totals, parquet = payload(repo, "P01", many)
+    values = c.check_payload(k, k.reports["P01"], totals, parquet)
+    inserted = b"<p>140</p>"
+    found = [n for _code, n in c.needles([values], set()) if n in inserted]
+    assert found == [b"140"], found  # the count, and nothing else, matches what the page will hold
+
+
 def test_mut07b_the_row_count_alone(repo):
     """PGATE-2-02: a report of 140 rows, its count printed on the page."""
-    grain_ints = [i for i, col in enumerate(_report().columns) if col.name in _report().grain and col.type in ("INTEGER", "BIGINT")]
-    many = [tuple(1 if j in grain_ints else v for j, v in enumerate(row)) for row in sf.invent(_report(), 140)]  # the count alone says 140
-    seal(repo, payloads(repo, P01=payload(repo, "P01", many)))
+    _only_the_count_says_140(repo)
     verify(repo)  # the control: the same package, no leak
     page = repo / "site" / "index.html"
     page.write_text(page.read_text().replace("</main>", "<p>140</p></main>"))
     refused(repo, "clear_value", where="index.html")
+
+
+def test_mut07b_is_caught_by_the_row_count_alone(repo, monkeypatch):
+    """The counter-test: with only the row count left out of the search, the
+    same page passes — so MUT-07b proves the count's inspection."""
+    _only_the_count_says_140(repo)
+    original = c.check_payload
+
+    def without_the_count(contract_, report, totals, parquet):
+        values = original(contract_, report, totals, parquet)
+        rows = json.loads(totals)["rows"]
+        values.numbers.discard(str(rows))
+        return values
+
+    monkeypatch.setattr(c, "check_payload", without_the_count)
+    page = repo / "site" / "index.html"
+    page.write_text(page.read_text().replace("</main>", "<p>140</p></main>"))
+    verify(repo)
 
 
 def test_mut07c_a_value_in_a_manifest_label(repo):

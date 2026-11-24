@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import json
 import os
 import pathlib
 import re
@@ -39,20 +40,31 @@ class Declarations:
     contract: c.Contract
     profiles: list[e.DeclaredProfile]
     digests: dict[str, str]
+    snapshot: dict[str, bytes]  # the trusted declarations' bytes, read once
+    public_values: list[str]  # release/public_values.json's entries, in order
 
 
 def declarations(root: pathlib.Path) -> Declarations:
-    """§4.1 and §4.4, before connecting: the strict view contract, the report
-    contract equal to the generated one, and the profiles naming its reports."""
-    views = v.load((root / "release" / "views.json").read_bytes())
+    """§4.1 and §4.4, before connecting: the trusted declarations read **once**,
+    as bytes — the strict view contract, the report contract equal to the
+    generated one, and the profiles naming its reports. The candidate is built
+    from these same bytes, so the receipt's digests are what `verify` judged
+    (XIMPL-1-09)."""
+    snapshot = {rel: (root / rel).read_bytes() for rel in TRUSTED}
+    views = v.load(snapshot["release/views.json"])
     try:
-        contract = v.check_generated(views, (root / "release" / "contract.json").read_bytes())
-        declared = release.profiles(root)
+        contract = v.check_generated(views, snapshot["release/contract.json"])
+        data = json.loads(snapshot["release/profiles.json"].decode("utf-8"))
+        declared = [e.DeclaredProfile(p["id"], p["label"], p["password"], tuple(p["reports"])) for p in data["profiles"]]
         c.declarations_agree(contract, {p.id: set(p.reports) for p in declared})
+        c.load_public_values(snapshot["release/public_values.json"])
     except c.Refused as refusal:
         raise Refused(refusal.code, check="declarations") from None
-    digests = {rel: hashlib.sha256((root / rel).read_bytes()).hexdigest() for rel in TRUSTED}
-    return Declarations(views, contract, declared, digests)
+    except (ValueError, KeyError, TypeError):
+        raise Refused(c.CONTRACT_INVALID, check="declarations") from None
+    public = [item["value"] for item in json.loads(snapshot["release/public_values.json"])["values"]]
+    digests = {rel: hashlib.sha256(data).hexdigest() for rel, data in snapshot.items()}
+    return Declarations(views, contract, declared, digests, snapshot, public)
 
 
 class Clock:
@@ -91,13 +103,16 @@ def _verify_code(refusal: release.Refused) -> str | None:
     return None
 
 
-def candidate(root: pathlib.Path, run_dir: pathlib.Path, manifest: bytes, files: dict[str, bytes]) -> dict:
+def candidate(root: pathlib.Path, run_dir: pathlib.Path, manifest: bytes, files: dict[str, bytes],
+              snapshot: dict[str, bytes], public: list[str], searched: set[str]) -> dict:
     """§10, the private candidate: the working tree's `site/` with the real
     package, `release.build` as CI calls it, then `release.verify`, unchanged,
     with no live and with the committed package as the stand-in for live."""
     cand = run_dir / "candidate"
     shutil.copytree(root / "site", cand / "site", symlinks=True)
-    shutil.copytree(root / "release", cand / "release", symlinks=True)
+    (cand / "release").mkdir()
+    for rel, data in snapshot.items():  # the declarations as read at the start, not as they are now
+        (cand / rel).write_bytes(data)
     shutil.rmtree(cand / "site" / "package")
     (cand / "site" / "package").mkdir()
     (cand / "site" / "package" / "manifest.json").write_bytes(manifest)
@@ -118,13 +133,15 @@ def candidate(root: pathlib.Path, run_dir: pathlib.Path, manifest: bytes, files:
         live_digest = "none" if live_name == "none" else hashlib.sha256(
             stand_in[0] + b"".join(stand_in[1][k] for k in sorted(stand_in[1]))).hexdigest()
         results.append({"live": live_digest, "passed": True})
-    public = c.load_public_values((cand / "release" / "public_values.json").read_bytes())
+    used = [i for i, value in enumerate(public) if value in searched]
     return {
         "listing_digest": release.canonical_digest(listing),
         "files": [{"path": rel, "sha256": sha} for rel, sha in listing],
         "included": included,
         "verify": results,
-        "collisions_approved": len(public),
+        # By entry of release/public_values.json: those that exempted a value of
+        # this package, and those that exempted none.
+        "collisions_approved": {"used": used, "unused": [i for i in range(len(public)) if i not in used]},
     }
 
 
@@ -185,6 +202,7 @@ def export(
         clock.phases["checks"] = checks_time[0]
         clock.phases["read"] = read.timings["read"] - checks_time[0]
         con = w.connect(run_dir)
+        searched: set[str] = set()  # every value the gate's inspection searches for
         payloads: dict[str, tuple[bytes, bytes]] = {}
         retained: dict[str, str] = {}
         per_view = []
@@ -204,7 +222,8 @@ def export(
                 w.check_staged(staged, sha, view.view)
                 reference.compare(vr.frozen, back)
                 try:
-                    c.check_payload(d.contract, report, totals, buffer)
+                    checked = c.check_payload(d.contract, report, totals, buffer)
+                    searched |= checked.texts | checked.numbers
                 except c.Refused as refusal:
                     raise Refused(refusal.code, view.view, "gate") from None
                 clock.add("read_back", t0)
@@ -225,14 +244,14 @@ def export(
         manifest, files = seal(d.profiles, payloads)
         clock.add("seal", t0)
         t0 = clock.now()
-        cand = candidate(root, run_dir, manifest, files)
+        cand = candidate(root, run_dir, manifest, files, d.snapshot, d.public_values, searched)
         clock.add("candidate", t0)
         body = rc.build(
             views=d.views, metadata=meta, read=read, settings=found, per_view=per_view,
             envelopes=files, candidate=cand, declarations=d.digests, phases=clock.phases,
         )
         raw = rc.dump(body)
-        rc.load(raw)  # read back strictly before anything leaves the run directory
+        rc.load(raw, d.views)  # read back strictly before anything leaves the run directory
         result = {"package/manifest.json": manifest, **{f"package/{n}": b for n, b in files.items()},
                   "metadata.json": meta.raw, "run.json": raw}
         paths.publish(str(target), result, protected)

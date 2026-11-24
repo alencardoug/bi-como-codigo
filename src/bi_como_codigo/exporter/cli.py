@@ -25,7 +25,7 @@ import os
 import pathlib
 import sys
 
-from . import UNEXPECTED, Refused
+from . import UNEXPECTED, USAGE_INVALID, Refused
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 CAPTURE = "evidence/20261119/capture.out.txt"
@@ -135,7 +135,10 @@ def _run(_args, environ) -> int:
 def _evidence(args, _environ) -> int:
     from . import receipt as rc
 
-    body = rc.load(pathlib.Path(args.receipt).read_bytes())
+    from . import views as v
+
+    contract = v.load((ROOT / "release" / "views.json").read_bytes())
+    body = rc.load(pathlib.Path(args.receipt).read_bytes(), contract)
     target = pathlib.Path(args.out).resolve()
     if ROOT / "evidence" not in target.parents:
         raise Refused("path_refused", check="evidence")
@@ -155,9 +158,20 @@ def _collisions(args, environ) -> int:
     return 0
 
 
+class _UsageRefused(Exception):
+    """An argument the parser refuses. Its message, which repeats the argument,
+    is never printed: a mistaken argument may be a password or a value
+    (XIMPL-1-05)."""
+
+
+class _Parser(argparse.ArgumentParser):
+    def error(self, message):  # noqa: ARG002 - the message is dropped on purpose
+        raise _UsageRefused()
+
+
 def main(argv: list[str] | None = None, environ=None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m bi_como_codigo.exporter", description=__doc__.split("\n\n")[0])
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser = _Parser(prog="python -m bi_como_codigo.exporter", description=__doc__.split("\n\n")[0])
+    sub = parser.add_subparsers(dest="command", required=True, parser_class=_Parser)
     p = sub.add_parser("catalogue")
     p.add_argument("--capture", default=CAPTURE)
     p = sub.add_parser("propose")
@@ -172,7 +186,11 @@ def main(argv: list[str] | None = None, environ=None) -> int:
     p.add_argument("receipt")
     p.add_argument("out")
     sub.add_parser("collisions")
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
+    except _UsageRefused:
+        print(f"refused: {USAGE_INVALID}; class ArgumentError", file=sys.stderr)
+        return 2
     environ = os.environ if environ is None else environ
     commands = {"catalogue": _catalogue, "propose": _propose, "contract": _contract, "run": _run,
                 "evidence": _evidence, "collisions": _collisions}

@@ -15,7 +15,7 @@ import shutil
 import signal
 import tempfile
 
-from . import INTERRUPTED, PATH_EXISTS, PATH_REFUSED, RUN_LEFTOVER, RUN_LOCKED, Refused
+from . import CLEANUP_FAILED, INTERRUPTED, PATH_EXISTS, PATH_REFUSED, RUN_LEFTOVER, RUN_LOCKED, Refused
 
 SAFE = re.compile(r"[A-Za-z0-9._/-]+")
 RUN_PREFIX = "run-"
@@ -98,24 +98,74 @@ class RunDirectory:
         self._release()
 
     def _release(self) -> None:
-        if hasattr(self, "_term"):
-            signal.signal(signal.SIGTERM, self._term)
-        if hasattr(self, "_cwd"):
-            os.chdir(self._cwd)
-            if self._tmpdir is None:
-                os.environ.pop("TMPDIR", None)
-            else:
-                os.environ["TMPDIR"] = self._tmpdir
-            tempfile.tempdir = self._tempdir
-        if self.path is not None:
-            shutil.rmtree(self.path, ignore_errors=True)
-        with contextlib.suppress(OSError):
-            fcntl.flock(self._lock, fcntl.LOCK_UN)
-        self._lock.close()
+        """The private files first, whatever else fails (XIMPL-1-04). While
+        cleaning, SIGINT and SIGTERM are only noted — Python runs signal
+        handlers in the main thread, whichever thread the kernel picked, so a
+        signal mask would not hold them —, the run directory is removed and its
+        removal checked, then the environment, the lock and the caller's signal
+        handler are restored, and the caller's directory comes last: if it
+        vanished, the process stays in the staging root. A noted signal is then
+        raised again, to the caller's handler. A run directory that could not
+        be removed refuses, and the next run refuses on it as a leftover."""
+        noted: list[int] = []
+        saved_int = signal.signal(signal.SIGINT, lambda signum, _frame: noted.append(signum))
+        saved_term = signal.signal(signal.SIGTERM, lambda signum, _frame: noted.append(signum))
+        failed = False
+        try:
+            if self.path is not None:
+                with contextlib.suppress(OSError):
+                    os.chdir(self.staging)
+                remove_tree(self.path)
+                failed = os.path.lexists(self.path)
+            if hasattr(self, "_tmpdir"):
+                if self._tmpdir is None:
+                    os.environ.pop("TMPDIR", None)
+                else:
+                    os.environ["TMPDIR"] = self._tmpdir
+                tempfile.tempdir = self._tempdir
+            with contextlib.suppress(OSError):
+                fcntl.flock(self._lock, fcntl.LOCK_UN)
+            with contextlib.suppress(OSError):
+                self._lock.close()
+            if hasattr(self, "_cwd"):
+                with contextlib.suppress(OSError):
+                    os.chdir(self._cwd)
+        finally:
+            signal.signal(signal.SIGINT, saved_int)
+            signal.signal(signal.SIGTERM, self._term if hasattr(self, "_term") else saved_term)
+        for signum in dict.fromkeys(noted):
+            signal.raise_signal(signum)
+        if failed:
+            raise Refused(CLEANUP_FAILED)
+
+
+def remove_tree(path: pathlib.Path) -> None:
+    """The removal of the run directory; its outcome is checked by the caller."""
+    shutil.rmtree(path, ignore_errors=True)
 
 
 def _interrupt(_signum, _frame):
     raise Refused(INTERRUPTED)
+
+
+RENAME_NOREPLACE = 1
+AT_FDCWD = -100
+
+
+def rename_noreplace(source: pathlib.Path, target: pathlib.Path) -> None:
+    """`renameat2(RENAME_NOREPLACE)`: the result is put in place in one step,
+    and never over a destination that appeared since it was checked
+    (XIMPL-1-13). Where the call is not available, nothing is renamed."""
+    import ctypes
+    import errno
+
+    libc = ctypes.CDLL(None, use_errno=True)
+    renameat2 = getattr(libc, "renameat2", None)
+    if renameat2 is None:
+        raise Refused(PATH_REFUSED, check="renameat2")
+    if renameat2(AT_FDCWD, os.fsencode(source), AT_FDCWD, os.fsencode(target), RENAME_NOREPLACE) != 0:
+        code = ctypes.get_errno()
+        raise Refused(PATH_EXISTS if code == errno.EEXIST else PATH_REFUSED, check=None if code == errno.EEXIST else "rename")
 
 
 def publish(destination: str | None, files: dict[str, bytes], protected: list[pathlib.Path]) -> pathlib.Path:
@@ -136,9 +186,7 @@ def publish(destination: str | None, files: dict[str, bytes], protected: list[pa
             dest.parent.mkdir(parents=True, exist_ok=True)
             with open(dest, "xb") as f:
                 f.write(data)
-        if os.path.lexists(target):
-            raise Refused(PATH_EXISTS)
-        os.rename(tmp, target)
+        rename_noreplace(tmp, target)
     except BaseException:
         shutil.rmtree(tmp, ignore_errors=True)
         raise

@@ -1,7 +1,10 @@
-"""§9: the receipt, `run.json` — a fixed schema, read back strictly: every
-field required, typed and allow-listed, no free text from a driver or an
-exception, and no value of any row. `export evidence` writes Git's copy from
-it, and refuses an incomplete or ill-typed one before writing anything.
+"""§9: the receipt, `run.json` — a fixed schema, read back strictly against the
+view contract it was made under: every field required, typed and allow-listed,
+and every value either fixed, a digest, a count within its bound, or equal to
+what the contract and the accepted build declare (XIMPL-1-02). Nothing in it is
+free text — not from a driver, an exception, the metadata package, or a row.
+`export evidence` writes Git's copy from it, and refuses an incomplete,
+ill-typed or inconsistent one before writing anything.
 """
 
 from __future__ import annotations
@@ -9,10 +12,11 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import math
 import re
 
+from .. import release
 from . import (
-    strict_json,
     FACT_ACCESS,
     FACT_INVENTORY,
     FACT_LOGIN,
@@ -23,12 +27,14 @@ from . import (
     FACT_TRANSACTION,
     RECEIPT_INVALID,
     Refused,
+    strict_json,
 )
-from .views import COLLATION_KEYS, POLICY_KEYS, VIEW_COUNT
+from .views import VIEW_COUNT, ViewContract
 
 VERSION = 1
 FACT_ORDER = (FACT_TRANSACTION, FACT_PROVENANCE, FACT_LOGIN, FACT_ROLES, FACT_INVENTORY, FACT_ACCESS, FACT_SCHEMA, FACT_POLICY)
 PHASES = ("connect", "facts", "read", "checks", "write", "read_back", "seal", "candidate")
+DURATION_MAX = 7 * 24 * 3600.0
 DECLARATIONS = (
     "release/views.json",
     "release/contract.json",
@@ -37,14 +43,18 @@ DECLARATIONS = (
     "release/include.txt",
     "release/media_types.txt",
 )
+TABLE_PRIVILEGES = ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER")
+SSLMODES = ("disable", "allow", "prefer", "require", "verify-ca", "verify-full")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
-_SHA1 = re.compile(r"[0-9a-f]{40}")
-_MD5 = re.compile(r"[0-9a-f]{32}")
-_NAME = re.compile(r"[a-z][a-z0-9_]{0,62}")
-_REPORT = re.compile(r"P(0[1-9]|1[0-6])")
-_FILE = re.compile(r"P(0[1-9]|1[0-6])\.[0-9a-f]{16}\.bice")
+_FILE = re.compile(r"(P(?:0[1-9]|1[0-6]))\.[0-9a-f]{16}\.bice")
 _PATH = re.compile(r"[A-Za-z0-9._/-]{1,255}")
-_INSTANT = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z")
+_INSTANT = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z")
+
+
+def canonical_sha256(value: object) -> str:
+    """A digest of a JSON value that the receipt may not carry as text."""
+    text = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def _instant(value: dt.datetime) -> str:
@@ -58,7 +68,7 @@ def build(*, views, metadata, read, settings, per_view, envelopes, candidate, de
         "read": {
             "read_at": _instant(read.read_at),
             "provenance": read.provenance,
-            "metadata_provenance": metadata.provenance,
+            "metadata_provenance_sha256": canonical_sha256(metadata.provenance),
             "policy": read.policy,
             "collation": read.collation,
             "tls": {"sslmode": settings.sslmode, "root_certificate": settings.sslrootcert is not None, "crl": settings.sslcrl is not None},
@@ -72,10 +82,37 @@ def build(*, views, metadata, read, settings, per_view, envelopes, candidate, de
 
 
 def dump(body: dict) -> bytes:
-    return (json.dumps(body, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    return (json.dumps(body, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
 
 
-# --- the strict reader ----------------------------------------------------------------------
+# --- what each fact compares, once it has passed: fixed by the contract and the read ------
+
+
+def expected_facts(views: ViewContract, provenance: dict, policy: dict, collation: dict) -> list[dict]:
+    names = sorted(v.view for v in views.views)
+    return [
+        {"code": FACT_TRANSACTION, "passed": True, "compared": {"isolation": "repeatable read", "read_only": "on"}},
+        {"code": FACT_PROVENANCE, "passed": True, "compared": provenance},
+        {"code": FACT_LOGIN, "passed": True, "compared": {"session_user": views.login, "current_user": views.login}},
+        {"code": FACT_ROLES, "passed": True, "compared": {
+            "memberships": [{"member": m, "role": r, "admin_option": False, "inherit_option": i, "set_option": so}
+                            for m, r, i, so in sorted((m.member, m.role, m.inherit_option, m.set_option) for m in views.memberships)],
+            "can_login": dict(sorted(views.can_login.items())),
+        }},
+        {"code": FACT_INVENTORY, "passed": True, "compared": {"views": [{"view": n, "kind": "v"} for n in names]}},
+        {"code": FACT_ACCESS, "passed": True, "compared": {
+            "views": {n: {"table": {p: p == "SELECT" for p in TABLE_PRIVILEGES}, "any_column": {"INSERT": False, "UPDATE": False},
+                          "owner_reachable": False} for n in names},
+            "schema": {"USAGE": True, "CREATE": False},
+        }},
+        {"code": FACT_SCHEMA, "passed": True, "compared": {
+            "views": {v.view: [[c.name, c.source_oid, c.source_typmod] for c in v.columns] for v in sorted(views.views, key=lambda x: x.view)},
+        }},
+        {"code": FACT_POLICY, "passed": True, "compared": {"settings": policy, "collation": collation}},
+    ]
+
+
+# --- the strict reader -----------------------------------------------------------------------
 
 
 def _bad() -> Refused:
@@ -94,135 +131,135 @@ def _match(value, pattern: re.Pattern) -> str:
     return value
 
 
-def _int(value, minimum: int = 0) -> int:
-    if type(value) is not int or value < minimum:
+def _int(value, minimum: int = 0, maximum: int | None = None) -> int:
+    if type(value) is not int or value < minimum or (maximum is not None and value > maximum):
         raise _bad()
     return value
 
 
-def _bool(value) -> bool:
-    if type(value) is not bool:
+def _same(value, expected) -> None:
+    """Equal in value and in JSON type, all the way down: `1` is not `true`."""
+    if type(value) is not type(expected):
         raise _bad()
-    return value
-
-
-def _list(value) -> list:
-    if not isinstance(value, list):
-        raise _bad()
-    return value
-
-
-def _json_value(value, depth: int = 0) -> None:
-    """The compared values of a fact: names, booleans, integers and nulls, in
-    lists and objects — never a float, never long free text."""
-    if depth > 6:
-        raise _bad()
-    if value is None or type(value) in (bool, int):
-        return
-    if isinstance(value, str):
-        if len(value) > 255 or any(ch in value for ch in "\x00\n\r"):
+    if isinstance(expected, dict):
+        if set(value) != set(expected):
             raise _bad()
-        return
-    if isinstance(value, list):
-        for item in value:
-            _json_value(item, depth + 1)
-        return
-    if isinstance(value, dict):
-        for k, item in value.items():
-            _json_value(k, depth + 1)
-            _json_value(item, depth + 1)
-        return
-    raise _bad()
+        for k in expected:
+            _same(value[k], expected[k])
+    elif isinstance(expected, list):
+        if len(value) != len(expected):
+            raise _bad()
+        for a, b in zip(value, expected):
+            _same(a, b)
+    elif value != expected:
+        raise _bad()
 
 
-def load(raw: bytes) -> dict:
+def load(raw: bytes, views: ViewContract) -> dict:
+    """The receipt, strictly, against the view contract it was made under."""
     ok, data = strict_json(raw)
     if not ok:
         raise _bad()
     top = _obj(data, ("receipt_version", "identity", "read", "facts", "views", "envelopes", "candidate", "durations"))
-    if top["receipt_version"] != VERSION or type(top["receipt_version"]) is not int:
-        raise _bad()
+    _same(top["receipt_version"], VERSION)
     ident = _obj(top["identity"], ("pin", "metadata_blob", "metadata_sha256"))
-    _match(ident["pin"], _SHA1)
-    _match(ident["metadata_blob"], _SHA1)
+    _same(ident["pin"], views.pin)
+    _same(ident["metadata_blob"], views.metadata_blob)
     _match(ident["metadata_sha256"], _SHA256)
-    rd = _obj(top["read"], ("read_at", "provenance", "metadata_provenance", "policy", "collation", "tls"))
+
+    rd = _obj(top["read"], ("read_at", "provenance", "metadata_provenance_sha256", "policy", "collation", "tls"))
     _match(rd["read_at"], _INSTANT)
+    _match(rd["metadata_provenance_sha256"], _SHA256)
     prov = _obj(rd["provenance"], ("status", "built_from_commit", "invocation_id", "sequence"))
-    if prov["status"] != "verified":
+    matching = [b for b in views.builds
+                if (prov.get("built_from_commit"), prov.get("invocation_id"), prov.get("sequence"))
+                == (b.provenance.built_from_commit, b.provenance.invocation_id, b.provenance.sequence)]
+    if len(matching) != 1:
         raise _bad()
-    _match(prov["built_from_commit"], _SHA1)
-    _match(prov["invocation_id"], re.compile(r"[0-9a-f-]{36}"))
-    _int(prov["sequence"])
-    _json_value(rd["metadata_provenance"])
-    policy = _obj(rd["policy"], (*POLICY_KEYS, "server_encoding", "client_encoding"))
-    for val in policy.values():
-        _json_value(val)
-        if not isinstance(val, str):
-            raise _bad()
-    collation = _obj(rd["collation"], (*COLLATION_KEYS, "actual_version"))
-    for val in collation.values():
-        if val is not None and not isinstance(val, str):
-            raise _bad()
-        _json_value(val)
+    build_ = matching[0]
+    _same(prov, {"status": "verified", "built_from_commit": build_.provenance.built_from_commit,
+                 "invocation_id": build_.provenance.invocation_id, "sequence": build_.provenance.sequence})
+    policy = {**build_.policy, "server_encoding": "UTF8", "client_encoding": "UTF8"}
+    _same(rd["policy"], policy)
+    stored = build_.collation["datcollversion"]
+    collation = {**build_.collation, "actual_version": stored, "version": "unavailable" if stored is None else "verified"}
+    _same(rd["collation"], collation)
     tls = _obj(rd["tls"], ("sslmode", "root_certificate", "crl"))
-    if tls["sslmode"] not in ("disable", "allow", "prefer", "require", "verify-ca", "verify-full"):
+    if tls["sslmode"] not in SSLMODES or type(tls["root_certificate"]) is not bool or type(tls["crl"]) is not bool:
         raise _bad()
-    _bool(tls["root_certificate"])
-    _bool(tls["crl"])
-    facts = _list(top["facts"])
-    if [f.get("code") if isinstance(f, dict) else None for f in facts] != list(FACT_ORDER):
+
+    _same(top["facts"], expected_facts(views, rd["provenance"], policy, collation))
+
+    by_view = views.by_view()
+    per_view = top["views"]
+    if not isinstance(per_view, list) or len(per_view) != VIEW_COUNT:
         raise _bad()
-    for f in facts:
-        _obj(f, ("code", "passed", "compared"))
-        if _bool(f["passed"]) is not True or not isinstance(f["compared"], dict):
-            raise _bad()
-        _json_value(f["compared"])
-    per_view = _list(top["views"])
-    if len(per_view) != VIEW_COUNT:
-        raise _bad()
+    seen = set()
     for item in per_view:
         _obj(item, ("view", "report", "rows", "fingerprint", "witness_equal", "reference_digest", "parquet_sha256"))
-        _match(item["view"], _NAME)
-        _match(item["report"], _REPORT)
-        _int(item["rows"])
-        _match(item["fingerprint"], _MD5)
-        if _bool(item["witness_equal"]) is not True:
+        v = by_view.get(item["view"])
+        if v is None or item["view"] in seen:
             raise _bad()
+        seen.add(item["view"])
+        rows, md5 = build_.witness[v.view]
+        _same([item["report"], item["rows"], item["fingerprint"], item["witness_equal"]], [v.report, rows, md5, True])
         _match(item["reference_digest"], _SHA256)
         _match(item["parquet_sha256"], _SHA256)
-    if len({i["view"] for i in per_view}) != VIEW_COUNT or len({i["report"] for i in per_view}) != VIEW_COUNT:
+
+    envelopes = top["envelopes"]
+    if not isinstance(envelopes, list) or len(envelopes) != VIEW_COUNT:
         raise _bad()
-    envelopes = _list(top["envelopes"])
-    if len(envelopes) != VIEW_COUNT:
-        raise _bad()
+    reports, shas = set(), set()
     for item in envelopes:
         _obj(item, ("file", "sha256"))
-        _match(item["file"], _FILE)
-        _match(item["sha256"], _SHA256)
-    cand = _obj(top["candidate"], ("listing_digest", "files", "included", "verify", "collisions_approved", "declarations"))
-    _match(cand["listing_digest"], _SHA256)
-    for item in _list(cand["files"]):
-        _obj(item, ("path", "sha256"))
-        _match(item["path"], _PATH)
-        _match(item["sha256"], _SHA256)
-    for item in _list(cand["included"]):
-        _match(item, _PATH)
-    runs = _list(cand["verify"])
-    if [r.get("live") == "none" if isinstance(r, dict) else None for r in runs] != [True, False]:
-        raise _bad()
-    for r in runs:
-        _obj(r, ("live", "passed"))
-        if r["live"] != "none":
-            _match(r["live"], _SHA256)
-        if _bool(r["passed"]) is not True:
+        m = _FILE.fullmatch(item["file"]) if isinstance(item["file"], str) else None
+        if m is None:
             raise _bad()
-    _int(cand["collisions_approved"])
+        reports.add(m[1])
+        shas.add(_match(item["sha256"], _SHA256))
+    if reports != {v.report for v in views.views} or len(shas) != VIEW_COUNT:
+        raise _bad()
+
+    cand = _obj(top["candidate"], ("listing_digest", "files", "included", "verify", "collisions_approved", "declarations"))
+    files = cand["files"]
+    if not isinstance(files, list) or not files:
+        raise _bad()
+    listing = []
+    for item in files:
+        _obj(item, ("path", "sha256"))
+        listing.append((_match(item["path"], _PATH), _match(item["sha256"], _SHA256)))
+    if listing != sorted(set(listing)) or len({p for p, _ in listing}) != len(listing):
+        raise _bad()
+    _same(cand["listing_digest"], release.canonical_digest(listing))
+    deployed = dict(listing)
+    if "package/manifest.json" not in deployed:
+        raise _bad()
+    for item in envelopes:
+        if deployed.get(f"package/{item['file']}") != item["sha256"]:
+            raise _bad()  # the candidate deployed exactly the sealed envelopes
+    if sum(1 for p in deployed if p.startswith("package/") and p.endswith(".bice")) != VIEW_COUNT:
+        raise _bad()
+    included = cand["included"]
+    if not isinstance(included, list) or [_match(i, _PATH) for i in included] != sorted({f"site/{p}" for p in deployed}):
+        raise _bad()
+    runs = cand["verify"]
+    if not isinstance(runs, list) or len(runs) != 2:
+        raise _bad()
+    _same(runs[0], {"live": "none", "passed": True})
+    _obj(runs[1], ("live", "passed"))
+    _match(runs[1]["live"], _SHA256)
+    _same(runs[1]["passed"], True)
+    approved = _obj(cand["collisions_approved"], ("used", "unused"))
+    used = [_int(i, 0, 10_000) for i in approved["used"]] if isinstance(approved["used"], list) else None
+    unused = [_int(i, 0, 10_000) for i in approved["unused"]] if isinstance(approved["unused"], list) else None
+    if used is None or unused is None or used != sorted(set(used)) or unused != sorted(set(unused)) or set(used) & set(unused):
+        raise _bad()
     decl = _obj(cand["declarations"], DECLARATIONS)
     for val in decl.values():
         _match(val, _SHA256)
+
     durations = _obj(top["durations"], PHASES)
     for val in durations.values():
-        if type(val) not in (int, float) or val < 0:
+        if type(val) not in (int, float) or not math.isfinite(val) or not 0 <= val <= DURATION_MAX:
             raise _bad()
     return data
