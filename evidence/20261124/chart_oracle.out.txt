@@ -1,0 +1,22 @@
+2026-11-24T03:29:42Z
+fixture: 6afcbd01 seed 853985153 months 2150-05 to 2155-05
+
+todos: months with a row 2150-05 to 2155-05 (61 of 61)
+  G, no row: none
+  Z, zero: none
+
+fixture_canal_a: months with a row 2150-05 to 2155-05 (61 of 61)
+  G, no row: ['2155-05 fixture_raiz_3', '2155-05 fixture_raiz_5']
+  Z, zero: none
+
+fixture_canal_b: months with a row 2150-05 to 2155-05 (61 of 61)
+  G, no row: none
+  Z, zero: ['2150-11 fixture_raiz_2']
+
+fixture_canal_c: months with a row 2150-05 to 2155-04 (60 of 61)
+  G, no row: ['2150-09 fixture_raiz_3', '2155-05 fixture_raiz_1', '2155-05 fixture_raiz_2', '2155-05 fixture_raiz_3', '2155-05 fixture_raiz_4', '2155-05 fixture_raiz_5']
+  Z, zero: none
+
+todos, fixture_raiz_1, the first four months: [('2150-05', '482M'), ('2150-06', '567M'), ('2150-07', '559M'), ('2150-08', '417M')]
+todos, fixture_raiz_1, its largest month: 2153-01 721M
+todos, months sorted by value descending: ['2153-01', '2154-10', '2154-07', '2154-04', '2150-05', '2152-08'] ... 2155-05

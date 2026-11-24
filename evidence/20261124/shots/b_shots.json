@@ -1,0 +1,21 @@
+{
+ "url": "http://127.0.0.1:8101/",
+ "filters": [
+  {
+   "value": "todos",
+   "label": "todos"
+  },
+  {
+   "value": "fixture_canal_a",
+   "label": "fixture_canal_a"
+  },
+  {
+   "value": "fixture_canal_b",
+   "label": "fixture_canal_b"
+  },
+  {
+   "value": "fixture_canal_c",
+   "label": "fixture_canal_c"
+  }
+ ]
+}
