@@ -105,6 +105,15 @@ def _writable(root: pathlib.Path) -> None:
             p.chmod(p.stat().st_mode | 0o200)
 
 
+#: What the running interpreter's environment is synced from.
+ENVIRONMENT = ("pyproject.toml", "uv.lock")
+
+
+def _live_blob(path: str) -> str:
+    """The Git object the working tree's file would be."""
+    return _git("hash-object", "--", path)
+
+
 def pinned(commit: str, script: str, argv: list[str]) -> None:
     """Run `script` again from a snapshot of `commit` — its code, lists, declarations and
     drivers exported from Git, read-only —, with the repository, the runs and the clear
@@ -112,6 +121,11 @@ def pinned(commit: str, script: str, argv: list[str]) -> None:
     not, reaches nothing the run reads (CMP-3-03). Inside a snapshot, nothing to do."""
     if roots.PINNED:
         return
+    # The interpreter is this process's, whose environment `uv run --frozen` synced from the working
+    # tree's lock: it runs the snapshot only when that lock and its project are the commit's (CMP-4-02).
+    for path in ENVIRONMENT:
+        if _live_blob(path) != _git("rev-parse", f"{commit}:{path}"):
+            raise Refused(f"the environment is not {commit}'s: its {path} differs; sync it from the commit's lock first")
     base = RUNS / "harness"
     base.mkdir(parents=True, exist_ok=True)
     for old in base.iterdir():  # snapshots of earlier invocations, a day old or more

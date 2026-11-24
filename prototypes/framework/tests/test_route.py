@@ -227,3 +227,13 @@ def test_pinned_runs_the_script_from_the_snapshot_with_the_real_roots(tmp_path):
     assert seen["checkout"] == str(route.REPO) and seen["runs"] == str(tmp_path / "runs") and seen["clear"] == str(route.roots.CLEAR)
     for snap in (tmp_path / "runs" / "harness").iterdir():
         route._writable(snap)
+
+
+def test_pinned_refuses_an_environment_synced_from_another_lock(monkeypatch, tmp_path):
+    """CMP-4-02: the snapshot runs in this process's interpreter; a lock of the working tree
+    other than the commit's means other dependencies, refused before anything is recorded."""
+    monkeypatch.setattr(route, "RUNS", tmp_path)
+    monkeypatch.setattr(route, "_live_blob", lambda path: "0" * 40 if path == "uv.lock" else route._git("rev-parse", f"HEAD:{path}"))
+    with pytest.raises(route.Refused, match="uv.lock differs"):
+        route.pinned(HEAD, "roots.py", [])
+    assert not (tmp_path / "harness").exists()
