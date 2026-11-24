@@ -825,6 +825,12 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | CMP-3-07 | `browser/journey.mjs`, `measure.py` | A second transfer of a worker's URL can make an unfinished primer look complete | adjustment | Fixed, `2c0f19c`: only the first request of type `Script` at an attached worker's URL is its bootstrap; any other request is in flight to its end; redirect hops keep their session's clock. A live test with a slow fetch of the worker's URL and a unit test of a hop from another session fail on the code before. |
 | CMP-3-08 | `measure.py` | The WASM classifier can drop a valid warm sample | adjustment | Fixed, `6f1d33a`: only terminal events class the module (BaselineFinished or compiledModule; a cache hit or deserialization), and the window closes at the first extension requested after the engine. Tests fail on the code before; the archived warm journeys of both runs replay into the same series, compiled. |
 | CMP-3-09 | `docs/framework_prototype.md` §10 | §10 overstates artifact identity, binary exemptions and test coverage | adjustment | Fixed, `2ed7b2d`: §10 rewritten from the last run (`a4f333f`) — each sitting's builder, artifact, fixture and package digests; Evidence's 76 builder notes as 70 dependency binaries and 6 explained scripts (re-inspected); the history's six entries, one a builder record alone; the live tests' actual scope (synthetic cutoff and redirect records, live pages that wait for the transfer); the old draw counts as historical evidence. |
+| CMP-4-01 | `browser/check.mjs:109–116`, `check.py:166–173` | Generated or hidden summary text can produce the wrong browser-check result | blocking | |
+| CMP-4-02 | `route.py:108–125`, `Makefile:61–67` | The recorded lockfile can differ from the pinned process's dependency environment | blocking | |
+| CMP-4-03 | `measured.py:300–327`, `compare.py:90–102,156–159` | A mutant failure can block the report or strand B's proof | blocking | |
+| CMP-4-04 | `compare.py:122–148,172–175` | The comparison can reuse a result with missing proofs and controls | blocking | |
+| CMP-4-05 | `measure.py:129–137`, `docs/framework_prototype.md:1195–1201` | §10 attributes WASM compilation start times to baseline completion | blocking | |
+| CMP-4-06 | `docs/framework_prototype.md:573–574,1149–1151,1204–1209` | The documented browser and gate coverage differs from the recorded coverage | adjustment | |
 
 ### Round 1 — batch CMP
 
@@ -1466,3 +1472,188 @@ condition. CMP-3-05 demonstrates a different false success.
   unsupported traces stay out of a warm series with an accurate basis.
 - [ ] CMP-3-09 — Reconcile §10 with both saved artifact digests, 70 dependency binaries and six explained
   scripts, the actual historical records and the sources of byte-accounting coverage.
+
+### Round 4 — batch CMP
+
+#### 1. Conclusion
+
+**Changes required. Batch CMP cannot close under N103.** The retained draw still gives `passes`
+and a passing browser check for both candidates, with all 34 controls as expected. The round 3
+corrections can change a browser-check result, omit a candidate's results or bind different package
+sizes to one harness identity. §10 also attributes measured WASM start times to baseline completion.
+The saved candidate verdicts replay unchanged. The findings can be verified with targeted checks
+and the retained records.
+
+#### 2. Reviewed scope and version
+
+Branch `main`, 68 commits ahead of `origin/main` at entry, with a clean worktree and no untracked
+non-ignored files. Reviewed the 12 commits in
+`74785f26cfbf7fb2a372759decf6976dc4a980b6..fea9f8685b542f269d583982af8e946fc82663b4` under N103.
+The real draw is `draw-20261123T191327Z-4fb760ca` at `a4f333f`. Its six recorded harness objects
+match `fea9f86`, and all 97 archived harness files match the Git blobs. HEAD stayed at `fea9f86`.
+Only this dossier was edited in the checkout.
+
+#### 3. Findings
+
+Code paths are relative to `prototypes/framework/` unless stated otherwise.
+
+**CMP-4-01 · CSS-generated counts can wrongly pass or fail the browser check · blocking.**
+`browser/check.mjs:109–116`, `check.py:166–173`. Through the Chrome driver, a visible generated
+`1.044.344` was refused as expected. The same count on a `display:none` or `visibility:hidden`
+element was also refused because the computed `content` still exists. A visible count split as
+`1` in `::before` and `.044.344` in `::after` passed with zero refusals. A wholly hidden summary
+also passed, since `innerText` on its non-rendered wrapper fell back to DOM text. Require a
+rendered summary and read visible generated content in inline order, keeping distinct rows and
+cells separate. This changes the browser check and leaves CMP-3-04 partial. Both archived pages
+still pass.
+
+**CMP-4-02 · The pinned launcher can use dependencies from another lockfile · blocking.**
+`route.py:71–86,108–125`, root `Makefile:55,61–67`. The launcher records the snapshot's
+`uv.lock` object but re-execs `sys.executable` from the environment selected before pinning.
+In a scratch checkout locked to DuckDB 1.1.3, the real `route.pinned` launcher ran the committed
+fixture writer from the same Git snapshot as the 1.5.6 run. Both identified lock blob `f7882ddb…`
+and produced the same 10,884 rows from seed 7. Parquet metadata named the two different writers
+and their files were 308,174 and 304,172 bytes. Assembled on the same archived B builder, the
+outputs are 345,494 and 341,492 raw bytes (0.35 and 0.34 MB at §10 precision). Run the child with
+dependencies resolved from the archived lock, or refuse a mismatch before recording a stage. The
+retained run's Parquet identifies DuckDB 1.5.6, as pinned.
+
+**CMP-4-03 · A mutant failure can block both results or strand B's proof · blocking.**
+`measured.py:300–327`, `compare.py:90–102,156–159`. In a copy of the retained draw, I modelled
+an interruption after both canonical runs and before mutant assembly, then changed the copied
+mutant seal archive. Its digest refusal escaped the draw before either candidate's comparison was
+called and no report was written. With the correct seal and one injected mutant assembly
+`HARNESS_ERROR`, the writer set `finished`, saved no mutant artifact and refused the next draw
+invocation with `a draw stands`. Both judged verdicts still passed, but B's browser check requires
+that proof. Localize mutant read and assembly failures, preserve Evidence's result, and make the
+proof retryable on the same draw. Invalidate any retained B check that predated the recovered proof.
+
+**CMP-4-04 · An incomplete retained result can still report a browser pass · blocking.**
+`compare.py:122–148,172–175,191–194`, `check.py:314–326`. From a scratch copy of B's saved result
+I removed `comparator_proof` and emptied the controls list, keeping the identity and `passed: true`.
+`compare.run` called measurement zero times and published `check_passed: true`; the actual check
+predicate refused the same object because its comparator proof was missing. Validate required result
+contents, including results that legitimately failed their proofs, and remeasure an incomplete or
+inconsistent file. This can change the reported browser check and the recorded control outcomes.
+
+**CMP-4-05 · §10 gives start times as WASM baseline completion times · blocking.**
+`measure.py:129–137`, `docs/framework_prototype.md:1195–1201`. The published ranges are
+`wasm.StartStreamingCompilation` offsets in the real warm traces. The first `wasm.BaselineFinished`
+events are 643.166–670.882 ms after the engine request and 818.624–832.814 ms before the extension
+for B, and 73.810–82.124 ms after and 1,386.176–1,547.668 ms before for Evidence. Both series still
+class as compiled. Label the start and terminal offsets separately, or base the recorded attribution
+and §10 on the terminal offsets. Assert the event named by the basis and reconcile the published
+ranges against all ten warm traces. This changes published §10 numbers.
+
+**CMP-4-06 · The documented browser and gate coverage differs from the recorded coverage · adjustment.**
+`docs/framework_prototype.md:573–574,1149–1151,1204–1209`. The live same-URL Fetch finished 5,000.7 ms
+after the summary in the reviewed test, which checks settling. It is a page request and delivered
+no body bytes before the cutoff, so it does not prove a partial worker transfer. The three
+`clear_value` controls for Evidence returned at their added file under `contract.py:368–376`.
+The eleven longer calls reached the value search, of which eight reached a gate pass.
+Describe both checks at that scope. Also align §2.6’s origin list with N98 and the saved browser
+requests to `extensions.duckdb.org`. The archived timing totals and outcomes are unchanged.
+
+#### 4. Status of previous findings
+
+| ID | Status | Evidence |
+|---|---|---|
+| CMP-3-01 | Partial | Clean-draw history and a returned judged assembly error recover. A scratch verify retry passed on the same B artifact after an injected `HARNESS_ERROR`. A returned mutant assembly error still closes the draw, CMP-4-03. |
+| CMP-3-02 | Resolved | Seven retained builder, artifact and seal archives match their SHA-256s. The canonical artifacts contain the same seal, and B's mutant contains its separate seal. The reseal and wrong-package tests fail on the parent and pass on the reviewed implementation. |
+| CMP-3-03 | Partial | Tracked inputs and declared roots come from the snapshot, and equal harness objects survive a docs-only HEAD change. The interpreter is outside that binding, CMP-4-02. |
+| CMP-3-04 | Partial | The split inline DOM, open dialog and missing-reading counter-tests work. Live generated-text cases still give opposite false outcomes, CMP-4-01. |
+| CMP-3-05 | Resolved | The unrelated inclusion refusal no longer satisfies the three FORM controls. The eight reason-bound rows per candidate match the intended verification messages, and all 34 match their declared codes and verdicts. |
+| CMP-3-06 | Partial | The supplied bad mutant cells case at comparison time stays local, and the header-only file is rejected. Mutant failure before comparison and a partially populated result remain, CMP-4-03 and CMP-4-04. |
+| CMP-3-07 | Resolved | The live same-URL Fetch waits for completion, and the cross-session redirect hop uses the reporting session's clock. A two-primer variant of the live probe completed both primers. The real journeys reconcile. |
+| CMP-3-08 | Partial | Start-plus-cache-hit, an early extension prefetch and mixed terminal events classify as intended. The timing basis still takes the start event, CMP-4-05. |
+| CMP-3-09 | Partial | The artifact and builder identities, six history entries and 70 + 6 notes reconcile. The coverage claims and the new WASM timing attribution need correction, CMP-4-05 and CMP-4-06. |
+
+Earlier partial findings follow the same evidence. CMP-1-03 and CMP-2-02 remain partial on runtime
+identity. CMP-1-05, CMP-2-01 and CMP-2-05 remain partial on recovery. CMP-1-08 and CMP-2-04 remain
+partial on browser-check visibility. CMP-1-10 and CMP-2-07 are resolved for the priming case.
+CMP-1-11 is resolved for redirect accounting. CMP-1-12, CMP-2-08 and CMP-2-10 remain partial on
+recorded timing evidence or its description.
+
+#### 5. Checks executed and results
+
+- `make prototype-test` at `fea9f86` in a detached scratch checkout, with the archived
+  DuckDB-WASM test tarball copied in, exited 0. `485 passed in 1282.92s (0:21:22)`.
+- `ENG_DADOS_DIR=$HOME/Projetos/mvp_eng_dados_1 make check` exited 0 in a detached scratch checkout.
+  `470 passed, 1 warning in 212.80s (0:03:32)`. Node reported `tests 157`, `pass 156`, `fail 0`, `skipped 1`.
+  `uv run --frozen python -m bi_como_codigo.secrets_review --history` against the actual repo,
+  exit 0, with a scratch UV cache and environment. `history review: nothing found
+  (231 occurrence(s) of values public by design, 2 registered; 15 blob(s) skipped)`.
+- Each fix's test changes ran over its immediate parent in scratch.
+  `6f1d33a^` had two failures and the mixed-terminal case passed. `2c0f19c^`, `9f0ed33^`,
+  `6d5965e^`, `0e0230d^` and `fe613b2^` had 2, 2, 1, 2 and 4 expected failures,
+  respectively. `69190b4^` failed the two snapshot tests. Its same-object test skipped with the
+  overlay because it requires a clean harness. Repeating the same probe in clean scratch trees
+  refused on the parent with `HEAD is another commit` and returned equal identities at `fea9f86`.
+- Both verdicts replay from the four judged records. The draw
+  took 11 attempts and 236.4 s of search, with 576 rejections (561 Evidence gate, 2 B gate,
+  13 Evidence carrier), seed 853985153, `k=8`, 10,884 rows, 2150-05 to 2155-05.
+  Its record spans 19:13:34–19:30:06 UTC. The build records begin at 19:09:42 UTC and the report
+  mtime is 22:44:17 UTC. Re-extraction and inspection produced zero findings and zero
+  inconclusive files for both builders and both canonical artifacts. The archive prefixes are
+  `b3823193…` and `89234df5…` (B / Evidence), fixture `6afcbd01…`. The two previous retained
+  draws confirm the distinct fixture and artifact digests and the builder digest for each
+  sitting in §10. The current report has six history entries, one with a single builder record.
+  Each candidate's 17 saved controls give 13 failures of the criterion, 3 costs and 1 pass.
+  Gate times were 3.614 / 704.084 s on the canonical artifacts and 35.951 /
+  7,896.378 s across the 16 verify calls per candidate.
+- Both canonical DOM readings replay with zero refusals and
+  four passing comparator proofs each. The G mutant replay gives only G refusals, with detail
+  matching the mutant. A fresh Chrome check on scratch extractions gave no canonical refusals and only G
+  for the mutant. The saved check records 7 / 3 declared third-party URLs and
+  document replacement with the original engine worker gone at logout. The diagnostics record
+  five crypto calls each, 1 / 5 on-disk number findings and 26 / 69 inconclusive files, with nine
+  in Evidence's Local Storage. Evidence has 16 write carriers, 17 entry points, 9 committed
+  carriers, 9 readable carriers and 1 readable service worker. Logout leaves the new login
+  workers and Evidence's service worker.
+- All 20 raw journeys replay exactly to the stored samples, with one five-sample
+  warm series per candidate and maximum clock disagreement 0.656 ms. The six timing rows in §10
+  match their medians and ranges. Cold median completed bytes by summary (local / jsDelivr /
+  DuckDB extensions) were 320,350 / 5,619,777 / 668,226 for B and 1,560,718 / 5,350,128 /
+  668,232 for Evidence. Warm local medians were 308,061 / 312,786, with zero third-party wire
+  bytes by summary. The representative local `304` has 280 wire bytes and cached sizes
+  1,457 / 3,634. The samples reproduce the two Evidence `404` aborts, V8 code-cache grouping
+  and empty reconciliation. CMP-4-05 gives the corrected WASM offsets.
+- The artifacts contain 11 / 116 files, 341,628 / 10,326,149 raw bytes and
+  316,852 / 7,556,341 Brotli bytes. Builder totals are 9 / 114 files, 36,450 / 10,020,971 bytes
+  and 0.04 / 48.46 s. The 529 / 393 authored lines, inclusion lists of 6 / 22 lines and
+  5 / 11 media types reconcile. The locked install reports 918 packages, 615,985,178 bytes,
+  33,764 entries, 917 cached tarballs in 31.3 s and a 75.3 s offline install with zero scripts.
+  B records seven third-party bodies totalling 39,034,556 bytes, including the 34,242,586-byte
+  EH WASM. The upkeep row matches the stored snapshots.
+- The full comparison and the long Evidence gate/control timings came
+  from the archived records under N103. The archived successful path contains no interruption.
+  Recovery probes used copies, and the transient integrated control artifacts were unavailable.
+  Author-reported checks are recorded in dossier §3. No upstream build, gate or database command was run.
+
+#### 6. Remaining limits
+
+- The timings cover one machine, one full sitting and five samples per condition. The earlier
+  counts of 14, 4 and 10 come from the prior Git write-up. Evidence's cold tarball fetch, a
+  redirected navigation on either real page, a partial worker transfer crossing a real cutoff,
+  phone, slow-network and other-browser timings remain unmeasured.
+- WASM attribution remains an inference within a request window. Concurrent unrelated modules
+  and an actual Chromium compiled-WASM cache hit were outside the retained run. The timed live
+  CDN journeys do not record the digest of every served body.
+- The on-disk storage leads, unobserved bodies and Evidence's persistent service worker remain
+  diagnostic under N96. Stage 2.5 owns the complete browser oracle. N95 and N97 continue to
+  bound the oracle and the earlier review of the isolation wrapper and diagnostic.
+
+#### 7. Handoff to Claude Code
+
+- [ ] **CMP-4-01** — A regular visible or generated split sum fails, while the same hidden
+  content passes in the real driver. A wholly hidden summary is refused, and both archived pages still pass.
+- [ ] **CMP-4-02** — The pinned run either uses DuckDB 1.5.6 from the recorded lock in the
+  mismatched-lock probe or refuses before saving evidence under that identity.
+- [ ] **CMP-4-03** — A bound-input interruption, corrupt mutant seal and returned mutant
+  assembly error each preserve Evidence's result. A repaired or transient mutant failure can
+  recover B's proof on the same draw and replace any stale B check.
+- [ ] **CMP-4-04** — A matching result missing the comparator proof or required control rows
+  forces remeasurement. A complete result still reuses the same proof and outcomes.
+- [ ] **CMP-4-05** — The WASM basis names its event and §10's stated ranges reproduce from
+  the retained traces. The two five-sample compiled series still hold.
+- [ ] **CMP-4-06** — Match the test and gate coverage to the records and the allowed origins to N98.
