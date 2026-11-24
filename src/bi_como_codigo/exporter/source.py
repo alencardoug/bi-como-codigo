@@ -180,6 +180,7 @@ class PsycopgSource:
         self._conn.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
         self._conn.read_only = True
         self._conn.adapters.register_loader("timestamptz", _Instant)
+        self._conn.add_notice_handler(lambda _diagnostic: None)  # a server notice is never printed
         self._cur = self._conn.cursor()
 
     def execute(self, sql: str, params: tuple = ()) -> None:

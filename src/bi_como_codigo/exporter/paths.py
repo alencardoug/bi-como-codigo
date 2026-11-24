@@ -104,9 +104,12 @@ class RunDirectory:
         signal mask would not hold them —, the run directory is removed and its
         removal checked, then the environment, the lock and the caller's signal
         handler are restored, and the caller's directory comes last: if it
-        vanished, the process stays in the staging root. A noted signal is then
-        raised again, to the caller's handler. A run directory that could not
-        be removed refuses, and the next run refuses on it as a leftover."""
+        vanished, the process stays in the staging root. The handlers come back
+        SIGTERM first and SIGINT last, so a SIGINT between the two is still
+        noted (XIMPL-2-05). A noted signal then ends the run as it would have
+        mid-run — SIGINT as `KeyboardInterrupt`, SIGTERM as `interrupted` —, and
+        the caller publishes nothing. A run directory that could not be removed
+        refuses, and the next run refuses on it as a leftover."""
         noted: list[int] = []
         saved_int = signal.signal(signal.SIGINT, lambda signum, _frame: noted.append(signum))
         saved_term = signal.signal(signal.SIGTERM, lambda signum, _frame: noted.append(signum))
@@ -131,12 +134,14 @@ class RunDirectory:
                 with contextlib.suppress(OSError):
                     os.chdir(self._cwd)
         finally:
-            signal.signal(signal.SIGINT, saved_int)
             signal.signal(signal.SIGTERM, self._term if hasattr(self, "_term") else saved_term)
-        for signum in dict.fromkeys(noted):
-            signal.raise_signal(signum)
+            signal.signal(signal.SIGINT, saved_int)
         if failed:
             raise Refused(CLEANUP_FAILED)
+        if signal.SIGINT in noted:
+            raise KeyboardInterrupt
+        if signal.SIGTERM in noted:
+            raise Refused(INTERRUPTED, check="cleanup")
 
 
 def remove_tree(path: pathlib.Path) -> None:

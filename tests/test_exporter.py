@@ -706,7 +706,7 @@ def test_an_interrupt_mid_run_removes_the_run_directory(world, monkeypatch, how)
 
 import secrets  # noqa: E402
 
-from bi_como_codigo import contract as C  # noqa: E402
+from bi_como_codigo import contract as C, release as REL  # noqa: E402
 
 
 def seal_with(profiles, payloads, *, package_id=None, deks=None, ivs=None, totals=None):
@@ -925,20 +925,22 @@ def test_a_declaration_edited_mid_run_does_not_reach_the_candidate_nor_the_recei
     those bytes and the receipt records their digests."""
     import hashlib
 
-    media = world.root / "release" / "media_types.txt"
-    before = media.read_bytes()
+    include = world.root / "release" / "include.txt"
+    before = include.read_bytes()
+    assert b"site/releases.md\n" in before
     original = R.freeze
     edited = []
 
     def freeze_and_edit(view, rows):
-        if not edited:
-            media.write_bytes(before + b"# an edit made while the run reads\n")
+        if not edited:  # a field `release.build` uses: releases.md leaves the inclusion list
+            include.write_bytes(before.replace(b"site/releases.md\n", b""))
             edited.append(1)
         return original(view, rows)
 
     monkeypatch.setattr(R, "freeze", freeze_and_edit)
     body, _ = export(world)
-    assert edited and body["candidate"]["declarations"]["release/media_types.txt"] == hashlib.sha256(before).hexdigest()
+    assert edited and body["candidate"]["declarations"]["release/include.txt"] == hashlib.sha256(before).hexdigest()
+    assert "site/releases.md" in body["candidate"]["included"], "the candidate was built from the bytes read at the start"
 
 
 def test_an_exemption_no_value_uses_is_recorded_as_unused(world):
@@ -948,3 +950,157 @@ def test_an_exemption_no_value_uses_is_recorded_as_unused(world):
     public.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     body, _ = export(world)
     assert body["candidate"]["collisions_approved"] == {"used": [], "unused": [0]}
+
+
+
+def test_the_witness_count_alone_off(world):
+    """XIMPL-2-03: the witness's count one more, its fingerprint unchanged — only
+    the count comparison can refuse it."""
+    body = world.views_json()
+    for entry in body["accepted_builds"][0]["witness"]:
+        if entry["view"] == P13:
+            entry["rows"] += 1
+    world.write_views(body)
+    refusal, _ = refuse(world, X.WITNESS_MISMATCH)
+    assert refusal.view == P13
+
+
+def _commit(world, files: dict[str, str], include: list[str]):
+    for rel, text in files.items():
+        (world.root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (world.root / rel).write_text(text)
+    inc = world.root / "release" / "include.txt"
+    inc.write_text(inc.read_text() + "".join(f"{line}\n" for line in include))
+    xw.git(world.root, "add", "-A")
+    xw.git(world.root, "commit", "-qm", "site files")
+
+
+def test_an_uncommitted_file_name_never_reaches_the_receipt(world):
+    """XIMPL-2-01: a file the candidate would include under a name not in Git is refused."""
+    fake = world.fake()
+    value = fake.rows[P13][0][col(fake, P13, "carrier_name")]
+    _commit(world, {}, [f"site/{value}.md"])
+    (world.root / "site" / f"{value}.md").write_text("")  # empty, so the gate's inspection of contents finds nothing
+    refusal, _ = refuse(world, X.CANDIDATE_REFUSED, fake)
+    assert refusal.check == "uncommitted_file"
+    assert value not in "".join(p.name for p in world.base.rglob("*.json"))
+
+
+def test_paths_that_sort_differently_as_strings_round_trip(world, monkeypatch):
+    """XIMPL-2-04: `site/a/x.md` and `site/a-b.md` — the gate's order, not the strings'."""
+    from bi_como_codigo.exporter import cli
+
+    _commit(world, {"site/a/x.md": "", "site/a-b.md": ""}, ["site/a/x.md", "site/a-b.md"])
+    body, fake = export(world)
+    included = body["candidate"]["included"]
+    assert included.index("site/a/x.md") < included.index("site/a-b.md")
+    target = world.root / "evidence" / "20261124"
+    monkeypatch.setattr(cli, "ROOT", world.root)
+    assert cli.main(["evidence", str(world.out / "run.json"), str(target)], {}) == 0
+
+
+def test_a_signal_while_cleaning_publishes_nothing(world, monkeypatch):
+    """XIMPL-2-05: a SIGTERM noted during the cleaning ends the run as
+    `interrupted`, before the result is published."""
+    import signal as sig
+    from bi_como_codigo.exporter import paths as P_
+
+    original = P_.remove_tree
+    monkeypatch.setattr(P_, "remove_tree", lambda path: (os.kill(os.getpid(), sig.SIGTERM), original(path)))
+    refusal, _ = refuse(world, X.INTERRUPTED)
+    assert refusal.check == "cleanup"
+
+
+def test_one_spelling_of_two_values_lists_both_and_each_needs_its_approval(world):
+    """XIMPL-2-06: VARCHAR `1.234` and BIGINT `1234` share the spelling `1.234`."""
+    from bi_como_codigo.exporter import collisions
+
+    fake = world.fake()
+    set_cell(fake, P13, 0, "warehouse_name", "1.234")
+    set_cell(fake, P13, 1, "delivered_count", 1234)
+    world.rewitness(fake, P13)
+    _commit(world, {"site/notes.md": "1.234\n"}, ["site/notes.md"])
+
+    def fresh():
+        f = world.fake()
+        f.rows = fake.rows
+        return f
+
+    lines = collisions.report(world.root, dict(world.environ), connect=lambda _s, _a: fresh(), fetch_metadata=world.fetch_metadata())
+    assert any("'1.234' as '1.234'" in line for line in lines) and any("'1234' as '1.234'" in line for line in lines), lines
+    public = world.root / "release" / "public_values.json"
+    for approved, passes_ in ((["1.234"], False), (["1.234", "1234"], True)):
+        data = json.loads(public.read_bytes())
+        data["values"] = [{"value": v, "reason": "a test"} for v in approved]
+        public.write_text(json.dumps(data) + "\n")
+        if passes_:
+            body, _ = export(world, fresh())
+            assert body["candidate"]["collisions_approved"] == {"used": [0, 1], "unused": []}
+        else:
+            refusal, _ = refuse(world, X.CANDIDATE_REFUSED, fresh())
+            assert refusal.check == C.CLEAR_VALUE
+
+
+def test_a_committed_symlink_is_not_public_content(world):
+    """XIMPL-2-09: its blob is a target name; a regular file beside it still counts."""
+    from bi_como_codigo.exporter import collisions
+
+    fake = world.fake()
+    target_value = fake.rows[P13][0][col(fake, P13, "carrier_name")]
+    regular_value = fake.rows[P13][1][col(fake, P13, "carrier_name")]
+    (world.root / "site" / "link.md").symlink_to(target_value)
+    _commit(world, {"site/real.md": f"{regular_value}\n"}, ["site/link.md", "site/real.md"])
+    (world.root / "site" / "link.md").unlink()  # the working tree need not hold it: the diagnostic reads the commit
+    lines = collisions.report(world.root, dict(world.environ), connect=lambda _s, _a: world.fake(), fetch_metadata=world.fetch_metadata())
+    joined = "\n".join(lines)
+    assert repr(regular_value) in joined and target_value not in joined
+
+
+def test_an_exemption_of_a_value_the_gate_never_searches_is_unused(world):
+    """XIMPL-2-07: P13's row count has one digit: no needle, so its entry exempts nothing."""
+    fake = world.fake()
+    count = str(len(fake.rows[P13]))
+    assert len(count) == 1
+    public = world.root / "release" / "public_values.json"
+    data = json.loads(public.read_bytes())
+    data["values"] = [{"value": count, "reason": "a test: a one-digit count"}]
+    public.write_text(json.dumps(data) + "\n")
+    body, _ = export(world)
+    assert body["candidate"]["collisions_approved"] == {"used": [], "unused": [0]}
+
+
+def test_the_stand_in_comes_from_the_commit_resolved_once(world, monkeypatch):
+    """XIMPL-2-08: HEAD moves to another valid package between the listing and
+    the reads; the manifest, the envelopes and the receipt's digest are all the
+    first commit's."""
+    import hashlib
+    import shutil
+
+    manifest, files = stand_in(world)
+    expected = hashlib.sha256(manifest + b"".join(files[k] for k in sorted(files))).hexdigest()
+    original = run.committed_paths
+    moved = []
+
+    def and_move(root, commit):
+        out = original(root, commit)
+        if not moved:  # another valid package, committed after the commit was resolved
+            declared = REL.profiles(world.root)
+            k = C.load(world.root)[0]
+            scratch = world.base / "scratch2"
+            scratch.mkdir()
+            rows = {v.view: fw.typed_rows(v, world.fixture["rows"][v.view]) for v in world.fake().contract.views}
+            m2, f2 = e.encrypt_package(declared, xw.payloads_from(world.fake().contract, k, rows, scratch))
+            package = world.root / "site" / "package"
+            shutil.rmtree(package)
+            package.mkdir()
+            (package / "manifest.json").write_bytes(m2)
+            for name, data in f2.items():
+                (package / name).write_bytes(data)
+            xw.git(world.root, "add", "-A")
+            xw.git(world.root, "commit", "-qm", "another package")
+            moved.append(1)
+        return out
+
+    monkeypatch.setattr(run, "committed_paths", and_move)
+    body, _ = export(world)
+    assert moved and body["candidate"]["verify"][1]["live"] == expected

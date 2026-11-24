@@ -78,19 +78,35 @@ class Clock:
         return t
 
 
-def _committed_package(root: pathlib.Path) -> tuple[bytes, dict[str, bytes]]:
-    """The stand-in for live (§10): `site/package/` at the commit being rehearsed."""
+def _git(root: pathlib.Path, *args: str) -> bytes:
     env = {k: val for k, val in os.environ.items() if not k.startswith("GIT_")}
+    done = subprocess.run(["git", "-C", str(root), *args], capture_output=True, env=env, check=False)
+    if done.returncode != 0:
+        raise Refused(CANDIDATE_REFUSED, check="git")
+    return done.stdout
 
-    def git(*args: str) -> bytes:
-        done = subprocess.run(["git", "-C", str(root), *args], capture_output=True, env=env, check=False)
-        if done.returncode != 0:
-            raise Refused(CANDIDATE_REFUSED, check="stand_in")
-        return done.stdout
 
-    names = git("ls-tree", "--name-only", "HEAD", "site/package/").decode("utf-8").split()
-    files = {pathlib.PurePosixPath(n).name: git("show", f"HEAD:{n}") for n in names if n.endswith(".bice")}
-    return git("show", "HEAD:site/package/manifest.json"), files
+def rehearsed_commit(root: pathlib.Path) -> str:
+    """The commit being rehearsed, resolved **once**: every read of it uses the
+    full id, so a ref that moves meanwhile changes nothing (XIMPL-2-08)."""
+    return _git(root, "rev-parse", "--verify", "HEAD^{commit}").decode("ascii").strip()
+
+
+def committed_paths(root: pathlib.Path, commit: str) -> set[str]:
+    """Every regular file of `site/` at that commit — the names already public in Git."""
+    out = set()
+    for line in _git(root, "ls-tree", "-r", commit, "site/").decode("utf-8").splitlines():
+        meta, _, rel = line.partition("\t")
+        if meta.split()[0] in ("100644", "100755"):
+            out.add(rel)
+    return out
+
+
+def _committed_package(root: pathlib.Path, commit: str) -> tuple[bytes, dict[str, bytes]]:
+    """The stand-in for live (§10): `site/package/` at the commit being rehearsed."""
+    names = _git(root, "ls-tree", "--name-only", commit, "site/package/").decode("utf-8").split()
+    files = {pathlib.PurePosixPath(n).name: _git(root, "show", f"{commit}:{n}") for n in names if n.endswith(".bice")}
+    return _git(root, "show", f"{commit}:site/package/manifest.json"), files
 
 
 def _verify_code(refusal: release.Refused) -> str | None:
@@ -121,7 +137,14 @@ def candidate(root: pathlib.Path, run_dir: pathlib.Path, manifest: bytes, files:
     deploy = run_dir / "deploy"
     included = release.build(cand, deploy)
     listing = release.listing(deploy)
-    stand_in = _committed_package(root)
+    commit = rehearsed_commit(root)
+    public_names = committed_paths(root, commit)
+    for rel in included:
+        # XIMPL-2-01: the receipt and Git's evidence name the candidate's files, so every
+        # name is one already public in Git, or one of the sealed package's own.
+        if not rel.startswith("site/package/") and rel not in public_names:
+            raise Refused(CANDIDATE_REFUSED, check="uncommitted_file")
+    stand_in = _committed_package(root, commit)
     results = []
     for live_name, live in (("none", lambda: release.NO_LIVE), ("stand_in", lambda: stand_in)):
         try:
@@ -133,7 +156,7 @@ def candidate(root: pathlib.Path, run_dir: pathlib.Path, manifest: bytes, files:
         live_digest = "none" if live_name == "none" else hashlib.sha256(
             stand_in[0] + b"".join(stand_in[1][k] for k in sorted(stand_in[1]))).hexdigest()
         results.append({"live": live_digest, "passed": True})
-    used = [i for i, value in enumerate(public) if value in searched]
+    used = [i for i, value in enumerate(public) if value in searched]  # XIMPL-2-07: only what the gate would search
     return {
         "listing_digest": release.canonical_digest(listing),
         "files": [{"path": rel, "sha256": sha} for rel, sha in listing],
@@ -223,7 +246,8 @@ def export(
                 reference.compare(vr.frozen, back)
                 try:
                     checked = c.check_payload(d.contract, report, totals, buffer)
-                    searched |= checked.texts | checked.numbers
+                    searched |= {x for x in checked.texts if len(x) >= 3}
+                    searched |= {x for x in checked.numbers if c.eligible_number(x)}
                 except c.Refused as refusal:
                     raise Refused(refusal.code, view.view, "gate") from None
                 clock.add("read_back", t0)
@@ -254,7 +278,9 @@ def export(
         rc.load(raw, d.views)  # read back strictly before anything leaves the run directory
         result = {"package/manifest.json": manifest, **{f"package/{n}": b for n, b in files.items()},
                   "metadata.json": meta.raw, "run.json": raw}
-        paths.publish(str(target), result, protected)
+    # XIMPL-2-05: published only once the run directory is gone. A signal noted
+    # during the cleaning is raised there, and nothing is published.
+    paths.publish(str(target), result, protected)
     return body
 
 

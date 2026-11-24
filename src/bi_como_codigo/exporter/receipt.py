@@ -13,6 +13,7 @@ import datetime as dt
 import hashlib
 import json
 import math
+import pathlib
 import re
 
 from .. import release
@@ -113,6 +114,10 @@ def expected_facts(views: ViewContract, provenance: dict, policy: dict, collatio
 
 
 # --- the strict reader -----------------------------------------------------------------------
+
+
+def _parts(path: str) -> tuple[str, ...]:
+    return pathlib.PurePosixPath(path).parts
 
 
 def _bad() -> Refused:
@@ -228,8 +233,8 @@ def load(raw: bytes, views: ViewContract) -> dict:
     for item in files:
         _obj(item, ("path", "sha256"))
         listing.append((_match(item["path"], _PATH), _match(item["sha256"], _SHA256)))
-    if listing != sorted(set(listing)) or len({p for p, _ in listing}) != len(listing):
-        raise _bad()
+    if listing != sorted(set(listing), key=lambda item: _parts(item[0])) or len({p for p, _ in listing}) != len(listing):
+        raise _bad()  # the gate's own order: by path components, as `release.listing` walks them (XIMPL-2-04)
     _same(cand["listing_digest"], release.canonical_digest(listing))
     deployed = dict(listing)
     if "package/manifest.json" not in deployed:
@@ -240,7 +245,7 @@ def load(raw: bytes, views: ViewContract) -> dict:
     if sum(1 for p in deployed if p.startswith("package/") and p.endswith(".bice")) != VIEW_COUNT:
         raise _bad()
     included = cand["included"]
-    if not isinstance(included, list) or [_match(i, _PATH) for i in included] != sorted({f"site/{p}" for p in deployed}):
+    if not isinstance(included, list) or [_match(i, _PATH) for i in included] != sorted({f"site/{p}" for p in deployed}, key=_parts):
         raise _bad()
     runs = cand["verify"]
     if not isinstance(runs, list) or len(runs) != 2:

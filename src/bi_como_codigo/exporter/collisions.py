@@ -55,10 +55,20 @@ class Snapshot:
                 out.append(line)
         return out
 
+    def regular_files(self) -> list[str]:
+        """The regular files of `site/` at the commit: a symbolic link's blob is
+        its target's name, not public content, and `release.build` refuses it
+        (XIMPL-2-09)."""
+        out = []
+        for line in self._git("ls-tree", "-r", self.commit, "site/").decode("utf-8").splitlines():
+            meta, _, rel = line.partition("\t")
+            if meta.split()[0] in ("100644", "100755"):
+                out.append(rel)
+        return out
+
     def haystacks(self) -> dict[str, bytes]:
         globs = self.globs()
-        names = self._git("ls-tree", "-r", "--name-only", self.commit, "site/").decode("utf-8").splitlines()
-        out = {rel: self.show(rel) for rel in names
+        out = {rel: self.show(rel) for rel in self.regular_files()
                if any(fnmatch.fnmatchcase(rel, g) for g in globs) and not rel.startswith("site/package/")}
         labels = [p["label"] for p in json.loads(self.show(PROFILES))["profiles"]]
         out[f"{PROFILES} (labels)"] = "\n".join(labels).encode("utf-8")
@@ -102,13 +112,15 @@ def hits(root: pathlib.Path, contract: c.Contract, payloads, run_dir: pathlib.Pa
     approved = snapshot.public()
     values = [c.check_payload(contract, contract.reports[rid], totals, parquet) for rid, (totals, parquet) in sorted(payloads.items())]
     where = holders(contract, payloads, run_dir)
-    canonical: dict[bytes, str] = {}
-    for v in values:  # the needle's canonical value, as `contract.needles` derives it
+    canonical: dict[bytes, set[str]] = {}
+    for v in values:  # every canonical value behind a needle, as `contract.needles` derives them (XIMPL-2-06)
         for text in v.texts:
-            canonical.setdefault(text.encode("utf-8"), text)
+            if len(text) >= 3:
+                canonical.setdefault(text.encode("utf-8"), set()).add(text)
         for number in v.numbers:
-            for spelling in c.spellings(number):
-                canonical.setdefault(spelling.encode("utf-8"), number)
+            if c.eligible_number(number):
+                for spelling in c.spellings(number):
+                    canonical.setdefault(spelling.encode("utf-8"), set()).add(number)
     lines = []
     for code, needle in c.needles(values, set()):  # every needle, the approved ones included and marked
         for rel, data in sorted(stacks.items()):
@@ -118,10 +130,10 @@ def hits(root: pathlib.Path, contract: c.Contract, payloads, run_dir: pathlib.Pa
                 report = next(v.report for v in values if v.totals_raw == needle)
                 lines.append(f"collision: the whole totals object of {report} in {rel}")
                 continue
-            value = canonical[needle]
-            mark = " (approved in release/public_values.json)" if value in approved else ""
-            held = ", ".join(sorted(where.get(value, ())))
-            lines.append(f"collision: {value!r} as {needle.decode('utf-8')!r} in {rel}; held by {held}{mark}")
+            for value in sorted(canonical[needle]):  # each needs its own approval
+                mark = " (approved in release/public_values.json)" if value in approved else ""
+                held = ", ".join(sorted(where.get(value, ())))
+                lines.append(f"collision: {value!r} as {needle.decode('utf-8')!r} in {rel}; held by {held}{mark}")
     lines.append(f"{len(lines)} collision(s) at {snapshot.commit[:12]}")
     return lines
 

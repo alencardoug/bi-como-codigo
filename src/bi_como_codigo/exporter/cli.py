@@ -139,6 +139,11 @@ def _evidence(args, _environ) -> int:
 
     contract = v.load((ROOT / "release" / "views.json").read_bytes())
     body = rc.load(pathlib.Path(args.receipt).read_bytes(), contract)
+    from . import run
+
+    public_names = run.committed_paths(ROOT, run.rehearsed_commit(ROOT))
+    if any(not rel.startswith("site/package/") and rel not in public_names for rel in body["candidate"]["included"]):
+        raise Refused("receipt_invalid", check="uncommitted_file")  # XIMPL-2-01: only names already public in Git
     target = pathlib.Path(args.out).resolve()
     if ROOT / "evidence" not in target.parents:
         raise Refused("path_refused", check="evidence")
@@ -169,7 +174,21 @@ class _Parser(argparse.ArgumentParser):
         raise _UsageRefused()
 
 
+def _silence_libraries() -> None:
+    """No library prints past the boundary (XIMPL-2-02): psycopg logs a failed
+    cancellation with the driver's text, and Python's last-resort handler
+    would write it to stderr; a library's warning may quote a value. Logging
+    is disabled and warnings ignored for the command's whole life."""
+    import logging
+    import warnings
+
+    logging.disable(logging.CRITICAL)
+    logging.lastResort = None
+    warnings.simplefilter("ignore")
+
+
 def main(argv: list[str] | None = None, environ=None) -> int:
+    _silence_libraries()
     parser = _Parser(prog="python -m bi_como_codigo.exporter", description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True, parser_class=_Parser)
     p = sub.add_parser("catalogue")

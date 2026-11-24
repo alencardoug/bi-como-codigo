@@ -541,10 +541,18 @@ def test_the_receipt_refuses_a_non_finite_duration(honest_receipt):
 def evidence_root(outside, monkeypatch):
     """A repository root with the fixture's view contract and an evidence/
     folder, so that the destination is valid and only the receipt decides."""
+    import exporter_world as xw
+
     root = outside / "repo"
     (root / "release").mkdir(parents=True)
     (root / "evidence").mkdir()
+    (root / "site").mkdir()
     (root / "release" / "views.json").write_bytes(fw.contract_bytes(fw.load_fixture()))
+    for name in ("index.html", "releases.md"):  # the site's committed names, which the receipt may cite
+        (root / "site" / name).write_bytes((ROOT / "site" / name).read_bytes())
+    xw.git(root, "init", "-q")
+    xw.git(root, "add", "-A")
+    xw.git(root, "commit", "-qm", "the evidence root")
     monkeypatch.setattr(cli, "ROOT", root)
     return root
 
@@ -809,3 +817,135 @@ def test_tls_paths_are_resolved_where_they_are_named(outside, monkeypatch):
                                BICE_WAREHOUSE_SSLCRL="certs/root.crl"))
     assert found.sslrootcert == str(outside / "certs" / "root.crt") and found.sslcrl == str(outside / "certs" / "root.crl")
     assert S.settings(environ(BICE_WAREHOUSE_SSLMODE="verify-full", BICE_WAREHOUSE_SSLROOTCERT="system")).sslrootcert == "system"
+
+
+# --- round 2 (XIMPL-2-01 to -09) -------------------------------------------------------------------
+
+
+def test_export_evidence_refuses_a_file_name_not_committed(honest_receipt, outside, evidence_root):
+    """XIMPL-2-01: a candidate file whose name is not in Git is refused before writing."""
+    from bi_como_codigo import release
+
+    body = json.loads(honest_receipt)
+    body["candidate"]["files"].append({"path": f"{MARKER}.md", "sha256": "0" * 64})
+    body["candidate"]["files"].sort(key=lambda f: pathlib.PurePosixPath(f["path"]).parts)
+    listing = [(f["path"], f["sha256"]) for f in body["candidate"]["files"]]
+    body["candidate"]["listing_digest"] = release.canonical_digest(listing)
+    body["candidate"]["included"] = sorted((f"site/{p}" for p, _ in listing), key=lambda p: pathlib.PurePosixPath(p).parts)
+    assert rc.load(json.dumps(body).encode(), fixture_contract())  # the loader alone accepts it...
+    bad = outside / "named.json"
+    bad.write_text(json.dumps(body))
+    target = evidence_root / "evidence" / "20261124"
+    assert cli.main(["evidence", str(bad), str(target)], {}) == 1  # ...the command does not
+    assert not target.exists()
+
+
+def test_a_library_warning_or_log_line_never_reaches_the_terminal():
+    """XIMPL-2-02: psycopg's failed-cancellation warning, through logging, and a
+    library warning, while a run is interrupted — in a process of its own, so
+    no test harness captures them on the command's behalf."""
+    import subprocess
+
+    code = f"""
+import logging, warnings
+from bi_como_codigo.exporter import cli, run
+def interrupted(*a, **k):
+    logging.getLogger("psycopg").warning("query cancellation failed: %s", {MARKER!r})
+    warnings.warn("a library warning holding {MARKER}")
+    raise KeyboardInterrupt
+run.export = interrupted
+raise SystemExit(cli.main(["run"], {{}}))
+"""
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
+    assert (done.returncode, done.stdout, done.stderr) == (1, "", "refused: unexpected; class KeyboardInterrupt\n")
+
+
+def _revoking_crl(cert, key, serials):
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+
+    now = dt.datetime.now(dt.timezone.utc)
+    builder = (x509.CertificateRevocationListBuilder().issuer_name(cert.subject)
+               .last_update(now - dt.timedelta(days=1)).next_update(now + dt.timedelta(days=1)))
+    for serial in serials:
+        builder = builder.add_revoked_certificate(
+            x509.RevokedCertificateBuilder().serial_number(serial).revocation_date(now - dt.timedelta(hours=1)).build())
+    return builder.sign(key, hashes.SHA256()).public_bytes(serialization.Encoding.PEM)
+
+
+@pytest.mark.parametrize("revoked", [False, True], ids=["unrevoked", "revoked"])
+def test_the_crl_named_relative_to_the_caller_is_the_one_libpq_uses(outside, monkeypatch, revoked):
+    """XIMPL-2-03: the CRL is used — a revoked server certificate refuses the
+    handshake, an unrevoked one reaches the startup message."""
+    certs = outside / "certs"
+    certs.mkdir()
+    ca_key, ca = _certificate("probe-ca", ca=True)
+    _pem(ca_key, ca, certs, "ca")
+    server_key, server_cert = _certificate("server", issuer=ca.subject, issuer_key=ca_key)
+    k, ct = _pem(server_key, server_cert, certs, "server")
+    (certs / "root.crl").write_bytes(_revoking_crl(ca, ca_key, [server_cert.serial_number] if revoked else []))
+
+    class Server(TlsServer):
+        def __init__(self):
+            self.ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            self.ctx.load_cert_chain(ct, k)
+            self.sock = socket.socket()
+            self.sock.bind(("127.0.0.1", 0))
+            self.sock.listen(4)
+            self.port = self.sock.getsockname()[1]
+            self.seen = {"tls": False, "peer_cert": None, "startup": None}
+            self.thread = threading.Thread(target=self._serve, daemon=True)
+            self.thread.start()
+
+    server = Server()
+    monkeypatch.setenv("HOME", str(outside / "nohome"))
+    monkeypatch.chdir(outside)
+    try:
+        found = S.settings(environ(BICE_WAREHOUSE_PORT=str(server.port), BICE_WAREHOUSE_SSLMODE="verify-ca",
+                                   BICE_WAREHOUSE_SSLROOTCERT="certs/ca.crt", BICE_WAREHOUSE_SSLCRL="certs/root.crl"))
+        elsewhere = outside / "run"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+        assert code_of(S.connect, found, elsewhere / "absent", environ={}) == X.CONNECT_FAILED
+    finally:
+        server.close()
+    assert (server.seen["startup"] is None) is revoked
+
+
+def test_a_signal_noted_while_cleaning_ends_the_run_with_both_handlers_restored(outside, monkeypatch):
+    """XIMPL-2-05: SIGTERM noted while cleaning ends as `interrupted`; a SIGINT
+    arriving between the two restorations is still noted; afterwards both
+    handlers are the caller's."""
+    import signal as sig
+
+    staging = outside / "staging"
+    staging.mkdir()
+    before = (sig.getsignal(sig.SIGINT), sig.getsignal(sig.SIGTERM))
+    original = paths.remove_tree
+    monkeypatch.setattr(paths, "remove_tree", lambda path: (os.kill(os.getpid(), sig.SIGTERM), original(path)))
+    cwd = os.getcwd()
+    with pytest.raises(Refused) as caught:
+        with paths.RunDirectory(staging, [ROOT]) as run_dir:
+            pass
+    os.chdir(cwd)
+    assert (caught.value.code, caught.value.check) == (X.INTERRUPTED, "cleanup") and not run_dir.exists()
+    assert (sig.getsignal(sig.SIGINT), sig.getsignal(sig.SIGTERM)) == before
+
+    real = paths.signal.signal
+    sent = []
+
+    def restoring(signum, handler):
+        previous = real(signum, handler)
+        if not sent and handler in before:  # right after the first of the two restorations
+            sent.append(signum)
+            os.kill(os.getpid(), sig.SIGINT)
+        return previous
+
+    monkeypatch.setattr(paths, "remove_tree", original)
+    monkeypatch.setattr(paths.signal, "signal", restoring)
+    with pytest.raises(KeyboardInterrupt):
+        with paths.RunDirectory(staging, [ROOT]):
+            pass
+    os.chdir(cwd)
+    monkeypatch.setattr(paths.signal, "signal", real)
+    assert (sig.getsignal(sig.SIGINT), sig.getsignal(sig.SIGTERM)) == before and not list(staging.glob("run-*"))
