@@ -145,5 +145,321 @@ Filled in by the reviewer. One finding per line, with a verdict.
 
 | # | Where | Finding | Verdict | Status |
 |---|---|---|---|---|
-| | | | `blocking` · `adjustment` · `observation` | |
+| EXP-1-01 | `docs/exporter.md` §§4.1, 9 | The pinned metadata has no package commit field, and the planned check can miss a swapped report mapping. | blocking | Done in revision 2, §5: the blob is bound by its id at the full pin, recorded apart from the live provenance; `questions.<P>.view` checked both ways, P13 named; names from `view_rules` and `relations`, types from the catalogue; grain roles as a set. Mutations in §12 |
+| EXP-1-02 | `docs/exporter.md` §3 | The transaction checks can accept the wrong login, access policy, or view inventory. | blocking | Done, §3 checks 1–7: `session_user` and `current_user`; role attributes; the recursive closure equal to the contract's; the inventory from `pg_class`, any kind, whatever the grants; effective access by `has_table_privilege`; one transaction, no retry, no second connection. Adapter sequencing and failure injection in §12 |
+| EXP-1-03 | `docs/exporter.md` §§3, 8 | A rebuild from the same commit can skip all 16 reference fingerprints. | blocking | Done, §3 check 8 and the witness: exactly one row, matching an accepted build by commit, invocation and sequence; every run compares all 16 counts and fingerprints with the build's witness; M55's expression and the session settings fixed and recorded |
+| EXP-1-04 | `docs/exporter.md` §§4.2, 5–6, Q2 | Python binding can round values that fit the declared decimal exactly. | blocking | Done, §4.3: exact fit from digits and exponent under a 200-digit context; NaN and infinities refused, negative zero made zero, trailing zeros removed; values bound as exact strings with explicit casts, never as `Decimal`. Boundary cases in §12 |
+| EXP-1-05 | `docs/exporter.md` §§5–6, 12 | The locked DuckDB environment cannot fetch non-null zoned timestamps directly. | blocking | Done, §4.3: instants as integer microseconds in UTC, built with `make_timestamp(us)::TIMESTAMPTZ`, read back with `epoch_us`; naive and infinite refused; DST and microsecond cases in §12 |
+| EXP-1-06 | `docs/exporter.md` §§4.3, 7, Q2 | Q2 permits sum columns the gate rejects, and additive-only sums narrow CI coverage. | blocking | Done with the Owner's N107: every column within N82's domain is summed, P16 included; N106 keeps every decimal at most 18 digits, 12 at the widest (`evidence/20261124/m59_profile.out.txt`); the exporter sums in Python from the reference, exactly, zero at scale for empty or all-null (§8) |
+| EXP-1-07 | `docs/exporter.md` §8 | A year in the pinned data collides with the unchanged site under the current inspection. | blocking | Done with the Owner's N108: a private candidate with the included site files and the real package runs `verify` unchanged with no live (§10); collisions are listed to the Owner and approved into `public_values.json` in a protected PR; approved and unapproved cases in §12 |
+| EXP-1-08 | `docs/exporter.md` §§4.3, 8, 13, Q3 | Replacing the trusted declarations alone breaks the current fixture tests and fixture previews. | blocking | Done with the Owner's N109: one protected PR in 2.4 migrates the declarations and replaces `site/package/` by invented envelopes of the 16 shapes, with 2.2b's mutations, MUT-15 included, proved again; the real package enters at 2.5 in an ordinary PR (§11) |
+| EXP-1-09 | `docs/exporter.md` §§3, 6, 10 | The tests do not bind the round-trip reference to the actual query result or exercise all mutations at their intended boundary. | blocking | Done, §3 and §7: an explicit projection, `cursor.description` checked before mapping, the reference frozen with its digest before any write; the bytes read back are the bytes sealed, by digest; §12 places each mutation at its boundary with a positive control, including the swapped same-type columns, M19 between write and read-back, and the candidate-level ones |
+| EXP-1-10 | `docs/exporter.md` §§5, 8, 10 | The output rule leaves clear intermediates, failure diagnostics and neighbouring paths outside its checks. | blocking | Done, §10: staging outside every worktree by `realpath` and `git rev-parse`, a lock and a `0700` `mkdtemp`; DuckDB's database and `temp_directory`, `TMPDIR` and the draft inside it; removal on every exit; atomic rename into a destination that must not exist; allow-listed `run.json` and evidence; the CLI prints a code, the check and the class name only. Cases in §12 |
+| EXP-1-11 | `docs/exporter.md` §§4.1, 4.3 | The proposal write boundary and the contract agreement check are underspecified. | adjustment | Done, §4.4: `contract.json` is generated from `views.json` and checked byte for byte in `make check` and before connecting; `export propose` writes only into staging and refuses `release/` |
+| EXP-1-12 | `docs/exporter.md` §§2–3, 5 | M59 has 188 columns, and the environment-key and null-profile claims lack committed measurement. | adjustment | Done, §2: 188 columns (my 226 was wrong); the `.env` key claim removed; `encrypt_package` cites PR #30's committed run; the null profile, the decimal extrema and the grain's uniqueness now measured, without values, in `evidence/20261124/m59_profile.py` |
+| EXP-1-13 | `docs/exporter.md` Q1 | One client alternative requires a container operation forbidden from this repository. | adjustment | Done with the Owner's N105: psycopg 3; the alternatives recorded with their real constraints, the container's `psql` no longer allowed from here (§13) |
 
+### Round 1 — evidence
+
+#### Conclusion
+
+**Changes required.** The plan leaves paths that can accept the wrong source or report mapping, and the
+planned local verification has reproducible failures with the locked tools and current site. Batch EXP
+remains open.
+
+#### Reviewed scope and version
+
+`main` at `f5a32f163eec04d43e5c1a6d3efcd4512406838a`, three commits ahead of the local `origin/main`
+reference. The explicit baseline was `f744d770616658ed75df12788c959aaf3902d14c`. The range contains
+`ae8b684` (new `docs/exporter.md`, PLAN revision 61 and §6.3 pointer, and the README map row) and
+`f5a32f1` (new `DOSSIER.md`). The dossier authorship range ends at `ae8b684` because the handoff is the
+second commit. The worktree and index were clean at entry, with no untracked files reported. The review
+changes only `DOSSIER.md`.
+
+#### High severity
+
+**EXP-1-01 — The metadata predicates cannot bind reports to the pin** (*high, blocking*,
+`docs/exporter.md:125–132,225–231`). **Executed file comparison.** The format-1 blob at `b0ef66e`
+carries no package commit in `provenance`. Its `provenance.warehouse.built_from_commit` is `bcc2d5c…`
+and describes the warehouse at generation. A literal pin comparison therefore rejects the correct blob.
+`measures` is under `questions[Pxx]`, with an equivalent per-column additivity declaration in
+`view_rules[view].columns`. All 16 mappings, column-name sets and additivities agree across those
+structures and M59 where applicable. The metadata's declared types say `text` for all 44 instances M59
+observes as `character varying`, so the metadata comparison must distinguish column names from physical
+PostgreSQL types. The planned §9 predicates do not compare question IDs to view names. Swapping two IDs
+consistently in both local contracts can preserve inventory and schema checks while giving a report the
+wrong meaning or exposing the wrong view through P13. Bind the raw blob to the full Git commit via the
+pinned lookup and record its digest. Specify the JSON paths, compare the exact P01–P16 mapping in both
+directions, and reject a swapped ID or missing or ambiguous rule. Keep M59/live catalogues authoritative
+for physical types. **Origin** New plan defects against the existing upstream format. [Pinned metadata
+specification](https://github.com/alencardoug/mvp_eng_dados_2/blob/b0ef66e/docs/pacote_de_metadados.md#L83-L98)
+
+**EXP-1-02 — The session predicates do not establish the intended access and inventory** (*high,
+blocking*, `docs/exporter.md:88–111`). **Static evidence.** An explicitly started `REPEATABLE READ READ
+ONLY` transaction on one connection gives the views and provenance one MVCC snapshot within the Owner's
+stable read window. `transaction_isolation` and `transaction_read_only` are checkable on that
+connection. `current_user` alone is the effective role, so it can match after `SET ROLE` even when the
+session login differs. Looking at only the login's direct memberships can miss a role inherited through
+`analyst`. It also cannot establish the absence of direct grants, `PUBLIC` grants or ownership
+privileges. The upstream access tests check role flags, membership and effective access separately. The
+historical capture uses `information_schema.views`, which can hide an extra ungranted view, and gets its
+initial name list on a separate connection (`evidence/20261117/capture.sh:32–52`). Define the expected
+`session_user` and `current_user`, an explicit allowed role graph and role flags, and which
+effective-access assertions are verified by the custodian for the read window. Compare the full schema
+inventory by canonical catalogue name and relation kind, independently of grants, then require readable
+columns and rows for every expected view. Start once using the chosen driver's transaction API or
+explicit `BEGIN` on an idle connection. Fail closed on missing or unreadable facts, a failed query or
+failed commit, with no fallback connection. Test role-switch, missing and nested memberships, unsafe
+role options, an ungranted extra view and an unreadable required view. **Origin** New plan gap. The
+historical capture's inventory method predates the plan. [PostgreSQL transaction
+isolation](https://www.postgresql.org/docs/16/transaction-iso.html#XACT-REPEATABLE-READ) · [Role and
+privilege predicates](https://www.postgresql.org/docs/16/functions-info.html) · [View
+visibility](https://www.postgresql.org/docs/16/infoschema-views.html) · [Psycopg transaction
+management](https://www.psycopg.org/psycopg3/docs/basic/transactions.html) · [Pinned access
+tests](https://github.com/alencardoug/mvp_eng_dados_2/blob/b0ef66e/tests/test_acesso.py#L286)
+
+**EXP-1-03 — A same-commit rebuild can bypass the data witness** (*high, blocking*,
+`docs/exporter.md:100–117,204–210`, `PLAN.md:491–499`). **Static evidence plus Git inspection.** M59
+records one `verified` row, full build commit `bcc2d5ce23363ca121429e582d17b0018a0a0966`, invocation
+`1cb3cd4e-…`, sequence 125. M61 and the pinned Git history support the link from that build to the
+unchanged models at `b0ef66e`. An ordinary eligible rebuild at the same build commit returns another
+invocation and can use different inputs. §3 accepts that commit, but only requires the M59 comparison
+when the whole provenance row matches. The upstream provenance guarantee covers the latest eligible
+build and has narrower guarantees for retained rows and streaming input. Require exactly one well-formed
+`verified` row and a pinned mapping from an accepted build to a required witness of counts and all 16
+digests. For the current pin, require the M59 match on every accepted run, or refuse an unwitnessed
+build until an approved comparison exists. Specify M55's exact serialization and ordering, with
+PostgreSQL settings compatible with M59, including UTC, date style and text ordering. Record the
+metadata's manifest timestamp with its invocation and the live provenance row with `read_at` so their
+origins remain clear. Test zero or multiple rows, a changed invocation with the same commit and changed
+data, and one mismatched or missing fingerprint. **Origin** New conditional bypass. [M59
+capture](evidence/20261119/capture.out.txt#L7) · [M61 source
+comparison](evidence/20261120/source_diff.out.txt) · [Pinned provenance
+ADR](https://github.com/alencardoug/mvp_eng_dados_2/blob/b0ef66e/docs/adr/0054-procedencia-do-armazem-no-log-de-execucao.md#L41)
+
+**EXP-1-04 — Fitting a decimal does not guarantee exact binding** (*high, blocking*,
+`docs/exporter.md:141–147,165,175–185,273`). **Executed under DuckDB 1.5.6.** Ordinary `Decimal`
+parameter binding inferred `DOUBLE` for the invented
+`Decimal('0.01234567890123456789012345678901234567')`. Casting to `DECIMAL(38,38)` yielded
+`0.01234567890123456841093504014485553152`. Binding its exact fixed-point string and explicitly casting
+preserved the value in the same probe. A comparison against the untouched source would refuse the
+rounded result, but the fit check would already have accepted a representable value and the proposed
+writer would fail to export it. State a lossless binding strategy and an exact fit test based on finite
+decimal coefficients and exponents or exact scaled integers. Define trailing-zero handling, canonicalize
+signed zero and refuse `NaN`, either infinity and value overflow before binding, using sanitized
+diagnostics. Test with just-fit and just-outside values, values exceeding Python's default 28-digit
+context, leading fractional zeros at scale 38, and negative zero. Q2 remains conditional on per-column
+extrema from M59 and a refusal or Owner decision if no permitted exact type fits. **Origin** New plan
+gap exposed by existing client behaviour. [PostgreSQL numeric
+domain](https://www.postgresql.org/docs/16/datatype-numeric.html) · [Psycopg numeric
+adaptation](https://www.psycopg.org/psycopg3/docs/advanced/adapt.html)
+
+**EXP-1-05 — The gate's timestamp support does not prove the exporter's fetch** (*high, blocking*,
+`docs/exporter.md:166–167,179–185,278–283`, `src/bi_como_codigo/contract.py:265,317–321`). **Executed
+under DuckDB 1.5.6.** A Parquet `TIMESTAMP WITH TIME ZONE` column had the correct schema. Direct
+`fetchall()` of a non-null instant raised an `InvalidInputException` caused by `ModuleNotFoundError: No
+module named 'pytz'`. The gate fetches a UTC `VARCHAR` representation for inspection, which worked and
+explains why the gate path does not reveal the problem. Reading `epoch_us` preserved two invented
+instants at the same wall time with differing offsets and microseconds, as well as SQL `NULL`. Specify
+an exact UTC retrieval contract, for example integer microseconds after the schema check, or pin the
+dependency used by direct fetch. Refuse naive values and unsupported infinities or dates outside the
+client's range without remapping them. Validate both DST instants, subsecond precision, nulls and the
+actual P12 type through the locked export and gate paths. **Origin** New use of a preexisting dependency
+constraint. [Psycopg date and timestamp
+adaptation](https://www.psycopg.org/psycopg3/docs/basic/adapt.html#date-time-types-adaptation)
+
+**EXP-1-06 — Select control sums within the trusted gate's domain** (*high, blocking*,
+`docs/exporter.md:151–155,193–198,273`, `docs/package_gate.md:84–89,119–127`,
+`src/bi_como_codigo/contract.py:154–158,302–309`). **Executed and static.** The 48 additive columns at
+the pin include 20 PostgreSQL `numeric` columns and 28 `bigint` columns. N82 limits summed decimals to
+precision 18. The unchanged gate refused a contract summing an invented `DECIMAL(19,2)` column. The
+`DECIMAL(38,10)` option fails the same predicate wherever applied to an additive column. N78 requires
+exact totals for the declared sum columns, and the current verifier recomputes every declared sum and
+still scans eligible numeric cells for disclosure. The proposed policy conforms to N78's format and
+gives the new real reports narrower checksum coverage than a policy covering every eligible numeric
+column. P16 has no additive measure, and a synthetic `sums: {}` report still passed `check_payload`
+after two numeric cells changed. Specify independent source-derived totals, canonical scale, unsigned
+zero, unbounded or proven-safe accumulation, and the prescribed `COALESCE` behaviour. The probe returned
+`0.00` for an all-null and a zero-row sum at scale 2. Prove the 20 summed decimals fit the allowed
+precision, or bring a protected gate change and its overflow proof to the Owner. Make the residual CI
+coverage an explicit Owner choice. Present eligible numeric checksums as a real option with their cost
+and purpose, independent of any displayed business aggregation. Test a changed checksum, all-null sum,
+empty count and the precision boundary. **Origin** New policy and compatibility gap against preexisting
+gate semantics.
+
+**EXP-1-07 — The current artifact inspection refuses a valid pinned result** (*high, blocking*,
+`docs/exporter.md:214–218`, `src/bi_como_codigo/contract.py:354–376`, `release/include.txt:4–7`).
+**Executed reproduction and static source trace.** An invented integer `2026` taken through
+`check_payload` caused `c.inspect` on the real `site/releases.md` to refuse `clear_value (in
+releases.md)`. M59 records P08's `last year_month: 2026-09`. The pinned P08 SQL takes `year_month` and
+`year_number` from the date dimension and that dimension derives both from `full_date`, so `2026` is
+also a numeric cell in the pinned result. The inclusion list includes `releases.md`, which contains that
+year, and the public-value list is empty. A package-only local staging run can omit that collision while
+the subsequent full candidate fails. Specify a private candidate assembled with the intended page files
+and the real package replacing the fixture package, then run the unchanged verifier over it with only
+the live comparison skipped. Handle documented public collisions through N81's protected rule with
+reasons and an Owner-approved scope, including the effect of exemptions on coincident numeric values.
+Validate the honest full staged artifact and a clear-data negative case outside the approved exemptions.
+**Origin** Preexisting substring inspection limitation newly reached by the planned real data. [M59
+month](evidence/20261119/compare.out.txt#L33) · [Pinned P08
+SQL](https://github.com/alencardoug/mvp_eng_dados_2/blob/b0ef66e/dbt/models/consumption/gross_margin_by_category.sql#L20)
+· [Pinned date
+dimension](https://github.com/alencardoug/mvp_eng_dados_2/blob/b0ef66e/dbt/models/analytics/dim_date.sql#L24)
+· Site release dates: `site/releases.md`, line 6
+
+**EXP-1-08 — The trusted contract migration leaves the fixture artifact incompatible** (*high,
+blocking*, `docs/exporter.md:40–43,151–155,274,294–301`, `tests/test_package_gate.py:26–34,112–114`,
+`tests/test_release.py:63–66`). **Static evidence.** The tests load `release/` and the checked-in
+`site/` together. The latter has only P01, P02 and P13 in their old shapes and entitlements. Changing
+the two trusted files to 16 reports makes `inventory_exact` refuse those fixture bytes. Updating the
+trusted files in the first real-package PR also touches `release/`, so `admit` prevents its preview.
+Conversely, a real-package-only PR while `main` still trusts the fixture contract would fail `verify`.
+Define a coherent migration with the Owner. One option is a protected declaration change accompanied by
+invented fixture envelopes of the new shapes and corresponding test updates, then a separate
+real-package PR at the approved stage. State the migration cost in Q3 for either publication timing and
+require `make check`, successful fixture verification and a local real-package rehearsal under the same
+trusted declaration. **Origin** New incompatibility with unchanged fixtures and the preexisting trust
+policy. [Protected paths](release/protected.txt#L4) · [Admission and
+verification](docs/publishing_pipeline.md#41-job-admit--no-credentials)
+
+**EXP-1-09 — The mutations need an immutable source reference and concrete injection points** (*high,
+blocking*, `docs/exporter.md:107–117,179–189,237–261`, `PLAN.md:425–446`). **Static evidence and an
+executed counterexample.** The same-transaction comparison is the right oracle once it uses an
+untouched, typed result and independently re-reads the Parquet bytes being sealed. `check_payload`
+returns inspection values, so it cannot serve as row equality. The separate server fingerprint can agree
+even if the typed adapter misassigns two same-type text columns under the expected names, and
+`information_schema.columns` describes the relation rather than the query result. The adapter and writer
+can then agree on the same wrong rows. Require the exact projection and validate result metadata before
+mapping, freeze a typed reference before writing or normalizing, and compare all typed cells by an
+identical grain key and comparator. In the probe, a post-write label swap retained schema, grain, counts
+and sums, passed `check_payload`, and differed in both rows from the frozen source. The committed M19
+oracle found 761 mismatches with counts and sums unchanged. §10's list names every mutation in PLAN
+§3.4, but a fake-source mutation alone cannot test post-write M19, finished-artifact leakage, manifest
+tampering or key/IV reuse. Place each at its named boundary and assert the intended refusal on a case
+that otherwise passes, including leakage in an included artifact file. Carry forward N76's explicit
+mismatched-totals case, which the existing gate covers as MUT-15, and prove it with the migrated
+fixture. Distinguish a forbidden empty view from an explicitly allowed empty fixture and all-null
+nullable columns with a populated grain. Exercise actual transaction-adapter sequencing and role facts
+as well as fake values. **Origin** New adapter and test-plan gaps. [M19
+output](evidence/20261023/r4_label_swap.out.txt) · [Gate negative
+cases](docs/package_gate.md#9-the-mutations-and-their-tests-n76)
+
+**EXP-1-10 — The output-path test does not contain clear intermediates or failure paths** (*high,
+blocking*, `docs/exporter.md:159–169,175–177,200–221,260–266`,
+`src/bi_como_codigo/contract.py:274–288`). **Static evidence.** Git tracks files. An untracked directory
+inside a worktree can be staged, an ignored spelling can resolve through a symlink elsewhere, and an
+external path can lie in another worktree, including one of the read-only upstream checkouts. §8 checks
+the requested folder alone. `COPY`, DuckDB spills, the gate's temporary clear Parquet and evidence
+written in Git are separate destinations. The deploy inspection only traverses the staged artifact, so
+it cannot protect these paths or a traceback with a value or a connection secret. Use fresh private
+staging with verified canonical paths outside worktrees for clear data, or under an explicitly allowed
+ignored root whose resolved descendants and index are checked. Bind every clear write and spill to it
+and contain or clean it on refusal. Admit only the verified sealed package and deliberately selected
+metadata to the final destination, with atomic publication or equivalent isolation from failed and
+overlapping runs. Allowlist fields in Git evidence and sanitize connection, driver, serialization and
+filesystem exceptions at the CLI boundary. Define text handling as strict UTF-8 bytes with no NUL or
+normalization, and safe refusal or bounded processing before very large clear data is materialized. In
+the probe, DuckDB preserved multibyte text, a million-character string and an embedded NUL, confirming
+that writing Parquet alone cannot enforce the NUL rule. Exercise unignored and symlinked destinations, a
+tracked descendant, an interrupted or refused export, long and invalid text, and stdout/stderr with
+exception details containing invented values. **Origin** New exporter output and diagnostics gaps,
+reaching the gate's preexisting temporary-file behaviour. [Gate bounds and
+diagnostics](docs/package_gate.md#4-the-parquet-against-the-contract-n77)
+
+#### Medium severity
+
+**EXP-1-11 — Define where proposals land and what both readers enforce** (*medium, adjustment*,
+`docs/exporter.md:135–139,151–155,258`). **Static evidence.** A draft and a committed contract can
+coexist if the destination is distinct, but §4.1 leaves the draft destination unspecified. The two
+contracts can also drift in nullability or versions if the agreement test covers only the listed
+columns, grain, types and sums. A local live export can run without that test. Make `propose` an
+explicit draft-only write with a destination that cannot alias either trusted declaration. Specify a
+deterministic derivation and a pre-read agreement check over the entire report contract, including
+nullability, versions and report inventory, or use a single effective declaration with an equivalent
+guarantee. Test isolated edits to either file and attempted proposal writes to each trusted path.
+**Origin** New plan ambiguity. [Report contract shape](docs/package_gate.md#21-releasecontractjson)
+
+**EXP-1-12 — Correct the capture count and mark unmeasured observations** (*medium, adjustment*,
+`docs/exporter.md:53,58–66,84–86,171` and `DOSSIER.md:67–74`). **Executed recount and static trace.** M59
+contains 188 columns. Its type counts are 46 `numeric` with blank precision and scale in all 46 cases,
+44 `character varying`, 35 `integer`, 35 `bigint`, 23 `text`, 4 `boolean` and 1 `timestamp with time
+zone` (`skus_below_reorder_point.last_movement_at`). The 16 views, row total of 14,244, minimum 25 and
+maximum 5,775 all reconcile. The capture records effective login, isolation and provenance, but has no
+null profile, and the handoff provides no committed key-name probe output for the local `.env`
+observation. Record the count derivation and link the exact capture. Qualify the historical transaction
+claim to reflect its external inventory query. Cite tracked configuration for declared variable names
+and keep observations of local keys or all-null columns pending unless supported by safe committed
+output. Cite the producer's committed fixture-run evidence for §2. **Origin** New incorrect total and
+evidence labels. [M59 columns](evidence/20261119/capture.out.txt#L11) · [M59 row
+counts](evidence/20261119/capture.out.txt#L202) · [Committed fixture producer
+run](evidence/20261106/t22b_real_prs.out.txt#L22)
+
+**EXP-1-13 — Q1 needs a permitted second client choice** (*medium, adjustment*,
+`docs/exporter.md:70–72,272`, `CLAUDE.md` §5). **Static evidence.** The proposed historical `psql` route
+uses `docker exec`, which the repository rules and the read scope forbid from here. Running it through
+the Owner changes the operational interface and cost. The proposed DuckDB scanner also lacks a
+demonstrated one-snapshot route. Keep psycopg as a candidate with its dependency and connectivity costs.
+Offer a host `psql` client over the same configured endpoint as a viable alternative, contingent on
+strict typed parsing and one session, or document the conditions that make a different permitted client
+viable. Keep Q1–Q3 for the Owner, with any changes to the protected gate or trust policy taken through
+the owning decision process. **Origin** New question wording. [Historical capture
+command](evidence/20261117/capture.sh#L25)
+
+#### Checks executed and results
+
+- Read the scoped diff, committed evidence and pinned upstream declarations. M55 and M59 column lists
+  were identical. Thirteen fingerprints matched and P08, P11 and P12 differed. The metadata comparison
+  covered all 16 reports. Every grain was nonempty using `view_rules.*.columns` roles `grain` and
+  `identity`. The identity additions are P03 (`product_natural_key`, `sku`), P09 (`installments`), P11
+  (`sku`) and P12 (`sku`). Six `view_rules.*.grain` objects are null and all 16 `relations.*.grain`
+  entries are null. M56 measured zero duplicate combined keys at the earlier snapshot, which does not
+  establish uniqueness at M59. The Git history from `bcc2d5c` to `b0ef66e` returned no changes under
+  `dbt/`. The plan takes report figures from the views and reserves sums for integrity checks,
+  consistent with the rule against redefining metrics. The existing declarations cover three fixture
+  reports and two profiles.
+- Ran locked `uv run --frozen --no-sync python` probes with DuckDB 1.5.6, invented rows and temporary
+  Parquet under `/tmp`. Also confirmed typed Parquet preserved the empty schema and nulls, and ordinary
+  38-digit examples passed. The loss of digits, timezone fetch failure, wide-sum contract refusal,
+  unchecked numeric changes, clear-value false positive and label swap are recorded above.
+- The author reported `make check` exit 0 at `f5a32f1` and 475 passed with 1 skipped in the JS suite.
+  The dossier excerpt contains the secret scanner's skip lines. The review relied on targeted checks
+  because the scope is a plan and the existing suite cannot exercise its exporter. No database or
+  container operation, upstream project command, `.env` value read, clear capture read or deployment was
+  performed.
+
+#### Limitations and open questions
+
+The per-column decimal extrema, null profile, M59 combined-grain uniqueness, package sizes and timings
+are pending. The real reader endpoint, effective access and the final candidate's full verification
+remain to be demonstrated during implementation and the Owner's read window. Q1–Q3 remain open. Q2
+depends on representable types and sum policy. Q3 depends on the fixture migration and the protected
+declaration sequence. The local stage's evidence can cover the offline gates. Live freshness and
+promotion checks belong to the existing publication procedure.
+
+#### Handoff to Claude Code
+
+- [ ] **EXP-1-01** Resolve the pinned blob and validate all question mappings, grain roles, additivities
+  and column names against it. Test incorrect mappings and missing rules.
+- [ ] **EXP-1-02** Specify checkable login, access and full-inventory predicates and prove one
+  transaction through adapter-level cases.
+- [ ] **EXP-1-03** Bind every accepted provenance row to a required comparison for all 16 views.
+  Demonstrate refusal of a same-commit rebuild with changed data.
+- [ ] **EXP-1-04** Define exact finite-decimal fit and binding, and show boundary values round-trip
+  without precision loss in the locked environment.
+- [ ] **EXP-1-05** Show typed P12-compatible UTC instants and nulls round-trip with full microsecond
+  precision through the locked path.
+- [ ] **EXP-1-06** Resolve checksum selection with the Owner and show compatible precision, exact
+  canonical totals and refusal of mismatches.
+- [ ] **EXP-1-07** Pass the verifier on the full private candidate and prove that an injected non-public
+  value is still refused.
+- [ ] **EXP-1-08** Plan the trusted declaration and fixture transition so `make check`, fixture
+  verification and the first real-package candidate can all pass in sequence.
+- [ ] **EXP-1-09** Freeze and validate the source reference. Make M19 and the package mutations reach
+  their intended checks with positive controls.
+- [ ] **EXP-1-10** Constrain every clear write and sanitize refusals. Prove path escape, stale output,
+  oversize input and failure cases leave no clear data in Git or adjacent locations.
+- [ ] **EXP-1-11** Keep drafts separate from committed declarations and prove full runtime agreement
+  before reading the source.
+- [ ] **EXP-1-12** Correct the counts and attach committed evidence or mark unsupported measurements
+  pending.
+- [ ] **EXP-1-13** Give the Owner two actionable client options with their real constraints and costs.

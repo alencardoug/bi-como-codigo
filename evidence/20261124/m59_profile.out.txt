@@ -1,0 +1,224 @@
+2026-11-24T06:00:47Z
+capture: 20261119_v2.3.0; 16 views, 188 columns
+
+average_order_value_by_channel_and_segment: 756 rows; grain customer_segment_name+month_number+sales_channel_name+year_month+year_number: 0 repeated keys, 0 with an empty grain cell
+  year_month (text): 0 null; longest 7 characters; NUL 0
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  month_number (integer): 0 null; digits ≤ 2; 0 negative
+  sales_channel_name (character varying): 0 null; longest 11 characters; NUL 0
+  customer_segment_name (character varying): 0 null; longest 16 characters; NUL 0
+  order_count (bigint): 0 null; digits ≤ 2; 0 negative
+  net_revenue_amount (numeric): 0 null; integer digits ≤ 5, fraction digits ≤ 2, both ≤ 7; 0 negative; NaN or infinity 0
+  average_order_value (numeric): 0 null; integer digits ≤ 5, fraction digits ≤ 2, both ≤ 7; 0 negative; NaN or infinity 0
+
+cart_conversion_rate_by_channel: 96 rows; grain channel_type+month_number+sales_channel_name+year_month+year_number: 0 repeated keys, 0 with an empty grain cell
+  year_month (text): 0 null; longest 7 characters; NUL 0
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  month_number (integer): 0 null; digits ≤ 2; 0 negative
+  sales_channel_name (character varying): 0 null; longest 11 characters; NUL 0
+  channel_type (character varying): 0 null; longest 5 characters; NUL 0
+  cart_count (bigint): 0 null; digits ≤ 4; 0 negative
+  closed_cart_count (bigint): 0 null; digits ≤ 3; 0 negative
+  converted_cart_count (bigint): 0 null; digits ≤ 2; 0 negative
+  abandoned_cart_count (bigint): 0 null; digits ≤ 3; 0 negative
+  cart_conversion_rate_pct (numeric): 0 null; integer digits ≤ 2, fraction digits ≤ 2, both ≤ 4; 0 negative; NaN or infinity 0
+  cart_value_amount (numeric): 0 null; integer digits ≤ 7, fraction digits ≤ 2, both ≤ 9; 0 negative; NaN or infinity 0
+  abandoned_value_amount (numeric): 0 null; integer digits ≤ 7, fraction digits ≤ 2, both ≤ 9; 0 negative; NaN or infinity 0
+
+discount_share_by_channel: 393 rows; grain channel_type+month_number+root_category_name+sales_channel_name+year_month+year_number: 0 repeated keys, 0 with an empty grain cell
+  year_month (text): 0 null; longest 7 characters; NUL 0
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  month_number (integer): 0 null; digits ≤ 2; 0 negative
+  sales_channel_name (character varying): 0 null; longest 11 characters; NUL 0
+  channel_type (character varying): 0 null; longest 5 characters; NUL 0
+  root_category_name (character varying): 0 null; longest 15 characters; NUL 0
+  order_count (bigint): 0 null; digits ≤ 2; 0 negative
+  gross_revenue_amount (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 0 negative; NaN or infinity 0
+  discount_amount (numeric): 0 null; integer digits ≤ 4, fraction digits ≤ 2, both ≤ 6; 0 negative; NaN or infinity 0
+  net_revenue_amount (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 0 negative; NaN or infinity 0
+  discount_share_pct (numeric): 0 null; integer digits ≤ 2, fraction digits ≤ 2, both ≤ 4; 0 negative; NaN or infinity 0
+
+gross_margin_by_category: 526 rows; grain category_name+month_number+root_category_name+year_month+year_number: 0 repeated keys, 0 with an empty grain cell
+  year_month (text): 0 null; longest 7 characters; NUL 0
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  month_number (integer): 0 null; digits ≤ 2; 0 negative
+  root_category_name (character varying): 0 null; longest 15 characters; NUL 0
+  category_name (character varying): 0 null; longest 15 characters; NUL 0
+  net_revenue_amount (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 0 negative; NaN or infinity 0
+  cost_of_goods_sold (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 0 negative; NaN or infinity 0
+  gross_profit_amount (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 17 negative; NaN or infinity 0
+  gross_margin_pct (numeric): 5 null; integer digits ≤ 3, fraction digits ≤ 2, both ≤ 5; 12 negative; NaN or infinity 0
+  unit_count (bigint): 0 null; digits ≤ 2; 0 negative
+  dispatched_unit_count (bigint): 0 null; digits ≤ 2; 0 negative
+
+inventory_turnover_by_sku_and_warehouse: 5775 rows; grain category_name+product_name+quarter_number+sku+warehouse_name+warehouse_region+year_number+year_quarter: 0 repeated keys, 0 with an empty grain cell
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  quarter_number (integer): 0 null; digits ≤ 1; 0 negative
+  year_quarter (text): 0 null; longest 7 characters; NUL 0
+  sku (character varying): 0 null; longest 11 characters; NUL 0
+  product_name (character varying): 0 null; longest 44 characters; NUL 0
+  category_name (character varying): 0 null; longest 15 characters; NUL 0
+  warehouse_name (character varying): 0 null; longest 12 characters; NUL 0
+  warehouse_region (text): 0 null; longest 12 characters; NUL 0
+  quantity_out (bigint): 0 null; digits ≤ 2; 0 negative
+  cost_of_goods_sold (numeric): 0 null; integer digits ≤ 5, fraction digits ≤ 2, both ≤ 7; 0 negative; NaN or infinity 0
+  avg_quantity_on_hand (numeric): 0 null; integer digits ≤ 2, fraction digits ≤ 2, both ≤ 4; 0 negative; NaN or infinity 0
+  avg_inventory_value_amount (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 0 negative; NaN or infinity 0
+  inventory_turnover (numeric): 1 null; integer digits ≤ 2, fraction digits ≤ 2, both ≤ 4; 0 negative; NaN or infinity 0
+
+monthly_revenue_by_channel_and_category: 1496 rows; grain category_name+channel_type+month_number+root_category_name+sales_channel_name+year_month+year_number: 0 repeated keys, 0 with an empty grain cell
+  year_month (text): 0 null; longest 7 characters; NUL 0
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  month_number (integer): 0 null; digits ≤ 2; 0 negative
+  sales_channel_name (character varying): 0 null; longest 11 characters; NUL 0
+  channel_type (character varying): 0 null; longest 5 characters; NUL 0
+  root_category_name (character varying): 0 null; longest 15 characters; NUL 0
+  category_name (character varying): 0 null; longest 15 characters; NUL 0
+  order_count (bigint): 0 null; digits ≤ 2; 0 negative
+  unit_count (bigint): 0 null; digits ≤ 2; 0 negative
+  gross_revenue_amount (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 0 negative; NaN or infinity 0
+  discount_amount (numeric): 0 null; integer digits ≤ 4, fraction digits ≤ 2, both ≤ 6; 0 negative; NaN or infinity 0
+  net_revenue_amount (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 0 negative; NaN or infinity 0
+
+new_and_repeat_customers_by_month: 534 rows; grain customer_segment_name+month_number+sales_channel_name+year_month+year_number: 0 repeated keys, 0 with an empty grain cell
+  year_month (text): 0 null; longest 7 characters; NUL 0
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  month_number (integer): 0 null; digits ≤ 2; 0 negative
+  sales_channel_name (character varying): 0 null; longest 11 characters; NUL 0
+  customer_segment_name (character varying): 0 null; longest 16 characters; NUL 0
+  new_customer_count (bigint): 0 null; digits ≤ 2; 0 negative
+  returning_customer_count (bigint): 0 null; digits ≤ 1; 0 negative
+  repeat_purchase_rate_pct (numeric): 0 null; integer digits ≤ 3, fraction digits ≤ 2, both ≤ 5; 0 negative; NaN or infinity 0
+
+on_time_delivery_rate_by_carrier: 1177 rows; grain carrier_name+month_number+service_level+warehouse_name+warehouse_region+year_month+year_number: 0 repeated keys, 0 with an empty grain cell
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  month_number (integer): 0 null; digits ≤ 2; 0 negative
+  year_month (text): 0 null; longest 7 characters; NUL 0
+  carrier_name (character varying): 0 null; longest 16 characters; NUL 0
+  service_level (character varying): 0 null; longest 8 characters; NUL 0
+  warehouse_name (character varying): 0 null; longest 12 characters; NUL 0
+  warehouse_region (text): 0 null; longest 12 characters; NUL 0
+  delivered_count (bigint): 0 null; digits ≤ 2; 0 negative
+  on_time_count (bigint): 0 null; digits ≤ 1; 0 negative
+  late_count (bigint): 0 null; digits ≤ 1; 0 negative
+  split_order_shipment_count (bigint): 0 null; digits ≤ 1; 0 negative
+  on_time_rate (numeric): 0 null; integer digits ≤ 1, fraction digits ≤ 4, both ≤ 5; 0 negative; NaN or infinity 0
+  avg_delay_days_when_late (numeric): 641 null; integer digits ≤ 1, fraction digits ≤ 4, both ≤ 5; 0 negative; NaN or infinity 0
+  avg_transit_days (numeric): 0 null; integer digits ≤ 2, fraction digits ≤ 4, both ≤ 6; 0 negative; NaN or infinity 0
+  failed_attempt_count (numeric): 0 null; integer digits ≤ 1, fraction digits ≤ 0, both ≤ 1; 0 negative; NaN or infinity 0
+
+order_to_delivery_time_by_region: 1858 rows; grain carrier_name+month_number+region+service_level+state_code+year_month+year_number: 0 repeated keys, 0 with an empty grain cell
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  month_number (integer): 0 null; digits ≤ 2; 0 negative
+  year_month (text): 0 null; longest 7 characters; NUL 0
+  region (text): 0 null; longest 12 characters; NUL 0
+  state_code (character varying): 0 null; longest 2 characters; NUL 0
+  service_level (character varying): 0 null; longest 8 characters; NUL 0
+  carrier_name (character varying): 0 null; longest 16 characters; NUL 0
+  order_count (bigint): 0 null; digits ≤ 1; 0 negative
+  split_order_count (bigint): 0 null; digits ≤ 1; 0 negative
+  shipment_count (numeric): 0 null; integer digits ≤ 1, fraction digits ≤ 0, both ≤ 1; 0 negative; NaN or infinity 0
+  avg_order_to_delivery_days (numeric): 0 null; integer digits ≤ 2, fraction digits ≤ 4, both ≤ 6; 0 negative; NaN or infinity 0
+  median_order_to_delivery_days (numeric): 0 null; integer digits ≤ 2, fraction digits ≤ 4, both ≤ 6; 0 negative; NaN or infinity 0
+  max_order_to_delivery_days (numeric): 0 null; integer digits ≤ 2, fraction digits ≤ 4, both ≤ 6; 0 negative; NaN or infinity 0
+
+payment_approval_rate_by_method: 541 rows; grain installments+is_instalment_plan+method_type+month_number+payment_method_name+year_month+year_number: 0 repeated keys, 0 with an empty grain cell
+  year_month (text): 0 null; longest 7 characters; NUL 0
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  month_number (integer): 0 null; digits ≤ 2; 0 negative
+  payment_method_name (character varying): 0 null; longest 17 characters; NUL 0
+  method_type (character varying): 0 null; longest 11 characters; NUL 0
+  installments (integer): 0 null; digits ≤ 2; 0 negative
+  is_instalment_plan (boolean): 0 null; boolean
+  authorization_attempt_count (bigint): 0 null; digits ≤ 2; 0 negative
+  approved_authorization_count (bigint): 0 null; digits ≤ 2; 0 negative
+  approval_rate_pct (numeric): 0 null; integer digits ≤ 3, fraction digits ≤ 2, both ≤ 5; 0 negative; NaN or infinity 0
+  authorized_amount (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 0 negative; NaN or infinity 0
+  captured_amount (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 0 negative; NaN or infinity 0
+
+refund_rate_by_reason: 111 rows; grain month_number+payment_method_name+refund_reason+year_month+year_number: 0 repeated keys, 0 with an empty grain cell
+  year_month (text): 0 null; longest 7 characters; NUL 0
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  month_number (integer): 0 null; digits ≤ 2; 0 negative
+  payment_method_name (character varying): 0 null; longest 17 characters; NUL 0
+  refund_reason (character varying): 0 null; longest 32 characters; NUL 0
+  refund_count (bigint): 0 null; digits ≤ 1; 0 negative
+  refunded_amount (numeric): 0 null; integer digits ≤ 5, fraction digits ≤ 2, both ≤ 7; 0 negative; NaN or infinity 0
+  captured_amount (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 0 negative; NaN or infinity 0
+  refund_rate_pct (numeric): 0 null; integer digits ≤ 2, fraction digits ≤ 2, both ≤ 4; 0 negative; NaN or infinity 0
+
+repeat_purchase_rate_after_support: 168 rows; grain has_support_ticket+month_number+sales_channel_name+support_category_name+year_month+year_number: 0 repeated keys, 0 with an empty grain cell
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  month_number (integer): 0 null; digits ≤ 2; 0 negative
+  year_month (text): 0 null; longest 7 characters; NUL 0
+  sales_channel_name (character varying): 0 null; longest 11 characters; NUL 0
+  has_support_ticket (boolean): 0 null; boolean
+  support_category_name (text): 0 null; longest 11 characters; NUL 0
+  order_count (bigint): 0 null; digits ≤ 2; 0 negative
+  repeat_order_count (bigint): 0 null; digits ≤ 2; 0 negative
+  repeat_purchase_rate (numeric): 0 null; integer digits ≤ 1, fraction digits ≤ 4, both ≤ 5; 0 negative; NaN or infinity 0
+  avg_days_to_next_order (numeric): 48 null; integer digits ≤ 2, fraction digits ≤ 2, both ≤ 4; 0 negative; NaN or infinity 0
+
+revenue_by_delivery_region: 467 rows; grain quarter_number+region+sales_channel_name+state_code+state_name+year_number+year_quarter: 0 repeated keys, 0 with an empty grain cell
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  quarter_number (integer): 0 null; digits ≤ 1; 0 negative
+  year_quarter (text): 0 null; longest 7 characters; NUL 0
+  region (text): 0 null; longest 12 characters; NUL 0
+  state_code (character varying): 0 null; longest 2 characters; NUL 0
+  state_name (text): 0 null; longest 17 characters; NUL 0
+  sales_channel_name (character varying): 0 null; longest 11 characters; NUL 0
+  order_count (bigint): 0 null; digits ≤ 2; 0 negative
+  customer_version_count (bigint): 0 null; digits ≤ 2; 0 negative
+  unit_count (bigint): 0 null; digits ≤ 3; 0 negative
+  net_revenue_amount (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 0 negative; NaN or infinity 0
+
+skus_below_reorder_point: 213 rows; grain brand_name+category_name+product_name+sku+warehouse_name+warehouse_region: 0 repeated keys, 0 with an empty grain cell
+  warehouse_name (character varying): 0 null; longest 12 characters; NUL 0
+  warehouse_region (text): 0 null; longest 12 characters; NUL 0
+  sku (character varying): 0 null; longest 11 characters; NUL 0
+  product_name (character varying): 0 null; longest 41 characters; NUL 0
+  category_name (character varying): 0 null; longest 15 characters; NUL 0
+  brand_name (character varying): 0 null; longest 16 characters; NUL 0
+  quantity_on_hand (integer): 0 null; digits ≤ 1; 0 negative
+  quantity_reserved (integer): 0 null; digits ≤ 1; 0 negative
+  quantity_available (integer): 0 null; digits ≤ 1; 0 negative
+  quantity_from_batch (integer): 0 null; digits ≤ 1; 0 negative
+  quantity_from_stream (integer): 0 null; digits ≤ 1; 0 negative
+  stream_movement_count (bigint): 0 null; digits ≤ 1; 0 negative
+  reorder_point (integer): 0 null; digits ≤ 1; 0 negative
+  is_stockout (boolean): 0 null; boolean
+  daily_demand_units (numeric): 144 null; integer digits ≤ 0, fraction digits ≤ 3, both ≤ 3; 0 negative; NaN or infinity 0
+  days_of_cover (numeric): 144 null; integer digits ≤ 0, fraction digits ≤ 1, both ≤ 1; 0 negative; NaN or infinity 0
+  last_movement_at (timestamp with time zone): 0 null; timestamp with time zone
+
+support_tickets_per_hundred_orders: 108 rows; grain channel_type+month_number+sales_channel_name+support_category_group+support_category_name+year_month+year_number: 0 repeated keys, 0 with an empty grain cell
+  year_number (integer): 0 null; digits ≤ 4; 0 negative
+  month_number (integer): 0 null; digits ≤ 2; 0 negative
+  year_month (text): 0 null; longest 7 characters; NUL 0
+  sales_channel_name (character varying): 0 null; longest 11 characters; NUL 0
+  channel_type (character varying): 0 null; longest 7 characters; NUL 0
+  support_category_name (text): 0 null; longest 9 characters; NUL 0
+  support_category_group (text): 0 null; longest 10 characters; NUL 0
+  ticket_count (bigint): 0 null; digits ≤ 2; 0 negative
+  high_priority_ticket_count (bigint): 0 null; digits ≤ 1; 0 negative
+  reopened_ticket_count (bigint): 0 null; digits ≤ 1; 0 negative
+  solved_first_time_count (bigint): 0 null; digits ≤ 2; 0 negative
+  channel_order_count (numeric): 26 null; integer digits ≤ 2, fraction digits ≤ 0, both ≤ 2; 0 negative; NaN or infinity 0
+  tickets_per_hundred_orders (numeric): 26 null; integer digits ≤ 2, fraction digits ≤ 4, both ≤ 6; 0 negative; NaN or infinity 0
+  avg_hours_to_resolution (numeric): 9 null; integer digits ≤ 3, fraction digits ≤ 2, both ≤ 5; 0 negative; NaN or infinity 0
+
+top_skus_by_revenue: 25 rows; grain brand_name+category_name+is_deleted+product_name+product_natural_key+root_category_name+sku: 0 repeated keys, 0 with an empty grain cell
+  revenue_rank (bigint): 0 null; digits ≤ 2; 0 negative
+  product_natural_key (bigint): 0 null; digits ≤ 3; 0 negative
+  sku (character varying): 0 null; longest 11 characters; NUL 0
+  product_name (character varying): 0 null; longest 38 characters; NUL 0
+  category_name (character varying): 0 null; longest 13 characters; NUL 0
+  root_category_name (character varying): 0 null; longest 15 characters; NUL 0
+  brand_name (character varying): 0 null; longest 14 characters; NUL 0
+  is_deleted (boolean): 0 null; boolean
+  unit_count (bigint): 0 null; digits ≤ 2; 0 negative
+  net_revenue_amount (numeric): 0 null; integer digits ≤ 6, fraction digits ≤ 2, both ≤ 8; 0 negative; NaN or infinity 0
+  category_net_revenue_amount (numeric): 0 null; integer digits ≤ 7, fraction digits ≤ 2, both ≤ 9; 0 negative; NaN or infinity 0
+  category_revenue_share_pct (numeric): 0 null; integer digits ≤ 2, fraction digits ≤ 2, both ≤ 4; 0 negative; NaN or infinity 0
+
+widest numeric: {'numeric_integer_digits': 7, 'numeric_fraction_digits': 4, 'numeric_total': 9}

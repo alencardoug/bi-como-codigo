@@ -13,6 +13,7 @@ is the literal output of `chart_oracle.py`, with its UTC timestamp in the first 
 | `shots.mjs` | Headless Chrome through the DevTools protocol: the login box, then, after the public password (N22), the chart under each filter, named by the filter's label; it records what the page shows and judges nothing | `shots/` |
 | `shots/` | `b_*` and `evidence_*`: `01_login` and `03` to `06`, the chart under `todos` and each of the three channels; `*_shots.json`, the filters each page offered | §10, ADR-0004 |
 | `chart_oracle.py` | From the drawn fixture's cells: per filter, the cells with no row (G), the cells summed to zero (Z) and the months with a row; for `todos`, the first months of `fixture_raiz_1`, its largest month, and the order months take when sorted by value, descending | §10, ADR-0004 |
+| `m59_profile.py` | From M59's capture outside Git and the metadata package at `b0ef66e`, printing no value: per view, its rows and whether its grain — roles `grain` and `identity` — repeats a key or holds a null; per column, its nulls, and for `numeric` the most integer and fractional digits written and any NaN or infinity, for integers the most digits, for text the longest value and any NUL. `m59_profile.out.txt` is its output | `docs/exporter.md` §2, §4.2; N106 |
 
 The whole page after login, tables included, was captured too (`*_02_page.png`, 2.2 MB and 1.6 MB).
 It stays on this machine, under the ignored `prototypes/framework/runs/screenshots-20261124/`.
@@ -22,6 +23,7 @@ uv run --group prototype python evidence/20261124/serve.py <draw folder> 8101 81
 node evidence/20261124/shots.mjs http://127.0.0.1:8101/ <out> b <password>
 SETTLE_MS=6000 CHART='div:has(> div[_echarts_instance_])' node evidence/20261124/shots.mjs http://127.0.0.1:8102/ <out> evidence <password>
 python3 -I evidence/20261124/chart_oracle.py <cells.json of the draw>
+python3 -I evidence/20261124/m59_profile.py data/captures/20261119_v2.3.0 evidence/20261119/capture.out.txt <metadata package at b0ef66e>
 ```
 
 **What the screenshots show, against the oracle:**
