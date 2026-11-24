@@ -273,14 +273,18 @@ and none of the case's values in them.
 
 ## 8. The fixtures
 
-`tests/site_fixture.py` writes, with DuckDB, one small table per fixture report — P01, P02 and
-P13, as today —, built to exercise every check: a decimal and an integer sum column, a nullable
-column, a two-column grain in one report, a date. Its values are invented placeholders
-(`fixture_a`, …), not figures of eng_dados: no report data reaches the repository before stage 2.4
-(CLAUDE.md §6, rule 2). It computes the totals in Python (§3), writes `release/contract.json`'s
-fixture entries once (a protected file, committed), and seals the package with the envelope's
-producer, as in 2.2. Mutations whose payload the producer would refuse — malformed totals — are
-sealed with `seal_report`, the layer below (PGATE-1).
+`tests/site_fixture.py` writes, with DuckDB, one small table per report of
+`release/contract.json`. Until stage 2.4 those were three fixtures, P01, P02 and P13; since its
+migration (N109, [`exporter.md` §11](exporter.md#11-the-migration-of-the-trusted-declarations-n109))
+they are the 16 reports' real shapes, the contract generated from `release/views.json`. Its rows are
+invented from the contract's types alone — texts `fixture_<report>_<column>_<row>`, integers of five
+digits, decimals within their precision, a null in each nullable column —, not figures of eng_dados
+(CLAUDE.md §6, rule 2): the honest package enters `site/package/` only in stage 2.5's ordinary PR.
+It computes the totals in Python (§3) and seals the package with the envelope's producer, as in 2.2.
+Mutations whose payload the producer would refuse — malformed totals — are sealed with
+`seal_report`, the layer below (PGATE-1). The mutations of §9 take their columns from the contract
+— P01's first text, its first summed decimal never null, its first integer out of the grain —, so
+they hold on any shape.
 
 ---
 
@@ -296,10 +300,10 @@ under test.
 | MUT-02 | A reused key/IV pair — two envelopes with one DEK and one IV | `dek_reused` |
 | MUT-03 | The same, IV only | `iv_reused` |
 | MUT-04 | Injected clear data — `site/releases.md` holding a Parquet | Inspection, Parquet magic |
-| MUT-05 | Injected clear data — `site/index.html` holding a short row, `fixture_a 1.25 2` | `clear_value` |
+| MUT-05 | Injected clear data — `site/index.html` holding a short row of P01's fixture: a text, a decimal and an integer | `clear_value` |
 | MUT-06 | The same, a number alone, in Brazilian form | `clear_value` |
 | MUT-07 | The same, a report's totals | `clear_totals` |
-| MUT-07b | The same, only the row count, `<p>1140</p>` (PGATE-2-02) | `clear_value` |
+| MUT-07b | The same, only the row count of a report of 140 rows, `<p>140</p>` (PGATE-2-02) | `clear_value` |
 | MUT-07c | A value hidden in a profile label of the manifest | `clear_value` |
 | MUT-07d | A cell value colliding with a release date of `releases.md`, unlisted; then listed | `clear_value`; accepted |
 | MUT-08 | A missing view — a contract report absent from the package | `inventory_exact` |

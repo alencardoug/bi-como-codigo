@@ -23,9 +23,9 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-24 — revision 5: step 3 built, and what it measured and changed (§16). Revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
+| Date | 2026-11-24 — revision 6: step 2 done — the catalogue read in a short window, `release/views.json` reviewed and approved by the Owner, the migration of §11 (§16). Revision 5: step 3 built, and what it measured and changed (§16). Revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed after round 3 of Codex's review (N110)** — 33 findings in three rounds, 20 blocking, all answered. **Step 3 of §15 is built** on the branch `exporter-2.4`, over the fake warehouse, and probed against an isolated PostgreSQL (§16); steps 2, 4 and 5 are not. Its reads of the warehouse need a read window the Owner opens ([UQ-05](upstream_questions.md#answers)) |
+| Status | **Plan, reviewed: closed after round 3 of Codex's review (N110)** — 33 findings in three rounds, 20 blocking, all answered. **Steps 2 and 3 of §15 are done** on the branch `exporter-2.4`: the exporter over the fake warehouse, probed against an isolated PostgreSQL, the catalogue read and the declarations migrated (§16); steps 4 and 5 are not. Its reads of the warehouse need a read window the Owner opens ([UQ-05](upstream_questions.md#answers)) |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§14).
@@ -695,9 +695,10 @@ All five were answered on 2026-11-24 and are recorded in PLAN §1.2:
 - **[measured by a test, §16]** The gate's in-memory DuckDB spills under the working directory's
   `.tmp`, and the exporter's under its `temp_directory`, both inside the run directory, with a
   forced spill under a 32 MB limit.
-- **Not measured**: the closure of the login's roles and their options (§3 check 4), measured by the
-  first live run; the run's time and memory; the package's size; whether anything spills on M59's
-  size.
+- **[measured on 2026-11-24, §16]** The closure of the login's roles and their options (§3 check 4):
+  `consumption_reader` is a member of `analyst` alone, with `inherit_option` and `set_option` true,
+  and `analyst` cannot log in. **Not measured**: the run's time and memory; the package's size;
+  whether anything spills on M59's size.
 - **Not measured**: which honest values collide with public text beyond the year 2026, found by the
   first private candidate (§10).
 - M59's profile holds for its rows. The live run checks every rule again on the rows it reads.
@@ -726,7 +727,7 @@ carried to the review of the code and to the first authorized run, not settled b
 2. `export catalogue` in a first, short read window (§3 check 7), reading the source OIDs and
    modifiers and no row; then `release/views.json` from `export propose`'s draft, reviewed in full; the generated
    `release/contract.json`; `release/profiles.json`; the invented fixture of the 16 shapes. All in
-   the protected PR of §11, with the code below.
+   the protected PR of §11, with the code below. **Done (§16).**
 3. The connection interface, the fake and its fixture; the facts of §3, the checks of §6, the
    reference and round trip of §7, the totals, the sealing, the paths and output of §10, and each
    mutation of §12 with its test, in `make check`. **Built (§16).**
@@ -748,18 +749,15 @@ of §12's table is there, with its exact code and its positive control. `tests/t
 holds the units: the loaders, the fit, the comparator, the path rule, the receipt, the spill, the
 boundary, and libpq itself against a local TLS server. The fixture, `tests/exporter/`, is invented:
 
-- `views.json` and `catalogue.json` are the **structure**: what `export propose` drafts from M59's
-  committed capture and profile and the metadata package at the pin, over a catalogue invented with
-  PostgreSQL's fixed type OIDs and no modifier. A test, in `make check`, regenerates them;
-- `fixture.json` holds invented rows for each view, the fake's catalogue and the fixture's own
-  build, whose witness is the fake's fingerprint of those rows. A test regenerates it too.
-
-Once `release/views.json` comes from the real catalogue (step 2), the fixture is generated from it
-and the structure goes.
+- `fixture.json` holds invented rows for each view of `release/views.json`, the fake's catalogue
+  and the fixture's own build, whose witness is the fake's fingerprint of those rows. A test
+  regenerates it. Until step 2, its structure was drafted over a catalogue invented with
+  PostgreSQL's fixed type OIDs and no modifier; the real catalogue turned out equal to it.
 
 **[measured] What the tests cost.** The two files run about four minutes on this machine, most
 of it in the runs that seal and verify, each deriving fresh keys at 600,000 iterations. With them,
-`make check` ran 711 tests in 11 min 52 s on 2026-11-24, at `735967a`.
+`make check` ran 711 tests in 11 min 52 s on 2026-11-24 at `735967a`, and in 5 min 23 s at
+`0e11c51`; the Owner kept every test in it.
 
 **[measured] The probe.** [`evidence/20261124/exporter_probe.py`](../evidence/20261124/exporter_probe.py)
 runs `export catalogue` and a whole export through the pinned psycopg against an **isolated,
@@ -803,6 +801,22 @@ warehouse: the warehouse's catalogue, policy and fingerprints are the read windo
 10. In the tests only, PBKDF2 is memoized: it is a pure function, and `release.verify` derives a key
    per report.
 
-**Not done in step 3**: the read window of step 2 and its `release/views.json`; the migration of
-§11 — `release/` and `site/package/` still describe stage 2.2's three fixtures, and
-`tests/site_fixture.py` still writes them; Codex's review of the code; the live run.
+**[measured] Step 2, the catalogue.** In a short read window the Owner opened on 2026-11-24,
+`export catalogue` passed checks 1 to 6 against the warehouse and read
+[`evidence/20261124/catalogue.json`](../evidence/20261124/catalogue.json), with no row: the
+provenance is M59's build (`bcc2d5c…`, sequence 125); the closure is `analyst` alone, both options
+true; the 16 views' 188 columns have PostgreSQL's fixed type OIDs and no modifier, as the invented
+catalogue assumed; the session's defaults are `UTC`, `ISO, MDY`, `postgres` and `1`, in UTF-8; the
+collation is libc `en_US.utf8`, with no version stored nor reported. `export propose` drafted
+`release/views.json` from it, and the Owner reviewed and approved it as drafted, bounds included.
+A test proves propose still drafts it byte for byte over that catalogue.
+
+**The migration of §11**, in the same protected PR: `release/contract.json` generated, 16 reports;
+`release/profiles.json`, Diretoria all 16 and Logística P13; `site/package/` an invented package of
+the 16 shapes, written by `tests/site_fixture.py`, which now invents rows from any contract; and
+2.2b's mutations proved again on it, each taking its columns from the contract
+([`package_gate.md` §8](package_gate.md#8-the-fixtures)). One collision surfaced while migrating: an
+invented integer equal to 2026, a year `site/releases.md` cites, so the fixture's integers have five
+digits.
+
+**Not done**: Codex's review of the code (step 4); the live run (step 5).

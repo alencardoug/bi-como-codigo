@@ -35,7 +35,7 @@ import psycopg  # noqa: E402
 import exporter_world as xw  # noqa: E402
 import fake_warehouse as fw  # noqa: E402
 from bi_como_codigo import envelope as e  # noqa: E402
-from bi_como_codigo.exporter import propose as P, run, source as S, views as V  # noqa: E402
+from bi_como_codigo.exporter import run, source as S, views as V  # noqa: E402
 
 PORT = "55432"
 READER_PASSWORD = "probe-reader-local"  # the throwaway container's own, never a real one
