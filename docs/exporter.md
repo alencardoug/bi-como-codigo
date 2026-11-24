@@ -23,9 +23,9 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-24 — revision 8: round 2 of the review of the code answered (XIMPL-2-01 to -09), under N113 (§16). Revision 7: round 1 of Codex's review of the code answered (XIMPL-1-01 to -13), with the Owner's N111 and N112 (§3, §9, §10, §16). Revision 6: step 2 done — the catalogue read in a short window, `release/views.json` reviewed and approved by the Owner, the migration of §11 (§16). Revision 5: step 3 built, and what it measured and changed (§16). Revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
+| Date | 2026-11-24 — revision 9: the review of the code closed after round 3 (N113), its limits declared in §14 (§16). Revision 8: round 2 of the review of the code answered (XIMPL-2-01 to -09), under N113 (§16). Revision 7: round 1 of Codex's review of the code answered (XIMPL-1-01 to -13), with the Owner's N111 and N112 (§3, §9, §10, §16). Revision 6: step 2 done — the catalogue read in a short window, `release/views.json` reviewed and approved by the Owner, the migration of §11 (§16). Revision 5: step 3 built, and what it measured and changed (§16). Revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed after round 3 of Codex's review (N110)** — 33 findings in three rounds, 20 blocking, all answered. **Steps 2 and 3 of §15 are done** on the branch `exporter-2.4`: the exporter over the fake warehouse, probed against an isolated PostgreSQL, the catalogue read and the declarations migrated (§16); steps 4 and 5 are not. Its reads of the warehouse need a read window the Owner opens ([UQ-05](upstream_questions.md#answers)) |
+| Status | **Plan, reviewed: closed after round 3 of Codex's review (N110)** — 33 findings in three rounds, 20 blocking, all answered. **Steps 2 to 4 of §15 are done** on the branch `exporter-2.4`: the exporter over the fake warehouse, probed against an isolated PostgreSQL, the catalogue read, the declarations migrated, and Codex's review of the code closed after round 3 under N113 — 25 findings, 11 blocking (§16); step 5, the live run, is not. Its reads of the warehouse need a read window the Owner opens ([UQ-05](upstream_questions.md#answers)) |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§14).
@@ -738,6 +738,22 @@ carried to the review of the code and to the first authorized run, not settled b
   directory, and paths that change after they were validated. Round 3 showed no supported path
   escaping the guard.
 
+**Declared limits, from the close of the review of the code (N113).** Rounds 1 to 3 found 25
+findings, 11 blocking, all answered; round 3's own limitations, and what no round could reach:
+
+- **The committed-name boundary is deliberate**: a file the candidate would include is refused
+  until it is a regular file of `site/` at the rehearsed commit, so a generated or renamed page
+  needs a commit before a run (round 3 measured the refusal and the retry).
+- **Signals**: an interrupt at the creation of the result's sibling directory, a `SIGKILL`,
+  filesystem durability after a crash, and a system without Linux's `renameat2` — where nothing
+  is renamed and the run refuses — were not exercised.
+- **To the first authorized run**: M59's witness under N112's statement on the warehouse itself,
+  the connection and TLS from the host, time, memory, spill and the package's size at M59's
+  volume, and the real collisions, for the Owner's approval (N108).
+- **One `make check` failed once** inside `dossier.py` on 2026-11-24, its test's name lost to the
+  tail it keeps; it never reproduced, in four gate runs, the targeted repetitions and three
+  rounds of review.
+
 ## 15. The order of the work
 
 1. This plan, reviewed by Codex; the review closes after round 3, of regressions only (N110).
@@ -749,7 +765,8 @@ carried to the review of the code and to the first authorized run, not settled b
 3. The connection interface, the fake and its fixture; the facts of §3, the checks of §6, the
    reference and round trip of §7, the totals, the sealing, the paths and output of §10, and each
    mutation of §12 with its test, in `make check`. **Built (§16).**
-4. Codex's review of the code; then the Owner's review of the protected PR.
+4. Codex's review of the code; then the Owner's review of the protected PR. **The review of the
+   code is done**: closed after round 3 under N113 (§16); the Owner's review of the PR is not.
 5. The live run in the Owner's read window: the private candidate, the collisions approved in a
    protected PR, and the evidence committed.
 
@@ -880,6 +897,14 @@ Each of the round's new tests was run against its behaviour undone and failed; t
 were rewritten until they did — the handler order, by interrupting after the first restoration,
 and the silenced libraries, in a process of its own, outside pytest's capture.
 
+**Round 3, the last** (N113; XIMPL-3-01 to -03, one blocking): the deployed `package/` must be
+exactly the manifest and the sealed envelopes, so no other name under it reaches the evidence;
+the receipt records the rehearsed commit, and `export evidence` checks the names there, so a later
+rename does not invalidate an honest receipt; and publication has a defined outcome under a
+signal — while writing, `interrupted`, check `publish`, with nothing left; around the rename, the
+signal noted and `interrupted`, check `published`, with the result complete. A real SIGTERM in a
+process of its own proves both. **The review of the code is closed**, its limits declared in §14.
+
 **[measured] The probe, again**, after round 1
 ([`exporter_probe.out.txt`](../evidence/20261124/exporter_probe.out.txt)): the fake's record text
 equals PostgreSQL's on 14 of 14 UTF-8 cases, no-break and em spaces among them; on a volatile view,
@@ -887,4 +912,4 @@ the statement of N112 attests the rows it returns and two statements do not; and
 fingerprints come from N112's statement, matches the 16 the probe computed with M55's statement over
 the views — so N112's form reproduces M55's hashes on these views.
 
-**Not done**: the closing round of the code's review (step 4); the live run (step 5).
+**Not done**: the Owner's review of the protected PR (step 4); the live run (step 5).

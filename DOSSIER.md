@@ -302,6 +302,9 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | XIMPL-2-07 | `exporter/run.py:136`, `:225` | The receipt counts values the gate would never search as used exemptions | adjustment | Fixed. `searched` holds only texts of three characters or more and eligible numbers, as the gate's needles. Test: an exemption of P13's one-digit count is `unused`. Counter-proof: the union of all values fails. |
 | XIMPL-2-08 | `exporter/run.py:81`, `:91` | A ref change during rehearsal can mix stand-in package reads | adjustment | Fixed. `rehearsed_commit` resolves `HEAD` once; the stand-in and the committed names are read at that id. Test: HEAD moves to another valid package after the commit is resolved; the receipt's stand-in digest is the first commit's. Counter-proof: reading the manifest at `HEAD` fails. |
 | XIMPL-2-09 | `exporter/collisions.py:58`, `release.py:171` | The diagnostic treats committed symlink targets as public content | observation | Fixed. `Snapshot.regular_files` keeps modes 100644 and 100755 only. Test: a committed symlink whose target is a value, beside a regular file holding another; the regular one is listed, the target never. Counter-proof: keeping every entry fails. |
+| XIMPL-3-01 | `exporter/cli.py:144`, `exporter/receipt.py:239` | An extra package path can still carry a report value into Git evidence | blocking | Fixed. `receipt.load` requires the deployed `package/` paths to be exactly the manifest and the sealed envelopes. Test `test_an_extra_path_never_reaches_the_evidence`, under `package/` and at the root, both refused by `export evidence` before writing; the genuine receipt still writes. Counter-proof: without the exact set, the package case fails. |
+| XIMPL-3-02 | `exporter/run.py:281`, `exporter/paths.py:137`, `:186` | SIGTERM can leave a partial result directory or an unreported completed publication | adjustment | Fixed. `publish` refuses `interrupted`, check `publish`, on SIGTERM while writing, removing the sibling; around the rename SIGINT and SIGTERM are noted, and one noted ends with `interrupted`, check `published`, the result complete. Test with a real SIGTERM in a process of its own, before the second envelope's write and right after the rename: no target and no sibling, or all 19 files. Counter-proof: without the publication handler the writing case fails. |
+| XIMPL-3-03 | `exporter/cli.py:140`, `:144`, `exporter/run.py:140` | A committed site-file rename invalidates an honest earlier receipt | adjustment | Fixed. The receipt records the rehearsed commit (`candidate.commit`), and `export evidence` checks the names at it. Test: the same honest receipt writes evidence before and after a committed rename of `site/releases.md`. Counter-proof: checking at `HEAD` fails after the rename. |
 
 ### Round 1
 
@@ -776,3 +779,172 @@ the behavior under test in copies unless stated otherwise.
 - [ ] **XIMPL-2-09** — Exclude symlink target blobs from diagnostic haystacks. Keep the
   committed regular-file positive control.
 
+### Round 3
+
+#### Conclusion
+
+**Changes required.** The original receipt filename disclosure still reaches Git evidence
+through the package directory exception. Two regressions affect ordinary publication and
+evidence collection. The exporter code batch remains open under N113.
+
+#### Reviewed scope and version
+
+Reviewed `exporter-2.4` at `ea0f7fd30193723e7d3600ffaffa5369a04db645` against the round 2
+tree `febfccac69807b215e9957564e9ba69d56c407a9`. `git log --oneline febfcca..ea0f7fd`
+returned `ea0f7fd` and `6f32390`. The range modifies 12 tracked files and adds none.
+The working tree started clean, with no untracked files. The review applies to the pinned
+implementation and the revision 7 acceptance criteria, with revision 8 and PLAN revision 70
+examined for the changes under N113. The only review edit is this dossier.
+
+#### Finding evidence
+
+**XIMPL-3-01 · High · blocking — An extra package path can carry a report value into Git evidence.**
+`cli.py:144–146` exempts every path starting with `site/package/`. `receipt.py:239–249`
+requires the manifest and the 16 envelope entries and counts `.bice` files. Extra files with
+another extension can still enter both receipt path lists. In an isolated copy I took a genuine
+export receipt, added `package/<invented P13 carrier>.md`, and recomputed the path lists and
+listing digest, as in XIMPL-2-01. `receipt.load` accepted it. `export evidence` returned 0 and
+copied the carrier into `export_run.json`. The same extra path at the site root returned 1 with
+`receipt_invalid`, check `uncommitted_file`, and wrote nothing. The genuine receipt returned 0.
+The producer recreates the package directory, so this reproduction concerns evidence ingestion.
+Derive the exact allowed package paths from the required manifest and validated envelopes.
+**Preexisting disclosure, partially resolved in XIMPL-2-01.**
+
+**XIMPL-3-02 · Medium · adjustment — SIGTERM escapes the publication boundary.**
+`run.py:281–284` publishes after `RunDirectory` restores the original SIGTERM disposition
+(`paths.py:137`). A subprocess with the default SIGTERM disposition received a real SIGTERM
+before the second file write in `publish` (`paths.py:186–197`) and, in a separate run, just
+after the atomic rename. Both runs at `ea0f7fd` exited from SIGTERM without a CLI message.
+
+| Signal delivered | `febfcca` | `ea0f7fd` |
+|---|---|---|
+| Before the second publication write | Exit 1, fixed `interrupted` refusal, no target or partial sibling | Exit −15, empty stdout and stderr, absent target, one file in a `.bice-result-*` sibling |
+| Immediately after the real rename | Exit 1, fixed `interrupted` refusal, 19 files in target | Exit −15, empty stdout and stderr, 19 files in target |
+
+The private run directory was gone in all four cases. In the first reviewed-tree case I used a
+destination under staging, where `paths.py:81–82` refuses subsequent runs while that partial
+sibling remains. The final destination itself remains atomic. Keep SIGTERM actionable through
+publication and define a sanitized outcome at the rename boundary so the Owner can tell whether
+the result exists. **Regression in `6f32390`. The ambiguous refusal after rename predates it.**
+
+**XIMPL-3-03 · Medium · adjustment — A site-file rename invalidates an honest earlier receipt.**
+`run.py:140–147` pins the name inventory and stand-in for the candidate. The receipt does not
+identify that commit, and `cli.py:140–146` looks up names at the evidence checkout's current
+`HEAD`. I exported a genuine receipt, copied it to evidence successfully, then committed a
+rename of `site/releases.md` and updated `release/include.txt`. The unchanged receipt then
+returned 1 with `receipt_invalid`, check `uncommitted_file`. The same sequence at `febfcca`
+returned 0 after the rename. A fresh post-rename export at the reviewed tree passed both verify
+modes. Bind the evidence name check to the rehearsed inventory or an equally value-safe record
+that survives later renames. **Regression in `6f32390`.**
+
+#### Status of round 2 findings
+
+The named tests passed on the reviewed tree in the targeted pytest run below. In separate
+temporary copies, I disabled only the relevant behavior for each counter-proof. All 13
+counter-proof invocations exited 1. The CRL invocation gave `1 failed, 1 passed`, with only
+the revoked case failing.
+
+| ID | Review status | Executed evidence |
+|---|---|---|
+| XIMPL-2-01 | Partially resolved | `test_an_uncommitted_file_name_never_reaches_the_receipt` and `test_export_evidence_refuses_a_file_name_not_committed` passed. Removing their respective name checks gave `DID NOT RAISE` and `assert 0 == 1`. The package-prefixed case still writes evidence (XIMPL-3-01). |
+| XIMPL-2-02 | Resolved | `test_a_library_warning_or_log_line_never_reaches_the_terminal` passed. Removing the CLI silencing emitted both invented messages. An independent active-query cancellation on PostgreSQL with an injected `cancel_safe` transport failure returned 1 with empty stdout and only `refused: unexpected; class KeyboardInterrupt` on stderr. A server warning followed by an exception produced only `refused: unexpected; class RaiseException`, exit 1. |
+| XIMPL-2-03 | Resolved | `test_the_witness_count_alone_off` expected `witness_mismatch` and got `receipt_invalid` with the count comparison removed. `test_a_declaration_edited_mid_run_does_not_reach_the_candidate_nor_the_receipt` lost `site/releases.md` when the candidate reread the worktree. In `test_the_crl_named_relative_to_the_caller_is_the_one_libpq_uses`, dropping `sslcrl` let the revoked case send a startup packet. |
+| XIMPL-2-04 | Resolved | `test_paths_that_sort_differently_as_strings_round_trip` passed through publication and evidence. Restoring string sorting for the listing gave `receipt_invalid`. The later-ref refusal has a separate trigger (XIMPL-3-03). |
+| XIMPL-2-05 | Partially resolved | `test_a_signal_while_cleaning_publishes_nothing` left no target. Moving publication back into the block left a target and failed the test. `test_a_signal_noted_while_cleaning_ends_the_run_with_both_handlers_restored` failed with the restoration order reversed. Sending SIGTERM during inner cleanup in a nested run returned `interrupted`, check `cleanup`, and restored the outer state before both runs cleaned up. Publication itself can still lose the signal outcome (XIMPL-3-02). |
+| XIMPL-2-06 | Resolved | `test_one_spelling_of_two_values_lists_both_and_each_needs_its_approval` found both canonical values. Approving only one refused `clear_value`, and both passed. Returning only the first reverse-map value dropped the integer hit and failed the test. |
+| XIMPL-2-07 | Resolved | `test_an_exemption_of_a_value_the_gate_never_searches_is_unused` reported `{"used": [], "unused": [0]}`. Restoring the unfiltered numeric union inverted the classification. The text length and numeric eligibility predicates match `contract.needles`. |
+| XIMPL-2-08 | Resolved | `test_the_stand_in_comes_from_the_commit_resolved_once` matched the first commit's digest. Resolving only the manifest at the moving `HEAD` produced `KeyError` for a mismatched envelope. A separate new-file case confirmed that the name lookup stays at the selected commit. |
+| XIMPL-2-09 | Resolved | `test_a_committed_symlink_is_not_public_content` reported the regular-file hit. Removing the mode filter also reported the symlink target and failed the test. |
+
+#### Status of round 1 findings left partially resolved
+
+| ID | Review status | Evidence |
+|---|---|---|
+| XIMPL-1-01 | Resolved | The targeted one-commit and UTC tests passed, along with the reverse-map and regular-file cases in XIMPL-2-06 and XIMPL-2-09. |
+| XIMPL-1-02 | Partially resolved | The evidence controls passed. The package-prefixed filename still passes strict load and writes to evidence (XIMPL-3-01). |
+| XIMPL-1-04 | Partially resolved | The vanished-caller and cleanup-signal tests passed. The nested experiment restored caller state and removed both run directories. Publication still has the interrupt gap in XIMPL-3-02. |
+| XIMPL-1-07 | Resolved | The count-only mutation now fails on the wrong refusal after removing the count predicate. The round 2 provenance, statement and wire proofs are unchanged in this range. |
+| XIMPL-1-09 | Resolved | The mid-run edit and numeric eligibility counter-proofs detected the regressions described in XIMPL-2-03 and XIMPL-2-07. |
+| XIMPL-1-10 | Resolved | The two caller-relative CRL cases and the disabled-CRL counter-proof distinguish path resolution from actual libpq use (XIMPL-2-03). |
+
+#### Checks executed
+
+- `ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 ENG_DADOS_2_DIR=/home/doug/Projetos/mvp_eng_dados_2 make check`
+  exited 0 in a temporary copy at `ea0f7fd` with the original refs for the history scan.
+  I used a temporary uv cache and a pytest-only wrapper for Python's `os.path.lexists`
+  that hid exactly the sandbox marker `/tmp/.git`. Real worktree markers remained visible.
+
+  ```text
+  secrets review: nothing found in the tracked files
+  history review: nothing found (265 occurrence(s) of values public by design, 2 registered; 48 blob(s) skipped)
+  docs-check: 36 documents, 268 file links, 82 anchors, 40 ADR citations, 101 links into mvp_eng_dados_1, 0 links into mvp_eng_dados_2 — nothing broken
+  adr-check: 4 accepted, 0 pending — record consistent
+  753 passed, 1 warning in 387.74s (0:06:27)
+  ℹ tests 157
+  ℹ pass 156
+  ℹ fail 0
+  ℹ skipped 1
+  ```
+
+  The warning came from the duplicate ZIP entry in `test_safe_extract_refuses_a_repeated_entry`.
+  Claude Code's gate runs at `6f32390` and `ea0f7fd` are reported results. The output above
+  is from this review's run at `ea0f7fd`.
+- `python -m pytest -q tests/test_exporter.py tests/test_exporter_units.py -k 'witness_count_alone or declaration_edited_mid_run or crl_named_relative or uncommitted_file_name or export_evidence or sort_differently or signal or spelling_of_two or committed_symlink or exemption_of_a_value or stand_in_comes_from or library_warning or collisions_follow or collisions_render or cleanup or replaced or honest_run'`
+  gave `22 passed, 255 deselected in 78.66s`. The counter-proofs ran `python -B -m pytest -q --tb=short`
+  with each named test as the selector and the relevant behavior disabled in a temporary copy.
+  The observed failure for each is recorded in the round 2 status table above.
+- Ran the receipt and signal reproductions from the same temporary review directory
+  (`names.py`, `names_baseline.py`, `run_interleavings.py`, and `after_resolve.py` under
+  `/tmp/bice-round3.hhCbL0`). The evidence command and publication used the normal entry
+  points. The marker came from the invented fixture. Both publication tests used real signals
+  in separate processes. Their exit codes and filesystem effects are in the findings above.
+- Ran `evidence/20261124/exporter_probe.py` on a throwaway, loopback-only
+  `postgres:16.15-alpine`, substituting its assigned port in memory. The output included
+  `columns, OIDs and modifiers equal to the warehouse's catalogue: True`, `14 of 14 UTF-8 cases`,
+  `one statement attests its own rows: True | two statements attest the rows fetched: False`,
+  and `the fake's fingerprint equals PostgreSQL's for 16 of 16 views`. The real adapter recorded
+  all eight facts and `views 16 witness equal True rows 72`, with both verify modes passing.
+  In a separate loopback check I exercised the real pinned psycopg wait path with a cancellation
+  failure injected at `cancel_safe` while the query was active. The baseline logged the invented
+  diagnostic. The reviewed tree emitted the fixed refusals in XIMPL-2-02. Both throwaway
+  containers were stopped and removed.
+- Called unchanged `release.build` and `release.verify` on the committed declarations and
+  invented package in the temporary copy. The direct output was `none verified: 19 included / 19 listed live envelope paths: 0`
+  and `unchanged stand-in verified: 19 included / 19 listed live envelope paths: 16`.
+  `git diff --exit-code febfcca..ea0f7fd -- release/ site/package/ src/bi_como_codigo/contract.py src/bi_como_codigo/release.py tests/test_package_gate.py`
+  returned 0. The original migration comparison from round 2 therefore still applies to
+  these inputs. The gate ran the migrated package suite again.
+
+#### Limitations and open questions
+
+- Under the implemented committed-name rule, an included generated or renamed path is
+  refused until it is present in the selected commit. I committed a harmless generated Markdown
+  file immediately after commit selection. The in-flight run refused `candidate_refused`,
+  check `uncommitted_file`, and left no result. A retry selected the new commit, included the
+  page and passed both verify modes. This is the deliberate single-commit inventory boundary.
+  XIMPL-3-03 concerns evidence for a candidate whose paths already passed that boundary.
+- The authorized warehouse run is still needed to reproduce the real M59 witness under N112,
+  check warehouse connectivity and TLS, measure resource use and package size, and identify
+  actual public collisions for Owner approval. The fixture stand-in exercises the live
+  predicates. CI and stage 2.5 cover the authoritative Hosting comparison and artifact binding.
+  No shared warehouse, upstream project command beyond permitted Git reads, or deployment
+  was used in this review.
+- The signal experiments covered ordinary termination during writing and just after rename.
+  Interruption at sibling directory creation, which already precedes the cleanup handler in
+  the baseline, was outside those experiments. Abrupt termination, filesystem crash durability
+  and behavior without Linux `renameat2` remain unverified.
+
+#### Handoff to Claude Code
+
+- [ ] **XIMPL-3-01** — Require exactly the manifest and validated sealed envelope paths for
+  the package exception. Through `export evidence`, reject an extra package path containing
+  the invented value before creating evidence. Keep both the root-path refusal and the genuine
+  receipt control.
+- [ ] **XIMPL-3-02** — Preserve cancellation handling through publication. Prove in a
+  subprocess that SIGTERM before rename returns a fixed refusal and leaves neither a target
+  nor a partial sibling. Prove that a signal after rename leaves all 19 files and has a defined
+  CLI outcome that identifies the result as published. Keep the private-cleanup and no-replace
+  controls.
+- [ ] **XIMPL-3-03** — Validate a receipt against the value-safe inventory for its rehearsal.
+  Prove that the same genuine receipt writes evidence before and after a committed site-file
+  rename, while the arbitrary-name mutations still refuse. Keep the one-commit stand-in proof.
