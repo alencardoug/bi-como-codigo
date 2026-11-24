@@ -48,7 +48,8 @@ subject per commit: a message that needs "and" is probably two commits.
 **`make check` is the gate before every commit** — secrets in the tracked files and in the history,
 the documents, the decision record and the tests. Commit only when it exits 0, read from its own exit
 code: never through a pipe, where the exit code is the last command's. It needs `ENG_DADOS_DIR`
-naming a checkout of mvp_eng_dados_1 (see the [README](README.md#checking-the-repository)).
+naming a checkout of mvp_eng_dados_1 and `ENG_DADOS_2_DIR` one of mvp_eng_dados_2 (see the
+[README](README.md#checking-the-repository)).
 
 **Push only with the Owner's authorisation**, given for that push.
 

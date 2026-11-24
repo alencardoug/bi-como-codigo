@@ -44,12 +44,13 @@ serving harmless fixtures only; no report, portal or real publication exists yet
 ## Checking the repository
 
 `make check` is the gate before every commit. It needs [uv](https://docs.astral.sh/uv/), Node 20 or
-later for the envelope's JavaScript reader, and a local checkout of mvp_eng_dados_1, named by
-`ENG_DADOS_DIR`, to verify the pinned links into it.
+later for the envelope's JavaScript reader, and local checkouts of the two repositories of
+eng_dados, to verify the pinned links into each: mvp_eng_dados_1, named by `ENG_DADOS_DIR`, and
+its continuation mvp_eng_dados_2, named by `ENG_DADOS_2_DIR` (N86).
 
 ```bash
 make sync
-ENG_DADOS_DIR=/path/to/mvp_eng_dados_1 make check
+ENG_DADOS_DIR=/path/to/mvp_eng_dados_1 ENG_DADOS_2_DIR=/path/to/mvp_eng_dados_2 make check
 ```
 
 `make help` lists the other targets.

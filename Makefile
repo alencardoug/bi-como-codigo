@@ -12,7 +12,7 @@ help: ## List the targets
 sync: ## Install the locked environment (uv.lock) into .venv
 	uv sync --frozen
 
-docs-check: ## Links, anchors, ADR citations and pinned links into mvp_eng_dados_1
+docs-check: ## Links, anchors, ADR citations and pinned links into mvp_eng_dados_1 and mvp_eng_dados_2
 	@$(UV_RUN) python -m bi_como_codigo.docs_check
 
 adr-check: ## The decision record as one transaction: numbering, index and the README count
@@ -34,13 +34,17 @@ test-js: ## The envelope's JavaScript reader against the same vectors and cases;
 	@node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0 : 1)' || { echo "test-js: needs Node 20 or later"; exit 2; }
 	@node --test $(wildcard tests/js/*.test.mjs)
 
-# The links into mvp_eng_dados_1 carry most of the plan's facts, so the gate
-# verifies them: ENG_DADOS_DIR names a local checkout of that project, by
-# variable and never by a fixed path. Without it, `docs-check` lists them as
-# not verified; `check` refuses to run.
-check: ## The gate: secrets, history, documents, decision record and both test suites, stopping at the first failure; needs ENG_DADOS_DIR
+# The links into eng_dados carry most of the plan's facts, so the gate verifies
+# them, each against the repository its URL names (N86): ENG_DADOS_DIR names a
+# local checkout of mvp_eng_dados_1, for the historical links, and
+# ENG_DADOS_2_DIR one of mvp_eng_dados_2, its continuation — by variable and
+# never by a fixed path. Without one, `docs-check` lists the links into that
+# repository as not verified; `check` refuses to run.
+check: ## The gate: secrets, history, documents, decision record and both test suites, stopping at the first failure; needs ENG_DADOS_DIR and ENG_DADOS_2_DIR
 	@test -n "$(ENG_DADOS_DIR)" || { echo "check: set ENG_DADOS_DIR to a checkout of mvp_eng_dados_1"; exit 2; }
 	@test -e "$(ENG_DADOS_DIR)/.git" || { echo "check: ENG_DADOS_DIR=$(ENG_DADOS_DIR) is not a git checkout"; exit 2; }
+	@test -n "$(ENG_DADOS_2_DIR)" || { echo "check: set ENG_DADOS_2_DIR to a checkout of mvp_eng_dados_2"; exit 2; }
+	@test -e "$(ENG_DADOS_2_DIR)/.git" || { echo "check: ENG_DADOS_2_DIR=$(ENG_DADOS_2_DIR) is not a git checkout"; exit 2; }
 	@$(UV_RUN) python -m bi_como_codigo.secrets_review
 	@$(UV_RUN) python -m bi_como_codigo.secrets_review --history
 	@$(UV_RUN) python -m bi_como_codigo.docs_check

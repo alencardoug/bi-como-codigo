@@ -859,7 +859,10 @@ promise a deadline.
       pin does not reach it: the twelve columns its fixture copies from P01 at `f86b9fb` are, in the
       same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, the views of `b0ef66e`.
    2. **N86**, the gate with two checkouts, in its PR of its own — before any document links
-      `mvp_eng_dados_2` at `b0ef66e`, as 2.4, 2.7 and 2.8 will.
+      `mvp_eng_dados_2` at `b0ef66e`, as 2.4, 2.7 and 2.8 will. Implemented on 2026-11-20:
+      `ENG_DADOS_2_DIR` names the checkout of `mvp_eng_dados_2`, `make check` requires both
+      variables, and `docs-check` reads each link only in the checkout of the repository its URL
+      names.
    3. **2.4** no longer waits for the source: its dependencies are done and its pin is set. It
       waits for N86 and for a read window from the Owner; it starts from the 16 views as M59 read
       them, each view's key by the roles `grain` and `identity` of the package's `view_rules`

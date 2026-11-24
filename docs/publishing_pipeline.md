@@ -93,8 +93,8 @@ One job, no environment, no secret, and no token requested:
 
 1. check out the PR head;
 2. `make secrets test test-js docs-check` — the PR's own checks, as information. Not `make check`,
-   which needs a checkout of eng_dados and the whole history; `docs-check` without `ENG_DADOS_DIR`
-   lists the pinned links as not verified;
+   which needs the checkouts of eng_dados and the whole history; `docs-check` without
+   `ENG_DADOS_DIR` and `ENG_DADOS_2_DIR` lists the pinned links as not verified;
 3. `python -m bi_como_codigo.release build` **at the PR's revision**: builds `deploy/` from the
    inclusion list and writes `candidate.json` — PR number, head SHA, base SHA;
 4. upload `deploy/` and `candidate.json` as the artifact `candidate`, retention 7 days.
