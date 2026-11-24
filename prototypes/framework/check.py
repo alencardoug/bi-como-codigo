@@ -165,9 +165,9 @@ def compare(seen: dict, o: Oracle, *, cdn_urls: frozenset[str] = frozenset()) ->
                     refuse("order_count summed", filter=f, cell=r[:2])
         # No summary element holds a summed count, beside the table either (§2.6, CMP-2-04): every
         # pt-BR number the wrapper renders, whole, decimals and all — read, or the page is refused (CMP-3-04).
-        if "shown" not in table:
+        if not isinstance(table.get("shown"), list):  # not read, or a summary not rendered (CMP-4-01)
             refuse("summary unread", filter=f)
-        for text in table.get("shown", []):
+        for text in table.get("shown") or []:
             for number in _NUMBER.findall(text):
                 if number in o.order_sums:
                     refuse("order_count summed", filter=f, shown=text[:200])

@@ -52,7 +52,11 @@ function report() {
       + (V.split ? `<p>Total de pedidos: <strong>${V.split[0]}</strong>${V.split[1]}</p>` : "")
       + (V.hidden ? `<p style="visibility:hidden">Total de pedidos: ${esc(V.hidden)}</p><dialog><p>${esc(V.hidden)}</p></dialog>` : "")
       + (V.open_dialog ? `<dialog open><p>Total: ${esc(V.open_dialog)}</p></dialog>` : "")
-      + (V.generated ? `<p class="g"></p><style>.g::before { content: "Total: ${V.generated}"; }</style>` : "");
+      + (V.generated ? `<p class="g"></p><style>.g::before { content: "Total: ${V.generated}"; }</style>` : "")
+      + (V.generated_hidden ? `<p class="h1"></p><p class="h2"></p><style>.h1 { display: none } .h2 { visibility: hidden }
+         .h1::before, .h2::before { content: "Total: ${V.generated_hidden}"; }</style>` : "")
+      + (V.generated_split ? `<p class="s"></p><style>.s::before { content: "${V.generated_split[0]}"; } .s::after { content: "${V.generated_split[1]}"; }</style>` : "");
+    if (V.summary_hidden) $("[data-bice=summary]").style.visibility = "hidden";
     const rows = D.detail[f][m], last = m === D.last;
     $("[data-bice=detail]").innerHTML = rows.length ? table("detail-table", D.detail_header, rows, last ? D.notice : null)
       : `<p data-bice="empty">${esc(D.empty)}</p>` + (last ? `<p data-bice="partial">${esc(D.notice)}</p>` : "");
@@ -113,3 +117,12 @@ def test_a_sum_split_by_markup_open_or_generated_is_refused_and_a_hidden_one_is_
     assert _reasons(oracle, tmp_path, "open", open_dialog=a_sum) == {"order_count summed"}
     assert _reasons(oracle, tmp_path, "css", generated=a_sum) == {"order_count summed"}
     assert _reasons(oracle, tmp_path, "hidden", hidden=a_sum) == set()
+
+
+def test_generated_text_counts_only_where_rendered_and_in_its_inline_order(oracle, tmp_path):
+    """CMP-4-01: a sum generated on hidden elements is not shown; one split across ::before and
+    ::after is; a summary not rendered is not read."""
+    a_sum = sorted(s for s in oracle.order_sums if "." in s)[0]
+    assert _reasons(oracle, tmp_path, "ghidden", generated_hidden=a_sum) == set()
+    assert _reasons(oracle, tmp_path, "gsplit", generated_split=[a_sum[0], a_sum[1:]]) == {"order_count summed"}
+    assert _reasons(oracle, tmp_path, "shidden", summary_hidden=True) == {"summary unread"}

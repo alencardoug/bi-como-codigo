@@ -108,12 +108,22 @@ const read = (bice) => ev(`(() => {
     .map((e) => ({ at: 'beside', text: text(e), ...(e.dataset.bice === 'empty' ? { empty_table: true } : {}) }));
   // Everything the wrapper shows, as rendered: its innerText — text across inline boundaries joined,
   // cells and rows kept apart, what is hidden or not rendered (a closed dialog's copy) left out, an
-  // open dialog in — and the text CSS generates: no summary element may hold a summed count, in a
-  // cell or beside the table (§2.6, CMP-2-04, CMP-3-04).
-  const generated = [wrapper, ...wrapper.querySelectorAll('*')].flatMap((e) => ['::before', '::after']
-    .map((p) => getComputedStyle(e, p).content)).filter((c) => c && c !== 'none' && c !== 'normal')
-    .map((c) => c.replace(/^["']|["']$/g, ''));
-  const shown = [wrapper.innerText.replace(/\\u00a0|\\u202f/g, ' '), ...generated];
+  // open dialog in — and, for each rendered element that has CSS-generated text, that text in its
+  // inline order around the element's own: no summary element may hold a summed count, in a cell or
+  // beside the table (§2.6, CMP-2-04, CMP-3-04, CMP-4-01). A summary not rendered is not read.
+  const rendered = (e) => !e.checkVisibility || e.checkVisibility({ visibilityProperty: true });
+  const pseudo = (e, p) => {
+    const s = getComputedStyle(e, p);
+    const c = s.content;
+    if (!c || c === 'none' || c === 'normal' || s.display === 'none' || s.visibility === 'hidden') return '';
+    return c.replace(/^["']|["']$/g, '');
+  };
+  let shown = null;
+  if (rendered(wrapper)) {
+    const generated = [wrapper, ...wrapper.querySelectorAll('*')].filter(rendered).map((e) => [pseudo(e, '::before'), e, pseudo(e, '::after')])
+      .filter(([b, , a]) => b || a).map(([b, e, a]) => b + e.innerText + a);
+    shown = [wrapper.innerText.replace(/\\u00a0|\\u202f/g, ' '), ...generated.map((s) => s.replace(/\\u00a0|\\u202f/g, ' '))];
+  }
   if (!t) return { header: [], rows: [], notices: beside, shown };
   const rows = [], notices = [...beside];
   for (const tr of [...t.querySelectorAll('tr')].filter((r) => !r.closest('thead, tfoot'))) {  // Evidence's rows sit in no tbody
