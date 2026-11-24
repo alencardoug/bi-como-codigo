@@ -1,0 +1,20 @@
+/* Candidate B's layout: only what the stage measures needs (§2.3); themes,
+   narrow screens and the rest of accessibility are stage 2.5's. */
+[hidden] { display: none !important; }
+body { font-family: system-ui, sans-serif; margin: 0 auto; max-width: 64rem; padding: 1rem; background: #fff; color: #111; }
+form, .controls { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 1rem 0; }
+.chart { width: 100%; }
+table { border-collapse: collapse; margin: 1.5rem 0; width: 100%; }
+caption { text-align: left; font-weight: 600; font-size: 1.1rem; margin-bottom: .5rem; }
+th, td { border-bottom: 1px solid #ddd; padding: .25rem .5rem; text-align: left; }
+th:nth-child(n+3), td:nth-child(n+3) { text-align: right; font-variant-numeric: tabular-nums; }
+td[data-bice=empty], td[data-bice=partial] { color: #555; font-style: italic; text-align: left; }
+[data-bice=chart] svg { user-select: none; -webkit-user-select: none; }
+.chart-tip { position: absolute; z-index: 10; pointer-events: none; background: #fff; border: 1px solid #bbb; border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15); padding: .4rem .6rem; font-size: .85rem; }
+.chart-tip em { display: block; color: #555; font-size: .8rem; }
+.chart-tip table { margin: .3rem 0 0; width: auto; }
+.chart-tip td { border: 0; padding: .05rem .4rem .05rem 0; }
+.chart-tip td:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; }
+.chart-tip .swatch { display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; }
+.chart-tip tr.near td { font-weight: 700; }

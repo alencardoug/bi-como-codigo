@@ -1,0 +1,35 @@
+{
+ "steps": {
+  "1_todos_2152-01": {
+   "tip": "2152-01\n\tfixture_raiz_2\tR$ 594.441.022,21\n\tfixture_raiz_1\tR$ 585.805.521,85\n\tfixture_raiz_4\tR$ 525.778.603,21\n\tfixture_raiz_5\tR$ 516.773.268,54\n\tfixture_raiz_3\tR$ 500.605.432,84",
+   "lit": "3"
+  },
+  "2_perto_raiz_3": {
+   "tip": "2152-01\n\tfixture_raiz_2\tR$ 594.441.022,21\n\tfixture_raiz_1\tR$ 585.805.521,85\n\tfixture_raiz_4\tR$ 525.778.603,21\n\tfixture_raiz_5\tR$ 516.773.268,54\n\tfixture_raiz_3\tR$ 500.605.432,84",
+   "lit": "3"
+  },
+  "3_clicou_perto_raiz_3_depois_longe": {
+   "tip": "2153-09\n\tfixture_raiz_3\tR$ 663.437.531,10\n\tfixture_raiz_4\tR$ 621.771.386,21\n\tfixture_raiz_1\tR$ 519.591.683,60\n\tfixture_raiz_2\tR$ 467.797.633,97\n\tfixture_raiz_5\tR$ 421.076.700,44",
+   "lit": "2"
+  },
+  "4_todos_2155-05_parcial": {
+   "tip": "2155-05\nMês em curso: os números ainda vão mudar.\n\tfixture_raiz_4\tR$ 48.622.661,92\n\tfixture_raiz_2\tR$ 42.295.206,19\n\tfixture_raiz_1\tR$ 35.403.871,30\n\tfixture_raiz_5\tR$ 24.283.301,21\n\tfixture_raiz_3\tR$ 23.160.139,46",
+   "lit": "3"
+  },
+  "5_fora": {
+   "tip": null,
+   "lit": "3"
+  },
+  "6_rotulo_raiz_1": {
+   "tip": null,
+   "lit": "1"
+  },
+  "7_shift_clique_rotulo_raiz_1": {
+   "lit": "1,3"
+  },
+  "8_canal_c_2150-09_G": {
+   "tip": "2150-09\n\tfixture_raiz_4\tR$ 221.656.072,19\n\tfixture_raiz_2\tR$ 189.383.351,32\n\tfixture_raiz_1\tR$ 186.029.139,52\n\tfixture_raiz_5\tR$ 115.107.917,24\n\tfixture_raiz_3\tSem vendas neste recorte."
+  }
+ },
+ "logs": []
+}

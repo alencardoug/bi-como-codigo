@@ -1268,7 +1268,9 @@ defect in each chart, with both tables passing:
 - A zero (Z) is drawn at 0 in both.
 
 These are stage 2.5's, whose criterion is that filter, chart and table agree with the package: the
-chart needs an oracle of its own, and B's declaration a rule for G and for the partial month.
+chart needs an oracle of its own, and B's declaration a rule for G and for the partial month. The
+same day, the Owner approved the chart's interactions, shown in a demonstration over B's artifact,
+outside this prototype (N104).
 
 **Not measured here**: a worker transfer spanning a cutoff and a redirected navigation on the real
 pages; the cold fetch of Evidence's tarballs; whether the navigation timings hold across sittings; the

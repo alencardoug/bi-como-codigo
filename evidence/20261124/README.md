@@ -38,3 +38,45 @@ python3 -I evidence/20261124/chart_oracle.py <cells.json of the draw>
 The browser check of stage 2.3 compared the tables, which passed in both. It did not compare the
 charts. These defects are for stage 2.5, whose criterion is that filter, chart and table agree with
 the package.
+
+## The chart's interactions, approved by the Owner (N104)
+
+The same day, the Owner asked whether B could highlight a line as Evidence does, and then for a
+vertical whose popup shows every series at the month. Both were built as a **demonstration** over
+B's artifact of this draw, outside the prototype, which stays as it was measured. The Owner
+approved them for the reports, and found B ahead of or equal to Evidence on every point once they
+were added (N104). They are built for real at stage 2.5. `chart_interaction/` is their starting
+point:
+
+| File | What it is |
+|---|---|
+| `p01.report.json` | The declaration with the chart's layers: the line, with the legend's selection (`legenda`); the points of the month under the vertical; the vertical, one rule per month, nearest the pointer, over the whole plot; and `perto`, the series the page highlights |
+| `page.mjs`, `page.css` | The page with the popup: every series at the month, from the rows the chart draws, by value; a series with no row reads "Sem vendas neste recorte."; the partial month carries its notice; the line within 8 px of the pointer is highlighted and in bold; a click near it acts as a click on its legend label; hovering a legend label highlights it; a double-click clears the selection |
+| `demo.diff` | Those three files against the artifact's own |
+| `apply_demo.py` | Copies an artifact of B, puts the three files in place and writes their new SHA-384 into `index.html` |
+| `legend.mjs`, `vertical.mjs` | Headless Chrome through the DevTools protocol. They drive the legend and the vertical step by step, and record each line's opacity and the popup's text; they judge nothing |
+| `shots/` | `legend.json` and `vertical.json`, the records, and screenshots of the steps |
+
+```sh
+python3 -I evidence/20261124/chart_interaction/apply_demo.py <B's artifact> <out>
+uv run --group prototype python evidence/20261124/serve.py <out> 8103
+node evidence/20261124/chart_interaction/legend.mjs http://127.0.0.1:8103/ <records> <password>
+node evidence/20261124/chart_interaction/vertical.mjs http://127.0.0.1:8103/ <records> <password>
+```
+
+**What the records show** (`shots/*.json`): hovering a legend label or a line leaves only that series
+at full opacity; a click isolates one, shift-click adds another and a double-click restores all
+five. The popup at 2152-01 lists the five series. Its values equal the fixture's sums to the cent,
+for the three months checked against `chart_oracle.py`'s fixture: 2152-01 and 2155-05 under
+`todos`, and 2150-09 under `fixture_canal_c`. At 2155-05 it carries the partial month's notice. At
+2150-09 under `fixture_canal_c` it reads "Sem vendas neste recorte." for `fixture_raiz_3`, the G
+cell.
+
+**What it does not do yet, for 2.5:**
+
+- The line still crosses the G cell, and `fixture_canal_c` still loses 2155-05 from its axis (above),
+  so the popup cannot show that month.
+- The popup's values come from the chart's rows, cast to `DOUBLE` (§4 of the prototype). They
+  matched to the cent here, but 2.5 must format them from the exact amounts, as the tables do.
+- There is no hover on a touch screen, and no keyboard path to the popup.
+- Light and dark themes are not covered yet.

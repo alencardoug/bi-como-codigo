@@ -1,0 +1,221 @@
+{
+ "steps": {
+  "0_inicial": {
+   "fixture_raiz_1": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_2": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_3": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_4": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_5": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   }
+  },
+  "1_mouse_no_rotulo_raiz_3": {
+   "fixture_raiz_1": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_2": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_3": {
+    "line": "1",
+    "width": "3.5",
+    "legend": "1"
+   },
+   "fixture_raiz_4": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_5": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "1"
+   }
+  },
+  "2_mouse_fora": {
+   "fixture_raiz_1": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_2": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_3": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_4": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_5": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   }
+  },
+  "3_mouse_na_linha_raiz_5": {
+   "fixture_raiz_1": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_2": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_3": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_4": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_5": {
+    "line": "1",
+    "width": "3.5",
+    "legend": "1"
+   }
+  },
+  "4_clique_rotulo_raiz_2": {
+   "fixture_raiz_1": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "0.35"
+   },
+   "fixture_raiz_2": {
+    "line": "1",
+    "width": "3",
+    "legend": "1"
+   },
+   "fixture_raiz_3": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "0.35"
+   },
+   "fixture_raiz_4": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "0.35"
+   },
+   "fixture_raiz_5": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "0.35"
+   }
+  },
+  "5_shift_clique_rotulo_raiz_4": {
+   "fixture_raiz_1": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "0.35"
+   },
+   "fixture_raiz_2": {
+    "line": "1",
+    "width": "3",
+    "legend": "1"
+   },
+   "fixture_raiz_3": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "0.35"
+   },
+   "fixture_raiz_4": {
+    "line": "1",
+    "width": "3",
+    "legend": "1"
+   },
+   "fixture_raiz_5": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "0.35"
+   }
+  },
+  "6_clique_de_novo": {
+   "fixture_raiz_1": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "0.35"
+   },
+   "fixture_raiz_2": {
+    "line": "1",
+    "width": "3",
+    "legend": "1"
+   },
+   "fixture_raiz_3": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "0.35"
+   },
+   "fixture_raiz_4": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "0.35"
+   },
+   "fixture_raiz_5": {
+    "line": "0.12",
+    "width": "2",
+    "legend": "0.35"
+   }
+  },
+  "7_duplo_clique_limpa": {
+   "fixture_raiz_1": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_2": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_3": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_4": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   },
+   "fixture_raiz_5": {
+    "line": "1",
+    "width": "2",
+    "legend": "1"
+   }
+  }
+ },
+ "logs": []
+}
