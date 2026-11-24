@@ -23,7 +23,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-24 — revision 7: round 1 of Codex's review of the code answered (XIMPL-1-01 to -13), with the Owner's N111 and N112 (§3, §9, §10, §16). Revision 6: step 2 done — the catalogue read in a short window, `release/views.json` reviewed and approved by the Owner, the migration of §11 (§16). Revision 5: step 3 built, and what it measured and changed (§16). Revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
+| Date | 2026-11-24 — revision 8: round 2 of the review of the code answered (XIMPL-2-01 to -09), under N113 (§16). Revision 7: round 1 of Codex's review of the code answered (XIMPL-1-01 to -13), with the Owner's N111 and N112 (§3, §9, §10, §16). Revision 6: step 2 done — the catalogue read in a short window, `release/views.json` reviewed and approved by the Owner, the migration of §11 (§16). Revision 5: step 3 built, and what it measured and changed (§16). Revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
 | Author | Claude Code |
 | Status | **Plan, reviewed: closed after round 3 of Codex's review (N110)** — 33 findings in three rounds, 20 blocking, all answered. **Steps 2 and 3 of §15 are done** on the branch `exporter-2.4`: the exporter over the fake warehouse, probed against an isolated PostgreSQL, the catalogue read and the declarations migrated (§16); steps 4 and 5 are not. Its reads of the warehouse need a read window the Owner opens ([UQ-05](upstream_questions.md#answers)) |
 
@@ -855,6 +855,30 @@ what §3, §9 and §10 now say:
 - TLS files named relative to the caller are resolved before the run changes directory; libpq's
   `system` root stays as it is (XIMPL-1-10);
 - the fake quotes a record field on ASCII whitespace only, as PostgreSQL's `record_out` does.
+
+**Round 2** (XIMPL-2-01 to -09, three blocking) changed:
+
+- every file the candidate includes must be a regular file of `site/` at the rehearsed commit, or
+  one of the sealed package's: the receipt and Git's evidence name these files, so a name holding a
+  value refuses (`candidate_refused`, check `uncommitted_file`); `export evidence` checks the same
+  against this repository's `HEAD` (XIMPL-2-01);
+- the command line disables logging and ignores warnings for its whole life, and the adapter drops
+  server notices: psycopg logs a failed cancellation with the driver's text (XIMPL-2-02);
+- the receipt's paths are ordered as `release.listing` walks them, by path component
+  (XIMPL-2-04);
+- the result is published only after the run directory is gone; a signal noted while cleaning
+  ends the run — SIGINT as `KeyboardInterrupt`, SIGTERM as `interrupted` with check `cleanup` —
+  and nothing is published; the handlers come back SIGTERM first and SIGINT last (XIMPL-2-05);
+- `export collisions` lists every canonical value behind a spelling, each needing its own
+  approval, and skips committed symbolic links (XIMPL-2-06, -09);
+- an exemption counts as used only when the gate would search its value — a text of three
+  characters or more, an eligible number (XIMPL-2-07);
+- the commit being rehearsed is resolved once, and the stand-in and the committed names are read at
+  it (XIMPL-2-08).
+
+Each of the round's new tests was run against its behaviour undone and failed; two that did not
+were rewritten until they did — the handler order, by interrupting after the first restoration,
+and the silenced libraries, in a process of its own, outside pytest's capture.
 
 **[measured] The probe, again**, after round 1
 ([`exporter_probe.out.txt`](../evidence/20261124/exporter_probe.out.txt)): the fake's record text

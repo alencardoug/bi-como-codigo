@@ -293,6 +293,15 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | XIMPL-1-11 | `evidence/20261124/exporter_probe.py:116`, `tests/fake_warehouse.py:57` | The committed probe stops early and the fake misquotes some UTF-8 text | adjustment | Fixed. The probe compares with `evidence/20261124/catalogue.json` and runs from a clean checkout; it adds PostgreSQL's record text for 14 UTF-8 cases (14 of 14 equal after the fake's quoting rule became ASCII whitespace only) and the volatile-view control. Re-run on an isolated `postgres:16.15-alpine`; output committed. |
 | XIMPL-1-12 | `tests/test_exporter_units.py:240`, `:356` | TLS and spill tests have timing-dependent observations | observation | Fixed. The TLS server reads exact frames, failing on EOF; the spill test lists DuckDB's own `duckdb_temporary_files()` while a temporary table larger than the limit holds them, in the exporter and in the gate, and checks they are gone after. The author's unexplained failed run is still not identified; the signal finding of -04 is a candidate cause for an interrupt test, not shown to be it. |
 | XIMPL-1-13 | `exporter/paths.py:139` | Publication can replace an empty destination created concurrently | observation | Fixed. `rename_noreplace` calls `renameat2(RENAME_NOREPLACE)`; an empty destination created after the check is refused `path_exists` and left as it was (test with the interleaving). |
+| XIMPL-2-01 | `exporter/receipt.py:227`, `:243`, `exporter/cli.py:141`, `exporter/run.py:139` | Candidate paths can carry a report value through the receipt and into Git evidence | blocking | Fixed. `run.candidate` refuses an included file that is not a regular file of `site/` at the rehearsed commit (check `uncommitted_file`); `export evidence` checks the receipt's included names against this repository's `HEAD`. Tests `test_an_uncommitted_file_name_never_reaches_the_receipt` and `test_export_evidence_refuses_a_file_name_not_committed` (the loader alone still accepts it; the command refuses before writing). Counter-proof: with the check off, the first fails. |
+| XIMPL-2-02 | `exporter/source.py:185`, `exporter/cli.py:197` | psycopg can write a cancellation diagnostic before the CLI refusal | blocking | Fixed. `cli.main` disables logging (and the last-resort handler) and ignores warnings for the command's life; the adapter adds a notice handler that drops notices. The test runs the CLI in a subprocess, so pytest captures nothing on its behalf: a psycopg warning and a library warning holding a marker, then an interrupt, leave only the fixed line. Counter-proof: without the silencing it fails. |
+| XIMPL-2-03 | `tests/test_exporter.py:360`, `:923`, `tests/test_exporter_units.py:395` | Mutation tests pass with the witness count check, declaration snapshot or CRL use disabled | blocking | Fixed. `test_the_witness_count_alone_off` raises only the witness's count, fingerprint unchanged; the snapshot test edits `include.txt` mid-run, a field `release.build` uses, and asserts `site/releases.md` still in the candidate; `test_the_crl_named_relative_to_the_caller_is_the_one_libpq_uses` refuses a revoked server certificate and reaches startup with an unrevoked one. Counter-proofs: without the count comparison, with the candidate rereading the worktree, and with `sslcrl` dropped, each fails. |
+| XIMPL-2-04 | `exporter/receipt.py:233`, `:244`, `release.py:166`, `:194` | The receipt rejects a valid candidate whose paths sort differently as strings | adjustment | Fixed. The loader orders `files` and `included` by `PurePosixPath(...).parts`, as `release.listing` walks them. `test_paths_that_sort_differently_as_strings_round_trip`: `site/a/x.md` and `site/a-b.md` through the producer and `export evidence`. Counter-proof: string order fails. |
+| XIMPL-2-05 | `exporter/paths.py:110`, `:133`, `exporter/run.py:257` | Cleanup can terminate after publication or leave the wrong signal handler installed | adjustment | Fixed. The result is published after the `RunDirectory` block; a signal noted while cleaning raises there — `KeyboardInterrupt`, or `interrupted` check `cleanup` — so nothing is published; SIGTERM's handler comes back first, SIGINT's last. Tests: SIGTERM during cleaning end to end (no result) and in the unit, and a SIGINT right after the first restoration, with both handlers asserted after. Counter-proof: the old order fails. |
+| XIMPL-2-06 | `exporter/collisions.py:105`, `:121` | The diagnostic loses canonical values that share one public spelling | adjustment | Fixed. Each spelling maps to every canonical value behind it, and each is listed. Test: VARCHAR `1.234` and BIGINT `1234` both listed; approving one still refuses `clear_value`, approving both passes with used `[0, 1]`. Counter-proof: keeping one value fails. |
+| XIMPL-2-07 | `exporter/run.py:136`, `:225` | The receipt counts values the gate would never search as used exemptions | adjustment | Fixed. `searched` holds only texts of three characters or more and eligible numbers, as the gate's needles. Test: an exemption of P13's one-digit count is `unused`. Counter-proof: the union of all values fails. |
+| XIMPL-2-08 | `exporter/run.py:81`, `:91` | A ref change during rehearsal can mix stand-in package reads | adjustment | Fixed. `rehearsed_commit` resolves `HEAD` once; the stand-in and the committed names are read at that id. Test: HEAD moves to another valid package after the commit is resolved; the receipt's stand-in digest is the first commit's. Counter-proof: reading the manifest at `HEAD` fails. |
+| XIMPL-2-09 | `exporter/collisions.py:58`, `release.py:171` | The diagnostic treats committed symlink targets as public content | observation | Fixed. `Snapshot.regular_files` keeps modes 100644 and 100755 only. Test: a committed symlink whose target is a value, beside a regular file holding another; the regular one is listed, the target never. Counter-proof: keeping every entry fails. |
 
 ### Round 1
 
@@ -544,4 +553,226 @@ if this edge is supported, and test the interleaving. **Regression introduced by
 - [ ] **XIMPL-1-10** — Prove caller-relative TLS path behavior for both certificate and CRL.
 - [ ] **XIMPL-1-11** — Run the committed probe from a clean checkout and show the fake and
   PostgreSQL agree on the UTF-8 record-text cases.
+
+### Round 2
+
+#### Conclusion
+
+**Changes required.** Candidate paths can put a report value in the receipt and Git evidence,
+psycopg can print a driver message independently of the CLI, and the witness count mutation
+passes with its comparison disabled. The requested gate passed. The batch remains open.
+
+#### Reviewed scope and version
+
+Reviewed branch `exporter-2.4` at `febfccac69807b215e9957564e9ba69d56c407a9` against
+`aae43cd`, the agreed round 1 tree. `git log --oneline aae43cd..febfcca` returned
+`febfcca`, `50a46ff` and `d6f56d5`. The diff modified 16 tracked files and added none.
+There were no local changes or untracked files at the start, and HEAD stayed pinned throughout.
+The review covered exporter revision 7 and N105–N112, the migrated package gate and relevant
+envelope predicates. The review edits are confined to this dossier.
+
+#### Finding evidence
+
+**XIMPL-2-01 · High · blocking — A receipt path can contain a report value.**
+`receipt.load` validates `candidate.files[].path` and `candidate.included[]` by syntax and
+mutual consistency. The listing digest is recomputed from the same caller-supplied paths.
+In a temporary copy, I added a path named for an invented P13 carrier and recomputed the
+listing digest. The actual `export evidence` CLI returned 0 and copied that value into
+`export_run.json`. An end-to-end producer control also passed both unchanged `release.verify`
+modes and wrote the carrier in `run.json` when a matching, empty Markdown file was included.
+The gate inspected the contents of that file. Bind reportable paths to a trusted inventory
+or record an approved value-safe representation. Prove that neither the producer nor the
+evidence command can pass the filename case, and retain an honest receipt control.
+**Preexisting and still reachable through the stricter loader.**
+
+**XIMPL-2-02 · High · blocking — A cancellation warning bypasses the CLI.**
+The pinned psycopg `Connection.wait` calls `_try_cancel` on Ctrl-C while a query is active.
+`_try_cancel` logs the exception text at WARNING on cancellation failure. On the real pinned
+adapter against loopback PostgreSQL, I interrupted `pg_sleep(1)` and injected a
+`psycopg.OperationalError` at `cancel_safe` to exercise that transport-failure branch.
+The CLI returned 1 and stderr contained both `query cancellation failed: review invented driver diagnostic`
+and `refused: unexpected; class KeyboardInterrupt`. The exporter boundary only sanitized
+the latter. Route driver logging through the same output restriction and assert both streams
+on an active query with an injected cancellation failure. **Preexisting.**
+
+**XIMPL-2-03 · High · blocking — Three tests miss the behavior they claim to prove.**
+Executed counter-proofs in temporary copies of the reviewed tree.
+
+- `test_the_witness[one_count_off]` adds a row and thereby changes the fingerprint as well
+  as the witness count. With only the witness count comparison removed, this test still
+  passed. Keep the accepted fingerprint equal in the count-only mutation and prove that
+  removing the count comparison changes the test result. **Preexisting test gap.**
+- `test_a_declaration_edited_mid_run_does_not_reach_the_candidate_nor_the_receipt` adds a
+  comment and checks the recorded digest. It still passed when the candidate reread all
+  declaration paths from the worktree. Change a declaration field that would affect
+  `release.verify`, or assert the bytes at the candidate boundary. The two tests of the
+  witness and this snapshot test gave `3 passed, 149 deselected` with the two changes above.
+  **Round 2 regression test gap.**
+- The real TLS handshake test still passed with `sslcrl` disabled and the root path
+  resolved correctly. The passing certificate is unrevoked with or without that CRL.
+  Prove use with a revoked-certificate refusal and an unrevoked positive control through
+  the caller-relative path. The settings test already checks the absolute pathname.
+  **Round 2 regression test gap.**
+
+**XIMPL-2-04 · Medium · adjustment — The producer can reject its own receipt.**
+`release.build` and `release.listing` order paths by `pathlib.Path` components. The loader
+uses whole-string sorting for both lists. Two included, empty Markdown files at `site/a/x.md`
+and `site/a-b.md` passed both verify runs. The producer recorded them in that order and
+then refused `receipt_invalid` without publishing. All path characters were permitted by
+§10. Use the gate's ordering consistently for validation and the digest, and round-trip
+this exact shape through both the producer and `export evidence`. **Introduced in `50a46ff`.**
+
+**XIMPL-2-05 · Medium · adjustment — Deferred signals cross the wrong boundary.**
+In a subprocess running the CLI over the honest fake, sending SIGTERM inside
+`remove_tree` removed the private directory, then re-raised to the original default
+disposition. The result had already been published. The subprocess returned `-15` and
+both streams were empty. In a controlled interleaving, SIGINT immediately after its
+handler was restored at `paths.py:134` raised `KeyboardInterrupt` before SIGTERM was
+restored. The private directory was gone and the deferring SIGTERM handler remained installed.
+Ordinary nesting restored the outer cwd and TMPDIR. SIGTERM deferred by an inner run
+reached the outer run's handler and both directories were removed. Define how the CLI
+reports a signal after publication, finish restoring both handlers before forwarding, and
+exercise these interleavings with the destination and caller state asserted.
+**Introduced in `50a46ff` by deferred forwarding.**
+
+**XIMPL-2-06 · Medium · adjustment — Multiple values can require approval for one spelling.**
+The diagnostic maps a matched byte string to just one canonical value via `setdefault`.
+With invented P13 values VARCHAR `1.234` and integer `1234`, the committed public page
+contained only `1.234`. The diagnostic listed only the VARCHAR holder. Approving
+`1.234` still gave `candidate_refused` with `clear_value`. Approving both canonical
+values let the same candidate pass. Preserve all eligible canonical values and their
+holder and approval information for each spelling. Assert both hits and both gate outcomes
+in the same test. **Introduced in `50a46ff` by the reverse lookup.**
+
+**XIMPL-2-07 · Medium · adjustment — The receipt can classify an unused exemption as used.**
+The producer uses the union of every typed value from `check_payload` to classify entry
+indices. That union includes short numeric counts and other values that generate no needle.
+In the preceding end-to-end case, adding an exemption for P13's single-digit row count,
+which was present only as ineligible values, made the receipt report
+`{"used": [0, 1, 2], "unused": []}`. The extra entry could not suppress a search.
+Base the classification on the gate's typed eligibility and test the extra entry as unused.
+**Introduced in `50a46ff` with the per-entry classification.**
+
+**XIMPL-2-08 · Medium · adjustment — The stand-in is read through a moving ref.**
+`_committed_package` enumerates `HEAD` and then resolves `HEAD` again for each envelope
+and the manifest. I switched a temporary checkout immediately after the listing, between
+two commits each holding a valid stand-in with different envelope names. The reader refused
+`candidate_refused` with `stand_in`. A routine concurrent ref update can therefore
+invalidate the rehearsal even when both packages are sound. Resolve the intended commit
+once and use it for every read. In the interleaving test, the manifest, envelopes and
+receipt digest must all come from the selected commit. **Preexisting.**
+
+**XIMPL-2-09 · Low · observation — An included symlink can become a diagnostic haystack.**
+`ls-tree --name-only` drops the file mode and `git show` returns symlink target text.
+In a temporary commit with an included symlink targeting an invented carrier name,
+`export collisions` printed the carrier, and `release.build` refused the path as
+`is a symbolic link`. This needs a committed symlink and an inclusion rule that names it.
+The resulting tree cannot build, which limits the case to an invalid source tree. Check
+the tree entry's mode and test the symlink alongside a matching committed regular file.
+**Preexisting.**
+
+#### Status of round 1 findings
+
+The passing tests below ran at `febfcca` under the full gate. Counter-proofs restored only
+the behavior under test in copies unless stated otherwise.
+
+| ID | Review status | Independent check and result |
+|---|---|---|
+| XIMPL-1-01 | Partially resolved | The one-commit and UTC tests passed. Restoring the old `collisions.py` emitted the excluded marker and missed the UTC hit. XIMPL-2-06 and XIMPL-2-09 cover remaining matching defects. |
+| XIMPL-1-02 | Partially resolved | Malformed nested fields and non-finite durations were refused by the suite, while the valid evidence case wrote successfully. The added and recomputed filename passed real CLI validation and wrote the marker, as shown in XIMPL-2-01. |
+| XIMPL-1-03 | Resolved | The malformed `set_config` cases, passing result and collation matrix passed. The old implementation discarded statement results. The isolated PostgreSQL probe returned both versions null and the full export passed under N111. |
+| XIMPL-1-04 | Partially resolved | The vanished-caller, SIGINT during removal and cleanup-failure tests passed. The old `paths.py` raised `FileNotFoundError` at caller restoration. The independent SIGTERM and handler-restoration cases reproduced XIMPL-2-05. |
+| XIMPL-1-05 | Resolved | All five argument cases returned exit 2 and only the fixed line. Each failed with the old `cli.py`, which used argparse's printing boundary. XIMPL-2-02 is an independent driver output path. |
+| XIMPL-1-06 | Resolved | Both MUT-07b tests passed. The inserted bytes matched only `b"140"` and the corresponding deploy passed when only the row count was removed from the inspected values. |
+| XIMPL-1-07 | Partially resolved | Provenance passed with one entry, refused with two at check 2, and executed only checks 1 and 2. The statement-injection matrix and the libpq result-field mutation passed on their intended predicates. Candidate-only file and label refusals and the evidence controls ran. XIMPL-2-03 still leaves a prescribed witness mutation ineffective. |
+| XIMPL-1-08 | Resolved | Real `q_rows` returned 30 volatile rows with one fingerprint equal to an independent hash of the returned rows. A second evaluation differed. An empty view passed with `md5('')`, a mixed fingerprint refused `witness_mismatch`, and a fingerprint-only result modifier refused `result_schema` before the row fetch. Test coverage is tracked in XIMPL-2-03. |
+| XIMPL-1-09 | Partially resolved | The snapshot is read once and the candidate writes those bytes. The test passed even when that guarantee was disabled. The ineligible count exemption was incorrectly reported used. See XIMPL-2-03 and XIMPL-2-07. |
+| XIMPL-1-10 | Partially resolved | Restoring relative arguments made the TLS startup and pathname tests fail. Both pass on the reviewed code. Turning off only the CRL still passed the handshake test, leaving the proof gap in XIMPL-2-03. |
+| XIMPL-1-11 | Resolved | The committed probe ran in the clean clone with only its port changed in memory. It matched the catalogue, all 14 record-text cases and all 16 fake fingerprints. The real adapter exported 72 invented rows and passed both verify modes. |
+| XIMPL-1-12 | Resolved | The exact-frame TLS and forced-spill tests passed in the gate and the targeted rerun. Forced spill was observed while DuckDB still held its own temporary files. The unnamed failure from round 1 remains unidentified. |
+| XIMPL-1-13 | Resolved | The Linux race test passed with `renameat2` and failed with `DID NOT RAISE` when its body used the old replace-capable rename under the same interleaving. Atomic no-replace was exercised on the review filesystem. |
+
+#### Checks executed
+
+- Ran `ENG_DADOS_DIR=/home/doug/Projetos/mvp_eng_dados_1 ENG_DADOS_2_DIR=/home/doug/Projetos/mvp_eng_dados_2 make check`
+  in a temporary clone with the original refs for the history scan. The first invocation
+  stopped at the sandbox's read-only uv cache with exit 2. I redirected the cache into
+  the temporary directory and masked only the sandbox's synthetic `/tmp/.git` in the test
+  process's Python `os.path.lexists`. The gate then exited 0. Actual worktree markers
+  remained visible.
+
+  ```text
+  secrets review: nothing found in the tracked files
+  history review: nothing found (263 occurrence(s) of values public by design, 2 registered; 48 blob(s) skipped)
+  docs-check: 36 documents, 266 file links, 82 anchors, 40 ADR citations, 101 links into mvp_eng_dados_1, 0 links into mvp_eng_dados_2 — nothing broken
+  adr-check: 4 accepted, 0 pending — record consistent
+  740 passed, 1 warning in 281.92s (0:04:41)
+  ℹ tests 157
+  ℹ pass 156
+  ℹ fail 0
+  ℹ skipped 1
+  ```
+
+  The warning was the intentionally duplicated ZIP entry in `test_safe_extract_refuses_a_repeated_entry`.
+  The author's runs at `50a46ff` and `febfcca` are reported measurements. The output above
+  is this review's run at `febfcca`.
+- Re-ran the round 1 checks and the timing-sensitive tests from the same clone using
+  `python -m pytest -q tests/test_exporter.py tests/test_exporter_units.py tests/test_package_gate.py -k ...`.
+  The selector covered the receipt and evidence CLI, collisions, provenance, policy, statement
+  errors, wire fields, snapshot, signals, publication, arguments, TLS, spill and MUT-07b.
+  Output was `121 passed, 250 deselected in 56.98s`.
+- Independently checked all 16 report mappings and 188 ordered columns against the catalogue,
+  M59 capture and profile, and pinned Git metadata. Grain, OIDs, modifiers, build witness
+  and bounds matched. The nine nullable columns and 46 decimals, maximum precision 12,
+  matched N106's scale and three-digit integer headroom. The generated contract matched
+  byte for byte. Diretoria had 16 reports and Logística had P13. The unchanged invented
+  package passed `release.verify` with 19 included files. The gate ran the 2.2b mutations
+  and their live stand-ins. The round 2 diff of that suite changes MUT-07b and its counter-test.
+  A separate comparison on the migrated fixture confirmed that MUT-20 changed only P02's
+  envelope and refused `package_id_reused (live_unchanged_identical)`.
+- Ran `evidence/20261124/exporter_probe.py` with its port rebound in memory to an available
+  loopback port on `postgres:16.15-alpine`. Catalogue equality was `True`, record text
+  matched 14/14, fake witnesses matched 16/16, all eight facts passed, and the real export
+  verified in both live modes. Separate experiments on that image returned
+  `(False, True, True)` for table UPDATE, column UPDATE and MEMBER without SET or INHERIT.
+  The witness and cancellation experiments are described above. All throwaway containers
+  were stopped and removed.
+- Traced the fact sequence from the transaction through policy. The relation inventory
+  has no `relkind` filter. Access and catalogue schema use the inventory's OIDs, and the
+  reader has no application-level retry or SQL after a refusal. The JSON Lines writer
+  supplies explicit VARCHAR columns and exact casts. The immutable reference and
+  read-back compare types, canonical cells and grain keys, and the gate checks totals on
+  the retained buffer rehashed before sealing. The gate run exercised JSON escaping, null
+  versus empty text, decimal and instant boundaries, and spill placement in both
+  connections. These writer, comparator and totals paths are unchanged from round 1.
+
+#### Limitations and open questions
+
+- The warehouse, authoritative Hosting live, and GitHub workflows were outside the
+  authorized review. M59's real witness reproduction under N112, actual collision approvals,
+  warehouse TLS, and memory and timings at M59 volume remain for the Owner's window
+  or stage 2.5. No upstream project commands were run beyond the permitted Git reads.
+- The cancellation transport failure and handler interleaving were injected at their
+  boundaries. The old intermittent test failure did not recur. I did not exercise
+  SIGKILL, filesystem crash durability, or systems without Linux `renameat2`.
+
+#### Handoff to Claude Code
+
+- [ ] **XIMPL-2-01** — Enforce a value-safe path inventory for producer and evidence. The invented
+  filename case cannot publish or write evidence and a valid receipt still round-trips.
+- [ ] **XIMPL-2-02** — Keep driver logging inside the refusal boundary. An active-query cancel
+  failure emits only the fixed refusal fields and leaves the private directory clean.
+- [ ] **XIMPL-2-03** — Isolate the count mutation, verify the candidate used the original
+  declaration bytes, and add a revocation control. Each test must detect its individual
+  regression and have a positive control through the same path.
+- [ ] **XIMPL-2-04** — Align receipt ordering with the gate. The safe nested-path candidate must
+  pass both verify modes, publish and copy to evidence through the strict loader.
+- [ ] **XIMPL-2-05** — Restore both handlers and define the CLI result for a deferred signal at
+  publication. Test default SIGTERM, nested forwarding, and SIGINT between restorations.
+- [ ] **XIMPL-2-06** — Report every canonical value for a matched spelling. Prove that one
+  approval still refuses and both approvals pass for the shared-spelling fixture.
+- [ ] **XIMPL-2-07** — Mark entries for values outside the gate's eligibility as unused.
+- [ ] **XIMPL-2-08** — Pin all stand-in reads to one commit and verify the digest under a ref switch.
+- [ ] **XIMPL-2-09** — Exclude symlink target blobs from diagnostic haystacks. Keep the
+  committed regular-file positive control.
 

@@ -1,4 +1,4 @@
-2026-11-24T21:09:41Z — the exporter against an isolated PostgreSQL, invented rows
+2026-11-24T21:58:29Z — the exporter against an isolated PostgreSQL, invented rows
 server: 16.15
 catalogue: memberships [{'member': 'consumption_reader', 'role': 'analyst', 'inherit_option': True, 'set_option': True}] can_login [{'role': 'analyst', 'rolcanlogin': False}, {'role': 'consumption_reader', 'rolcanlogin': True}]
 catalogue: type OIDs [16, 20, 23, 25, 1043, 1184, 1700] modifiers [-1]
@@ -12,5 +12,5 @@ adapter: values ["Decimal:Decimal('1.50')", "Decimal:Decimal('NaN')", "Decimal:D
 witness: the fake's fingerprint equals PostgreSQL's for 16 of 16 views
 export: facts ['fact_transaction', 'fact_provenance', 'fact_login', 'fact_roles', 'fact_inventory', 'fact_access', 'fact_schema', 'fact_policy']
 export: views 16 witness equal True rows 72
-export: verify [{'live': 'none', 'passed': True}, {'live': 'fee509fd87ce6e41bf153e61c19881c3aa18af75f20610468c7ab63f722218d7', 'passed': True}]
+export: verify [{'live': 'none', 'passed': True}, {'live': 'c6786441b435346ddc446299ad809fdc18b753e54f147b8abfb615ce63f70f4d', 'passed': True}]
 export: result ['metadata.json', 'package', 'run.json']
