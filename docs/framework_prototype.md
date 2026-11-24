@@ -20,7 +20,7 @@
 |---|---|
 | Date | 2026-11-20 — revision 9, with the five adjustments of round 8 of Codex's review (FPROTO-8-01 to -05), which found no blocking finding and closed the review. Revision 8 answered round 7 (FPROTO-7-01 to -06) with the Owner's N96, revision 7 answered round 6 (FPROTO-6-01 to -08), revision 6 answered round 5 (FPROTO-5-01 to -08), revision 5 answered round 4 (FPROTO-4-01 to -07) with the Owner's N95, revision 4 answered round 3 (FPROTO-3-01 to -07) with N94, revision 3 round 2 (FPROTO-2-01 to -08) and revision 2 round 1 (FPROTO-1-01 to -06), the same day; revision 1, 2026-11-13, went to round 1 |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 began** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers, each caught by `verify` and by the inspection in its control (§3); on 2026-11-22 Candidate B's page is built, and its clear build's one carrier, the clear Parquet its page fetches, is caught by both in its control (§4): **step 2 is done**. **Step 3 has begun** on 2026-11-22: B's encrypted builder output is built from no data and archived, the run's state kept by identities (`route.py`, §5), and Evidence's A7, A3 and A2 answer yes, with no patch, its encrypted builder output archived (§3); both are built again at the harness of the draw (§5). **Steps 4 to 6 have run**, on 2026-11-22 at `344d525`, before the review, and in full again at `356bec1`, `5fdaa02` and `a4f333f`, after rounds 1 to 3 of the review of step 7 were answered (CMP-1-01 to -12, CMP-2-01 to -10, CMP-3-01 to -09, `DOSSIER.md`) — the last, by N103 —: the draw clean, both candidates pass the criterion and the browser check with its proofs, the controls of §2.5.5 on each candidate's own builder output all as expected, and both measured (§10); Evidence through A8 (N100) and the arrangements of A4 and A5 (§3). P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
+| Status | **Plan, reviewed: closed in round 8 of Codex's review** — 55 findings in rounds 1 to 8, 23 of them blocking, all in rounds 1 to 7, and all answered; round 8 found five adjustments, applied in revision 9, and no blocking finding. Shaped by the Owner's N94 to N96. **Step 1 of §7, the ground, is built** on 2026-11-20, with its controls as tests (`make prototype-test`, 357 passing at the close), and its review closed on 2026-11-21 after round 5's corrections (N97): five rounds of Codex, 63 findings, 38 blocking, all answered; round 5's corrections, the isolation wrapper (from round 3) and the browser diagnostic (from round 4) are outside the review, recorded limits (§9). **Step 2 began** on 2026-11-21: Evidence's clear build installs and builds offline with no script of a dependency (A6), and A1 has listed its carriers, each caught by `verify` and by the inspection in its control (§3); on 2026-11-22 Candidate B's page is built, and its clear build's one carrier, the clear Parquet its page fetches, is caught by both in its control (§4): **step 2 is done**. **Step 3 has begun** on 2026-11-22: B's encrypted builder output is built from no data and archived, the run's state kept by identities (`route.py`, §5), and Evidence's A7, A3 and A2 answer yes, with no patch, its encrypted builder output archived (§3); both are built again at the harness of the draw (§5). **Steps 4 to 6 have run**, on 2026-11-22 at `344d525`, before the review, and in full again at `356bec1`, `5fdaa02` and `a4f333f`, after rounds 1 to 3 of the review of step 7 were answered (CMP-1-01 to -12, CMP-2-01 to -10, CMP-3-01 to -09, `DOSSIER.md`) — the last, by N103 —, and their review closed on 2026-11-23 after round 4, of regressions only, with declared limits (§9): the draw clean, both candidates pass the criterion and the browser check with its proofs, the controls of §2.5.5 on each candidate's own builder output all as expected, and both measured (§10); Evidence through A8 (N100) and the arrangements of A4 and A5 (§3). P01's columns are read at eng_dados `f86b9fb`, tag `v2.0.0`; they are, in the same order, the ones M55 read at `eb11709` and M59 at `2bceb47`, and `b0ef66e`, the pin of 2.4–2.10 (N91), carries M59's views. The stage reads no warehouse data, so the pin does not reach it otherwise |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool that the stage proves or refutes (§9).
@@ -977,7 +977,7 @@ plainly cannot reach one of them is reported as such, with the observation behin
    the browser check and its proof. A rebuild of either candidate here sends the work back to step 4.
 6. The measures of §6 under §2.7 [run before the review, at `344d525`, after its round 1, at `356bec1`, after its round 2, at `5fdaa02`, and after its round 3, at `a4f333f`, the last by N103, §10], in one sitting per candidate, on this machine, on the artifacts of
    step 4.
-7. The results written in §10, and the implementation handed to Codex with the `review` skill [rounds 1 to 3 answered, 2026-11-22 and -23: CMP-1-01 to CMP-1-12, CMP-2-01 to CMP-2-10 and CMP-3-01 to CMP-3-09 in `DOSSIER.md`; the last full run done at `a4f333f`; round 4, of regressions only, closes the review (N103)].
+7. The results written in §10, and the implementation handed to Codex with the `review` skill [closed, 2026-11-23, by N103: four rounds, CMP-1-01 to CMP-4-06, all answered; the last full run at `a4f333f`; round 4, of regressions only, answered with no further run; the declared limits are in §9].
 8. The Owner chooses; the ADR is the Owner's.
 
 ## 8. Choices taken in this plan
@@ -1080,6 +1080,25 @@ plainly cannot reach one of them is reported as such, with the observation behin
   of the six counts of §2.1 does, in either file or either pinned worker (FPROTO-4, its §5).
 - Not measured, and not in this stage: the latency on a phone, a slow network, browsers other than
   Chrome.
+- **Declared limits of the review of steps 2 to 6, by N103** (closed 2026-11-23 after round 4 of
+  regressions only; 37 findings in four rounds, CMP-1-01 to CMP-4-06, all answered; the dossier is in
+  Git history, removed in the closing commit):
+  - Round 4's corrections (CMP-4-01 to -06) were not reviewed again, and were made after the last
+    full run, at `a4f333f`: that run's browser check used round 3's reader and its WASM basis named the
+    streaming start. The two archived artifacts were checked again with round 4's reader and pass; the
+    ten warm traces replayed with round 4's basis give §10's offsets and the same series. A next
+    `make prototype` would measure B again, its kept result predating the mutant it records (CMP-4-03).
+  - The resume, retry, snapshot and per-candidate failure paths of `measured.py`, `compare.py` and
+    `route.py` ran in tests only: no real run was interrupted, errored, resealed or edited while it ran.
+  - The engine's WASM class is an inference from the order of events in a request window; concurrent
+    unrelated modules and a real hit of Chromium's compiled-WASM cache were outside every run.
+  - Timings are of one machine and one sitting per run, five samples per condition; the navigation
+    times moved by up to 2.3 s between sittings. Evidence's cold tarball fetch, a redirected navigation
+    and a worker's transfer spanning a cutoff on the real pages, the phone, a slow network and other
+    browsers are unmeasured. The timed journeys do not record the digest of every body served.
+  - The on-disk leads, the bodies the protocol could not return and Evidence's service worker stay
+    the diagnostic's (N96); the complete browser oracle is stage 2.5's. N95 and N97 bound the oracle
+    and the earlier review of the isolation wrapper and of the diagnostic.
 
 ## 10. Results
 
