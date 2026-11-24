@@ -1,0 +1,14 @@
+2026-11-24T16:05:20Z — the exporter against an isolated PostgreSQL, invented rows
+server: 16.15
+catalogue: memberships [{'member': 'consumption_reader', 'role': 'analyst', 'inherit_option': True, 'set_option': True}] can_login [{'role': 'analyst', 'rolcanlogin': False}, {'role': 'consumption_reader', 'rolcanlogin': True}]
+catalogue: type OIDs [16, 20, 23, 25, 1043, 1184, 1700] modifiers [-1]
+catalogue: defaults {'TimeZone': 'UTC', 'DateStyle': 'ISO, MDY', 'IntervalStyle': 'postgres', 'extra_float_digits': '1'} encodings {'server_encoding': 'UTF8', 'client_encoding': 'UTF8'}
+catalogue: collation {'datlocprovider': 'c', 'datcollate': 'en_US.utf8', 'datctype': 'en_US.utf8', 'daticulocale': None, 'daticurules': None, 'datcollversion': None} actual None
+catalogue: columns, OIDs and modifiers equal to the invented catalogue's: True
+adapter: fields [('numeric', 1700, -1), ('numeric', 1700, -1), ('numeric', 1700, -1), ('timestamptz', 1184, -1), ('timestamptz', 1184, -1), ('numeric', 1700, 524296), ('varchar', 1043, 13)]
+adapter: values ["Decimal:Decimal('1.50')", "Decimal:Decimal('NaN')", "Decimal:Decimal('Infinity')", 'object:UNREPRESENTABLE', 'datetime:datetime.datetime(2025, 3, 1, 13, 0, 0, 123457, tzinfo=datetime.timezone.utc)', "Decimal:Decimal('12.5000')", "str:'x'"]
+witness: the fake's fingerprint equals PostgreSQL's for 16 of 16 views
+export: facts ['fact_transaction', 'fact_provenance', 'fact_login', 'fact_roles', 'fact_inventory', 'fact_access', 'fact_schema', 'fact_policy']
+export: views 16 witness equal True rows 72
+export: verify [{'live': 'none', 'passed': True}, {'live': '3858827e50e50f0d7e1545ee0d342926aba1b698e2d5450939fb56d43d9569a1', 'passed': True}]
+export: result ['metadata.json', 'package', 'run.json']

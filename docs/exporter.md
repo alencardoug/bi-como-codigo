@@ -23,9 +23,9 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-24 — revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
+| Date | 2026-11-24 — revision 5: step 3 built, and what it measured and changed (§16). Revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed after round 3 of Codex's review (N110)** — 33 findings in three rounds, 20 blocking, all answered. Nothing of it is implemented. Its live run needs a read window the Owner opens ([UQ-05](upstream_questions.md#answers)) |
+| Status | **Plan, reviewed: closed after round 3 of Codex's review (N110)** — 33 findings in three rounds, 20 blocking, all answered. **Step 3 of §15 is built** on the branch `exporter-2.4`, over the fake warehouse, and probed against an isolated PostgreSQL (§16); steps 2, 4 and 5 are not. Its reads of the warehouse need a read window the Owner opens ([UQ-05](upstream_questions.md#answers)) |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§14).
@@ -670,29 +670,31 @@ All five were answered on 2026-11-24 and are recorded in PLAN §1.2:
 
 ## 14. Not verified, and assumptions
 
-- **[assumed]** psycopg 3 returns `numeric` as `Decimal` with every digit, and `timestamptz` as an
-  aware `datetime`, and its `cursor.description` carries the type OID and the numeric modifier. To
-  be proved by the first live read.
+- **[measured on an isolated PostgreSQL 16.15, §16]** psycopg 3.3.9 returns `numeric` as `Decimal`
+  with every digit, NaN and infinity included, and `timestamptz` as an aware `datetime`; the
+  result's `pgresult` carries the type OID and the modifier. The warehouse's own views are proved
+  by the first live read.
 - **[assumed]** The published port accepts the reader's login from the host. M55 and M59 connected
   from inside the container.
-- **[assumed]** DuckDB 1.5.6 writes and reads `DECIMAL(p,s)` up to 18 digits from exact strings,
-  and `TIMESTAMPTZ` built from integer microseconds, in Parquet, with no loss. Round 1 found the
-  `Decimal`-parameter and `datetime`-fetch paths lossy or failing. The bindings of §4.3 avoid both,
-  and the fixture tests prove them before any live read.
+- **[measured by the tests, §16]** DuckDB 1.5.6 writes and reads `DECIMAL(p,s)` up to 18 digits
+  from exact strings, and `TIMESTAMPTZ` built from integer microseconds, in Parquet, with no loss —
+  once its session's time zone is UTC: unset, `make_timestamp(us)::TIMESTAMPTZ` follows the
+  machine's zone. Round 1 found the `Decimal`-parameter and `datetime`-fetch paths lossy or
+  failing; the bindings of §4.3 avoid both.
 - **[assumed]** M59 ran under the warehouse's defaults as `psql` sees them inside the container.
   Its settings were not recorded. The witness declares that policy. The first run either
   reproduces all 16 hashes under it, or refuses, and the refusal comes back to the Owner as a
   question (§3). There is no automatic replacement.
-- **[assumed]** psycopg's `cursor.pgresult` gives each result column's type OID and modifier
-  (`ftype`, `fmod`), PostgreSQL 16's `pg_auth_members` has `inherit_option` and `set_option`, and
-  `pg_database` has `daticulocale` and `daticurules`. The fake encodes them, and the first live run
-  proves them.
-- **[assumed]** libpq 16 accepts `sslcertmode=disable`, and a nonexistent `sslrootcert` or `sslcrl`
-  path makes it read no home file with `sslmode` `prefer` or `require`. A test proves it in a
-  temporary home (§12).
-- **[assumed]** The gate's in-memory DuckDB spills only under the working directory's `.tmp`. Round 2
-  observed that default with a forced spill. The spill test of §12 proves it for the gate's own
-  connection.
+- **[measured on an isolated PostgreSQL 16.15, §16]** psycopg's `cursor.pgresult` gives each
+  result column's type OID and modifier (`ftype`, `fmod`), PostgreSQL 16's `pg_auth_members` has
+  `inherit_option` and `set_option`, and `pg_database` has `daticulocale` and `daticurules`. The
+  warehouse's own values are measured by the first live run.
+- **[measured by a test, §16]** The libpq the pinned psycopg bundles accepts `sslcertmode=disable`,
+  and with `sslmode=require`, against a local TLS server, reads neither `root.crt` nor the client
+  certificate of a temporary home and sends no `PGOPTIONS`.
+- **[measured by a test, §16]** The gate's in-memory DuckDB spills under the working directory's
+  `.tmp`, and the exporter's under its `temp_directory`, both inside the run directory, with a
+  forced spill under a 32 MB limit.
 - **Not measured**: the closure of the login's roles and their options (§3 check 4), measured by the
   first live run; the run's time and memory; the package's size; whether anything spills on M59's
   size.
@@ -720,13 +722,87 @@ carried to the review of the code and to the first authorized run, not settled b
 ## 15. The order of the work
 
 1. This plan, reviewed by Codex; the review closes after round 3, of regressions only (N110).
+   **Done.**
 2. `export catalogue` in a first, short read window (§3 check 7), reading the source OIDs and
    modifiers and no row; then `release/views.json` from `export propose`'s draft, reviewed in full; the generated
    `release/contract.json`; `release/profiles.json`; the invented fixture of the 16 shapes. All in
    the protected PR of §11, with the code below.
 3. The connection interface, the fake and its fixture; the facts of §3, the checks of §6, the
    reference and round trip of §7, the totals, the sealing, the paths and output of §10, and each
-   mutation of §12 with its test, in `make check`.
+   mutation of §12 with its test, in `make check`. **Built (§16).**
 4. Codex's review of the code; then the Owner's review of the protected PR.
 5. The live run in the Owner's read window: the private candidate, the collisions approved in a
    protected PR, and the evidence committed.
+
+## 16. The implementation
+
+Step 3 of §15, built on the branch `exporter-2.4`. Its code is the package
+`src/bi_como_codigo/exporter/`, run as `uv run --frozen python -m bi_como_codigo.exporter <command>`
+with the commands `catalogue`, `propose`, `contract`, `run`, `evidence` and `collisions`; each
+module opens with the section of this plan it implements.
+
+**The tests.** `tests/test_exporter.py` runs the whole export over the fake —
+`tests/fake_warehouse.py`, in a world of `tests/exporter_world.py` whose trusted declarations are
+migrated to the fixture's 16 reports, with an invented package as the stand-in for live. Every row
+of §12's table is there, with its exact code and its positive control. `tests/test_exporter_units.py`
+holds the units: the loaders, the fit, the comparator, the path rule, the receipt, the spill, the
+boundary, and libpq itself against a local TLS server. The fixture, `tests/exporter/`, is invented:
+
+- `views.json` and `catalogue.json` are the **structure**: what `export propose` drafts from M59's
+  committed capture and profile and the metadata package at the pin, over a catalogue invented with
+  PostgreSQL's fixed type OIDs and no modifier. A test, in `make check`, regenerates them;
+- `fixture.json` holds invented rows for each view, the fake's catalogue and the fixture's own
+  build, whose witness is the fake's fingerprint of those rows. A test regenerates it too.
+
+Once `release/views.json` comes from the real catalogue (step 2), the fixture is generated from it
+and the structure goes.
+
+**[measured] What the tests cost.** The two files run about four minutes on this machine, most
+of it in the runs that seal and verify, each deriving fresh keys at 600,000 iterations. With them,
+`make check` ran 711 tests in 11 min 52 s on 2026-11-24, at `735967a`.
+
+**[measured] The probe.** [`evidence/20261124/exporter_probe.py`](../evidence/20261124/exporter_probe.py)
+runs `export catalogue` and a whole export through the pinned psycopg against an **isolated,
+throwaway** PostgreSQL 16.15 — the warehouse's image, on `127.0.0.1`, holding the 16 views' real
+columns over the fixture's invented rows, and no data of eng_dados. Its output,
+[`exporter_probe.out.txt`](../evidence/20261124/exporter_probe.out.txt): the SQL of §3 runs; the
+closure, the options and the collation's fields are read; every source modifier is `-1`, as the
+invented catalogue assumes; the fake's fingerprint equals PostgreSQL's for the 16 views under UTC
+and ISO; the export passes both of `verify`'s runs. It proves the reader and the adapter, not the
+warehouse: the warehouse's catalogue, policy and fingerprints are the read window's.
+
+**Choices made in the implementation**, for the review of the code (step 4):
+
+1. The connection takes, beyond §3's list, `sslcert`, `sslkey` and `passfile` pointed at the same
+   absent path, `gssencmode=disable`, `client_encoding=UTF8` and `connect_timeout=10`.
+2. `export propose` proposes `max_rows` and `max_length` at twice what M59 measured. The Owner
+   reviews them with the rest of `views.json`.
+3. The writer's options are `zstd` and row groups of 122,880 rows. DuckDB's time zone is set to UTC
+   after connecting and the configuration locked: unset, `make_timestamp(us)::TIMESTAMPTZ` shifted
+   an instant by this machine's three hours while the writer was built.
+4. **The binding of §4.3 goes through a file.** The writer hands the frozen copy to DuckDB as one
+   JSON Lines file in the run directory, every cell its exact text, read with every column declared
+   `VARCHAR` — no type inferred — and cast explicitly to the report contract's type, instants by
+   `make_timestamp`. §4.3's rule holds: exact strings, explicit casts, never a `Decimal` nor a
+   `DOUBLE`. Bound row by row, M59's largest view would take most of a minute: **[measured]**
+   [`writer_load.out.txt`](../evidence/20261124/writer_load.out.txt), 49.35 s with `executemany`
+   against 0.28 s with the file, for 5,775 invented rows of 17 decimals, the two tables equal. JSON
+   keeps a null apart from an empty text, which CSV would not.
+5. `export collisions` runs the read and the round trip itself, inside the run directory, and
+   stops before sealing. A run with an unapproved collision is refused by `verify` and leaves no
+   result to read, so the diagnostic cannot start from one. It still prints only what it finds in
+   the committed public bytes.
+6. `export catalogue` runs before any `views.json` exists. So its checks 2, 3 and 5 compare with the
+   capture's provenance, login and views, and check 4 measures the closure, refusing an
+   `admin_option` or any of the five attributes whatever is declared.
+7. The adapter loads PostgreSQL's `infinity`, and a `timestamptz` past the client's range, as a
+   sentinel that §6.5 refuses, instead of a driver error at fetch.
+8. The fake enforces the protocol's order, so a statement out of order fails where it is issued.
+9. The loader refuses two equal accepted builds, so "a row matching two accepted entries" is proved
+   on check 2 on its own, as well as on the loader.
+10. In the tests only, PBKDF2 is memoized: it is a pure function, and `release.verify` derives a key
+   per report.
+
+**Not done in step 3**: the read window of step 2 and its `release/views.json`; the migration of
+§11 — `release/` and `site/package/` still describe stage 2.2's three fixtures, and
+`tests/site_fixture.py` still writes them; Codex's review of the code; the live run.
