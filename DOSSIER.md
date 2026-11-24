@@ -170,6 +170,14 @@ Filled in by the reviewer. One finding per line, with a verdict.
 | EXP-2-10 | `docs/exporter.md:246–248,444–478` | Several proposed mutations miss their named check or leave a declaration predicate unproved. | adjustment | Done, §6 and §12: the matrix gives each mutation its exact code, a positive control and its level, regenerates downstream facts so each reaches its check, moves the null grain to Nulls, checks size before fetch, adds encoding, schema `USAGE`/`CREATE`, ownership, incomplete witness, metadata format and columns, and the strict loader of `views.json` for exporter-only fields; §4.4 no longer claims the agreement test covers them |
 | EXP-2-11 | `docs/exporter.md:360–369,422–423,480–489` | The allow-listed run record omits evidence the stage promises to produce. | adjustment | Done, §9: the receipt's fixed schema now holds each fact's outcome and compared values, the witness comparison, the candidate's digest and `verify`'s results with their live mode, and the phase times; `export evidence` refuses an incomplete or ill-typed receipt before writing |
 | EXP-2-12 | `docs/exporter.md:250–253,381–391` | The cleanup rule deletes the proposal before its planned manual review. | adjustment | Done, §10: drafts go to `<staging>/drafts/`, which outlives the run, under the same path rules; a successful proposal is found there after exit with both contracts unchanged (§12) |
+| EXP-3-01 | `docs/exporter.md:167–184` | The replacement-witness procedure can accept CSV rows with no verified link to M59. | blocking | Done in revision 4, §3: the replacement path and `export witness` are withdrawn; a first-run mismatch refuses, the build stays refused under M59's witness, and the Owner is asked — a witness of the exporter's own with no link to M59, or a new build captured as M59 was |
+| EXP-3-02 | `docs/exporter.md:151–155,186–194,645–660` | `Cursor.description` does not expose the raw type modifiers the projection check requires. | blocking | Done, §3: the result's metadata comes from `cursor.pgresult` (`fname`, `ftype`, `fmod`); the source baseline is read by `export catalogue`, with no row, and reviewed in the draft; a result-only modifier change through the pinned adapter is in §12 |
+| EXP-3-03 | `docs/exporter.md:116–126,156–177` | The witness policy has no binding before check 2 and checks a stored collation version instead of the effective one. | adjustment | Done, §3: the provenance is now check 2 and selects exactly one build, whose policy check 8 applies; the collation compares provider, `datcollate`, `datctype`, `daticulocale`, `daticurules` and the effective version against the stored one; matching hashes are described as reproduction on this capture |
+| EXP-3-04 | `docs/exporter.md:515–529` | The diagnostic skips honest collisions in manifest profile labels that `verify` searches. | adjustment | Done, §10: `export collisions` also searches the committed profile labels, which `verify` searches in the manifest; a label collision and a planted label are in §12 |
+| EXP-3-05 | `docs/exporter.md:621–623` | A different stand-in package ID with fresh material passes `verify`, so it cannot be a negative control. | adjustment | Done, §12: the same id with other valid bytes refuses as `package_id_reused`, a fresh id with a reused DEK as `dek_reused`, and a fresh id with fresh material passes |
+| EXP-3-06 | `docs/exporter.md:228–246,606` | The positive decimal case is ambiguous about scale, and the earlier scale-38 case cannot pass the N106 fit. | adjustment | Done, §12: a nonzero digit at scale 38 refuses at Decimals before binding; the positive long spelling has only trailing zeros, and is written as `0.00123` |
+| EXP-3-07 | `docs/exporter.md:431–445,497–512,625–627` | The strict receipt omits the trusted declaration digests promised for the rehearsal. | adjustment | Done, §9: the receipt carries each included file's path and SHA-256 and each trusted declaration's SHA-256 as the rehearsal read it; a declaration-only change changes the input identity with the deploy digest unchanged |
+| EXP-3-08 | `docs/exporter.md:99–108` | Clearing `PG*` leaves home-directory TLS inputs active. | adjustment | Done, §3: `sslcertmode=disable`; `sslrootcert` and `sslcrl` from explicit variables or a nonexistent path; `verify-*` needs a root certificate; the false compiled-defaults claim is gone; a temporary-home test in §12 |
 
 ### Round 1 — evidence
 
@@ -747,3 +755,221 @@ implementation and proof. No change to metric definitions is needed.
   Missing or invalid fields fail before evidence is written.
 - [ ] **EXP-2-12** A successful proposal leaves the declaration draft available in private
   staging for manual review, and both trusted contracts keep their original bytes.
+
+### Round 3 — evidence
+
+#### Conclusion
+
+**Changes required.** Revision 3 makes the Parquet equality check implementable and closes several
+earlier findings. The replacement-witness path still lacks proof that its CSVs represent M59, and
+the required result modifier is unavailable through the specified psycopg interface. Batch EXP
+has reached its last plan-review round under N110. The checklist below gives the corrections and
+acceptance tests to carry into the code review.
+
+#### Reviewed scope and version
+
+`main` at `2b3f2962bf54fc7a13e3532032ce5f4f2cb0108b`, six commits ahead of the local
+`origin/main` ref. The comparison was `f190b7a..2b3f296`, exactly `c51a993` and `2b3f296`.
+The initial worktree had no local changes or untracked files. The range modifies `docs/exporter.md`,
+`PLAN.md` and `DOSSIER.md`, with no new files or implementation changes. The upstream pin is
+`b0ef66e3ab42ce83c447c875c832f10f04db0d19` in `mvp_eng_dados_2`. The review applies N105–N109
+as decided and uses N110 to limit the findings to regressions, residual findings and disproved claims.
+
+#### Reassessment of earlier findings
+
+| ID | Reassessment | Evidence in revision 3 |
+|---|---|---|
+| EXP-1-02 | Resolved | §3 checks 1 and 3–7 specify one transaction, both identities, role attributes and edges, complete catalogue inventory, schema usage and view access. The actual role options remain a first-run measurement. |
+| EXP-1-03 | Partially resolved | §3 still requires all 16 counts and fingerprints for each accepted build. The new replacement path and text-form policy leave gaps in that guarantee. See EXP-3-01 and EXP-3-03. |
+| EXP-1-07 | Partially resolved | §§10–11 retain N108 and run the verifier in both live modes. The collision diagnostic misses the public manifest labels. See EXP-3-04. |
+| EXP-1-09 | Partially resolved | §§3 and 7 bind the raw positions to a frozen reference and the verified bytes to sealing. The result metadata interface and two mutation cases still need correction. See EXP-3-02, EXP-3-05 and EXP-3-06. |
+| EXP-1-10 | Partially resolved | §10 addresses the earlier staging, spill and diagnostic paths. The receipt still omits some of the evidence §10 promises. See EXP-3-07. |
+| EXP-1-11 | Resolved | §§4.1, 4.4 and 10 distinguish loader checks from generated-contract agreement and preserve the declaration-only draft outside the disposable directory. |
+| EXP-2-01 | Resolved | §3 checks 4 and 6 require the edge options, reached-role flags, explicit ownership test, column INSERT/UPDATE and schema USAGE/CREATE, with complete Boolean results and matching mutants in §12. |
+| EXP-2-02 | Partially resolved | §3 sets and reads back the four settings and demands unique witness coverage. Policy selection and collation still have gaps, libpq retains local TLS inputs, and replacement evidence is unbound. See EXP-3-01, EXP-3-03 and EXP-3-08. |
+| EXP-2-03 | Partially resolved | §3 check 7 compares the full `pg_attribute` schema independently, and §7 freezes raw positions before writer mapping. The projection check still relies on unavailable public metadata. See EXP-3-02. |
+| EXP-2-04 | Resolved | §7 reads the retained bytes by a bound exclusive path, rechecks their digest and passes the buffer to payload checking and sealing. The bound-path probe below passed. |
+| EXP-2-05 | Resolved | §7 now compares canonical key sets and cells with duplicate rejection, independent of input order. §12 adds a multilingual composite-key control. |
+| EXP-2-06 | Resolved | §10 checks resolved staging, drafts and result destinations against worktree markers and both upstream roots without Git discovery. §12 exercises the previous escape cases. |
+| EXP-2-07 | Resolved | §10 places the gate process and its temporary paths inside the run directory. It refuses apostrophes at the path boundary, which prevents the interpolated SQL failure for allowed paths. §12 calls for a forced spill through the real gate. |
+| EXP-2-08 | Partially resolved | §10 adds a sanitized, local diagnostic for collisions in committed public pages, including alternate numeric spellings. It misses the verifier's manifest-label haystack. See EXP-3-04. |
+| EXP-2-09 | Partially resolved | §§10–11 exercise `release.build` and both live modes and defer actual live to CI. The named package ID mutation passes as written, and the declaration identity is still absent from the receipt. See EXP-3-05 and EXP-3-07. |
+| EXP-2-10 | Partially resolved | §§4.4, 6 and 12 add isolated controls and move null grain, size and loader tests to the right boundaries. Two positive or negative case descriptions still conflict with their predicates. See EXP-3-05 and EXP-3-06. |
+| EXP-2-11 | Partially resolved | §9 now requires check results, witness comparisons, candidate and stand-in digests, and phase times. It omits the declaration digests promised under §10. See EXP-3-07. |
+| EXP-2-12 | Resolved | §§4.4, 10 and 12 put the draft in `<staging>/drafts/`, require it to survive exit and check that both trusted declarations stay byte-identical. |
+
+#### High severity
+
+**EXP-3-01 — Bind replacement witnesses to the committed M59 evidence** (*high, blocking*,
+`docs/exporter.md:167–184`). **Static.** A normal export refuses on any M59 mismatch. The new
+recovery compares a live reference to whichever CSVs are supplied as M59, then can write a new
+witness for the same build. Committed M59 contains the server-side counts and MD5s, with no file
+digests binding those results to the off-Git CSVs. The capture writer opens each path in `w` mode.
+If a rerun overwrites that directory or the operator selects a different capture of the current
+rows, equality can pass even though those rows differ from M59. Owner approval of that comparison
+does not establish the old capture's identity. Require an independently authenticated historical
+capture or reproduce the committed witness under the prior policy. With neither available, keep
+the build refused under M59. Specify how the recovery performs its own authorized comparison while
+its frozen reference still exists, with no normal output on refusal. Test a genuine baseline and
+an altered baseline that matches the new rows, with the same provenance and row count. A CSV reader
+must preserve PostgreSQL's quoted empty string versus unquoted NULL. **Origin** Revision 3 recovery
+regression, affecting EXP-1-03 and EXP-2-02. [M59 summary](evidence/20261119/capture.out.txt#L1) ·
+[Capture writer](evidence/20261117/capture_split.py#L18) ·
+[PostgreSQL 16 COPY CSV](https://www.postgresql.org/docs/16/sql-copy.html#SQL-COPY-NOTES)
+
+**EXP-3-02 — Use supported result metadata for the raw modifier check** (*high, blocking*,
+`docs/exporter.md:151–155,186–194,645–660`). **Static against the specified client API.** Psycopg's
+public `Column` exposes `type_code`, interpreted sizes and precision/scale, and `type_display`.
+It keeps the raw modifier in a private attribute. The underlying public result supplies
+`cursor.pgresult.fmod(i)`. The fake's assumed `description` shape could pass while the real adapter
+cannot perform the comparison as written. Keep the independent catalogue check and define the
+projection triple from the public result API before using rows. M59's committed schema header
+contains neither OIDs nor raw modifiers, so obtain and review the physical baseline explicitly,
+including `varchar` and `timestamptz`. Prove identical triples pass and a result-only modifier
+change refuses before mapping, using the pinned psycopg adapter as well as the fake.
+**Origin** Residual EXP-2-03 and an expanded revision 3 assumption.
+[M59 schema header](evidence/20261119/capture.out.txt#L12) ·
+[Psycopg Column API](https://www.psycopg.org/psycopg3/docs/api/objects.html#the-description-column-object) ·
+[Psycopg cursor result API](https://www.psycopg.org/psycopg3/docs/api/cursors.html#psycopg.Cursor.pgresult) ·
+[libpq result modifiers](https://www.postgresql.org/docs/16/libpq-exec.html#LIBPQ-PQFMOD)
+
+#### Medium severity
+
+**EXP-3-03 — Select and verify the effective witness policy** (*medium, adjustment*,
+`docs/exporter.md:116–126,156–177`). **Static.** Check 2 uses build-specific settings before
+check 8 selects a matching build. With two accepted builds and different policies, applying
+the other build's settings can falsely refuse an accepted snapshot. The specified collation
+fields also cannot establish the effective collation. `datcollversion` records a stored version
+that can survive an OS or ICU update, and `datcollate` and `datctype` omit the ICU locale and rules.
+Subsequent fingerprint equality still checks the actual data. Select exactly one matching build
+inside the same transaction before using its policy. Compare the applicable locale/rules and
+effective provider version, and describe matching M59 hashes as reproduction on this capture.
+The hashes alone cannot identify M59's historical settings. Test two accepted builds with distinct
+policies and drift in the actual version while the recorded version stays the same.
+**Origin** Revision 3 policy binding and residual EXP-2-02.
+[PostgreSQL 16 database catalogue](https://www.postgresql.org/docs/16/catalog-pg-database.html) ·
+[PostgreSQL 16 collation version functions](https://www.postgresql.org/docs/16/functions-admin.html#FUNCTIONS-COLLATION)
+
+**EXP-3-04 — Diagnose collisions in public manifest labels** (*medium, adjustment*,
+`docs/exporter.md:515–529`). **Static plus executed.** The diagnostic excludes the package, but
+`verify` searches the manifest's public profile labels in addition to included non-package files.
+With an invented cell equal to an existing declared profile label, neither committed public page
+contained the label, and the unchanged verifier returned `clear_value (in package/manifest.json)`.
+The fixture passed with exactly that exemption. The documented diagnostic would omit the hit and
+leave the Owner without the proposed N108 approval evidence. Include verified public labels from
+the committed profile declarations of the rehearsed snapshot. Prove the label-only collision is
+reported and that an unrelated label planted in the candidate remains undisclosed and refused.
+**Origin** Residual EXP-2-08 in the new diagnostic's haystacks.
+[Verifier haystacks](src/bi_como_codigo/release.py#L317) ·
+[Manifest-label mutation](tests/test_package_gate.py#L188)
+
+**EXP-3-05 — Make the live package ID mutant reuse the ID** (*medium, adjustment*,
+`docs/exporter.md:621–623`). **Executed.** `verify` accepted a different package ID with fresh
+material, refused a byte-different candidate with the same ID as `package_id_reused`, and refused
+a different ID using a live DEK as `dek_reused`. As written, the ID-only mutant is a positive
+control. If combined with the DEK mutation, the test proves only the DEK predicate. Keep the fresh
+ID as a passing control and reseal an otherwise valid candidate with the stand-in's ID and different
+verified bytes. Assert `package_id_reused` and the independent `dek_reused` refusal.
+**Origin** Revision 3 mutation regression and residual EXP-2-09 and EXP-2-10.
+[Live predicate](src/bi_como_codigo/envelope.py#L693) · [Existing controls](tests/test_package_gate.py#L365)
+
+**EXP-3-06 — Specify the decimal cases within N106's exact-fit domain** (*medium, adjustment*,
+`docs/exporter.md:228–246,606`). **Static plus executed.** Revision 3 explicitly makes the 38-digit
+case a writer pass. The earlier scale-38 counterexample has a nonzero digit beyond all allowed
+export scales. On DuckDB 1.5.6, binding `10^-38` as exact text returned zero at `DECIMAL(18,18)`
+and preserved the last digit at `DECIMAL(38,38)`. A long spelling with only removable trailing
+zeros is a valid positive case. An invented `0.00123000000000000000000000000000000000` round-tripped
+as `0.00123`. Use an explicitly representable long spelling for the writer control and assert the
+nonzero scale-38 case refuses at Decimals before binding. This keeps N106's 18-digit ceiling and
+the signed-zero and exact-boundary controls. **Origin** Revision 3 makes the existing ambiguous
+case a positive one, leaving EXP-2-10's boundary proof incomplete.
+
+**EXP-3-07 — Carry the rehearsal's trusted inputs in the receipt** (*medium, adjustment*,
+`docs/exporter.md:431–445,497–512,625–627`). **Static.** §10 promises the digest of every included
+file and of the trusted declarations. §9's fixed allowlist gives the candidate a deploy-listing
+digest, live modes and approval entries. `release.verify` hashes the deploy files and loads
+contract, profiles, public exemptions, inclusion and media types separately. The deploy digest
+therefore cannot identify those trusted inputs, and `export evidence` cannot recover omitted
+fields from the receipt. Add the promised file listing and declaration identity to the typed
+receipt, captured from the exact inputs used by the rehearsal. Run `export evidence` with an
+invented complete receipt and prove that changing only a trusted declaration changes the recorded
+input identity even when the deploy digest is unchanged. **Origin** Residual EXP-2-11 and a revision
+3 inconsistency between §§9 and 10. [Verifier inputs](src/bi_como_codigo/release.py#L245) ·
+[Verifier result](src/bi_como_codigo/release.py#L336)
+
+**EXP-3-08 — State the effective libpq TLS inputs** (*medium, adjustment*,
+`docs/exporter.md:99–108`). **Static.** Clearing `PG*` deals with `PGHOSTADDR` and `PGSERVICE`,
+but it leaves file-backed TLS defaults. For example, an Owner's local root CA file can change
+how `sslmode=require` behaves, and libpq can load a default client certificate and key. A valid
+configuration can behave differently on another host with the same `BICE_*` settings. Correct
+the compiled-defaults claim and declare which file-backed TLS inputs the exporter allows and how
+they are configured. Cover the explicit connection parameters and local TLS policy without exposing
+credentials in the test output. **Origin** False claim introduced in revision 3, related to
+EXP-2-02's connection policy. [PostgreSQL 16 libpq SSL defaults](https://www.postgresql.org/docs/16/libpq-ssl.html)
+
+#### Checks executed and results
+
+- Reviewed the exact range, §3.4's three gates and mutants, §3.5's pin and provenance, the stage
+  criterion, and the package and envelope contracts against the producer and verifier code.
+  Read pin content and history via Git. In memory, the committed summaries matched 16 mappings,
+  column-name sets, grains, counts and fingerprint entries. They gave 14,244 rows, 188 columns,
+  sequence 125, nine nullable numeric columns and maximum proposed precision 12. M61 preserves
+  M59's views at the pin. M56 does not supply an older full baseline. The committed M19 oracle
+  shows 761 differences with unchanged totals. PR #30's committed result and producer source
+  support the measured sealing claim. [M19 output](evidence/20261023/r4_label_swap.out.txt) ·
+  [M59 output](evidence/20261119/capture.out.txt) · [M59 profile](evidence/20261124/m59_profile.out.txt) ·
+  [M61 output](evidence/20261120/source_diff.out.txt) · [PR #30 output](evidence/20261106/t22b_real_prs.out.txt#L22)
+- Ran `uv run --frozen --no-sync python` with DuckDB 1.5.6 and scratch under `/tmp`. The exclusive
+  copy read through bound `read_parquet(?)` matched its retained bytes for both populated and empty
+  data. The populated control preserved `-9999999999999.99999`, `0.00123` and SQL NULL. The decimal,
+  live-comparison and manifest-label counterexamples and their passing controls are recorded above.
+  An in-memory `csv.reader` check returned `[['key', ''], ['key', '']]` for the invented unquoted
+  empty field and quoted empty string.
+- `git diff --check` passed. The local documentation check reported 36 documents, 276 file links,
+  98 anchors and zero broken links. Its 101 upstream links were outside that check. A structural
+  comparison verified that all earlier dossier content is byte-identical, and each new row has a
+  blank Status, one evidence entry and one handoff item.
+- The author reported `make check` at `2b3f296` exited 0, with 475 Python tests passed and JavaScript
+  at 156 passed and one skipped. This review did not run the full gate. The change is a plan, and
+  the secret guard reads `.env`, outside the review boundary.
+
+#### Limitations and open questions
+
+No database or live site was contacted. No container, upstream project command, `.env` read or
+clear capture read was performed. Psycopg is a planned dependency and has no entry in the reviewed
+lock. The browser, actual live comparison and Owner-authorized source read are outside these probes.
+The stage criterion remains to be proved by implementation and its run evidence.
+
+#### Remaining limits
+
+- Carry the actual catalogue and wire baselines, host connectivity, role options, witness policy,
+  memory, elapsed time, package size and real public collisions into the first authorized run.
+- Carry the real spill and interrupt cleanup, bound-path byte substitutions, M19, all-null and
+  empty views, signed zero, NaN, both infinities, timestamp folds, NUL and multibyte text limits
+  into the §12 implementation review. The existing offline probes cover selected boundaries.
+- The rehearsal uses a fixture as stand-in. The authoritative live package and artifact-to-live
+  binding stay with stage 2.5 and CI. The gate's declared substring/spelling limits and each
+  globally exempted public value remain as specified by N108 and the package gate.
+- Check private copy semantics, post-`chdir` absolute path use and path changes after validation
+  during implementation. No supported current path was shown to escape the revised guard.
+
+#### Handoff to Claude Code
+
+- [ ] **EXP-3-01** An altered or misidentified CSV matching the current rows cannot replace M59.
+  A replacement is justified by authenticated historical evidence, with the old mismatch still
+  refusing normal output. Prove typed equality preserves NULL and empty text.
+- [ ] **EXP-3-02** The real pinned psycopg adapter supplies the result's raw OID and modifier for
+  an independent comparison against the reviewed source baseline. A result-only modifier drift
+  refuses before mapping.
+- [ ] **EXP-3-03** Exactly one provenance match selects the policy before use. Two allowed builds
+  choose their own policies and actual collation-version drift is detectable.
+- [ ] **EXP-3-04** A committed label-only collision appears in the Owner diagnostic. A planted
+  candidate label stays out of the diagnostic and is refused by the unchanged verifier.
+- [ ] **EXP-3-05** Same ID with changed valid bytes refuses as `package_id_reused`, a fresh ID with
+  fresh material passes, and fresh ID with a reused DEK independently refuses as `dek_reused`.
+- [ ] **EXP-3-06** A representable long source spelling reaches the writer unchanged in value.
+  A nonzero digit at scale 38 refuses at the exact-fit check before writing.
+- [ ] **EXP-3-07** A complete receipt produces the promised declaration and deployment identities.
+  A declaration-only change changes the input identity while preserving the deploy digest.
+- [ ] **EXP-3-08** Document and exercise the effective libpq connection and TLS inputs, including
+  whichever local certificate defaults the configuration permits.

@@ -23,9 +23,9 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-24 — revision 3: round 2 (EXP-2-01 to -12, eight blocking) answered. Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
+| Date | 2026-11-24 — revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
 | Author | Claude Code |
-| Status | **Plan, in Codex's review.** Nothing of it is implemented. Its live run needs a read window the Owner opens ([UQ-05](upstream_questions.md#answers)) |
+| Status | **Plan, reviewed: closed after round 3 of Codex's review (N110)** — 33 findings in three rounds, 20 blocking, all answered. Nothing of it is implemented. Its live run needs a read window the Owner opens ([UQ-05](upstream_questions.md#answers)) |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§14).
@@ -102,10 +102,23 @@ other values (`CLAUDE.md` §5):
 
 The Owner sets the warehouse variables from that checkout's own configuration. Before connecting,
 the process removes **every** environment variable whose name starts with `PG` — `PGHOSTADDR`,
-`PGTZ`, `PGOPTIONS`, `PGSERVICE`, `PGSERVICEFILE`, `PGPASSFILE` and the rest of libpq's list. The
-connection then takes only explicit parameters: `host`, `port`, `dbname`, `user`, `password`,
-`sslmode`, `options` empty and `application_name` fixed. libpq's other defaults stay its compiled
-ones, and none of them can name another endpoint.
+`PGTZ`, `PGOPTIONS`, `PGSERVICE`, `PGSERVICEFILE`, `PGPASSFILE`, `PGSSLROOTCERT` and the rest of
+libpq's list. The connection then takes only explicit parameters: `host`, `port`, `dbname`, `user`,
+`password`, `sslmode`, `options` empty and `application_name` fixed.
+
+**TLS [planned].** libpq also reads files from the home directory by default: `~/.postgresql/root.crt`,
+`root.crl`, `postgresql.crt` and `postgresql.key` (EXP-3-08). So the TLS inputs are explicit too:
+
+- `sslcertmode=disable`, so no client certificate is ever sent. The exporter authenticates by
+  password only;
+- `sslrootcert` and `sslcrl` are set from `BICE_WAREHOUSE_SSLROOTCERT` and
+  `BICE_WAREHOUSE_SSLCRL` when given. When not given, they point to a path inside the run
+  directory that does not exist, so no file of the home directory is read;
+- with `sslmode` `verify-ca` or `verify-full`, a root certificate must be given, or the run refuses
+  before connecting.
+
+The receipt records the `sslmode`, and whether a root certificate and a CRL were given, never their
+contents. Against the warehouse on this machine's own port, `sslmode` is the Owner's choice.
 
 **One transaction, once [planned].** One connection, opened with `autocommit` off and
 `isolation_level = REPEATABLE READ`, `read_only = True`. Its first statement starts the transaction,
@@ -113,17 +126,18 @@ and every fact below is read inside it, so the snapshot is one. There is no retr
 connection: a failed statement, a failed `COMMIT` or a lost connection refuses the run. The
 transaction ends with `COMMIT` after the last read.
 
-**The facts checked before any row [planned]**, each refusing with its fixed code. Each query must
-return exactly the rows expected, with non-null booleans: a missing row, a null or an extra row
-refuses.
+**The facts checked before any row [planned]**, each refusing with its fixed code, in this order.
+Each query must return exactly the rows expected, with non-null booleans: a missing row, a null or
+an extra row refuses.
 
 1. **The transaction**: `transaction_isolation` is `repeatable read` and `transaction_read_only` is
    `on`.
-2. **The text-form policy**: the transaction runs `SET LOCAL` for `TimeZone`, `DateStyle`,
-   `IntervalStyle` and `extra_float_digits` to the values the witness declares (below). It then
-   reads them back, so no role or database default can change how a value is written as text.
-   `server_encoding` and `client_encoding` must be `UTF8`. The database's collation — `datcollate`,
-   `datctype`, `datlocprovider` and `datcollversion` from `pg_database` — must equal the witness's.
+2. **The provenance**: `governance.warehouse_provenance` has exactly one row. It is `verified`, and
+   its `built_from_commit`, `invocation_id` and `sequence` match **exactly one** entry of the
+   contract's `accepted_builds` (§4.1). That entry is the build whose witness and policy the rest
+   of the run uses. Today it is M59's: `bcc2d5c…`, `1cb3cd4e-…`, sequence 125. A new build — the
+   same commit included — refuses until a PR adds its entry. The PR needs its views captured and
+   compared, as M59 was (PLAN §3.5, the pin). The row is recorded as read.
 3. **The login**: `session_user` and `current_user` are both the contract's login. A `SET ROLE` or
    a different login refuses.
 4. **The roles**: the closure of the login's memberships, recursive over `pg_auth_members`, is
@@ -150,18 +164,25 @@ refuses.
    here.
 7. **The source schema**: for each OID, its columns from `pg_attribute` in `attnum` order, not
    dropped: name, type OID (`atttypid`) and modifier (`atttypmod`). They must equal the contract's
-   source columns exactly. M59 found no precision or scale for any `numeric`, which is `atttypmod = -1`. The contract
-   records that source modifier apart from the `DECIMAL(p,s)` the export writes (§4.1). A trailing
-   column, a moved column or a changed modifier refuses, even on an empty view.
-8. **The provenance**: `governance.warehouse_provenance` has exactly one row. It is `verified`, and
-   its `built_from_commit`, `invocation_id` and `sequence` match one entry of the contract's
-   `accepted_builds` (§4.1). Today that entry is M59's: `bcc2d5c…`, `1cb3cd4e-…`, sequence 125. A
-   new build — the same commit included — refuses until a PR adds its entry. The PR needs its views
-   captured and compared, as M59 was (PLAN §3.5, the pin). The row is recorded as read.
+   source columns exactly, and the contract records that source modifier apart from the
+   `DECIMAL(p,s)` the export writes (§4.1). A trailing column, a moved column or a changed modifier
+   refuses, even on an empty view. **The baseline is read, not inferred** (EXP-3-02): M59's
+   committed header has type names, not OIDs nor modifiers, and `varchar` and `timestamptz` carry
+   modifiers M59 did not record. `export catalogue` runs checks 1 to 6 in the same kind of
+   transaction, reads `pg_attribute` for the 16 views and no row, and writes the OIDs and
+   modifiers into the draft of §4.4. The Owner reviews them, as every field of `views.json`.
+8. **The text-form policy of the selected build**: the transaction runs `SET LOCAL` for `TimeZone`,
+   `DateStyle`, `IntervalStyle` and `extra_float_digits` to the values that build's witness
+   declares, and reads them back, so no role or database default can change how a value is written
+   as text. `server_encoding` and `client_encoding` must be `UTF8`. The database's collation must
+   equal the witness's: from `pg_database`, `datlocprovider`, `datcollate`, `datctype`,
+   `daticulocale` and `daticurules`, and the **effective** version,
+   `pg_database_collation_actual_version(oid)`, which must also equal the stored `datcollversion`.
+   A library updated under a stored version is caught this way (EXP-3-03).
 
 **The witness [planned].** Each accepted build carries a witness:
 
-- its text-form policy: the four settings of check 2, and the collation;
+- its text-form policy: the four settings of check 8, and the collation;
 - the 16 views' row counts and fingerprints, one entry per view, each view exactly once.
 
 Every run computes the fingerprints inside its transaction, under that policy, with M55's exact
@@ -169,27 +190,29 @@ expression: `md5(coalesce(string_agg(t::text, E'\n' order by t::text), ''))` ove
 `consumption.<view> t`. Every count and fingerprint must equal the witness's. A missing entry, a
 duplicate entry or one difference refuses, whatever the provenance row says.
 
-M59's session settings were not recorded. The witness of `bcc2d5c` therefore starts with the
-policy M59 is assumed to have run under: the warehouse's defaults as `psql` sees them inside the
-container (§14). The first authorized run settles it:
+M59's session settings were not recorded. The witness of `bcc2d5c` therefore declares the policy M59
+is assumed to have run under: the warehouse's defaults as `psql` sees them inside the container
+(§14). If the first authorized run matches all 16 fingerprints under it, that **reproduces M59's
+hashes on this capture** under that policy. It does not prove which settings M59 historically had,
+and the evidence says so. If any differs, the run refuses and writes nothing, and the build stays
+refused under M59's witness.
 
-- **if all 16 fingerprints match under the declared policy**, the policy is confirmed and recorded
-  in the evidence;
-- **if any differs**, the run refuses and writes nothing.
-
-In the second case, the Owner decides whether to accept a replacement witness. It is not bypassed:
-`export witness` compares that run's frozen reference with M59's capture outside Git, row by row and
-typed (§7's comparator, the capture's CSV parsed by the contract's types). If every row of every
-view is equal, it writes the new fingerprints and the effective policy as a replacement witness for
-the same build. The replacement enters the contract by a PR.
+**There is no replacement path** (EXP-3-01). M59's rows outside Git have no committed digest that
+binds them to its fingerprints, so they cannot authenticate a replacement. Revision 3's
+`export witness` is withdrawn. A refusal on the first run comes back to the Owner as a question:
+- whether to accept a witness taken by the exporter itself for the same build, recorded as having
+  no link to M59;
+- or to ask `mvp_eng_dados_2` for a new build and capture it as M59 was.
 
 **The rows [planned].** For each view, in the contract's order:
 
 - `SELECT count(*)`, refused above the view's `max_rows` (§4.1) before any row is fetched;
 - `SELECT <the contract's columns, quoted, in source order> FROM consumption.<view>`, with no
   `ORDER BY`: the comparison of §7 is by grain key, not by position;
-- the result's own description — names, type OIDs and modifiers, by position — compared with the
-  contract, independently of check 7, before any row is read;
+- the result's own metadata, from psycopg's public result object — `cursor.pgresult.fname(i)`,
+  `ftype(i)` and `fmod(i)`, by position — compared with the contract, independently of check 7,
+  before any row is read. `cursor.description`'s `Column` does not expose the raw modifier
+  (EXP-3-02);
 - the rows **frozen** into the reference of §7, by the validated positions of the raw result,
   before any mapping to the writer's columns.
 
@@ -299,7 +322,8 @@ accepted builds — do not reach `contract.json`. They are guarded by the strict
 by this comparison.
 
 **The draft.** `export propose` writes a draft of `views.json` from a capture's committed output,
-M59's profile and the metadata package, into the staging root's `drafts/` folder (§10). The draft is
+M59's profile, the metadata package and the source OIDs and modifiers `export catalogue` read
+(§3 check 7), into the staging root's `drafts/` folder (§10). The draft is
 reviewed, then committed by hand. The exporter never writes `views.json` itself.
 
 ## 5. The governance metadata, bound to the pin
@@ -434,15 +458,16 @@ allow-listed, and no free text from a driver or an exception. It holds no value 
 | Part | Fields |
 |---|---|
 | Identity | The pin, `metadata_blob` and the SHA-256 of the metadata; the receipt's schema version |
-| The read | `read_at`; the provenance row; the metadata's own `provenance`, kept apart; the text-form policy and collation read back (§3 check 2) |
+| The read | `read_at`; the provenance row; the metadata's own `provenance`, kept apart; the text-form policy and collation read back (§3 check 8); the `sslmode`, and whether a root certificate and a CRL were given |
 | The facts | For each check of §3, its code and `passed`, with the non-sensitive values it compared: isolation, read-only, the two users, the role closure with its options, the 16 view names and kinds, the access booleans, the source schema's OIDs and modifiers |
 | Per view | Row count; fingerprint; whether count and fingerprint equal the witness; the reference digest; the Parquet's SHA-256 |
 | Per envelope | Its file name and SHA-256 |
-| The candidate | The digest of the private candidate's deploy listing; `verify`'s result for each live mode run (§10), with which live it compared — `none` or the stand-in's digest; the collisions approved, by entry of `public_values.json` |
+| The candidate | The digest of the private candidate's deploy listing; each included file's path and SHA-256; the SHA-256 of each trusted declaration as the rehearsal read it — `views.json`, `contract.json`, `profiles.json`, `public_values.json`, `include.txt`, `media_types.txt`; `verify`'s result for each live mode run (§10), with which live it compared — `none` or the stand-in's digest; the collisions approved, by entry of `public_values.json` |
 | Time | The duration of each phase: connect, facts, read, checks, write, read-back, seal, candidate |
 
 `export evidence` reads the receipt strictly and refuses an incomplete or ill-typed one before it
-writes anything to Git (§10).
+writes anything to Git (§10). A change to a trusted declaration alone changes the receipt's input identity even
+when the deploy listing's digest is unchanged, and a test proves it.
 
 ## 10. Where clear data goes, and what a refusal prints
 
@@ -515,14 +540,15 @@ live, when stage 2.5's PR brings the real package.
 **The collisions (N108, EXP-2-08).** `verify` stops at the first clear value and prints only its
 code and file, as it must. So `export collisions` is a separate, Owner-local diagnostic. It uses
 the gate's own matching — `contract.needles` and its spellings — over the **committed** bytes of
-the included public files, read with `git show HEAD:<path>`, not over the candidate's copy and not
-over the package. It reports **every** hit. For each hit it gives:
+the included public files, read with `git show HEAD:<path>`, and over the profile labels of the
+committed `release/profiles.json`, which `verify` searches in the manifest (N83). It does not read
+the candidate's copy, nor the package's envelopes. It reports **every** hit. For each hit it gives:
 
 - the canonical value, which is what `release/public_values.json` would list;
 - the spelling found and the public file it was found in;
 - the reports and columns holding the value.
 
-It prints a value only when it is found in those committed public bytes, so it shows nothing the
+It prints a value only when it is found in those committed public bytes or labels, so it shows nothing the
 site does not already show. A value planted in the candidate's copy is not in them: it is not
 printed, and `verify` refuses it. Its output goes to the terminal, never to Git. The Owner approves each entry, with
 its reason, in a protected PR. Then `verify` passes with exactly those exemptions and still refuses
@@ -590,20 +616,22 @@ Each has a **positive control**: the same case unmutated passes, through the sam
 | The connection | The statements out of order; a failure injected at each statement in turn; a failed `COMMIT` | §3: refusal, with no further statement and no second connection |
 | | A `PGHOSTADDR` or `PGOPTIONS` in the environment naming another endpoint or options | §3: removed before connecting; the fake sees only the explicit parameters |
 | The facts | Isolation `read committed`; `transaction_read_only` off | §3 check 1 |
-| | A text-form setting that, read back after `SET LOCAL`, differs; a collation field off the witness; `client_encoding` not `UTF8` | §3 check 2 |
+| | A text-form setting that, read back after `SET LOCAL`, differs; a collation field off the witness; the effective collation version drifting while the stored one stays; `client_encoding` not `UTF8`; and, passing, two accepted builds with different policies, each run under its own | §3 check 8 |
 | | `session_user` or `current_user` other than the login, as after `SET ROLE` | §3 check 3 |
 | | A role missing, extra or nested; `admin_option` true; `set_option` or `inherit_option` changed; a reached role with `CREATEROLE` | §3 check 4 |
 | | A view missing; an extra view or table, granted or not; a view of another kind | §3 check 5 |
 | | `SELECT` refused on one view; a table-level `INSERT`; a column-level `UPDATE`; a view owned by a role the login reaches; `CREATE` on the schema; `USAGE` refused | §3 check 6 |
 | | A trailing column on an accepted empty view; a moved column; a `numeric` modifier changed | §3 check 7 |
-| | No provenance row; two rows; not `verified`; the same commit with another invocation | §3 check 8 |
+| | A modifier changed in the result's metadata only, through the pinned psycopg adapter as well as the fake | The rows (§3), before mapping |
+| | A `~/.postgresql/postgresql.crt` and `root.crt` present in a temporary home; `verify-full` with no root certificate given | §3, TLS: no client certificate sent, no home file read; refusal before connecting |
+| | No provenance row; two rows; not `verified`; the same commit with another invocation; a row matching two accepted entries | §3 check 2 |
 | | One fingerprint off; one count off; a witness missing one view; a witness with one view twice (*unit*, loader) | The witness (§3); the loader (§4.1) |
 | The result | A column renamed, retyped or moved in the result's description | Schema (§6.1) |
 | | Two same-type text columns swapped by position between the raw result and the writer, with the description intact | The round trip (§7) |
 | The rows | `count(*)` over `max_rows`, with nothing fetched after it | Size (§6.2) |
 | | An empty view; and an empty view declared `may_be_empty`, which passes through the writer | Size (§6.2) |
 | | A null where not nullable; a null in a grain column; and an all-null nullable column with a populated grain, which passes | Nulls (§6.3) |
-| | A decimal one fractional digit or one integer digit beyond its type; `NaN`; `Infinity`; and, passing through the writer: a value exactly at its precision, negative zero, a 38-digit value with leading fractional zeros at its own column | Decimals (§6.4) |
+| | A decimal one fractional digit or one integer digit beyond its type; `NaN`; `Infinity`; a nonzero digit at scale 38, refused before any binding; and, passing through the writer: a value exactly at its precision, negative zero, and a long spelling whose extra digits are only trailing zeros, such as `0.00123000000000000000000000000000000000`, written as `0.00123` | Decimals (§6.4) |
 | | A naive instant; PostgreSQL `infinity`; and, passing: two instants with the same wall time and different offsets, microsecond precision | Instants (§6.5) |
 | | A duplicated grain key | Grain (§6.6) |
 | | A NUL; a text one character over `max_length`; and, passing, a text exactly at it, multibyte | Text (§6.7) |
@@ -619,8 +647,8 @@ Each has a **positive control**: the same case unmutated passes, through the sam
 | The output | An exception whose message holds an invented value or password | §10: neither printed |
 | | A receipt missing a field, or with a field of the wrong type (*unit*) | `export evidence`, before any write |
 | The candidate | A clear value injected into an included file; a tampered manifest; a reused key or IV; mismatched totals (MUT-15) | `verify` on the private candidate (§10), with 2.2b's mutations on the migrated fixture |
-| | The stand-in for live with another package id, and with a DEK reused from it | `verify`'s live predicates (§10) |
-| | Two collisions, one through a Brazilian spelling; and an unrelated clear value planted in a candidate file | `export collisions` lists both collisions, and the planted value is not printed. `verify` passes with both approved and refuses the planted value |
+| | The candidate resealed with the stand-in's package id and other valid bytes; a fresh id with a DEK reused from the stand-in; and, passing, a fresh id with fresh material | `verify`'s live predicates (§10): `package_id_reused`, `dek_reused` |
+| | Two collisions, one through a Brazilian spelling, and one equal to a committed profile label; and an unrelated clear value planted in a candidate file, and a label planted in the candidate's manifest | `export collisions` lists the three collisions, and neither planted value is printed. `verify` passes with the three approved and refuses each planted value |
 
 **The live run**, in the read window, is not in `make check`. It writes its evidence with
 `export evidence`, from the receipt of §9: the facts, the witness comparison, the digests, the
@@ -652,12 +680,16 @@ All five were answered on 2026-11-24 and are recorded in PLAN §1.2:
   `Decimal`-parameter and `datetime`-fetch paths lossy or failing. The bindings of §4.3 avoid both,
   and the fixture tests prove them before any live read.
 - **[assumed]** M59 ran under the warehouse's defaults as `psql` sees them inside the container.
-  Its settings were not recorded. The witness declares that policy, and the first run either
-  confirms it on all 16 fingerprints or refuses, and `export witness` settles a replacement by
-  row-level equality with M59's capture (§3).
-- **[assumed]** psycopg's `cursor.description` gives each column's type OID and modifier, and
-  PostgreSQL 16's `pg_auth_members` has `inherit_option` and `set_option`. The fake encodes both,
-  and the first live run proves them.
+  Its settings were not recorded. The witness declares that policy. The first run either
+  reproduces all 16 hashes under it, or refuses, and the refusal comes back to the Owner as a
+  question (§3). There is no automatic replacement.
+- **[assumed]** psycopg's `cursor.pgresult` gives each result column's type OID and modifier
+  (`ftype`, `fmod`), PostgreSQL 16's `pg_auth_members` has `inherit_option` and `set_option`, and
+  `pg_database` has `daticulocale` and `daticurules`. The fake encodes them, and the first live run
+  proves them.
+- **[assumed]** libpq 16 accepts `sslcertmode=disable`, and a nonexistent `sslrootcert` or `sslcrl`
+  path makes it read no home file with `sslmode` `prefer` or `require`. A test proves it in a
+  temporary home (§12).
 - **[assumed]** The gate's in-memory DuckDB spills only under the working directory's `.tmp`. Round 2
   observed that default with a forced spill. The spill test of §12 proves it for the gate's own
   connection.
@@ -668,10 +700,28 @@ All five were answered on 2026-11-24 and are recorded in PLAN §1.2:
   first private candidate (§10).
 - M59's profile holds for its rows. The live run checks every rule again on the rows it reads.
 
+**Declared limits, from the review's close (N110).** Round 3 listed these as remaining. They are
+carried to the review of the code and to the first authorized run, not settled by this plan:
+
+- **To the first authorized run**: the catalogue and wire baselines, host connectivity, the role
+  options, the witness policy, memory, elapsed time, the package's size and the real public
+  collisions.
+- **To the review of the code (§12)**: the real spill and interrupt cleanup; the bound-path byte
+  substitutions; M19; all-null and empty views; signed zero, NaN and both infinities; timestamp
+  folds; NUL and multibyte text limits. Round 2's and round 3's probes covered selected boundaries
+  on invented data only.
+- **To stage 2.5 and CI**: the rehearsal compares with a fixture as stand-in. The authoritative live
+  package and the artifact-to-live binding stay there. So do the gate's declared substring and
+  spelling limits, and the effect of each value exempted under N108.
+- **To the implementation**: private copy semantics, absolute paths after the change of working
+  directory, and paths that change after they were validated. Round 3 showed no supported path
+  escaping the guard.
+
 ## 15. The order of the work
 
 1. This plan, reviewed by Codex; the review closes after round 3, of regressions only (N110).
-2. `release/views.json` from `export propose`'s draft, reviewed in full; the generated
+2. `export catalogue` in a first, short read window (§3 check 7), reading the source OIDs and
+   modifiers and no row; then `release/views.json` from `export propose`'s draft, reviewed in full; the generated
    `release/contract.json`; `release/profiles.json`; the invented fixture of the 16 shapes. All in
    the protected PR of §11, with the code below.
 3. The connection interface, the fake and its fixture; the facts of §3, the checks of §6, the
