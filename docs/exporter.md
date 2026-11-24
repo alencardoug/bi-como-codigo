@@ -670,7 +670,7 @@ All five were answered on 2026-11-24 and are recorded in PLAN §1.2:
 
 ## 15. The order of the work
 
-1. This plan, reviewed by Codex until no blocking finding is left.
+1. This plan, reviewed by Codex; the review closes after round 3, of regressions only (N110).
 2. `release/views.json` from `export propose`'s draft, reviewed in full; the generated
    `release/contract.json`; `release/profiles.json`; the invented fixture of the 16 shapes. All in
    the protected PR of §11, with the code below.
