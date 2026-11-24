@@ -129,12 +129,22 @@ def trace_evidence(events: list[dict], requests: dict | None = None) -> dict:
     cached = any(e["name"] in _CACHED or "deserial" in e["name"].lower() for e in window)
     compiled = any(e["name"] in _COMPILED for e in window)
     kind = "unclassified" if cached and compiled else "cached" if cached else "compiled" if compiled else ("unattributed" if wasm else "unobserved")
-    first = min((e["ts"] / 1e6 for e in window if e["name"] in _CACHED + _COMPILED + ("wasm.StartStreamingCompilation",)
-                 or "deserial" in e["name"].lower()), default=None)
-    basis = (f"the module event at {round((first - engine) * 1000, 1)} ms after the engine's WASM request"
-             + (f", {round((extension - first) * 1000, 1)} ms before the extension's" if extension is not None else "")) if first is not None \
-        else "no module event between the engine's WASM request and the extension's"
-    return {"code_cache_consumed": sorted(consumed), "wasm_events": names, "wasm": kind, "wasm_basis": basis}
+    # The basis names its events apart: the streaming job's start, and the first terminal event that
+    # classes the module — the one the class rests on (CMP-4-05).
+    after = lambda x: None if x is None else round((x - engine) * 1000, 1)  # noqa: E731
+    starts = [e["ts"] / 1e6 for e in window if e["name"] == "wasm.StartStreamingCompilation"]
+    terminal = min(((e["ts"] / 1e6, e["name"]) for e in window if e["name"] in _CACHED + _COMPILED or "deserial" in e["name"].lower()),
+                   default=None)
+    timing = {"start_ms": after(min(starts, default=None)), "terminal_ms": after(terminal and terminal[0]),
+              "terminal_event": terminal and terminal[1],
+              "terminal_before_extension_ms": None if terminal is None or extension is None else round((extension - terminal[0]) * 1000, 1)}
+    if terminal is not None:
+        basis = (f"{terminal[1]} at {timing['terminal_ms']} ms after the engine's WASM request"
+                 + (f", {timing['terminal_before_extension_ms']} ms before the extension's" if extension is not None else "")
+                 + (f"; its streaming job started at {timing['start_ms']} ms" if timing["start_ms"] is not None else ""))
+    else:
+        basis = "no terminal module event between the engine's WASM request and the extension's"
+    return {"code_cache_consumed": sorted(consumed), "wasm_events": names, "wasm": kind, "wasm_basis": basis, "wasm_timing": timing}
 
 
 def sample(raw: dict) -> dict:

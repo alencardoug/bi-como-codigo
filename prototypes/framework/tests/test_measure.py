@@ -182,6 +182,10 @@ def test_a_module_event_outside_the_engines_window_is_unattributed_and_enters_no
                                 {"name": "wasm.BaselineFinished", "ts": (1000.0 + 0.23) * 1e6}]  # in the window
     evidence = measure.sample(raw)["cache_evidence"]
     assert evidence["wasm"] == "compiled" and "ms after the engine's WASM request" in evidence["wasm_basis"]
+    # CMP-4-05: the basis names the terminal event it rests on, its streaming start apart
+    assert evidence["wasm_basis"].startswith("wasm.BaselineFinished at 30.0 ms") and "started at 20.0 ms" in evidence["wasm_basis"]
+    assert evidence["wasm_timing"] == {"start_ms": 20.0, "terminal_ms": 30.0, "terminal_event": "wasm.BaselineFinished",
+                                       "terminal_before_extension_ms": 20.0}
 
 
 # --- CMP-3-08: terminal evidence, and the extension after the engine -----------------------
