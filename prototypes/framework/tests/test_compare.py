@@ -125,7 +125,7 @@ def test_a_kept_result_of_another_draw_harness_or_unreadable_is_measured_again(t
     state.update(draw=draw, artifacts={"own": {"artifact_digest": "a1"}},
                  measures={"own": {"artifact_digest": "a1", "results": "draws/d1/results/own"}})
     good = {"artifact_digest": "a1", "fixture_digest": "f", "package": {"P01.bice": "p"}, "draw": "d1", "harness": {"x": "h"},
-            "check": {"passed": True}, "controls": [], "diagnostic": {}, "measures": {}, "static": {}}
+            "check": {"passed": False, "page_passed": False}, "controls": [], "diagnostic": {"leads": []}, "measures": {"cold": {}, "warm": {}}, "static": {}}
     folder = tmp_path / "draws" / "d1" / "results" / "own"
     folder.mkdir(parents=True)
     (folder / "result.json").write_text(json.dumps(good))
@@ -186,8 +186,37 @@ def test_bs_check_made_before_its_mutant_was_recovered_is_made_again(tmp_path):
     state.update(draw=draw, artifacts={"own": {"artifact_digest": "a1"}, "own-mutant": {"artifact_digest": "m1"}},
                  measures={"own": {"artifact_digest": "a1", "results": "draws/d1/results/own"}})
     good = {"artifact_digest": "a1", "fixture_digest": "f", "package": {"P01.bice": "p"}, "draw": "d1", "harness": {"x": "h"},
-            "check": {"passed": False}, "controls": [], "diagnostic": {}, "measures": {}, "static": {}, "mutant_artifact_digest": None}
+            "check": {"passed": False, "page_passed": False}, "controls": [], "diagnostic": {"leads": []}, "measures": {"cold": {}, "warm": {}}, "static": {}, "mutant_artifact_digest": None}
     folder = tmp_path / "draws" / "d1" / "results" / "own"
     folder.mkdir(parents=True)
     (folder / "result.json").write_text(json.dumps(good))
     assert compare._kept(state, "own", tmp_path) is None
+
+
+
+def test_a_kept_result_missing_its_proofs_or_controls_is_measured_again(tmp_path, monkeypatch):
+    """CMP-4-04: a result whose check says it passed without its comparator proof, or with no
+    control rows, was reused and reported as a pass."""
+    fx, _ = fx_mod.generate(7)
+    folder = tmp_path / "m" / "d1"
+    folder.mkdir(parents=True)
+    (folder / "cells.json").write_text(json.dumps(fx.dump()))
+    monkeypatch.setattr(compare.measured, "MEASURED", tmp_path / "m")
+    import builder_controls
+    import check
+    rows = [{"control": c.name, "as_expected": True} for c in builder_controls.table(fx)]
+    proof = {p: {"refused": True, "for_its_reason": True} for p in check.PROOFS}
+    whole = {"artifact_digest": "a1", "fixture_digest": fx.digest(), "package": {"P01.bice": "p"}, "draw": "d1", "harness": {"x": "h"},
+             "check": {"passed": True, "page_passed": True, "comparator_proof": proof}, "controls": rows,
+             "diagnostic": {"leads": []}, "measures": {"cold": {}, "warm": {}}, "static": {}}
+    state = route.load(tmp_path)
+    state.update(draw={"id": "d1", "fixture_digest": fx.digest(), "package": {"P01.bice": "p"}, "harness": {"x": "h"}},
+                 artifacts={"evidence": {"artifact_digest": "a1"}},
+                 measures={"evidence": {"artifact_digest": "a1", "results": "draws/d1/results/evidence"}})
+    out = tmp_path / "draws" / "d1" / "results" / "evidence"
+    out.mkdir(parents=True)
+    (out / "result.json").write_text(json.dumps(whole))
+    assert compare._kept(state, "evidence", tmp_path) == whole
+    for broken in ({**whole, "check": {"passed": True, "page_passed": True}}, {**whole, "controls": []}):
+        (out / "result.json").write_text(json.dumps(broken))
+        assert compare._kept(state, "evidence", tmp_path) is None

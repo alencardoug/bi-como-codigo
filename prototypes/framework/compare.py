@@ -124,8 +124,23 @@ def measure_candidate(name: str, draw: dict, artifacts: dict, out: pathlib.Path,
 _PARTS = {"check": dict, "controls": list, "diagnostic": dict, "measures": dict, "static": dict, "package": dict}
 
 
-def _complete(result: dict) -> bool:
-    return all(isinstance(result.get(k), kind) for k, kind in _PARTS.items()) and "passed" in result["check"]
+def _complete(result: dict, name: str | None = None, fx: fx_mod.Fixture | None = None) -> bool:
+    """Every part the report reads, in its shape; and, given the candidate and the fixture, consistent:
+    the check's `passed` what its own predicate gives — its proofs there —, a control row for each of
+    §2.5.5's controls, each with its outcome, and the measures' two conditions (CMP-4-04)."""
+    if not (all(isinstance(result.get(k), kind) for k, kind in _PARTS.items()) and "passed" in result["check"]):
+        return False
+    if name is None:
+        return True
+    try:
+        consistent = check._passed(name, result["check"])[0] == result["check"]["passed"]
+    except (KeyError, TypeError):
+        return False
+    names = [c.name for c in builder_controls.table(fx)] if fx is not None else None
+    rows = result["controls"]
+    return (consistent and (names is None or sorted(r.get("control") for r in rows) == sorted(names))
+            and all(isinstance(r.get("as_expected"), bool) for r in rows)
+            and {"cold", "warm"} <= result["measures"].keys() and "leads" in result["diagnostic"])
 
 
 def _kept(state: dict, name: str, runs: pathlib.Path) -> dict | None:
@@ -142,7 +157,11 @@ def _kept(state: dict, name: str, runs: pathlib.Path) -> dict | None:
         result = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    if not isinstance(result, dict) or not _complete(result):
+    try:
+        fx = _fixture(draw, digest=draw.get("fixture_digest")) if draw.get("id") else None
+    except (OSError, ValueError, route.Refused):
+        fx = None
+    if not isinstance(result, dict) or not _complete(result, name, fx):
         return None
     same = {"artifact_digest": art.get("artifact_digest"), "fixture_digest": draw.get("fixture_digest"),
             "package": draw.get("package"), "draw": draw.get("id"), "harness": draw.get("harness")}
