@@ -389,9 +389,11 @@ def test_verify_refuses_entitlements_other_than_the_declaration(repo):
     import site_fixture
     from bi_como_codigo import envelope as e
 
-    declared = r.profiles(repo)
-    widened = [e.DeclaredProfile(p.id, p.label, p.password, ("P01", "P02", "P13")) for p in declared]
     from bi_como_codigo import contract as c
+
+    declared = r.profiles(repo)
+    every = tuple(sorted(c.load(repo)[0].reports))
+    widened = [e.DeclaredProfile(p.id, p.label, p.password, every) for p in declared]
 
     manifest, files = e.encrypt_package(widened, site_fixture.payloads(c.load(repo)[0]))
     package = repo / "site" / "package"

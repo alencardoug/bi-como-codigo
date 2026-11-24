@@ -505,12 +505,9 @@ def test_a_refusal_prints_its_code_view_check_and_cause_only(monkeypatch, capsys
 
 
 def test_the_committed_report_contract_is_the_generated_one():
-    views = ROOT / "release" / "views.json"
     committed = (ROOT / "release" / "contract.json").read_bytes()
-    if views.exists():
-        V.check_generated(V.load(views.read_bytes()), committed)
-    else:  # until the migration of §11, the contract is stage 2.2's three fixtures
-        assert set(c.load_contract(committed).reports) == {"P01", "P02", "P13"}
+    contract = V.check_generated(V.load((ROOT / "release" / "views.json").read_bytes()), committed)
+    assert len(contract.reports) == 16
 
 
 def test_the_committed_fixture_is_what_the_script_writes():
@@ -524,22 +521,20 @@ def test_the_fixtures_witness_is_its_rows_fingerprint():
 
 
 @pytest.mark.skipif(not os.environ.get("ENG_DADOS_2_DIR"), reason="needs ENG_DADOS_2_DIR, which make check requires")
-def test_the_committed_structure_is_what_propose_drafts_over_the_invented_catalogue():
-    catalogue, views = xf.structure(pathlib.Path(os.environ["ENG_DADOS_2_DIR"]))
-    assert catalogue == xf.CATALOGUE.read_bytes() and views == xf.STRUCTURE.read_bytes()
+def test_the_committed_view_contract_is_what_propose_drafts_over_the_committed_catalogue():
+    assert xf.proposed(pathlib.Path(os.environ["ENG_DADOS_2_DIR"])) == xf.STRUCTURE.read_bytes()
 
 
 @pytest.mark.skipif(not os.environ.get("ENG_DADOS_2_DIR"), reason="needs ENG_DADOS_2_DIR, which make check requires")
 def test_export_propose_writes_its_draft_in_drafts_and_leaves_both_contracts(outside):
     staging = outside / "staging"
     staging.mkdir()
-    before = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in ("release/contract.json",)}
+    before = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in ("release/views.json", "release/contract.json")}
     env = {"BICE_EXPORT_STAGING": str(staging), "ENG_DADOS_2_DIR": os.environ["ENG_DADOS_2_DIR"]}
     argv = ["propose", "--catalogue", str(xf.CATALOGUE), "--pin", xf.PIN]
     assert cli.main(argv, env) == 0
     drafts = list((staging / "drafts").glob("views.*.json"))
     assert len(drafts) == 1 and drafts[0].read_bytes() == xf.STRUCTURE.read_bytes()
     assert before == {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in before}
-    assert not (ROOT / "release" / "views.json").exists() or True
     env["BICE_EXPORT_STAGING"] = str(ROOT / "release")
     assert cli.main(argv, env) == 1, "a staging root in this repository is refused"

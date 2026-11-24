@@ -1,26 +1,18 @@
 """Writes the exporter's test fixture (docs/exporter.md §12): invented values
 with the 16 views' real columns, and the facts a fake warehouse answers with.
 
-Two outputs, each reproduced by a test:
+The structure is `release/views.json`, the view contract the Owner reviewed,
+drafted by `export propose` from the catalogue read in the first read window
+(`evidence/20261124/catalogue.json`). A test, with `ENG_DADOS_2_DIR`, proves
+that propose over that catalogue still drafts it byte for byte.
 
-- `tests/exporter/views.json`, the **structure**: what `export propose` drafts
-  from M59's committed capture and profile and the metadata package at the pin,
-  over `tests/exporter/catalogue.json` — an **invented** catalogue, with
-  PostgreSQL's fixed type OIDs and no modifier, since the real one is read in
-  the first read window (§3 check 7). It needs `ENG_DADOS_2_DIR`:
+The fixture, `tests/exporter/fixture.json`, holds invented rows for every
+view of that structure — no figure of eng_dados —, a catalogue and a
+provenance row for the fake, an invented metadata package with the real
+names, and the view contract with the fixture's own build, whose witness is
+computed from the fixture's rows by the fake's fingerprint:
 
-      ENG_DADOS_2_DIR=… uv run --frozen python tests/exporter_fixture.py structure
-
-  Once `release/views.json` is committed from the real catalogue, the fixture
-  is generated from it instead, and these two files go.
-
-- `tests/exporter/fixture.json`, the **fixture**: invented rows for every view
-  of that structure — no figure of eng_dados —, a catalogue and a provenance
-  row for the fake, an invented metadata package with the real names, and the
-  view contract with the fixture's own build, whose witness is computed from
-  the fixture's rows by the fake's fingerprint:
-
-      uv run --frozen python tests/exporter_fixture.py
+    uv run --frozen python tests/exporter_fixture.py
 
 Everything is drawn from a seeded generator, so the bytes are the same on
 every run.
@@ -31,7 +23,6 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
-import os
 import pathlib
 import random
 import subprocess
@@ -44,8 +35,8 @@ if str(ROOT / "src") not in sys.path:
 from bi_como_codigo.exporter import propose as P, views as V  # noqa: E402
 
 HERE = ROOT / "tests" / "exporter"
-STRUCTURE = HERE / "views.json"
-CATALOGUE = HERE / "catalogue.json"
+STRUCTURE = ROOT / "release" / "views.json"
+CATALOGUE = ROOT / "evidence" / "20261124" / "catalogue.json"
 FIXTURE = HERE / "fixture.json"
 CAPTURE = ROOT / "evidence" / "20261119" / "capture.out.txt"
 PROFILE = ROOT / "evidence" / "20261124" / "m59_profile.out.txt"
@@ -61,31 +52,10 @@ FIXTURE_PROVENANCE = {
 POLICY = {"TimeZone": "UTC", "DateStyle": "ISO, MDY", "IntervalStyle": "postgres", "extra_float_digits": "1"}
 COLLATION = {"datlocprovider": "c", "datcollate": "C.UTF-8", "datctype": "C.UTF-8", "daticulocale": None,
              "daticurules": None, "datcollversion": None}
-LOGIN, ROLE = "consumption_reader", "analyst"  # N4
 
 
-def invented_catalogue() -> dict:
-    capture = P.parse_capture(CAPTURE.read_text(encoding="utf-8"))
-    return {
-        "catalogue_version": 1,
-        "login": capture.login,
-        "provenance": {**capture.provenance, "status": "verified"},
-        "memberships": [{"member": LOGIN, "role": ROLE, "inherit_option": True, "set_option": True}],
-        "can_login": [{"role": ROLE, "rolcanlogin": False}, {"role": LOGIN, "rolcanlogin": True}],
-        "views": [
-            {"view": v, "columns": [{"name": n, "oid": V.SOURCE_TYPES[t][0], "typmod": -1} for n, t in cols]}
-            for v, cols in sorted(capture.columns.items())
-        ],
-        "defaults": POLICY,
-        "encodings": {"server_encoding": "UTF8", "client_encoding": "UTF8"},
-        "collation": COLLATION,
-        "collation_actual_version": None,
-    }
-
-
-def structure(eng_dados_2: pathlib.Path) -> tuple[bytes, bytes]:
-    """(catalogue.json, views.json): propose's draft over the invented catalogue."""
-    catalogue = (json.dumps(invented_catalogue(), ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+def proposed(eng_dados_2: pathlib.Path) -> bytes:
+    """What `export propose` drafts over the committed catalogue: release/views.json."""
     git = ["git", "-C", str(eng_dados_2)]
     path = f"{PIN}:docs/pacote_de_metadados.json"
     raw = subprocess.run([*git, "cat-file", "blob", path], capture_output=True, check=True).stdout
@@ -94,11 +64,11 @@ def structure(eng_dados_2: pathlib.Path) -> tuple[bytes, bytes]:
         P.parse_capture(CAPTURE.read_text(encoding="utf-8")),
         P.parse_profile(PROFILE.read_text(encoding="utf-8")),
         json.loads(raw),
-        P.parse_catalogue(catalogue),
+        P.parse_catalogue(CATALOGUE.read_bytes()),
         PIN,
         blob,
     )
-    return catalogue, P.dump(draft)
+    return P.dump(draft)
 
 
 # --- the fixture -------------------------------------------------------------------------------
@@ -200,16 +170,6 @@ def fixture(structure_bytes: bytes) -> bytes:
 
 def main(argv: list[str]) -> int:
     sys.path.insert(0, str(ROOT / "tests"))
-    if argv[1:] == ["structure"]:
-        eng = os.environ.get("ENG_DADOS_2_DIR")
-        if not eng:
-            print("set ENG_DADOS_2_DIR to a checkout of mvp_eng_dados_2")
-            return 2
-        catalogue, views = structure(pathlib.Path(eng))
-        CATALOGUE.write_bytes(catalogue)
-        STRUCTURE.write_bytes(views)
-        print(f"wrote {CATALOGUE.relative_to(ROOT)} and {STRUCTURE.relative_to(ROOT)}")
-        return 0
     if argv[1:]:
         print(__doc__)
         return 2

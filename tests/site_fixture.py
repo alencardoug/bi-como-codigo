@@ -1,12 +1,14 @@
-"""Writes the fixture package into `site/package/` (docs/package_gate.md §8).
+"""Writes the invented package into `site/package/` (docs/package_gate.md §8,
+docs/exporter.md §11, N109).
 
-One small table per fixture report of `release/contract.json`, written as a
-real Parquet file by DuckDB, with its control totals computed here in Python
-with `decimal` — independently of the gate's DuckDB query (§3) — and sealed
-by the envelope's producer under `release/profiles.json`. The values are
-invented placeholders (`fixture_…`), not figures of eng_dados: no report data
-reaches the repository before stage 2.4. Each run draws new keys, salts and
-IVs, so its bytes differ every time.
+One small table per report of `release/contract.json` — the 16 reports'
+real shapes since stage 2.4's migration —, its rows **invented** from the
+contract's types alone, written as a real Parquet file by DuckDB, with its
+control totals computed here in Python with `decimal`, independently of the
+gate's DuckDB query (§3), and sealed by the envelope's producer under
+`release/profiles.json`. No figure of eng_dados: every text is `fixture_…`,
+every number made up. Each run draws new keys, salts and IVs, so its bytes
+differ every time; the rows are the same every time.
 
     uv run --frozen python tests/site_fixture.py
 
@@ -29,30 +31,55 @@ if str(ROOT / "src") not in sys.path:
 from bi_como_codigo import contract as c, envelope as e, release  # noqa: E402
 
 OUT = ROOT / "site" / "package"
-
-#: The fixture rows, in the contract's column order. Chosen to exercise every
-#: check: a decimal and an integer sum, a nullable column with a null, a
-#: two-column grain, a date, a wide decimal that is not summed, a boolean.
-ROWS: dict[str, list[tuple]] = {
-    "P01": [
-        ("fixture_a", Decimal("1.25"), 2),
-        ("fixture_b", Decimal("3.50"), None),
-        ("fixture_c", Decimal("10.00"), 7),
-        ("fixture_d", Decimal("-0.75"), 1),
-    ],
-    "P02": [
-        (dt.date(2025, 1, 1), "fixture_loja", 1200),
-        (dt.date(2025, 1, 1), "fixture_app", 340),
-        (dt.date(2025, 2, 1), "fixture_loja", 1105),
-    ],
-    "P13": [
-        ("fixture_norte", 120, Decimal("0.1250"), True),
-        ("fixture_sul", 85, None, False),
-    ],
-}
+ROWS_PER_REPORT = 4
 
 
-def parquet(report: c.Report, rows: list[tuple], types: dict[str, str] | None = None) -> bytes:
+def invent(report: c.Report, count: int = ROWS_PER_REPORT) -> list[tuple]:
+    """`count` rows of the report's shape, from its types alone. Texts are
+    `fixture_<report>_<column>_<row>`, unique per row, so the grain holds;
+    integers out of the grain have five digits from 12000 — a Brazilian
+    spelling (`12.000`), and never a year the site's text cites, such as
+    2026; decimals fit their precision; a nullable column is null in the
+    second row."""
+    rows = []
+    for i in range(count):
+        row = []
+        for j, col in enumerate(report.columns):
+            in_grain = col.name in report.grain
+            if col.nullable and i == 1:
+                row.append(None)
+            elif col.type == "VARCHAR":
+                row.append(f"fixture_{report.id.lower()}_{j}_{i}")
+            elif col.type in ("SMALLINT", "INTEGER", "BIGINT"):
+                row.append(i + 1 if in_grain else 12000 + 100 * j + 7 * i)
+            elif col.decimal:
+                precision, scale = col.decimal
+                whole = ((i + 1) * (j + 2)) % 10 ** min(3, precision - scale) if precision > scale else 0
+                fraction = f".{(7 * i + 3 * j + 1) % 10 ** scale:0{scale}d}" if scale else ""
+                row.append(Decimal(f"{whole}{fraction}"))
+            elif col.type == "BOOLEAN":
+                row.append(i % 2 == 0)
+            elif col.type == "TIMESTAMP WITH TIME ZONE":
+                row.append(dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc) + dt.timedelta(days=i, hours=j))
+            elif col.type == "DATE":
+                row.append(dt.date(2025, 1, 1) + dt.timedelta(days=i))
+            else:  # pragma: no cover - a type the contract does not use
+                raise ValueError(col.type)
+        rows.append(tuple(row))
+    return rows
+
+
+def _param(value):
+    """DuckDB infers DOUBLE for a `Decimal` parameter (EXP-1-04) and needs pytz
+    for an aware `datetime`: both go as text, cast by the column's type."""
+    if isinstance(value, Decimal):
+        return f"{value:f}"
+    if isinstance(value, dt.datetime):
+        return value.isoformat()
+    return value
+
+
+def parquet(report: c.Report, rows: list[tuple], types: dict[str, str] | None = None, options: str = "") -> bytes:
     """The rows as a Parquet file written by DuckDB, with the contract's
     types — or others, for a mutation."""
     import duckdb
@@ -60,12 +87,13 @@ def parquet(report: c.Report, rows: list[tuple], types: dict[str, str] | None = 
     types = types or {}
     columns = [(col.name, types.get(col.name, col.type)) for col in report.columns]
     con = duckdb.connect(":memory:")
+    con.execute("SET TimeZone = 'UTC'")
     con.execute("CREATE TABLE t (" + ", ".join(f'"{n}" {t}' for n, t in columns) + ")")
     if rows:
-        con.executemany("INSERT INTO t VALUES (" + ", ".join("?" for _ in columns) + ")", rows)
+        con.executemany("INSERT INTO t VALUES (" + ", ".join("?" for _ in columns) + ")", [[_param(v) for v in r] for r in rows])
     with tempfile.TemporaryDirectory() as tmp:
         path = pathlib.Path(tmp) / "t.parquet"
-        con.execute(f"COPY t TO '{path.as_posix()}' (FORMAT parquet)")
+        con.execute(f"COPY t TO '{path.as_posix()}' (FORMAT parquet{', ' + options if options else ''})")
         return path.read_bytes()
 
 
@@ -83,8 +111,17 @@ def totals(contract: c.Contract, report: c.Report, rows: list[tuple]) -> bytes:
     return c.totals_object(contract, report, len(rows), sums)
 
 
+def rows_of(contract: c.Contract) -> dict[str, list[tuple]]:
+    return {rid: invent(report) for rid, report in contract.reports.items()}
+
+
+#: The rows of the committed contract, by report.
+ROWS: dict[str, list[tuple]] = rows_of(c.load(ROOT)[0])
+
+
 def payloads(contract: c.Contract) -> dict[str, tuple[bytes, bytes]]:
-    return {rid: (totals(contract, report, ROWS[rid]), parquet(report, ROWS[rid])) for rid, report in contract.reports.items()}
+    rows = rows_of(contract)
+    return {rid: (totals(contract, report, rows[rid]), parquet(report, rows[rid])) for rid, report in contract.reports.items()}
 
 
 def main() -> int:

@@ -88,7 +88,6 @@ from bi_como_codigo.exporter import (  # noqa: E402
     source as S,
     views as V,
     writer as W,
-    reference as R,
 )
 import bi_como_codigo.exporter as X  # noqa: E402
 
@@ -681,7 +680,7 @@ def test_an_interrupt_mid_run_removes_the_run_directory(world, monkeypatch, how)
 
 import secrets  # noqa: E402
 
-from bi_como_codigo import contract as C, release as REL  # noqa: E402
+from bi_como_codigo import contract as C  # noqa: E402
 
 
 def seal_with(profiles, payloads, *, package_id=None, deks=None, ivs=None, totals=None):

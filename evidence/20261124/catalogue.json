@@ -2,10 +2,10 @@
   "catalogue_version": 1,
   "login": "consumption_reader",
   "provenance": {
+    "status": "verified",
     "built_from_commit": "bcc2d5ce23363ca121429e582d17b0018a0a0966",
     "invocation_id": "1cb3cd4e-0637-4229-875c-82d073080540",
-    "sequence": 125,
-    "status": "verified"
+    "sequence": 125
   },
   "memberships": [
     {
@@ -1059,8 +1059,8 @@
   },
   "collation": {
     "datlocprovider": "c",
-    "datcollate": "C.UTF-8",
-    "datctype": "C.UTF-8",
+    "datcollate": "en_US.utf8",
+    "datctype": "en_US.utf8",
     "daticulocale": null,
     "daticurules": null,
     "datcollversion": null
