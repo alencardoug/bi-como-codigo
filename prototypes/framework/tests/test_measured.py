@@ -310,3 +310,41 @@ def test_a_resume_assembles_the_archived_seal_never_a_new_one(tmp_path, monkeypa
         assert held == draw["package"], name
     shutil.rmtree(folder / "package")  # the expanded copy lost: the archived seal is enough
     assert measured._seal(state["draw"], "package", folder / "package", tmp_path / "y", tmp_path).is_dir()
+
+
+def test_a_mutant_that_does_not_bind_or_errs_leaves_the_runs_and_is_retried(tmp_path, monkeypatch):
+    """CMP-4-03: a corrupt mutant seal escaped the draw before any comparison, and a returned
+    mutant assembly error closed the draw with no proof for B. Both are the mutant's failure
+    now: the judged run is kept, the draw stays open, and the next invocation assembles it."""
+    import harness as h
+    route.build_own(HEAD, runs=tmp_path, require_clean=False, prove=PASSED)
+    real = h.assemble
+    calls = {"mutant": 0}
+
+    def errs(builder, package_dir, *a, **k):
+        if package_dir.name == "seal" and package_dir.parent.name == "own-mutant":
+            calls["mutant"] += 1
+            if calls["mutant"] == 1:
+                return h.Outcome("assembly", h.HARNESS_ERROR, "a transient error"), None
+        return real(builder, package_dir, *a, **k)
+    monkeypatch.setattr(h, "assemble", errs)
+    kw = dict(runs=tmp_path, measured=tmp_path / "m", candidates=("own",), require_clean=False, limit=20)
+    out = measured.run(HEAD, 20261122, **kw)
+    assert not out.get("finished") and out["open"] == ["own-mutant"] and measured.verdicts(route.load(tmp_path))["own"].startswith(v.PASSES)
+    again = measured.run(HEAD, 1, **kw)
+    assert again["finished"] and route.load(tmp_path)["artifacts"]["own-mutant"]["assembly"]["class"] == "PASS"
+
+
+def test_a_corrupt_mutant_seal_is_the_mutants_failure(tmp_path, monkeypatch):
+    route.build_own(HEAD, runs=tmp_path, require_clean=False, prove=PASSED)
+    real = measured._seal
+
+    def corrupt(draw, key, *a, **k):
+        if key == "mutant_package":
+            raise route.Refused("not the mutant package the draw sealed")
+        return real(draw, key, *a, **k)
+    monkeypatch.setattr(measured, "_seal", corrupt)
+    out = measured.run(HEAD, 20261122, runs=tmp_path, measured=tmp_path / "m", candidates=("own",), require_clean=False, limit=20)
+    state = route.load(tmp_path)
+    assert out["open"] == ["own-mutant"] and "seal" in state["artifacts"]["own-mutant"]["assembly"]["message"]
+    assert measured.verdicts(state)["own"].startswith(v.PASSES)

@@ -177,3 +177,17 @@ def test_an_artifact_that_holds_another_package_is_not_measured_under_the_draws(
     other = {**draw, "package": {k: "0" * 64 for k in draw["package"]}}
     with pytest.raises(ValueError, match="does not hold the package"):
         compare.measure_candidate("own", other, artifacts, tmp_path / "out", runs)
+
+
+def test_bs_check_made_before_its_mutant_was_recovered_is_made_again(tmp_path):
+    """CMP-4-03: a kept result of B is of the mutant it had; a mutant assembled since sends it back."""
+    state = route.load(tmp_path)
+    draw = {"id": "d1", "fixture_digest": "f", "package": {"P01.bice": "p"}, "harness": {"x": "h"}}
+    state.update(draw=draw, artifacts={"own": {"artifact_digest": "a1"}, "own-mutant": {"artifact_digest": "m1"}},
+                 measures={"own": {"artifact_digest": "a1", "results": "draws/d1/results/own"}})
+    good = {"artifact_digest": "a1", "fixture_digest": "f", "package": {"P01.bice": "p"}, "draw": "d1", "harness": {"x": "h"},
+            "check": {"passed": False}, "controls": [], "diagnostic": {}, "measures": {}, "static": {}, "mutant_artifact_digest": None}
+    folder = tmp_path / "draws" / "d1" / "results" / "own"
+    folder.mkdir(parents=True)
+    (folder / "result.json").write_text(json.dumps(good))
+    assert compare._kept(state, "own", tmp_path) is None

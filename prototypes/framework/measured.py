@@ -305,8 +305,11 @@ def _carry(state: dict, draw: dict, entries: dict, commit: str, inputs: dict, ru
         folder.mkdir(parents=True)
         builder = folder / "builder"
         trees.extract(runs / entries["own"]["archive"], builder, entries["own"]["builder_digest"])
-        sealed = _seal(draw, "mutant_package", mutant_dir / "package", folder / "seal", runs)
-        assembly, _ = h.assemble(builder, sealed, mutant.rows(), folder / "artifact")
+        try:  # the mutant is B's proof alone: a seal that does not bind is its failure, not the draw's (CMP-4-03)
+            sealed = _seal(draw, "mutant_package", mutant_dir / "package", folder / "seal", runs)
+            assembly, _ = h.assemble(builder, sealed, mutant.rows(), folder / "artifact")
+        except route.Refused as refusal:
+            assembly = h.Outcome("assembly", h.HARNESS_ERROR, f"the mutant's seal: {refusal}")
         shutil.rmtree(builder)
         artifacts["own-mutant"] = {"label": "control", "assembly": {"class": assembly.cls, "message": assembly.message},
                                    "fixture_digest": mutant.digest()}
@@ -318,6 +321,9 @@ def _carry(state: dict, draw: dict, entries: dict, commit: str, inputs: dict, ru
     # Finished only when every run is through it; otherwise it stays open, and the next invocation
     # carries on what errored (CMP-3-01).
     open_ = [n for n in entries if not _through(_done_stages(state, draw_id, n)[0])]
+    mutant_done = artifacts.get("own-mutant", {})
+    if "own" in entries and "artifact_archive" not in mutant_done and mutant_done.get("assembly", {}).get("class") != h.FORM:
+        open_.append("own-mutant")  # retried on the same draw: B's proof needs it (CMP-4-03)
     if open_:
         draw["open"] = open_
     else:

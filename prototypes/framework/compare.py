@@ -90,6 +90,7 @@ def measure_candidate(name: str, draw: dict, artifacts: dict, out: pathlib.Path,
     mutant = {}
     if name == "own":
         m = artifacts.get("own-mutant", {})
+        result["mutant_artifact_digest"] = m.get("artifact_digest")  # a check is of the mutant it had (CMP-4-03)
         if "artifact_archive" in m:
             try:  # the mutant is B's proof alone: a mutant that does not bind is a proof missing (CMP-3-06)
                 mutant = {"mutant_artifact": _bound(runs, m["artifact_archive"], m["artifact_digest"], out / "bound" / "mutant"),
@@ -145,7 +146,11 @@ def _kept(state: dict, name: str, runs: pathlib.Path) -> dict | None:
         return None
     same = {"artifact_digest": art.get("artifact_digest"), "fixture_digest": draw.get("fixture_digest"),
             "package": draw.get("package"), "draw": draw.get("id"), "harness": draw.get("harness")}
-    return result if all(result.get(k) == v and v is not None for k, v in same.items()) else None
+    if not all(result.get(k) == v and v is not None for k, v in same.items()):
+        return None
+    if name == "own" and result.get("mutant_artifact_digest") != state["artifacts"].get("own-mutant", {}).get("artifact_digest"):
+        return None  # B's check predates the mutant it has now: checked again (CMP-4-03)
+    return result
 
 
 @route.serialized
