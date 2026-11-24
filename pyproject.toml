@@ -18,10 +18,14 @@ requires-python = ">=3.11"
 # AES Key Wrap; PBKDF2 comes from the standard library. `duckdb` with the
 # package gate of stage 2.2b (docs/package_gate.md, N77): it reads each
 # report's Parquet, pinned exactly, since its type names are part of the
-# contract.
+# contract. `psycopg` with the exporter of stage 2.4 (docs/exporter.md §3,
+# N105): the read of the views, pinned exactly, with the binary wheel that
+# bundles libpq — this machine has no libpq of its own — since the result's
+# type OIDs and modifiers it exposes are part of the view contract.
 dependencies = [
     "cryptography>=46,<47",
     "duckdb==1.5.6",
+    "psycopg[binary]==3.3.9",
 ]
 
 [dependency-groups]
