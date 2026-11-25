@@ -13,6 +13,10 @@ is the literal output of `chart_oracle.py`, with its UTC timestamp in the first 
 | `shots.mjs` | Headless Chrome through the DevTools protocol: the login box, then, after the public password (N22), the chart under each filter, named by the filter's label; it records what the page shows and judges nothing | `shots/` |
 | `shots/` | `b_*` and `evidence_*`: `01_login` and `03` to `06`, the chart under `todos` and each of the three channels; `*_shots.json`, the filters each page offered | §10, ADR-0004 |
 | `chart_oracle.py` | From the drawn fixture's cells: per filter, the cells with no row (G), the cells summed to zero (Z) and the months with a row; for `todos`, the first months of `fixture_raiz_1`, its largest month, and the order months take when sorted by value, descending | §10, ADR-0004 |
+| `m59_profile.py` | From M59's capture outside Git and the metadata package at `b0ef66e`, printing no value: per view, its rows and whether its grain — roles `grain` and `identity` — repeats a key or holds a null; per column, its nulls, and for `numeric` the most integer and fractional digits written and any NaN or infinity, for integers the most digits, for text the longest value and any NUL. `m59_profile.out.txt` is its output | `docs/exporter.md` §2, §4.2; N106 |
+| `exporter_probe.py` | The exporter's SQL and the pinned psycopg against an isolated, throwaway PostgreSQL 16.15 — the warehouse's image, on `127.0.0.1` — holding the 16 views' real columns over the invented rows of `tests/exporter/fixture.json`, no data of eng_dados: `export catalogue`, the adapter's types and modifiers, the fingerprint of M55's expression against the fake's, and a whole export. `exporter_probe.out.txt` is its literal output | [`docs/exporter.md`](../../docs/exporter.md) §14, §16 |
+| `writer_load.py` | How the exporter's writer hands rows to DuckDB 1.5.6: row by row with `executemany`, against one JSON Lines file read with every column `VARCHAR` and cast after; 5,775 invented rows of 17 `DECIMAL(12,2)`, the size of M59's largest view. `writer_load.out.txt` is its output | [`docs/exporter.md`](../../docs/exporter.md) §16 |
+| `catalogue.json` | Written by `export catalogue` in the Owner's short read window of 2026-11-24, 16:44 UTC, after checks 1 to 6 passed: the provenance row, the role closure with its options, each role's `rolcanlogin`, the 16 views' columns with their type OIDs and modifiers from `pg_attribute`, the session's text-form defaults, the encodings and the collation. No row, no value of a report | `release/views.json`; [`docs/exporter.md`](../../docs/exporter.md) §16 |
 
 The whole page after login, tables included, was captured too (`*_02_page.png`, 2.2 MB and 1.6 MB).
 It stays on this machine, under the ignored `prototypes/framework/runs/screenshots-20261124/`.
@@ -22,6 +26,11 @@ uv run --group prototype python evidence/20261124/serve.py <draw folder> 8101 81
 node evidence/20261124/shots.mjs http://127.0.0.1:8101/ <out> b <password>
 SETTLE_MS=6000 CHART='div:has(> div[_echarts_instance_])' node evidence/20261124/shots.mjs http://127.0.0.1:8102/ <out> evidence <password>
 python3 -I evidence/20261124/chart_oracle.py <cells.json of the draw>
+python3 -I evidence/20261124/m59_profile.py data/captures/20261119_v2.3.0 evidence/20261119/capture.out.txt <metadata package at b0ef66e>
+docker run -d --rm --name bice-exporter-probe -e POSTGRES_PASSWORD=<local> -e POSTGRES_DB=probe -p 127.0.0.1:55432:5432 postgres:16.15-alpine
+BICE_PROBE_PASSWORD=<local> uv run --frozen python evidence/20261124/exporter_probe.py
+docker stop bice-exporter-probe
+uv run --frozen python evidence/20261124/writer_load.py
 ```
 
 **What the screenshots show, against the oracle:**

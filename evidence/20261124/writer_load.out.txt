@@ -1,0 +1,4 @@
+2026-11-24T16:03:58Z duckdb 1.5.6, 5775 rows x 17 DECIMAL(12,2)
+executemany, a cast per cell: 49.35 s
+JSON Lines, every column VARCHAR, cast after: 0.28 s
+equal: True

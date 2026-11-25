@@ -60,6 +60,9 @@ naming a checkout of mvp_eng_dados_1 and `ENG_DADOS_2_DIR` one of mvp_eng_dados_
   protects and costs, and the recommended one first, with the reason.
 - Large work is planned in writing and reviewed by Codex before it is executed; the hand-off between
   the two agents uses the `review` skill ([`.claude/skills/review/`](.claude/skills/review/SKILL.md)).
+  For stages 2.5 to 2.10 the Owner set this aside ([N115](PLAN.md#12-the-decisions)): each
+  begins with a short written plan the Owner approves, and Codex reviews only 2.6 and, at 2.10,
+  everything since the tag `checkpoint-2.4`, the return point if it goes wrong.
 - A number that was not measured is marked as pending: "planned" and "measured" never mix.
 - Declarations are reviewed in full; what is generated from them, by sample and by oracle. An error
   in generated output is fixed in the declaration, never in the output.

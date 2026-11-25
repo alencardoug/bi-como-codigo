@@ -1,0 +1,386 @@
+{
+  "about": "The view contract of stage 2.4 (docs/exporter.md §4.1): the 16 views of consumption at the pin, with their source types as the catalogue gives them, the types the export writes, the grain, the bounds and the accepted builds with their witness. Drafted by `export propose`, reviewed in full and committed by hand; release/contract.json is generated from it. Protected, like everything under release/.",
+  "contract_version": 1,
+  "login": "consumption_reader",
+  "roles": {
+    "can_login": [{"role": "analyst", "rolcanlogin": false}, {"role": "consumption_reader", "rolcanlogin": true}],
+    "memberships": [{"member": "consumption_reader", "role": "analyst", "inherit_option": true, "set_option": true}]
+  },
+  "pin": "b0ef66e3ab42ce83c447c875c832f10f04db0d19",
+  "metadata_blob": "87d1dad31c49a2b8726cc44f991b19b0c87f05df",
+  "accepted_builds": [
+    {
+      "provenance": {"built_from_commit": "bcc2d5ce23363ca121429e582d17b0018a0a0966", "invocation_id": "1cb3cd4e-0637-4229-875c-82d073080540", "sequence": 125},
+      "policy": {"TimeZone": "UTC", "DateStyle": "ISO, MDY", "IntervalStyle": "postgres", "extra_float_digits": "1"},
+      "collation": {"datlocprovider": "c", "datcollate": "en_US.utf8", "datctype": "en_US.utf8", "daticulocale": null, "daticurules": null, "datcollversion": null},
+      "witness": [
+        {"view": "average_order_value_by_channel_and_segment", "rows": 756, "md5": "1f36e9f5f9e499e0b1c8394097c56989"},
+        {"view": "cart_conversion_rate_by_channel", "rows": 96, "md5": "17dcab2d6a9e23618b5179ba2c4013ea"},
+        {"view": "discount_share_by_channel", "rows": 393, "md5": "b2f06497f8c5d4dcf2b54f46ace21729"},
+        {"view": "gross_margin_by_category", "rows": 526, "md5": "c91719f70ebfd98c814b8f639ab79838"},
+        {"view": "inventory_turnover_by_sku_and_warehouse", "rows": 5775, "md5": "86c8288e98234d55a198e48b9c422568"},
+        {"view": "monthly_revenue_by_channel_and_category", "rows": 1496, "md5": "30d37a5b184c3e32f5813cfde7b45dc6"},
+        {"view": "new_and_repeat_customers_by_month", "rows": 534, "md5": "6f12352876798c2f56b9c345ec8c1e5f"},
+        {"view": "on_time_delivery_rate_by_carrier", "rows": 1177, "md5": "027a7b511be754b5c4b5b5736b5d3430"},
+        {"view": "order_to_delivery_time_by_region", "rows": 1858, "md5": "dfe3bef80170b9226dbe1be99e1fb750"},
+        {"view": "payment_approval_rate_by_method", "rows": 541, "md5": "b12c42b918d91341205b540722af7643"},
+        {"view": "refund_rate_by_reason", "rows": 111, "md5": "c9d8927a75fd779c8f305ac51f4a9d03"},
+        {"view": "repeat_purchase_rate_after_support", "rows": 168, "md5": "9bc752ee094fabfb3af63b78d1445660"},
+        {"view": "revenue_by_delivery_region", "rows": 467, "md5": "8b8a641c8360cbfcd9d6379928a654d0"},
+        {"view": "skus_below_reorder_point", "rows": 213, "md5": "ab59413ba8ae563e823172eeccbda649"},
+        {"view": "support_tickets_per_hundred_orders", "rows": 108, "md5": "51b752e9c51a5517d7380fbeac9dc5cf"},
+        {"view": "top_skus_by_revenue", "rows": 25, "md5": "ad5a925872811ee64b63c2f6076111b6"}
+      ]
+    }
+  ],
+  "views": [
+    {
+      "view": "monthly_revenue_by_channel_and_category",
+      "report": "P01",
+      "version": 1,
+      "max_rows": 2992,
+      "may_be_empty": false,
+      "grain": ["year_month", "year_number", "month_number", "sales_channel_name", "channel_type", "root_category_name", "category_name"],
+      "columns": [
+        {"name": "year_month", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "month_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "sales_channel_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "channel_type", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 10},
+        {"name": "root_category_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 30},
+        {"name": "category_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 30},
+        {"name": "order_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "unit_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "gross_revenue_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2},
+        {"name": "discount_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 9, "scale": 2},
+        {"name": "net_revenue_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2}
+      ]
+    },
+    {
+      "view": "average_order_value_by_channel_and_segment",
+      "report": "P02",
+      "version": 1,
+      "max_rows": 1512,
+      "may_be_empty": false,
+      "grain": ["year_month", "year_number", "month_number", "sales_channel_name", "customer_segment_name"],
+      "columns": [
+        {"name": "year_month", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "month_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "sales_channel_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "customer_segment_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 32},
+        {"name": "order_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "net_revenue_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 10, "scale": 2},
+        {"name": "average_order_value", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 10, "scale": 2}
+      ]
+    },
+    {
+      "view": "top_skus_by_revenue",
+      "report": "P03",
+      "version": 1,
+      "max_rows": 50,
+      "may_be_empty": false,
+      "grain": ["product_natural_key", "sku", "product_name", "category_name", "root_category_name", "brand_name", "is_deleted"],
+      "columns": [
+        {"name": "revenue_rank", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "product_natural_key", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "sku", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "product_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 76},
+        {"name": "category_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 26},
+        {"name": "root_category_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 30},
+        {"name": "brand_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 28},
+        {"name": "is_deleted", "source_type": "boolean", "source_oid": 16, "source_typmod": -1, "nullable": false},
+        {"name": "unit_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "net_revenue_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2},
+        {"name": "category_net_revenue_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 12, "scale": 2},
+        {"name": "category_revenue_share_pct", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 7, "scale": 2}
+      ]
+    },
+    {
+      "view": "new_and_repeat_customers_by_month",
+      "report": "P04",
+      "version": 1,
+      "max_rows": 1068,
+      "may_be_empty": false,
+      "grain": ["year_month", "year_number", "month_number", "sales_channel_name", "customer_segment_name"],
+      "columns": [
+        {"name": "year_month", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "month_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "sales_channel_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "customer_segment_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 32},
+        {"name": "new_customer_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "returning_customer_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "repeat_purchase_rate_pct", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 8, "scale": 2}
+      ]
+    },
+    {
+      "view": "revenue_by_delivery_region",
+      "report": "P05",
+      "version": 1,
+      "max_rows": 934,
+      "may_be_empty": false,
+      "grain": ["year_number", "quarter_number", "year_quarter", "region", "state_code", "state_name", "sales_channel_name"],
+      "columns": [
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "quarter_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "year_quarter", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "region", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 24},
+        {"name": "state_code", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 4},
+        {"name": "state_name", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 34},
+        {"name": "sales_channel_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "order_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "customer_version_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "unit_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "net_revenue_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2}
+      ]
+    },
+    {
+      "view": "discount_share_by_channel",
+      "report": "P06",
+      "version": 1,
+      "max_rows": 786,
+      "may_be_empty": false,
+      "grain": ["year_month", "year_number", "month_number", "sales_channel_name", "channel_type", "root_category_name"],
+      "columns": [
+        {"name": "year_month", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "month_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "sales_channel_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "channel_type", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 10},
+        {"name": "root_category_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 30},
+        {"name": "order_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "gross_revenue_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2},
+        {"name": "discount_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 9, "scale": 2},
+        {"name": "net_revenue_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2},
+        {"name": "discount_share_pct", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 7, "scale": 2}
+      ]
+    },
+    {
+      "view": "cart_conversion_rate_by_channel",
+      "report": "P07",
+      "version": 1,
+      "max_rows": 192,
+      "may_be_empty": false,
+      "grain": ["year_month", "year_number", "month_number", "sales_channel_name", "channel_type"],
+      "columns": [
+        {"name": "year_month", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "month_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "sales_channel_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "channel_type", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 10},
+        {"name": "cart_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "closed_cart_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "converted_cart_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "abandoned_cart_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "cart_conversion_rate_pct", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 7, "scale": 2},
+        {"name": "cart_value_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 12, "scale": 2},
+        {"name": "abandoned_value_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 12, "scale": 2}
+      ]
+    },
+    {
+      "view": "gross_margin_by_category",
+      "report": "P08",
+      "version": 1,
+      "max_rows": 1052,
+      "may_be_empty": false,
+      "grain": ["year_month", "year_number", "month_number", "root_category_name", "category_name"],
+      "columns": [
+        {"name": "year_month", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "month_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "root_category_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 30},
+        {"name": "category_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 30},
+        {"name": "net_revenue_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2},
+        {"name": "cost_of_goods_sold", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2},
+        {"name": "gross_profit_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2},
+        {"name": "gross_margin_pct", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": true, "precision": 8, "scale": 2},
+        {"name": "unit_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "dispatched_unit_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false}
+      ]
+    },
+    {
+      "view": "payment_approval_rate_by_method",
+      "report": "P09",
+      "version": 1,
+      "max_rows": 1082,
+      "may_be_empty": false,
+      "grain": ["year_month", "year_number", "month_number", "payment_method_name", "method_type", "installments", "is_instalment_plan"],
+      "columns": [
+        {"name": "year_month", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "month_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "payment_method_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 34},
+        {"name": "method_type", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "installments", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "is_instalment_plan", "source_type": "boolean", "source_oid": 16, "source_typmod": -1, "nullable": false},
+        {"name": "authorization_attempt_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "approved_authorization_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "approval_rate_pct", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 8, "scale": 2},
+        {"name": "authorized_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2},
+        {"name": "captured_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2}
+      ]
+    },
+    {
+      "view": "refund_rate_by_reason",
+      "report": "P10",
+      "version": 1,
+      "max_rows": 222,
+      "may_be_empty": false,
+      "grain": ["year_month", "year_number", "month_number", "payment_method_name", "refund_reason"],
+      "columns": [
+        {"name": "year_month", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "month_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "payment_method_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 34},
+        {"name": "refund_reason", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 64},
+        {"name": "refund_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "refunded_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 10, "scale": 2},
+        {"name": "captured_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2},
+        {"name": "refund_rate_pct", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 7, "scale": 2}
+      ]
+    },
+    {
+      "view": "inventory_turnover_by_sku_and_warehouse",
+      "report": "P11",
+      "version": 1,
+      "max_rows": 11550,
+      "may_be_empty": false,
+      "grain": ["year_number", "quarter_number", "year_quarter", "sku", "product_name", "category_name", "warehouse_name", "warehouse_region"],
+      "columns": [
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "quarter_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "year_quarter", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "sku", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "product_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 88},
+        {"name": "category_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 30},
+        {"name": "warehouse_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 24},
+        {"name": "warehouse_region", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 24},
+        {"name": "quantity_out", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "cost_of_goods_sold", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 10, "scale": 2},
+        {"name": "avg_quantity_on_hand", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 7, "scale": 2},
+        {"name": "avg_inventory_value_amount", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 11, "scale": 2},
+        {"name": "inventory_turnover", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": true, "precision": 7, "scale": 2}
+      ]
+    },
+    {
+      "view": "skus_below_reorder_point",
+      "report": "P12",
+      "version": 1,
+      "max_rows": 426,
+      "may_be_empty": false,
+      "grain": ["warehouse_name", "warehouse_region", "sku", "product_name", "category_name", "brand_name"],
+      "columns": [
+        {"name": "warehouse_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 24},
+        {"name": "warehouse_region", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 24},
+        {"name": "sku", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "product_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 82},
+        {"name": "category_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 30},
+        {"name": "brand_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 32},
+        {"name": "quantity_on_hand", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "quantity_reserved", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "quantity_available", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "quantity_from_batch", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "quantity_from_stream", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "stream_movement_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "reorder_point", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "is_stockout", "source_type": "boolean", "source_oid": 16, "source_typmod": -1, "nullable": false},
+        {"name": "daily_demand_units", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": true, "precision": 6, "scale": 3},
+        {"name": "days_of_cover", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": true, "precision": 4, "scale": 1},
+        {"name": "last_movement_at", "source_type": "timestamp with time zone", "source_oid": 1184, "source_typmod": -1, "nullable": false}
+      ]
+    },
+    {
+      "view": "on_time_delivery_rate_by_carrier",
+      "report": "P13",
+      "version": 1,
+      "max_rows": 2354,
+      "may_be_empty": false,
+      "grain": ["year_number", "month_number", "year_month", "carrier_name", "service_level", "warehouse_name", "warehouse_region"],
+      "columns": [
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "month_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "year_month", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "carrier_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 32},
+        {"name": "service_level", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 16},
+        {"name": "warehouse_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 24},
+        {"name": "warehouse_region", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 24},
+        {"name": "delivered_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "on_time_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "late_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "split_order_shipment_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "on_time_rate", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 8, "scale": 4},
+        {"name": "avg_delay_days_when_late", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": true, "precision": 8, "scale": 4},
+        {"name": "avg_transit_days", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 9, "scale": 4},
+        {"name": "failed_attempt_count", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 4, "scale": 0}
+      ]
+    },
+    {
+      "view": "order_to_delivery_time_by_region",
+      "report": "P14",
+      "version": 1,
+      "max_rows": 3716,
+      "may_be_empty": false,
+      "grain": ["year_number", "month_number", "year_month", "region", "state_code", "service_level", "carrier_name"],
+      "columns": [
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "month_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "year_month", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "region", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 24},
+        {"name": "state_code", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 4},
+        {"name": "service_level", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 16},
+        {"name": "carrier_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 32},
+        {"name": "order_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "split_order_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "shipment_count", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 4, "scale": 0},
+        {"name": "avg_order_to_delivery_days", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 9, "scale": 4},
+        {"name": "median_order_to_delivery_days", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 9, "scale": 4},
+        {"name": "max_order_to_delivery_days", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 9, "scale": 4}
+      ]
+    },
+    {
+      "view": "support_tickets_per_hundred_orders",
+      "report": "P15",
+      "version": 1,
+      "max_rows": 216,
+      "may_be_empty": false,
+      "grain": ["year_number", "month_number", "year_month", "sales_channel_name", "channel_type", "support_category_name", "support_category_group"],
+      "columns": [
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "month_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "year_month", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "sales_channel_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "channel_type", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "support_category_name", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 18},
+        {"name": "support_category_group", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 20},
+        {"name": "ticket_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "high_priority_ticket_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "reopened_ticket_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "solved_first_time_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "channel_order_count", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": true, "precision": 5, "scale": 0},
+        {"name": "tickets_per_hundred_orders", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": true, "precision": 9, "scale": 4},
+        {"name": "avg_hours_to_resolution", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": true, "precision": 8, "scale": 2}
+      ]
+    },
+    {
+      "view": "repeat_purchase_rate_after_support",
+      "report": "P16",
+      "version": 1,
+      "max_rows": 336,
+      "may_be_empty": false,
+      "grain": ["year_number", "month_number", "year_month", "sales_channel_name", "has_support_ticket", "support_category_name"],
+      "columns": [
+        {"name": "year_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "month_number", "source_type": "integer", "source_oid": 23, "source_typmod": -1, "nullable": false},
+        {"name": "year_month", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 14},
+        {"name": "sales_channel_name", "source_type": "character varying", "source_oid": 1043, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "has_support_ticket", "source_type": "boolean", "source_oid": 16, "source_typmod": -1, "nullable": false},
+        {"name": "support_category_name", "source_type": "text", "source_oid": 25, "source_typmod": -1, "nullable": false, "max_length": 22},
+        {"name": "order_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "repeat_order_count", "source_type": "bigint", "source_oid": 20, "source_typmod": -1, "nullable": false},
+        {"name": "repeat_purchase_rate", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": false, "precision": 8, "scale": 4},
+        {"name": "avg_days_to_next_order", "source_type": "numeric", "source_oid": 1700, "source_typmod": -1, "nullable": true, "precision": 7, "scale": 2}
+      ]
+    }
+  ]
+}

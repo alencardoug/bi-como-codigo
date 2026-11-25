@@ -4,33 +4,302 @@
     "P01": {
       "version": 1,
       "columns": [
-        {"name": "rotulo", "type": "VARCHAR", "nullable": false},
-        {"name": "valor", "type": "DECIMAL(18,2)", "nullable": false},
-        {"name": "unidades", "type": "INTEGER", "nullable": true}
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "sales_channel_name", "type": "VARCHAR", "nullable": false},
+        {"name": "channel_type", "type": "VARCHAR", "nullable": false},
+        {"name": "root_category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "order_count", "type": "BIGINT", "nullable": false},
+        {"name": "unit_count", "type": "BIGINT", "nullable": false},
+        {"name": "gross_revenue_amount", "type": "DECIMAL(11,2)", "nullable": false},
+        {"name": "discount_amount", "type": "DECIMAL(9,2)", "nullable": false},
+        {"name": "net_revenue_amount", "type": "DECIMAL(11,2)", "nullable": false}
       ],
-      "grain": ["rotulo"],
-      "sums": ["valor", "unidades"]
+      "grain": ["year_month", "year_number", "month_number", "sales_channel_name", "channel_type", "root_category_name", "category_name"],
+      "sums": ["year_number", "month_number", "order_count", "unit_count", "gross_revenue_amount", "discount_amount", "net_revenue_amount"]
     },
     "P02": {
       "version": 1,
       "columns": [
-        {"name": "mes", "type": "DATE", "nullable": false},
-        {"name": "canal", "type": "VARCHAR", "nullable": false},
-        {"name": "quantidade", "type": "BIGINT", "nullable": false}
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "sales_channel_name", "type": "VARCHAR", "nullable": false},
+        {"name": "customer_segment_name", "type": "VARCHAR", "nullable": false},
+        {"name": "order_count", "type": "BIGINT", "nullable": false},
+        {"name": "net_revenue_amount", "type": "DECIMAL(10,2)", "nullable": false},
+        {"name": "average_order_value", "type": "DECIMAL(10,2)", "nullable": false}
       ],
-      "grain": ["mes", "canal"],
-      "sums": ["quantidade"]
+      "grain": ["year_month", "year_number", "month_number", "sales_channel_name", "customer_segment_name"],
+      "sums": ["year_number", "month_number", "order_count", "net_revenue_amount", "average_order_value"]
+    },
+    "P03": {
+      "version": 1,
+      "columns": [
+        {"name": "revenue_rank", "type": "BIGINT", "nullable": false},
+        {"name": "product_natural_key", "type": "BIGINT", "nullable": false},
+        {"name": "sku", "type": "VARCHAR", "nullable": false},
+        {"name": "product_name", "type": "VARCHAR", "nullable": false},
+        {"name": "category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "root_category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "brand_name", "type": "VARCHAR", "nullable": false},
+        {"name": "is_deleted", "type": "BOOLEAN", "nullable": false},
+        {"name": "unit_count", "type": "BIGINT", "nullable": false},
+        {"name": "net_revenue_amount", "type": "DECIMAL(11,2)", "nullable": false},
+        {"name": "category_net_revenue_amount", "type": "DECIMAL(12,2)", "nullable": false},
+        {"name": "category_revenue_share_pct", "type": "DECIMAL(7,2)", "nullable": false}
+      ],
+      "grain": ["product_natural_key", "sku", "product_name", "category_name", "root_category_name", "brand_name", "is_deleted"],
+      "sums": ["revenue_rank", "product_natural_key", "unit_count", "net_revenue_amount", "category_net_revenue_amount", "category_revenue_share_pct"]
+    },
+    "P04": {
+      "version": 1,
+      "columns": [
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "sales_channel_name", "type": "VARCHAR", "nullable": false},
+        {"name": "customer_segment_name", "type": "VARCHAR", "nullable": false},
+        {"name": "new_customer_count", "type": "BIGINT", "nullable": false},
+        {"name": "returning_customer_count", "type": "BIGINT", "nullable": false},
+        {"name": "repeat_purchase_rate_pct", "type": "DECIMAL(8,2)", "nullable": false}
+      ],
+      "grain": ["year_month", "year_number", "month_number", "sales_channel_name", "customer_segment_name"],
+      "sums": ["year_number", "month_number", "new_customer_count", "returning_customer_count", "repeat_purchase_rate_pct"]
+    },
+    "P05": {
+      "version": 1,
+      "columns": [
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "quarter_number", "type": "INTEGER", "nullable": false},
+        {"name": "year_quarter", "type": "VARCHAR", "nullable": false},
+        {"name": "region", "type": "VARCHAR", "nullable": false},
+        {"name": "state_code", "type": "VARCHAR", "nullable": false},
+        {"name": "state_name", "type": "VARCHAR", "nullable": false},
+        {"name": "sales_channel_name", "type": "VARCHAR", "nullable": false},
+        {"name": "order_count", "type": "BIGINT", "nullable": false},
+        {"name": "customer_version_count", "type": "BIGINT", "nullable": false},
+        {"name": "unit_count", "type": "BIGINT", "nullable": false},
+        {"name": "net_revenue_amount", "type": "DECIMAL(11,2)", "nullable": false}
+      ],
+      "grain": ["year_number", "quarter_number", "year_quarter", "region", "state_code", "state_name", "sales_channel_name"],
+      "sums": ["year_number", "quarter_number", "order_count", "customer_version_count", "unit_count", "net_revenue_amount"]
+    },
+    "P06": {
+      "version": 1,
+      "columns": [
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "sales_channel_name", "type": "VARCHAR", "nullable": false},
+        {"name": "channel_type", "type": "VARCHAR", "nullable": false},
+        {"name": "root_category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "order_count", "type": "BIGINT", "nullable": false},
+        {"name": "gross_revenue_amount", "type": "DECIMAL(11,2)", "nullable": false},
+        {"name": "discount_amount", "type": "DECIMAL(9,2)", "nullable": false},
+        {"name": "net_revenue_amount", "type": "DECIMAL(11,2)", "nullable": false},
+        {"name": "discount_share_pct", "type": "DECIMAL(7,2)", "nullable": false}
+      ],
+      "grain": ["year_month", "year_number", "month_number", "sales_channel_name", "channel_type", "root_category_name"],
+      "sums": ["year_number", "month_number", "order_count", "gross_revenue_amount", "discount_amount", "net_revenue_amount", "discount_share_pct"]
+    },
+    "P07": {
+      "version": 1,
+      "columns": [
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "sales_channel_name", "type": "VARCHAR", "nullable": false},
+        {"name": "channel_type", "type": "VARCHAR", "nullable": false},
+        {"name": "cart_count", "type": "BIGINT", "nullable": false},
+        {"name": "closed_cart_count", "type": "BIGINT", "nullable": false},
+        {"name": "converted_cart_count", "type": "BIGINT", "nullable": false},
+        {"name": "abandoned_cart_count", "type": "BIGINT", "nullable": false},
+        {"name": "cart_conversion_rate_pct", "type": "DECIMAL(7,2)", "nullable": false},
+        {"name": "cart_value_amount", "type": "DECIMAL(12,2)", "nullable": false},
+        {"name": "abandoned_value_amount", "type": "DECIMAL(12,2)", "nullable": false}
+      ],
+      "grain": ["year_month", "year_number", "month_number", "sales_channel_name", "channel_type"],
+      "sums": ["year_number", "month_number", "cart_count", "closed_cart_count", "converted_cart_count", "abandoned_cart_count", "cart_conversion_rate_pct", "cart_value_amount", "abandoned_value_amount"]
+    },
+    "P08": {
+      "version": 1,
+      "columns": [
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "root_category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "net_revenue_amount", "type": "DECIMAL(11,2)", "nullable": false},
+        {"name": "cost_of_goods_sold", "type": "DECIMAL(11,2)", "nullable": false},
+        {"name": "gross_profit_amount", "type": "DECIMAL(11,2)", "nullable": false},
+        {"name": "gross_margin_pct", "type": "DECIMAL(8,2)", "nullable": true},
+        {"name": "unit_count", "type": "BIGINT", "nullable": false},
+        {"name": "dispatched_unit_count", "type": "BIGINT", "nullable": false}
+      ],
+      "grain": ["year_month", "year_number", "month_number", "root_category_name", "category_name"],
+      "sums": ["year_number", "month_number", "net_revenue_amount", "cost_of_goods_sold", "gross_profit_amount", "gross_margin_pct", "unit_count", "dispatched_unit_count"]
+    },
+    "P09": {
+      "version": 1,
+      "columns": [
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "payment_method_name", "type": "VARCHAR", "nullable": false},
+        {"name": "method_type", "type": "VARCHAR", "nullable": false},
+        {"name": "installments", "type": "INTEGER", "nullable": false},
+        {"name": "is_instalment_plan", "type": "BOOLEAN", "nullable": false},
+        {"name": "authorization_attempt_count", "type": "BIGINT", "nullable": false},
+        {"name": "approved_authorization_count", "type": "BIGINT", "nullable": false},
+        {"name": "approval_rate_pct", "type": "DECIMAL(8,2)", "nullable": false},
+        {"name": "authorized_amount", "type": "DECIMAL(11,2)", "nullable": false},
+        {"name": "captured_amount", "type": "DECIMAL(11,2)", "nullable": false}
+      ],
+      "grain": ["year_month", "year_number", "month_number", "payment_method_name", "method_type", "installments", "is_instalment_plan"],
+      "sums": ["year_number", "month_number", "installments", "authorization_attempt_count", "approved_authorization_count", "approval_rate_pct", "authorized_amount", "captured_amount"]
+    },
+    "P10": {
+      "version": 1,
+      "columns": [
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "payment_method_name", "type": "VARCHAR", "nullable": false},
+        {"name": "refund_reason", "type": "VARCHAR", "nullable": false},
+        {"name": "refund_count", "type": "BIGINT", "nullable": false},
+        {"name": "refunded_amount", "type": "DECIMAL(10,2)", "nullable": false},
+        {"name": "captured_amount", "type": "DECIMAL(11,2)", "nullable": false},
+        {"name": "refund_rate_pct", "type": "DECIMAL(7,2)", "nullable": false}
+      ],
+      "grain": ["year_month", "year_number", "month_number", "payment_method_name", "refund_reason"],
+      "sums": ["year_number", "month_number", "refund_count", "refunded_amount", "captured_amount", "refund_rate_pct"]
+    },
+    "P11": {
+      "version": 1,
+      "columns": [
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "quarter_number", "type": "INTEGER", "nullable": false},
+        {"name": "year_quarter", "type": "VARCHAR", "nullable": false},
+        {"name": "sku", "type": "VARCHAR", "nullable": false},
+        {"name": "product_name", "type": "VARCHAR", "nullable": false},
+        {"name": "category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "warehouse_name", "type": "VARCHAR", "nullable": false},
+        {"name": "warehouse_region", "type": "VARCHAR", "nullable": false},
+        {"name": "quantity_out", "type": "BIGINT", "nullable": false},
+        {"name": "cost_of_goods_sold", "type": "DECIMAL(10,2)", "nullable": false},
+        {"name": "avg_quantity_on_hand", "type": "DECIMAL(7,2)", "nullable": false},
+        {"name": "avg_inventory_value_amount", "type": "DECIMAL(11,2)", "nullable": false},
+        {"name": "inventory_turnover", "type": "DECIMAL(7,2)", "nullable": true}
+      ],
+      "grain": ["year_number", "quarter_number", "year_quarter", "sku", "product_name", "category_name", "warehouse_name", "warehouse_region"],
+      "sums": ["year_number", "quarter_number", "quantity_out", "cost_of_goods_sold", "avg_quantity_on_hand", "avg_inventory_value_amount", "inventory_turnover"]
+    },
+    "P12": {
+      "version": 1,
+      "columns": [
+        {"name": "warehouse_name", "type": "VARCHAR", "nullable": false},
+        {"name": "warehouse_region", "type": "VARCHAR", "nullable": false},
+        {"name": "sku", "type": "VARCHAR", "nullable": false},
+        {"name": "product_name", "type": "VARCHAR", "nullable": false},
+        {"name": "category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "brand_name", "type": "VARCHAR", "nullable": false},
+        {"name": "quantity_on_hand", "type": "INTEGER", "nullable": false},
+        {"name": "quantity_reserved", "type": "INTEGER", "nullable": false},
+        {"name": "quantity_available", "type": "INTEGER", "nullable": false},
+        {"name": "quantity_from_batch", "type": "INTEGER", "nullable": false},
+        {"name": "quantity_from_stream", "type": "INTEGER", "nullable": false},
+        {"name": "stream_movement_count", "type": "BIGINT", "nullable": false},
+        {"name": "reorder_point", "type": "INTEGER", "nullable": false},
+        {"name": "is_stockout", "type": "BOOLEAN", "nullable": false},
+        {"name": "daily_demand_units", "type": "DECIMAL(6,3)", "nullable": true},
+        {"name": "days_of_cover", "type": "DECIMAL(4,1)", "nullable": true},
+        {"name": "last_movement_at", "type": "TIMESTAMP WITH TIME ZONE", "nullable": false}
+      ],
+      "grain": ["warehouse_name", "warehouse_region", "sku", "product_name", "category_name", "brand_name"],
+      "sums": ["quantity_on_hand", "quantity_reserved", "quantity_available", "quantity_from_batch", "quantity_from_stream", "stream_movement_count", "reorder_point", "daily_demand_units", "days_of_cover"]
     },
     "P13": {
       "version": 1,
       "columns": [
-        {"name": "regiao", "type": "VARCHAR", "nullable": false},
-        {"name": "pedidos", "type": "INTEGER", "nullable": false},
-        {"name": "taxa", "type": "DECIMAL(38,4)", "nullable": true},
-        {"name": "ativo", "type": "BOOLEAN", "nullable": false}
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "carrier_name", "type": "VARCHAR", "nullable": false},
+        {"name": "service_level", "type": "VARCHAR", "nullable": false},
+        {"name": "warehouse_name", "type": "VARCHAR", "nullable": false},
+        {"name": "warehouse_region", "type": "VARCHAR", "nullable": false},
+        {"name": "delivered_count", "type": "BIGINT", "nullable": false},
+        {"name": "on_time_count", "type": "BIGINT", "nullable": false},
+        {"name": "late_count", "type": "BIGINT", "nullable": false},
+        {"name": "split_order_shipment_count", "type": "BIGINT", "nullable": false},
+        {"name": "on_time_rate", "type": "DECIMAL(8,4)", "nullable": false},
+        {"name": "avg_delay_days_when_late", "type": "DECIMAL(8,4)", "nullable": true},
+        {"name": "avg_transit_days", "type": "DECIMAL(9,4)", "nullable": false},
+        {"name": "failed_attempt_count", "type": "DECIMAL(4,0)", "nullable": false}
       ],
-      "grain": ["regiao"],
-      "sums": ["pedidos"]
+      "grain": ["year_number", "month_number", "year_month", "carrier_name", "service_level", "warehouse_name", "warehouse_region"],
+      "sums": ["year_number", "month_number", "delivered_count", "on_time_count", "late_count", "split_order_shipment_count", "on_time_rate", "avg_delay_days_when_late", "avg_transit_days", "failed_attempt_count"]
+    },
+    "P14": {
+      "version": 1,
+      "columns": [
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "region", "type": "VARCHAR", "nullable": false},
+        {"name": "state_code", "type": "VARCHAR", "nullable": false},
+        {"name": "service_level", "type": "VARCHAR", "nullable": false},
+        {"name": "carrier_name", "type": "VARCHAR", "nullable": false},
+        {"name": "order_count", "type": "BIGINT", "nullable": false},
+        {"name": "split_order_count", "type": "BIGINT", "nullable": false},
+        {"name": "shipment_count", "type": "DECIMAL(4,0)", "nullable": false},
+        {"name": "avg_order_to_delivery_days", "type": "DECIMAL(9,4)", "nullable": false},
+        {"name": "median_order_to_delivery_days", "type": "DECIMAL(9,4)", "nullable": false},
+        {"name": "max_order_to_delivery_days", "type": "DECIMAL(9,4)", "nullable": false}
+      ],
+      "grain": ["year_number", "month_number", "year_month", "region", "state_code", "service_level", "carrier_name"],
+      "sums": ["year_number", "month_number", "order_count", "split_order_count", "shipment_count", "avg_order_to_delivery_days", "median_order_to_delivery_days", "max_order_to_delivery_days"]
+    },
+    "P15": {
+      "version": 1,
+      "columns": [
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "sales_channel_name", "type": "VARCHAR", "nullable": false},
+        {"name": "channel_type", "type": "VARCHAR", "nullable": false},
+        {"name": "support_category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "support_category_group", "type": "VARCHAR", "nullable": false},
+        {"name": "ticket_count", "type": "BIGINT", "nullable": false},
+        {"name": "high_priority_ticket_count", "type": "BIGINT", "nullable": false},
+        {"name": "reopened_ticket_count", "type": "BIGINT", "nullable": false},
+        {"name": "solved_first_time_count", "type": "BIGINT", "nullable": false},
+        {"name": "channel_order_count", "type": "DECIMAL(5,0)", "nullable": true},
+        {"name": "tickets_per_hundred_orders", "type": "DECIMAL(9,4)", "nullable": true},
+        {"name": "avg_hours_to_resolution", "type": "DECIMAL(8,2)", "nullable": true}
+      ],
+      "grain": ["year_number", "month_number", "year_month", "sales_channel_name", "channel_type", "support_category_name", "support_category_group"],
+      "sums": ["year_number", "month_number", "ticket_count", "high_priority_ticket_count", "reopened_ticket_count", "solved_first_time_count", "channel_order_count", "tickets_per_hundred_orders", "avg_hours_to_resolution"]
+    },
+    "P16": {
+      "version": 1,
+      "columns": [
+        {"name": "year_number", "type": "INTEGER", "nullable": false},
+        {"name": "month_number", "type": "INTEGER", "nullable": false},
+        {"name": "year_month", "type": "VARCHAR", "nullable": false},
+        {"name": "sales_channel_name", "type": "VARCHAR", "nullable": false},
+        {"name": "has_support_ticket", "type": "BOOLEAN", "nullable": false},
+        {"name": "support_category_name", "type": "VARCHAR", "nullable": false},
+        {"name": "order_count", "type": "BIGINT", "nullable": false},
+        {"name": "repeat_order_count", "type": "BIGINT", "nullable": false},
+        {"name": "repeat_purchase_rate", "type": "DECIMAL(8,4)", "nullable": false},
+        {"name": "avg_days_to_next_order", "type": "DECIMAL(7,2)", "nullable": true}
+      ],
+      "grain": ["year_number", "month_number", "year_month", "sales_channel_name", "has_support_ticket", "support_category_name"],
+      "sums": ["year_number", "month_number", "order_count", "repeat_order_count", "repeat_purchase_rate", "avg_days_to_next_order"]
     }
   }
 }

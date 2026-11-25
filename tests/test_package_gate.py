@@ -30,8 +30,54 @@ def repo(tmp_path: pathlib.Path) -> pathlib.Path:
     return tmp_path
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _memoized_kek():
+    """PBKDF2 at 600,000 iterations is a pure function of (password, salt,
+    iterations): memoized, since `verify` derives a key per report and the
+    package holds 16 since stage 2.4's migration (N109)."""
+    import functools
+
+    original = e.derive_kek
+    e.derive_kek = functools.cache(original)
+    yield
+    e.derive_kek = original
+
+
 def no_live():
     return r.NO_LIVE
+
+
+# --- the columns a mutation uses, read from the contract: the fixture is the 16 reports' shapes ---
+
+
+def _report(rid: str = "P01") -> c.Report:
+    return c.load(ROOT)[0].reports[rid]
+
+
+def _index(rid: str, predicate) -> int:
+    return next(i for i, col in enumerate(_report(rid).columns) if predicate(col))
+
+
+def text_at(rid: str = "P01") -> int:
+    return _index(rid, lambda col: col.type == "VARCHAR")
+
+
+def decimal_at(rid: str = "P01") -> int:
+    """The first decimal that is summed and never null."""
+    return _index(rid, lambda col: col.decimal is not None and not col.nullable and col.name in _report(rid).sums)
+
+
+def integer_at(rid: str = "P01") -> int:
+    """The first integer out of the grain: the fixture starts them at 12000."""
+    return _index(rid, lambda col: col.type in ("INTEGER", "BIGINT") and col.name not in _report(rid).grain)
+
+
+def name_at(rid: str, i: int) -> str:
+    return _report(rid).columns[i].name
+
+
+def replaced(row: tuple, i: int, value) -> tuple:
+    return tuple(value if j == i else v for j, v in enumerate(row))
 
 
 def contract(repo) -> c.Contract:
@@ -51,7 +97,7 @@ def payload(repo, report: str, data: list[tuple] | None = None, types=None, tota
 
 
 def payloads(repo, **changed) -> dict[str, tuple[bytes, bytes]]:
-    out = {rid: payload(repo, rid) for rid in ("P01", "P02", "P13")}
+    out = {rid: payload(repo, rid) for rid in contract(repo).reports}
     out.update(changed)
     return out
 
@@ -158,13 +204,17 @@ def test_mut04_a_parquet_in_an_included_page(repo):
 
 def test_mut05_a_short_row_in_the_page(repo):
     page = repo / "site" / "index.html"
-    page.write_text(page.read_text().replace("</main>", "<table><tr><td>fixture_a</td><td>1.25</td><td>2</td></tr></table></main>"))
+    row = rows("P01")[0]
+    cells = "".join(f"<td>{row[i]:f}</td>" if isinstance(row[i], Decimal) else f"<td>{row[i]}</td>" for i in (text_at(), decimal_at(), integer_at()))
+    page.write_text(page.read_text().replace("</main>", f"<table><tr>{cells}</tr></table></main>"))
     refused(repo, "clear_value", where="index.html")
 
 
 def test_mut06_a_number_alone_in_brazilian_form(repo):
     page = repo / "site" / "index.html"
-    page.write_text(page.read_text().replace("</main>", "<p>Total: 1.200</p></main>"))
+    brazilian = c.spellings(str(rows("P01")[0][integer_at()]))[1]
+    assert "." in brazilian  # an integer of four digits or more, grouped
+    page.write_text(page.read_text().replace("</main>", f"<p>Total: {brazilian}</p></main>"))
     refused(repo, "clear_value", where="index.html")
 
 
@@ -175,28 +225,63 @@ def test_mut07_the_totals_in_the_page(repo):
     refused(repo, "clear_totals", where="index.html")
 
 
+def _only_the_count_says_140(repo) -> None:
+    """A report of 140 rows whose only needle `140` is its row count: its
+    integer grain columns are 0, so their sums (N107) are `0`, which is not
+    searched; no other cell or sum is 140 (XIMPL-1-06)."""
+    grain_ints = [i for i, col in enumerate(_report().columns) if col.name in _report().grain and col.type in ("INTEGER", "BIGINT")]
+    many = [tuple(0 if j in grain_ints else v for j, v in enumerate(row)) for row in sf.invent(_report(), 140)]
+    seal(repo, payloads(repo, P01=payload(repo, "P01", many)))
+    k = contract(repo)
+    totals, parquet = payload(repo, "P01", many)
+    values = c.check_payload(k, k.reports["P01"], totals, parquet)
+    inserted = b"<p>140</p>"
+    found = [n for _code, n in c.needles([values], set()) if n in inserted]
+    assert found == [b"140"], found  # the count, and nothing else, matches what the page will hold
+
+
 def test_mut07b_the_row_count_alone(repo):
     """PGATE-2-02: a report of 140 rows, its count printed on the page."""
-    many = [(f"fixture_{i:03d}", Decimal("1.00"), i) for i in range(140)]
-    seal(repo, payloads(repo, P01=payload(repo, "P01", many)))
+    _only_the_count_says_140(repo)
     verify(repo)  # the control: the same package, no leak
     page = repo / "site" / "index.html"
     page.write_text(page.read_text().replace("</main>", "<p>140</p></main>"))
     refused(repo, "clear_value", where="index.html")
 
 
+def test_mut07b_is_caught_by_the_row_count_alone(repo, monkeypatch):
+    """The counter-test: with only the row count left out of the search, the
+    same page passes — so MUT-07b proves the count's inspection."""
+    _only_the_count_says_140(repo)
+    original = c.check_payload
+
+    def without_the_count(contract_, report, totals, parquet):
+        values = original(contract_, report, totals, parquet)
+        rows = json.loads(totals)["rows"]
+        values.numbers.discard(str(rows))
+        return values
+
+    monkeypatch.setattr(c, "check_payload", without_the_count)
+    page = repo / "site" / "index.html"
+    page.write_text(page.read_text().replace("</main>", "<p>140</p></main>"))
+    verify(repo)
+
+
 def test_mut07c_a_value_in_a_manifest_label(repo):
-    declared = [e.DeclaredProfile(p.id, p.label + (" fixture_norte" if p.id == "logistica" else ""), p.password, p.reports)
+    value = sf.ROWS["P13"][0][text_at("P13")]
+    declared = [e.DeclaredProfile(p.id, p.label + (f" {value}" if p.id == "logistica" else ""), p.password, p.reports)
                 for p in r.profiles(repo)]
     seal(repo, payloads(repo), declared=declared)
     refused(repo, "clear_value", where="manifest.json")
 
 
 def test_mut07d_a_date_collision_refused_unlisted_and_accepted_listed(repo):
+    at = _index("P12", lambda col: col.type == "TIMESTAMP WITH TIME ZONE")
+    date = sf.ROWS["P12"][0][at].strftime("%Y-%m-%d %H:%M:%S+00")  # as the gate reads the instant, in UTC
     with open(repo / "site" / "releases.md", "a") as fh:
-        fh.write("- 2025-01-01 — uma linha que cita a data de um relatório.\n")
+        fh.write(f"- {date} — uma linha que cita a data de um relatório.\n")
     refused(repo, "clear_value", where="releases.md")
-    listed = {"about": "test", "values": [{"value": "2025-01-01", "reason": "a release date, public by design"}]}
+    listed = {"about": "test", "values": [{"value": date, "reason": "a release date, public by design"}]}
     (repo / "release" / "public_values.json").write_text(json.dumps(listed))
     verify(repo)
 
@@ -204,7 +289,7 @@ def test_mut07d_a_date_collision_refused_unlisted_and_accepted_listed(repo):
 def test_the_manifest_s_typed_fields_are_not_searched(repo):
     """N83: a cell equal to `iterations` does not collide with the manifest."""
     k = contract(repo)
-    data = [("600000", Decimal("1.00"), 1)]
+    data = [replaced(sf.invent(k.reports["P01"], 1)[0], text_at(), "600000")]
     seal(repo, payloads(repo, P01=(sf.totals(k, k.reports["P01"], data), sf.parquet(k.reports["P01"], data))))
     verify(repo)
 
@@ -225,8 +310,8 @@ def test_mut08_a_missing_view(repo):
 
 
 def test_mut09_an_extra_view(repo):
-    declared = _declared(repo, lambda p: (*p.reports, "P03") if p.id == "diretoria" else p.reports)
-    seal(repo, payloads(repo, P03=payload(repo, "P01")), declared=declared)
+    declared = _declared(repo, lambda p: (*p.reports, "P17") if p.id == "diretoria" else p.reports)
+    seal(repo, payloads(repo, P17=payload(repo, "P01")), declared=declared)
     refused(repo, "inventory_exact")
 
 
@@ -239,7 +324,7 @@ def test_mut10_an_entitlement_changed(repo):
 def test_declarations_agree_on_the_two_trusted_files(repo):
     path = repo / "release" / "contract.json"
     data = json.loads(path.read_text())
-    data["reports"]["P04"] = data["reports"]["P01"]
+    data["reports"]["P17"] = data["reports"]["P01"]
     path.write_text(json.dumps(data))
     refused(repo, "declarations_agree")
 
@@ -248,7 +333,7 @@ def test_declarations_agree_on_the_two_trusted_files(repo):
 
 
 def test_mut11_a_changed_type(repo):
-    seal(repo, payloads(repo, P01=payload(repo, "P01", types={"valor": "DOUBLE"})))
+    seal(repo, payloads(repo, P01=payload(repo, "P01", types={name_at("P01", decimal_at()): "DOUBLE"})))
     refused(repo, "schema_exact", where="P01")
 
 
@@ -260,7 +345,9 @@ def test_mut12_a_column_renamed_dropped_or_reordered(repo, change):
     base = sf.parquet(k.reports["P01"], rows("P01"))
     tmp = repo / "t.parquet"
     tmp.write_bytes(base)
-    select = {"renamed": "rotulo AS nome, valor, unidades", "dropped": "rotulo, valor", "reordered": "valor, rotulo, unidades"}[change]
+    names = [f'"{col.name}"' for col in k.reports["P01"].columns]
+    select = {"renamed": ", ".join([names[0] + " AS outro_nome", *names[1:]]), "dropped": ", ".join(names[:-1]),
+              "reordered": ", ".join([names[1], names[0], *names[2:]])}[change]
     out = repo / "m.parquet"
     duckdb.connect().execute(f"COPY (SELECT {select} FROM read_parquet('{tmp}')) TO '{out}' (FORMAT parquet)")
     seal(repo, payloads(repo, P01=payload(repo, "P01", parquet=out.read_bytes())))
@@ -275,9 +362,16 @@ def test_mut13_a_duplicated_row(repo):
 
 def test_mut14_a_null_where_the_contract_forbids_it(repo):
     data = rows("P01")
-    data[1] = (data[1][0], None, data[1][2])
+    data[1] = replaced(data[1], decimal_at(), None)
     seal(repo, payloads(repo, P01=payload(repo, "P01", data)))
-    refused(repo, "not_null", where="valor")
+    refused(repo, "not_null", where=name_at("P01", decimal_at()))
+
+
+def _a_cent_more(repo) -> dict:
+    """The first decimal sum, one unit more at its scale."""
+    name = name_at("P01", decimal_at())
+    value = Decimal(json.loads(payload(repo, "P01")[0])["sums"][name])
+    return {name: f"{value + Decimal(1).scaleb(-_report().column(name).scale):f}"}
 
 
 def _totals(repo, report="P01", **change) -> bytes:
@@ -294,7 +388,7 @@ def _totals(repo, report="P01", **change) -> bytes:
     "totals, code",
     [
         (lambda repo: _totals(repo, rows=5), "totals_rows"),
-        (lambda repo: _totals(repo, sum={"valor": "14.01"}), "totals_sums"),
+        (lambda repo: _totals(repo, sum=_a_cent_more(repo)), "totals_sums"),
     ],
     ids=["rows_off_by_one", "sum_off_by_a_cent"],
 )
@@ -306,8 +400,8 @@ def test_mut15_totals_that_do_not_match(repo, totals, code):
 @pytest.mark.parametrize(
     "totals",
     [
-        lambda repo: b'{"contract_version":1,"contract_version":1,"report_version":1,"rows":4,"sums":{"valor":"14.00","unidades":"10"}}',
-        lambda repo: _totals(repo, sum={"valor": 14.0}),
+        lambda repo: _totals(repo).replace(b'{"contract_version": 1', b'{"contract_version": 1, "contract_version": 1', 1),
+        lambda repo: _totals(repo, sum={name_at("P01", decimal_at()): 14.0}),
         lambda repo: _totals(repo, extra=1),
     ],
     ids=["duplicate_key", "sum_as_a_number", "extra_key"],
@@ -324,18 +418,11 @@ def test_mut17_totals_of_another_version(repo, key):
 
 
 def _invalid_utf8_parquet(repo) -> bytes:
-    import duckdb
-
     k = contract(repo)
-    tmp = repo / "plain.parquet"
-    spec = k.reports["P01"]
-    con = duckdb.connect()
-    con.execute("CREATE TABLE t (rotulo VARCHAR, valor DECIMAL(18,2), unidades INTEGER)")
-    con.executemany("INSERT INTO t VALUES (?, ?, ?)", rows("P01"))
-    con.execute(f"COPY t TO '{tmp}' (FORMAT parquet, COMPRESSION uncompressed, DICTIONARY_SIZE_LIMIT 0)")
-    raw = tmp.read_bytes()
-    assert b"fixture_b" in raw
-    return raw.replace(b"fixture_b", b"fixture_\xff", 1)
+    raw = sf.parquet(k.reports["P01"], rows("P01"), options="COMPRESSION uncompressed, DICTIONARY_SIZE_LIMIT 0")
+    value = rows("P01")[1][text_at()].encode()
+    assert value in raw
+    return raw.replace(value, value[:-1] + b"\xff", 1)
 
 
 @pytest.mark.parametrize("parquet", [lambda repo: b"PAR1" + b"\x00" * 64 + b"PAR1", _invalid_utf8_parquet], ids=["garbage", "invalid_utf8"])
@@ -346,7 +433,7 @@ def test_mut18_a_parquet_duckdb_cannot_read(repo, parquet):
 
 
 def test_mut19_a_parquet_over_the_content_bound(repo):
-    wide = [(f"fixture_{i:02d}_" + "x" * (1024 * 1024), Decimal("1.00"), 1) for i in range(65)]
+    wide = [replaced(row, text_at(), f"fixture_{i:02d}_" + "x" * (1024 * 1024)) for i, row in enumerate(sf.invent(_report(), 65))]
     seal(repo, payloads(repo, P01=payload(repo, "P01", wide)))
     refused(repo, "content_bound", where="P01")
 
@@ -593,13 +680,13 @@ def honest_markers(repo) -> set[str]:
 
 def _cli_mutations():
     return {
-        "mut11_type": lambda repo: seal(repo, payloads(repo, P01=payload(repo, "P01", types={"valor": "DOUBLE"}))),
+        "mut11_type": lambda repo: seal(repo, payloads(repo, P01=payload(repo, "P01", types={name_at("P01", decimal_at()): "DOUBLE"}))),
         "mut13_grain": lambda repo: seal(repo, payloads(repo, P01=payload(repo, "P01", rows("P01") + [rows("P01")[0]]))),
-        "mut15_sum": lambda repo: seal(repo, payloads(repo, P01=payload(repo, "P01", totals=_totals(repo, sum={"valor": "14.01"})))),
+        "mut15_sum": lambda repo: seal(repo, payloads(repo, P01=payload(repo, "P01", totals=_totals(repo, sum=_a_cent_more(repo))))),
         "mut16_shape": lambda repo: seal(repo, payloads(repo, P01=payload(repo, "P01", totals=_totals(repo, extra=1)))),
         "mut17_version": lambda repo: seal(repo, payloads(repo, P13=payload(repo, "P13", totals=_totals(repo, "P13", report_version=2)))),
         "mut18_utf8": lambda repo: seal(repo, payloads(repo, P01=payload(repo, "P01", parquet=_invalid_utf8_parquet(repo)))),
-        "mut05_page": lambda repo: (repo / "site" / "index.html").write_text("<p>fixture_a 1.25</p>"),
+        "mut05_page": lambda repo: (repo / "site" / "index.html").write_text(f"<p>{rows('P01')[0][text_at()]} {rows('P01')[0][decimal_at()]:f}</p>"),
         "mut07_totals": lambda repo: (repo / "site" / "index.html").write_text(payload(repo, "P13")[0].decode()),
     }
 
@@ -701,7 +788,7 @@ def test_declarations_agree_before_any_candidate_byte(repo, monkeypatch):
     """GIMPL-1-01: disagreeing declarations stop the gate before the candidate is listed."""
     path = repo / "release" / "contract.json"
     data = json.loads(path.read_text())
-    data["reports"]["P04"] = data["reports"]["P01"]
+    data["reports"]["P17"] = data["reports"]["P01"]
     path.write_text(json.dumps(data))
     deploy = repo / "deploy"
     r.build(repo, deploy)
@@ -714,9 +801,9 @@ def test_declarations_agree_before_any_candidate_byte(repo, monkeypatch):
 @pytest.mark.parametrize(
     "case, code",
     [
-        (lambda repo: payload(repo, "P01", types={"valor": "DOUBLE"}, totals=_totals(repo, contract_version=2)), "schema_exact"),
-        (lambda repo: payload(repo, "P01", types={"valor": "DOUBLE"}, totals=_totals(repo, extra=1)), "schema_exact"),
-        (lambda repo: payload(repo, "P01", [rows("P01")[0], ("fixture_b", None, 1)], totals=_totals(repo, extra=1)), "not_null"),
+        (lambda repo: payload(repo, "P01", types={name_at("P01", decimal_at()): "DOUBLE"}, totals=_totals(repo, contract_version=2)), "schema_exact"),
+        (lambda repo: payload(repo, "P01", types={name_at("P01", decimal_at()): "DOUBLE"}, totals=_totals(repo, extra=1)), "schema_exact"),
+        (lambda repo: payload(repo, "P01", [rows("P01")[0], replaced(rows("P01")[1], decimal_at(), None)], totals=_totals(repo, extra=1)), "not_null"),
         (lambda repo: payload(repo, "P01", rows("P01") + [rows("P01")[0]], totals=_totals(repo, contract_version=2)), "grain_unique"),
     ],
     ids=["schema_then_version", "schema_then_shape", "null_then_shape", "grain_then_version"],

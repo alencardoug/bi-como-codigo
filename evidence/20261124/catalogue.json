@@ -1,0 +1,1069 @@
+{
+  "catalogue_version": 1,
+  "login": "consumption_reader",
+  "provenance": {
+    "status": "verified",
+    "built_from_commit": "bcc2d5ce23363ca121429e582d17b0018a0a0966",
+    "invocation_id": "1cb3cd4e-0637-4229-875c-82d073080540",
+    "sequence": 125
+  },
+  "memberships": [
+    {
+      "member": "consumption_reader",
+      "role": "analyst",
+      "inherit_option": true,
+      "set_option": true
+    }
+  ],
+  "can_login": [
+    {
+      "role": "analyst",
+      "rolcanlogin": false
+    },
+    {
+      "role": "consumption_reader",
+      "rolcanlogin": true
+    }
+  ],
+  "views": [
+    {
+      "view": "average_order_value_by_channel_and_segment",
+      "columns": [
+        {
+          "name": "year_month",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "month_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "sales_channel_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "customer_segment_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "order_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "net_revenue_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "average_order_value",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "cart_conversion_rate_by_channel",
+      "columns": [
+        {
+          "name": "year_month",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "month_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "sales_channel_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "channel_type",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "cart_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "closed_cart_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "converted_cart_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "abandoned_cart_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "cart_conversion_rate_pct",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "cart_value_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "abandoned_value_amount",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "discount_share_by_channel",
+      "columns": [
+        {
+          "name": "year_month",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "month_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "sales_channel_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "channel_type",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "root_category_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "order_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "gross_revenue_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "discount_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "net_revenue_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "discount_share_pct",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "gross_margin_by_category",
+      "columns": [
+        {
+          "name": "year_month",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "month_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "root_category_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "category_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "net_revenue_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "cost_of_goods_sold",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "gross_profit_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "gross_margin_pct",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "unit_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "dispatched_unit_count",
+          "oid": 20,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "inventory_turnover_by_sku_and_warehouse",
+      "columns": [
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "quarter_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "year_quarter",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "sku",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "product_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "category_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "warehouse_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "warehouse_region",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "quantity_out",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "cost_of_goods_sold",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "avg_quantity_on_hand",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "avg_inventory_value_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "inventory_turnover",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "monthly_revenue_by_channel_and_category",
+      "columns": [
+        {
+          "name": "year_month",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "month_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "sales_channel_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "channel_type",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "root_category_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "category_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "order_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "unit_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "gross_revenue_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "discount_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "net_revenue_amount",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "new_and_repeat_customers_by_month",
+      "columns": [
+        {
+          "name": "year_month",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "month_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "sales_channel_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "customer_segment_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "new_customer_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "returning_customer_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "repeat_purchase_rate_pct",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "on_time_delivery_rate_by_carrier",
+      "columns": [
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "month_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "year_month",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "carrier_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "service_level",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "warehouse_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "warehouse_region",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "delivered_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "on_time_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "late_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "split_order_shipment_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "on_time_rate",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "avg_delay_days_when_late",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "avg_transit_days",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "failed_attempt_count",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "order_to_delivery_time_by_region",
+      "columns": [
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "month_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "year_month",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "region",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "state_code",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "service_level",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "carrier_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "order_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "split_order_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "shipment_count",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "avg_order_to_delivery_days",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "median_order_to_delivery_days",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "max_order_to_delivery_days",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "payment_approval_rate_by_method",
+      "columns": [
+        {
+          "name": "year_month",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "month_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "payment_method_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "method_type",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "installments",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "is_instalment_plan",
+          "oid": 16,
+          "typmod": -1
+        },
+        {
+          "name": "authorization_attempt_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "approved_authorization_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "approval_rate_pct",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "authorized_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "captured_amount",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "refund_rate_by_reason",
+      "columns": [
+        {
+          "name": "year_month",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "month_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "payment_method_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "refund_reason",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "refund_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "refunded_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "captured_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "refund_rate_pct",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "repeat_purchase_rate_after_support",
+      "columns": [
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "month_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "year_month",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "sales_channel_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "has_support_ticket",
+          "oid": 16,
+          "typmod": -1
+        },
+        {
+          "name": "support_category_name",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "order_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "repeat_order_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "repeat_purchase_rate",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "avg_days_to_next_order",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "revenue_by_delivery_region",
+      "columns": [
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "quarter_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "year_quarter",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "region",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "state_code",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "state_name",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "sales_channel_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "order_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "customer_version_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "unit_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "net_revenue_amount",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "skus_below_reorder_point",
+      "columns": [
+        {
+          "name": "warehouse_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "warehouse_region",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "sku",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "product_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "category_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "brand_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "quantity_on_hand",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "quantity_reserved",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "quantity_available",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "quantity_from_batch",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "quantity_from_stream",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "stream_movement_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "reorder_point",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "is_stockout",
+          "oid": 16,
+          "typmod": -1
+        },
+        {
+          "name": "daily_demand_units",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "days_of_cover",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "last_movement_at",
+          "oid": 1184,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "support_tickets_per_hundred_orders",
+      "columns": [
+        {
+          "name": "year_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "month_number",
+          "oid": 23,
+          "typmod": -1
+        },
+        {
+          "name": "year_month",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "sales_channel_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "channel_type",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "support_category_name",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "support_category_group",
+          "oid": 25,
+          "typmod": -1
+        },
+        {
+          "name": "ticket_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "high_priority_ticket_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "reopened_ticket_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "solved_first_time_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "channel_order_count",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "tickets_per_hundred_orders",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "avg_hours_to_resolution",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    },
+    {
+      "view": "top_skus_by_revenue",
+      "columns": [
+        {
+          "name": "revenue_rank",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "product_natural_key",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "sku",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "product_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "category_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "root_category_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "brand_name",
+          "oid": 1043,
+          "typmod": -1
+        },
+        {
+          "name": "is_deleted",
+          "oid": 16,
+          "typmod": -1
+        },
+        {
+          "name": "unit_count",
+          "oid": 20,
+          "typmod": -1
+        },
+        {
+          "name": "net_revenue_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "category_net_revenue_amount",
+          "oid": 1700,
+          "typmod": -1
+        },
+        {
+          "name": "category_revenue_share_pct",
+          "oid": 1700,
+          "typmod": -1
+        }
+      ]
+    }
+  ],
+  "defaults": {
+    "TimeZone": "UTC",
+    "DateStyle": "ISO, MDY",
+    "IntervalStyle": "postgres",
+    "extra_float_digits": "1"
+  },
+  "encodings": {
+    "server_encoding": "UTF8",
+    "client_encoding": "UTF8"
+  },
+  "collation": {
+    "datlocprovider": "c",
+    "datcollate": "en_US.utf8",
+    "datctype": "en_US.utf8",
+    "daticulocale": null,
+    "daticurules": null,
+    "datcollversion": null
+  },
+  "collation_actual_version": null
+}
