@@ -180,7 +180,7 @@ def own(commit: str, *, root: pathlib.Path = CLEAR / "own", fresh: bool = False)
     build_work = root / "build-work"
     if build_work.exists():
         shutil.rmtree(build_work)
-    allow = al.tracked(commit, "prototypes/framework/own/") + al.tracked(commit, "web/envelope.mjs") + al.single("data/p01.parquet", parquet)
+    allow = al.tracked(commit, "prototypes/framework/own/") + al.tracked(commit, roots.ENVELOPE) + al.single("data/p01.parquet", parquet)
     record["build_inputs"] = {"allowlist_sha256": allow.digest, "files": len(allow.entries)}
     al.assemble(allow, build_work)
     al.check(allow, build_work)

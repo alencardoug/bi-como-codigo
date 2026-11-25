@@ -71,7 +71,7 @@ def test_the_report_pages_paths_reach_hosting(repo):
     shared modules and styles, are included and pass verify; other files in
     the same folders are not included."""
     (repo / "site" / "relatorios").mkdir()
-    (repo / "site" / "app").mkdir()
+    (repo / "site" / "app").mkdir(exist_ok=True)  # the envelope's reader lives there
     (repo / "site" / "relatorios" / "p01.html").write_text("<!doctype html><title>P01</title>")
     (repo / "site" / "relatorios" / "p01.report.json").write_text('{"id": "P01"}')
     (repo / "site" / "app" / "page.mjs").write_text("export const page = true;\n")

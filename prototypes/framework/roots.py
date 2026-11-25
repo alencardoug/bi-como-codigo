@@ -20,6 +20,9 @@ RUNS = pathlib.Path(os.environ.get("BICE_RUNS") or HERE / "runs")
 CLEAR = pathlib.Path(os.environ.get("BICE_CLEAR") or HERE / "clear")
 #: Running from a snapshot of the commit: nothing of the working tree is read.
 PINNED = os.environ.get("BICE_SNAPSHOT") == "1"
+#: The envelope's reader, by its path in the repository: moved from `web/` to the
+#: site at stage 2.5 (docs/report_page.md §3.1).
+ENVELOPE = "site/app/envelope.mjs"
 
 
 if __name__ == "__main__":  # what a snapshot resolves to, for its test

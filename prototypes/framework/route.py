@@ -2,7 +2,7 @@
 §2.2, §5, §7 step 3).
 
 A build of the encrypted route reads its candidate's tracked sources at a
-recorded commit and `web/envelope.mjs`, and nothing of any fixture: its work
+recorded commit and the envelope's reader (`site/app/envelope.mjs` since stage 2.5, `web/envelope.mjs` before), and nothing of any fixture: its work
 folder is assembled fresh from an allowlist — archived with the build —,
 checked before the phase, and the phase runs in the sandbox with no network,
 after the sandbox's probe has passed through the same wrapper. The builder
@@ -14,7 +14,7 @@ identities (§5, FPROTO-6-07): each build invocation's own id and build input �
 the allowlist's digest —, the builder output's digest, and the harness inputs
 — the Git trees of `prototypes/framework/` (declarations, `cdn.json`,
 lockfiles and the sandbox wrapper among them) and of the gate's package, and
-`web/envelope.mjs`. **Any** build invocation of either candidate discards the
+the reader. **Any** build invocation of either candidate discards the
 draw, both artifacts and every measure, even when it reproduces the same
 bytes; so does a change of the harness inputs. Every stage run is appended as
 a `verdict.Record`.
@@ -53,7 +53,8 @@ REPO = roots.CHECKOUT  # the repository: its Git objects; a snapshot's files are
 RUNS = roots.RUNS
 #: What the harness is made of, by path in the repository, at a commit (§5) — the Python
 #: dependencies too, which the inspector, the oracle and the compressors run on (CMP-1-03).
-HARNESS_PATHS = ("prototypes/framework", "src/bi_como_codigo", "web/envelope.mjs", "pyproject.toml", "uv.lock", "firebase.json")
+ENVELOPE = roots.ENVELOPE
+HARNESS_PATHS = ("prototypes/framework", "src/bi_como_codigo", ENVELOPE, "pyproject.toml", "uv.lock", "firebase.json")
 OWN_BUILD = ["/usr/bin/python3", "-I", "build.py", "package"]
 #: Evidence's encrypted build: A7's configuration, and no `evidence sources` — there is no source (§3, A3).
 EVIDENCE_BUILD = ["/usr/bin/sh", "-c", "npm run build:pinned"]
@@ -273,7 +274,7 @@ def prove_sandbox() -> sb.Proof:
 def own_allowlist(commit: str) -> al.Allowlist:
     """B's build inputs: its tracked sources and the envelope's reader, at the
     commit. No fixture, no package, no clear-mode file (§2.2)."""
-    return al.tracked(commit, "prototypes/framework/own/") + al.tracked(commit, "web/envelope.mjs")
+    return al.tracked(commit, "prototypes/framework/own/") + al.tracked(commit, ENVELOPE)
 
 
 @serialized
@@ -363,7 +364,7 @@ def evidence_sources(commit: str) -> al.Allowlist:
                 continue
             e = dataclasses.replace(e, dest=rest)
         out.append(e)
-    envelope = al.tracked(commit, "web/envelope.mjs").entries[0]
+    envelope = al.tracked(commit, ENVELOPE).entries[0]
     out.append(dataclasses.replace(envelope, dest="components/envelope.mjs"))
     return al.Allowlist(tuple(out))
 

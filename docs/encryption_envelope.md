@@ -504,7 +504,7 @@ possible; they prove the site.
 | Part | Where | Runs in |
 |---|---|---|
 | Constants, `seal_report`, `encrypt_package`, the reader and the package checks, in Python | `src/bi_como_codigo/envelope.py`, with `cryptography` as its first runtime dependency | `make check`, through pytest (`tests/test_envelope.py`); the exporter (2.4) and the package gate (2.2b) |
-| The reader in JavaScript — written separately from the Python, from this document | `web/envelope.mjs`, a plain ES module with no dependency, using `globalThis.crypto.subtle` only | `make check`, through `node --test` on `tests/js/envelope.test.mjs`, on Node 20 or later, the same WebCrypto API the browser exposes; the site (2.3 onwards) imports the same file |
+| The reader in JavaScript — written separately from the Python, from this document | `site/app/envelope.mjs` — `web/envelope.mjs` until stage 2.5 —, a plain ES module with no dependency, using `globalThis.crypto.subtle` only | `make check`, through `node --test` on `tests/js/envelope.test.mjs`, on Node 20 or later, the same WebCrypto API the browser exposes; the site (2.3 onwards) imports the same file |
 | The generator of the vectors and cases, and what it wrote | `tests/envelope_fixtures.py`; `tests/vectors/envelope_v1/` — `manifest.json`, `vectors.json`, `cases.json` | Both suites |
 | The counter-proof of every predicate | `evidence/20261106/m48_counter_proof.py` | By hand, once per change to a reader |
 | The latency of the derivation | `evidence/20261105/` (Node), `evidence/20261106/` (Chrome) | By hand |

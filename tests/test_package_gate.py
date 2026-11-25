@@ -314,7 +314,11 @@ def test_mut07d_a_date_collision_refused_unlisted_and_accepted_listed(repo):
 
 
 def test_the_manifest_s_typed_fields_are_not_searched(repo):
-    """N83: a cell equal to `iterations` does not collide with the manifest."""
+    """N83: a cell equal to `iterations` does not collide with the manifest.
+    The envelope's reader, served from stage 2.5, writes the same minimum as a
+    token (`ITERATIONS_MIN = 600000;`), which the inspection rightly finds; the
+    test is about the manifest, so its copy of the site leaves the reader out."""
+    (repo / "site" / "app" / "envelope.mjs").unlink()
     k = contract(repo)
     data = [replaced(sf.invent(k.reports["P01"], 1)[0], text_at(), "600000")]
     seal(repo, payloads(repo, P01=(sf.totals(k, k.reports["P01"], data), sf.parquet(k.reports["P01"], data))))
