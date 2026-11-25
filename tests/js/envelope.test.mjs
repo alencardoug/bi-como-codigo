@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import * as env from "../../web/envelope.mjs";
+import * as env from "../../site/app/envelope.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const VECTORS = path.join(ROOT, "tests", "vectors", "envelope_v1");
@@ -123,7 +123,7 @@ function specPredicates() {
 }
 
 test("the module has exactly the predicates of the specification", () => {
-  const source = readFileSync(path.join(ROOT, "web", "envelope.mjs"), "utf-8");
+  const source = readFileSync(path.join(ROOT, "site", "app", "envelope.mjs"), "utf-8");
   const found = new Set([...source.matchAll(/require\([^\n]*,\s*[A-Z_]+,\s*"([a-z0-9_]+)"\)/g)].map((m) => m[1]));
   assert.deepEqual([...found].sort(), [...specPredicates()].sort());
 });

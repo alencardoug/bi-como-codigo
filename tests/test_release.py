@@ -68,20 +68,19 @@ def test_the_committed_fixture_verifies(repo):
 
 def test_the_report_pages_paths_reach_hosting(repo):
     """docs/report_page.md §3.1: a report's page and declaration, and the
-    shared modules and styles, are included and pass verify; other files in
-    the same folders are not included."""
-    (repo / "site" / "relatorios").mkdir()
-    (repo / "site" / "app").mkdir()
-    (repo / "site" / "relatorios" / "p01.html").write_text("<!doctype html><title>P01</title>")
-    (repo / "site" / "relatorios" / "p01.report.json").write_text('{"id": "P01"}')
-    (repo / "site" / "app" / "page.mjs").write_text("export const page = true;\n")
-    (repo / "site" / "app" / "page.css").write_text("body { margin: 0 }\n")
+    shared modules and styles, are included and pass verify — the committed
+    P01 among them —; other files in the same folders are not included."""
+    (repo / "site" / "relatorios" / "p99.html").write_text("<!doctype html><title>P99</title>")
+    (repo / "site" / "relatorios" / "p99.report.json").write_text('{"id": "P99"}')
+    (repo / "site" / "app" / "extra.mjs").write_text("export const extra = true;\n")
+    (repo / "site" / "app" / "extra.css").write_text("body { margin: 0 }\n")
     (repo / "site" / "app" / "notes.md").write_text("not included")
     (repo / "site" / "relatorios" / "draft.json").write_text("{}")
     body = r.verify(repo, built(repo), live=no_live)
     paths = {f["path"] for f in body["files"]}
-    assert {"relatorios/p01.html", "relatorios/p01.report.json", "app/page.mjs", "app/page.css"} <= paths
-    assert not {"app/notes.md", "relatorios/draft.json"} & paths
+    assert {"relatorios/p99.html", "relatorios/p99.report.json", "app/extra.mjs", "app/extra.css"} <= paths
+    assert {"relatorios/p01.html", "relatorios/p01.report.json", "app/page.mjs", "app/page.css", "app/envelope.mjs"} <= paths
+    assert not {"app/notes.md", "relatorios/draft.json", "app/cdn.json"} & paths
 
 
 @pytest.mark.parametrize(

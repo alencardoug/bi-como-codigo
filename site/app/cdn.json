@@ -1,0 +1,81 @@
+{
+ "about": "What the report pages load from a third party (docs/report_page.md §3.1; the pins of stage 2.3, N94 and N98, unchanged). role 'module' is mapped by the import map under its specifier; 'script' is a classic script with its integrity; 'fetch' is fetched by the page with its integrity and handed to DuckDB as a blob URL; 'extension' likewise, loaded with LOAD, autoloading off. tests/report_pins.py writes the pages' import map and scripts, and site/app/pins.mjs, from this file; make check refuses a page that differs. Not deployed: release/include.txt admits no JSON from site/app/.",
+ "files": [
+  {
+   "name": "duckdb",
+   "role": "module",
+   "specifier": "@duckdb/duckdb-wasm",
+   "package": "@duckdb/duckdb-wasm",
+   "version": "1.32.0",
+   "file": "dist/duckdb-browser.mjs",
+   "url": "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-browser.mjs",
+   "bytes": 31977,
+   "sha256": "4f8c0bb3c23d1ec457a451cc27418597b9a40dd772cceacc436a2cb7b9a49c18",
+   "integrity": "sha384-+JRDemqHdCXYiJnIC4lOr18b1oPXlzMsoyF8mtW0mq3QKZPefRA/Ol7RJhNYdXQy"
+  },
+  {
+   "name": "duckdb_worker",
+   "role": "fetch",
+   "package": "@duckdb/duckdb-wasm",
+   "version": "1.32.0",
+   "file": "dist/duckdb-browser-eh.worker.js",
+   "url": "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-browser-eh.worker.js",
+   "bytes": 772759,
+   "sha256": "f8ab72b6b90b3ad83077d47426d4a99d5d9a4c7e07cba1a2be37d655adc7c1ab",
+   "integrity": "sha384-a2Q5wPfMJHriw96D3xhtkym83ST11xUIm6e27q9d3v4ykPqSzeY7WCXK6CTlJFwb"
+  },
+  {
+   "name": "duckdb_wasm",
+   "role": "fetch",
+   "package": "@duckdb/duckdb-wasm",
+   "version": "1.32.0",
+   "file": "dist/duckdb-eh.wasm",
+   "url": "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-eh.wasm",
+   "bytes": 34242586,
+   "sha256": "4c221bfa59c11f24dbd750e70c90b9252eca6eec5633936e6a2ec766e55fd879",
+   "integrity": "sha384-hw3GjeJZY5QapQ8mwqMHXBPVmTLO+jKm5dlDwkGsEfjyu/HcXx1d0Rwlr/ZAShjq"
+  },
+  {
+   "name": "arrow",
+   "role": "script",
+   "package": "apache-arrow",
+   "version": "17.0.0",
+   "file": "Arrow.esnext.min.js",
+   "url": "https://cdn.jsdelivr.net/npm/apache-arrow@17.0.0/Arrow.esnext.min.js",
+   "bytes": 163118,
+   "sha256": "27acb81b1b1b5cf96785deca75da60d05e2267b84b59e8e7e26ea131c8ed587f",
+   "integrity": "sha384-iUMlNn216JffDiVnzRl9BE5TZwRiOJi6anfbxH4NghebjVZWYTsK6csf8L5UB42T"
+  },
+  {
+   "name": "vega",
+   "role": "script",
+   "package": "vega",
+   "version": "6.4.0",
+   "file": "build/vega.min.js",
+   "url": "https://cdn.jsdelivr.net/npm/vega@6.4.0/build/vega.min.js",
+   "bytes": 521123,
+   "sha256": "8f6a3587cf8d4f42c7e08120e3eb05d067e746d554e39d2dcf52acc0bd5ba28f",
+   "integrity": "sha384-VKdcJr3ZaBIJMbVcopTAI/JEuUkSY6qnwVu9iLuw0DnQ9gQ1JjsfZJhXFQAgNi43"
+  },
+  {
+   "name": "vega_lite",
+   "role": "script",
+   "package": "vega-lite",
+   "version": "6.5.0",
+   "file": "build/vega-lite.min.js",
+   "url": "https://cdn.jsdelivr.net/npm/vega-lite@6.5.0/build/vega-lite.min.js",
+   "bytes": 257954,
+   "sha256": "83e215e84e308ee8688fa6503ba0f1cf8a3c05c0d61df2841a0b92bf86809e00",
+   "integrity": "sha384-pV2l7nzmyxZh02knvUH7N8zvtyCYsYiGt+SsE/emG/dFiBI6G0YJZFZ2FzEX72P3"
+  },
+  {
+   "name": "duckdb_parquet",
+   "role": "extension",
+   "extension": "parquet",
+   "url": "https://extensions.duckdb.org/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm",
+   "bytes": 3045039,
+   "sha256": "22765c8f7dc741cda2b571a66ac7bb355295d7d69a6c37e5315b265672984f55",
+   "integrity": "sha384-BOQzRRlWIlBsguRiM4lH3NvA+Gl1aCfYJ1IjOjyaUD0566SD7N6Jo4TnT0LmKVvs"
+  }
+ ]
+}

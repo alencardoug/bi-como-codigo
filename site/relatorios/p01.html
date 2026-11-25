@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Receita por canal e categoria · bi-como-codigo</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../app/page.css">
+<!-- bice:pins -->
+<script type="importmap">
+{
+ "imports": {
+  "@duckdb/duckdb-wasm": "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-browser.mjs",
+  "apache-arrow": "../app/arrow.mjs"
+ },
+ "integrity": {
+  "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-browser.mjs": "sha384-+JRDemqHdCXYiJnIC4lOr18b1oPXlzMsoyF8mtW0mq3QKZPefRA/Ol7RJhNYdXQy"
+ }
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/apache-arrow@17.0.0/Arrow.esnext.min.js" integrity="sha384-iUMlNn216JffDiVnzRl9BE5TZwRiOJi6anfbxH4NghebjVZWYTsK6csf8L5UB42T" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega@6.4.0/build/vega.min.js" integrity="sha384-VKdcJr3ZaBIJMbVcopTAI/JEuUkSY6qnwVu9iLuw0DnQ9gQ1JjsfZJhXFQAgNi43" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@6.5.0/build/vega-lite.min.js" integrity="sha384-pV2l7nzmyxZh02knvUH7N8zvtyCYsYiGt+SsE/emG/dFiBI6G0YJZFZ2FzEX72P3" crossorigin="anonymous"></script>
+<!-- /bice:pins -->
+</head>
+<body>
+<a class="skip" href="#conteudo">Pular para o relatório</a>
+<header class="site">
+  <a href="../index.html">bi-como-codigo</a>
+  <span>Relatório P01</span>
+</header>
+<main id="conteudo" data-bice-declaration="p01.report.json">
+  <h1>Receita por canal e categoria</h1>
+  <p class="question" data-bice="question"></p>
+
+  <form data-bice="login" class="login">
+    <label for="senha">Senha da Diretoria</label>
+    <div class="login-row">
+      <input id="senha" data-bice="password" type="password" autocomplete="off" disabled>
+      <button data-bice="submit" type="submit">Entrar</button>
+    </div>
+    <p class="hint">O relatório chega cifrado e só é aberto aqui, no seu navegador, depois da senha.</p>
+    <p data-bice="login-error" class="error" role="alert" hidden>Senha incorreta: nada foi aberto.</p>
+    <p data-bice="engine-error" class="error" role="alert" hidden>Não foi possível carregar o motor de consulta. Recarregue a página.</p>
+  </form>
+
+  <section data-bice="report" hidden aria-labelledby="titulo-grafico">
+    <div class="controls">
+      <label>Canal <select id="canal" data-bice="filter"></select></label>
+      <label>Mês do detalhe <select id="mes" data-bice="month"></select></label>
+      <button data-bice="logout" type="button" class="quiet">Sair</button>
+    </div>
+    <p data-bice="loading" class="loading" role="status" hidden>Carregando…</p>
+
+    <figure class="chart-figure">
+      <figcaption>
+        <h2 id="titulo-grafico" data-bice="chart-title"></h2>
+        <p class="hint" id="ajuda-grafico">Passe o ponteiro, toque ou use as setas sobre o gráfico para ver todas as categorias de um mês. Clique numa categoria para isolá-la; com Shift, para somar outra.</p>
+      </figcaption>
+      <div class="legend" data-bice="legend" role="group" aria-label="Categorias"></div>
+      <div class="chart-frame">
+        <div data-bice="chart" class="chart" tabindex="0" role="group" aria-labelledby="titulo-grafico" aria-describedby="ajuda-grafico"></div>
+        <div data-bice="labels" class="end-labels" aria-hidden="true"></div>
+      </div>
+      <div data-bice="tip" class="chart-tip" hidden></div>
+      <p data-bice="announce" class="visually-hidden" aria-live="polite"></p>
+    </figure>
+
+    <div data-bice="tables"></div>
+  </section>
+</main>
+<script type="module" src="../app/page.mjs"></script>
+</body>
+</html>

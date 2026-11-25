@@ -128,7 +128,7 @@ def test_evidence_encrypted_sources_have_no_source_and_the_encrypted_page():
     page = next(e for e in route.evidence_sources(HEAD).entries if e.dest == "pages/index.md")
     assert page.source.endswith(":prototypes/framework/evidence/encrypted/pages/index.md")
     envelope = next(e for e in route.evidence_sources(HEAD).entries if e.dest == "components/envelope.mjs")
-    assert envelope.source.endswith(":web/envelope.mjs")
+    assert envelope.source.endswith(":site/app/envelope.mjs")
 
 
 def test_a_second_invocation_on_the_same_runs_is_refused_while_one_holds_it(tmp_path):

@@ -18,7 +18,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-25 — revision 3: step 2 built (§5), and an assumption on media types (§8). Revision 2: approved by the Owner. Revision 1, the plan with N116 to N119 |
+| Date | 2026-11-25 — revision 7: the browser checks skipped on a CI runner with no pinned bodies (§9). Revision 6: the summary as a crosstab, by the Owner's N120 (§6, §9). Revision 5: check 4 and the checks on the real package built (§9). Revision 4: step 3's page and checks 1 to 3 built (§5, §9). Revision 3: step 2 built (§5), and an assumption on media types (§8). Revision 2: approved by the Owner. Revision 1, the plan with N116 to N119 |
 | Author | Claude Code |
 | Status | **Plan, approved by the Owner on 2026-11-25 (N115)**, with its decisions N116 to N119 and the choices of §7. Work starts from the tag `checkpoint-2.4` (`e9f3007`); nothing built yet |
 
@@ -132,8 +132,8 @@ release. N116 settles this (§6).
 
 ### 3.4 Keyboard, focus, 360 px, light and dark
 
-- Native controls, a visible focus ring everywhere, and a fixed tab order: filters, chart, legend,
-  tables, logout.
+- Native controls, a visible focus ring everywhere, and a fixed tab order: filters, logout, legend,
+  chart, tables — as built (§9).
 - At 360 px, the page has no horizontal scroll. Each table scrolls inside its own region, and the
   axis thins its labels.
 - Colour tokens on `:root`, the dark ones under `prefers-color-scheme` (N118). Vega's config follows
@@ -193,6 +193,7 @@ only. Where each one runs is N119's.
    still stand as tokens where the site shows them, so both stay needed.
 3. **Ordinary PRs**, each with its preview (N117): the page, then the real package from 2.4's run in
    `site/package/` (N109). Checks 1 to 3 run locally before each PR and against each preview.
+   **The page and checks 1 to 3 are built** (§9), on the branch `p01-page`, stacked on step 2's PR.
    Between the two, `export collisions` runs at the page's commit in a short read window: the
    page's own code may still hold a value as a token, as M62 found six in 2.3's page. Each one
    leaves the code or is approved under N108 in a protected PR, before the real package's PR.
@@ -210,6 +211,11 @@ Asked on 2026-11-25, each answered with the recommended alternative. They live i
 - **N118** — light and dark follow the system's scheme only. No toggle, no store.
 - **N119** — checks 1 to 3 on the fixture in `make check`. Check 4 and the checks on the real package
   run in targets of their own.
+
+Asked while building, after the first look at the real package:
+
+- **N120** — the summary is a crosstab: a month per row, a root category per column, each cell the net
+  revenue. Units stay in the detail.
 
 ## 7. Choices taken here, unless the Owner objects
 
@@ -235,3 +241,100 @@ Asked on 2026-11-25, each answered with the recommended alternative. They live i
   proves it.
 - The real package on a preview is encrypted under public passwords (N22): whoever has the preview's
   URL can read it. That is the same as the publication at 2.10, by design.
+
+## 9. The implementation
+
+**What was built** for P01, as §3 planned it, with these choices made while building:
+
+- `site/relatorios/p01.html` and `p01.report.json`; in `site/app/`, the page (`page.mjs`), the engine
+  (`engine.mjs`), the package's source (`source.mjs`), the runner (`report.mjs`), the tables
+  (`tables.mjs`), the chart (`chart.mjs`), the styles (`page.css`), Arrow's shim and the pins. The
+  reader moved there from `web/` (C5, `92a66eb`), with the JavaScript suite and the prototype's harness.
+- **The pins** (C1): `tests/report_pins.py` writes each page's import map and scripts and
+  `site/app/pins.mjs` from `site/app/cdn.json`, the pins of 2.3 unchanged. `make check` refuses a page
+  that differs. `cdn.json` is not deployed.
+- **The legend is the page's own**, buttons above the plot, not Vega's. The vertical, the highlight and
+  the isolation are Vega signals the page sets, so the pointer, the keyboard and touch take one path.
+  A tap places the vertical only. Isolating is the legend's job on touch.
+- **The partial month is drawn as such.** The first look at the real package showed every line falling
+  in its last month. The line from the month before to it is dashed, and the month is marked "mês
+  incompleto" on the chart.
+- **Direct labels** at each line's end, spread apart with leader lines, from 40rem up. Below that, the
+  legend and the popup carry identity, and the chart takes the whole width.
+- **The palette** is the first four slots of the dataviz skill's validated categorical palette, checked
+  with its validator: worst adjacent CVD ΔE 11.8 in light and 11.1 in dark, against `#1a1b1e`. Three
+  light slots fall below 3:1 against white, and the summary table is their relief. **[measured]**
+- **N116 shapes the code**: no colour token is a hex made only of digits, and the package is fetched
+  with `cache: "no-cache"`. Ciphertext may sit in the HTTP cache, and 2.3's `no-store` would hold a
+  channel type of the real data as a token.
+- **The summary is a crosstab** (N120). On the real package, the long table had 132 rows, a month
+  by a root category each. It now has 33 rows, a month each, and a column per root category. Its
+  query still gives the grid as long rows; the runner (`report.pivot`) only lays them out and
+  formats them, sums nothing and refuses a cell given twice. The month is a row header and stays
+  in place as the table scrolls sideways; so do the caption and the notice of the partial month.
+  A G shows `—`, keyed once under the table, and is read as "Sem vendas neste recorte.".
+- **The invented P01** (`tests/site_fixture.py`, `p01_rows`) is a grid of fourteen months, three
+  channels and four root categories. It holds a G under every filter, a G under one channel, a Z, a
+  channel with no row in the last month, and the partial month. `site/package/` was sealed again from it.
+
+**Checks 1 to 3** are `tests/test_report_page.py`, in `make check` (N119), with
+`tests/browser/report_page.mjs` reading the page. They check:
+
+- the pins, the additivity of every sum and the question, against the pinned metadata;
+- the inputs;
+- under each filter: the summary, its header, cells and key, and the detail, cell by cell; every month on the axis; each series
+  read back from the SVG; the colours; the popup at every month, exactly;
+- the mark of the partial month;
+- the legend's isolation, Shift and double click, hover;
+- a click on a line;
+- the keyboard's vertical and its announcement;
+- the tab order and every focus ring;
+- 360 px with a tap;
+- both schemes' contrast;
+- logout.
+
+The month's x is read where the vertical stands. The value's y is read from the axis labels less
+their baseline offset, since Vega rounds its grid lines to whole pixels; a point must fall within
+0.75 px. The pinned bodies are served from a cache by their sha256 (`BICE_CDN_CACHE`), seeded from
+2.3's copies. DuckDB's extension host refuses Python's own HTTP client, so on a CI runner, which
+has no cache, the browser checks are skipped, as with no Chrome: they run in `make check` and against
+each preview, not in the candidate workflow.
+
+- **[measured]** 36 checks in about 17 s on this machine, stable over runs; 38 with the crosstab.
+- **[measured]** Counter-proof of the crosstab: with its G cells as plain text and no row headers,
+  the summary's check fails under every filter.
+- **[measured]** Counter-proofs: with 2.3's chart query, which has no null rows, 7 checks fail — the
+  axis, the lines through G, a popup's month, the mark. Summing `order_count` fails the additivity
+  check.
+- **[measured]** On the real package, served locally, no error reached the console and the page did
+  not scroll sideways at 360 px. Its screenshots stay outside Git.
+
+**On the real package** the same checks run with `BICE_REPORT_PACKAGE` naming a sealed package's
+folder: the page is served with it, and the oracle opens P01 with the public password through the
+Python reader, its Parquet read in a private temporary folder removed at once. The command prints
+names and counts only (`tests/test_report_page.py`'s docstring). `Makefile` is protected, so there is
+no target yet; a variable stands in for one.
+
+- **[measured]** On 2.4's package: 37 passed, and the invented grid's own case was skipped.
+- That run caught the tap check judging by the rotated labels' anchors, a constant distance off their
+  months. With 33 months at 360 px, that is a neighbour. The check now reads the vertical itself.
+
+**Check 4**, N96's oracle, is `tests/test_report_oracle.py`, run with `BICE_ORACLE=1`, before each PR and
+against a preview's URL (`BICE_ORACLE_URL`). It drives 2.3's own diagnostic,
+`prototypes/framework/browser/diagnostic.mjs`, unchanged: the same journey, and hooks in every realm,
+workers included. It judges four things:
+
+- WebCrypto only within a login attempt, and no successful unwrap or decrypt in the wrong one;
+- no write to any store;
+- every worker of the session ended at logout, with no report on the way back;
+- no value of the package readable at the end.
+
+It reports the closed profile's files that hold a text of the invented package.
+
+- **[measured]** 6 passed in about 18 s; on disk, no file held one.
+- **[measured]** Counter-proofs: a page that keeps a chart row in `sessionStorage` and derives a key on
+  load fails three of the judged checks.
+
+**Not done yet**: the page's PR and its preview (N117), after PR #33. Then `export collisions` at the
+page's commit, check 4 against the preview, and the real package's PR.
+

@@ -3,7 +3,8 @@ docs/exporter.md §11, N109).
 
 One small table per report of `release/contract.json` — the 16 reports'
 real shapes since stage 2.4's migration —, its rows **invented** from the
-contract's types alone, written as a real Parquet file by DuckDB, with its
+contract's types alone — P01's a grid with the shape of a chart, for the
+report page's checks (`p01_rows`, docs/report_page.md §4) —, written as a real Parquet file by DuckDB, with its
 control totals computed here in Python with `decimal`, independently of the
 gate's DuckDB query (§3), and sealed by the envelope's producer under
 `release/profiles.json`. No figure of eng_dados: every text is `fixture_…`,
@@ -18,6 +19,7 @@ The tests build their mutations from the same functions.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import pathlib
 import shutil
 import sys
@@ -111,8 +113,59 @@ def totals(contract: c.Contract, report: c.Report, rows: list[tuple]) -> bytes:
     return c.totals_object(contract, report, len(rows), sums)
 
 
+#: P01's invented grid (docs/report_page.md §4): fourteen months, the last partial;
+#: three channels; four root categories of two categories each.
+P01_MONTHS = [(2150, m) for m in range(1, 13)] + [(2151, 1), (2151, 2)]
+P01_CHANNELS = [("fixture_canal_a", "fixture_tipo_loja"), ("fixture_canal_b", "fixture_tipo_site"), ("fixture_canal_c", "fixture_tipo_app")]
+P01_ROOTS = [f"fixture_raiz_{k}" for k in range(1, 5)]
+
+
+def p01_absent(i: int, c: int, k: int, j: int) -> bool:
+    """The cells with no row, each a case the chart and the tables must show:
+    the third channel has no row in the last month (its axis keeps the month);
+    the third root has none under the third channel in the third month (a G
+    under that filter only); the fourth root has none in the sixth month (a G
+    under every filter, so its line breaks under `todos` too); and the second
+    category of the second root is absent under the second channel in the fifth
+    month, where the first sums to zero (a Z)."""
+    last = len(P01_MONTHS) - 1
+    return (c == 2 and i == last) or (k == 2 and c == 2 and i == 2) or (k == 3 and i == 5) or (k == 1 and c == 1 and i == 4 and j == 1)
+
+
+def p01_rows(report: c.Report) -> list[tuple]:
+    """P01 with the shape of a chart, from invented values only: amounts of five
+    digits with cents, the partial month's an eighth of the others; integers
+    out of the grain of five digits from 12000, as `invent`'s."""
+    assert [col.name for col in report.columns] == [
+        "year_month", "year_number", "month_number", "sales_channel_name", "channel_type", "root_category_name",
+        "category_name", "order_count", "unit_count", "gross_revenue_amount", "discount_amount", "net_revenue_amount",
+    ], "P01's columns changed: the invented grid follows them"
+    rows = []
+    last = len(P01_MONTHS) - 1
+    for i, (year, month) in enumerate(P01_MONTHS):
+        for c_, (channel, kind) in enumerate(P01_CHANNELS):
+            for k, root in enumerate(P01_ROOTS):
+                for j in range(2):
+                    if p01_absent(i, c_, k, j):
+                        continue
+                    spread = int(hashlib.sha256(f"{i},{c_},{k},{j}".encode()).hexdigest()[:8], 16)  # deterministic, uncorrelated
+                    whole = 10000 + spread % 80000
+                    if i == last:
+                        whole = 10000 + whole % 1250
+                    net = Decimal(f"{whole}.{(i * 7 + c_ * 3 + k + j) % 100:02d}")
+                    if k == 1 and c_ == 1 and i == 4:
+                        net = Decimal("0.00")  # the Z: a cell whose rows sum to zero
+                    discount = Decimal(f"{1000 + (i + c_ + k + j) % 900}.{(i * 3 + j) % 100:02d}")
+                    rows.append((
+                        f"{year}-{month:02d}", year, month, channel, kind, root, f"{root}_cat_{j + 1}",
+                        12000 + (i * 97 + c_ * 13 + k * 11 + j * 5) % 5000, 12000 + (i * 131 + c_ * 17 + k * 29 + j * 7) % 7000,
+                        net + discount, discount, net,
+                    ))
+    return rows
+
+
 def rows_of(contract: c.Contract) -> dict[str, list[tuple]]:
-    return {rid: invent(report) for rid, report in contract.reports.items()}
+    return {rid: p01_rows(report) if rid == "P01" else invent(report) for rid, report in contract.reports.items()}
 
 
 #: The rows of the committed contract, by report.

@@ -290,7 +290,9 @@ and none of the case's values in them.
 migration (N109, [`exporter.md` §11](exporter.md#11-the-migration-of-the-trusted-declarations-n109))
 they are the 16 reports' real shapes, the contract generated from `release/views.json`. Its rows are
 invented from the contract's types alone — texts `fixture_<report>_<column>_<row>`, integers of five
-digits, decimals within their precision, a null in each nullable column —, not figures of eng_dados
+digits, decimals within their precision, a null in each nullable column —, P01's since stage 2.5 a
+grid of fourteen months with the shape of a chart, its G and Z cells and a partial month
+([`report_page.md` §4](report_page.md#4-the-checks-planned)) —, not figures of eng_dados
 (CLAUDE.md §6, rule 2): the honest package enters `site/package/` only in stage 2.5's ordinary PR.
 It computes the totals in Python (§3) and seals the package with the envelope's producer, as in 2.2.
 Mutations whose payload the producer would refuse — malformed totals — are sealed with

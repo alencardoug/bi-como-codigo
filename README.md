@@ -40,7 +40,8 @@ serving harmless fixtures only; no report, portal or real publication exists yet
 | [`evidence/`](evidence/20261022/README.md) | The read-only probes behind every measurement in the plan, with their literal outputs — [M1–M18](evidence/20261022/README.md) and [M19–M26](evidence/20261023/README.md) |
 | [`.claude/skills/`](.claude/skills/review/SKILL.md) | The `review` and `adr` skills: the hand-off between agents, and the decision record as one transaction |
 | [`.github/workflows/`](.github/workflows/publish.yml), [`release/`](release/include.txt), [`firebase.json`](firebase.json), [`site/`](site/index.html) | The publishing pipeline of stage 2.2 — the candidate, publishing and promotion workflows, the release declarations and the fixture site (see [`docs/publishing_pipeline.md`](docs/publishing_pipeline.md)) |
-| [`web/envelope.mjs`](web/envelope.mjs) | The envelope's reader for the browser: WebCrypto only, the same file in the tests and in the site |
+| [`site/relatorios/`](site/relatorios/p01.html), [`site/app/`](site/app/page.mjs) | The report pages of stage 2.5: each report's page and declaration, and the code, styles and pins they share (see [`docs/report_page.md`](docs/report_page.md)) |
+| [`site/app/envelope.mjs`](site/app/envelope.mjs) | The envelope's reader for the browser: WebCrypto only, the same file in the tests and in the site; in `web/` until stage 2.5 |
 | `src/`, `tests/`, `Makefile` | The checks of this repository, the envelope's producer and Python reader, their tests and the envelope's vectors and cases, run by `make check` |
 
 ## Checking the repository

@@ -30,7 +30,7 @@ def control(tmp_path_factory):
     manifest, files = f.seal(*f.payload(fx))
     art = tmp_path_factory.mktemp("control") / "artifact"
     shutil.copytree(f.HERE / "controls" / "page", art)
-    shutil.copyfile(f.REPO / "web" / "envelope.mjs", art / "envelope.mjs")
+    shutil.copyfile(f.REPO / "site" / "app" / "envelope.mjs", art / "envelope.mjs")
     (art / "package").mkdir()
     (art / "package" / "manifest.json").write_bytes(manifest)
     for name, data in files.items():
