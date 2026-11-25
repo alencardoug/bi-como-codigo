@@ -18,7 +18,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-25 — revision 2: approved by the Owner. Revision 1, the plan with N116 to N119 |
+| Date | 2026-11-25 — revision 3: step 2 built (§5), and an assumption on media types (§8). Revision 2: approved by the Owner. Revision 1, the plan with N116 to N119 |
 | Author | Claude Code |
 | Status | **Plan, approved by the Owner on 2026-11-25 (N115)**, with its decisions N116 to N119 and the choices of §7. Work starts from the tag `checkpoint-2.4` (`e9f3007`); nothing built yet |
 
@@ -179,7 +179,7 @@ only. Where each one runs is N119's.
 
 ## 5. The order of the work
 
-1. After 2.4's merge and the tag `checkpoint-2.4`: the branch for 2.5.
+1. After 2.4's merge and the tag `checkpoint-2.4`: the branch for 2.5. **Done**: `report-2.5`.
 2. **One protected PR** (no preview; the Owner reviews it):
    - `include.txt` and `media_types.txt`;
    - the change to the gate of N116, with the mutations of
@@ -187,8 +187,15 @@ only. Where each one runs is N119's.
      ones of its own;
    - the approvals of N108 the real package still needs, from `export collisions`, which uses the
      gate's matching and so follows N116.
+
+   **Built on 2026-11-25**: N116 in `contract.found`, with MUT-07e and its counter-test; the page's
+   paths and types. No approval is new: under N116 the two of 2.4's run, `2026` and `Logística`,
+   still stand as tokens where the site shows them, so both stay needed.
 3. **Ordinary PRs**, each with its preview (N117): the page, then the real package from 2.4's run in
    `site/package/` (N109). Checks 1 to 3 run locally before each PR and against each preview.
+   Between the two, `export collisions` runs at the page's commit in a short read window: the
+   page's own code may still hold a value as a token, as M62 found six in 2.3's page. Each one
+   leaves the code or is approved under N108 in a protected PR, before the real package's PR.
 4. Close: evidence, this document's status, PLAN's status of 2.5, and `make check` green.
 
 ## 6. The Owner's decisions
@@ -223,5 +230,8 @@ Asked on 2026-11-25, each answered with the recommended alternative. They live i
   check 1 of §4 holds it.
 - **[measured, approximately]** §2 reads the capture's CSV text as each value's canonical form. The
   authoritative search is `verify`'s, on the exported package.
+- **[assumed]** Hosting serves `.mjs` as `text/javascript`, which a module script needs, and `.css`
+  as `text/css`, the types `release/media_types.txt` declares. The preview of the page's PR (N117)
+  proves it.
 - The real package on a preview is encrypted under public passwords (N22): whoever has the preview's
   URL can read it. That is the same as the publication at 2.10, by design.

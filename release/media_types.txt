@@ -3,3 +3,5 @@
 .md text/markdown
 .json application/json
 .bice application/octet-stream
+.mjs text/javascript
+.css text/css

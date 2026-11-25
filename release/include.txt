@@ -5,3 +5,9 @@ site/index.html
 site/releases.md
 site/package/manifest.json
 site/package/*.bice
+# The report pages (docs/report_page.md §3.1, stage 2.5): each report's page and
+# declaration, and the code and styles they share. No build: served as committed.
+site/relatorios/*.html
+site/relatorios/*.report.json
+site/app/*.mjs
+site/app/*.css
