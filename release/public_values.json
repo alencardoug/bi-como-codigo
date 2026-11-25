@@ -1,4 +1,7 @@
 {
-  "about": "Report values that are public by design (docs/package_gate.md §6, N81): the value inspection does not search for them. Each entry names the value and the reason it is public. Protected, like everything under release/. Empty for the fixtures, whose values are chosen not to collide with the fixture site.",
-  "values": []
+  "about": "Report values that are public by design (docs/package_gate.md §6, N81): the value inspection does not search for them. Each entry names the value and the reason it is public. Protected, like everything under release/. The fixtures' values are chosen not to collide with the fixture site; the entries are the collisions `export collisions` found at 96be411 on the live run of stage 2.4, each approved by the Owner on 2026-11-25 (N108).",
+  "values": [
+    {"value": "2026", "reason": "The year of the releases recorded in site/releases.md, public by design; it is also year_number in 14 reports (P01, P02, P04 to P11, P13 to P16). Exempted, 2026 is not searched in any report: a leak of exactly that number would pass."},
+    {"value": "Logística", "reason": "The label of the restricted profile in release/profiles.json (N23), which the login screen shows; it is also a category name of P15 (support_category_group). Exempted, the text Logística is not searched in any report: a leak of exactly that text would pass."}
+  ]
 }
