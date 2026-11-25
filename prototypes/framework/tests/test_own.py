@@ -20,7 +20,7 @@ import cdn
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
 OWN = HERE / "own"
-ENVELOPE = HERE.parents[2] / "site" / "app" / "envelope.mjs"
+ENVELOPE = HERE.parents[1] / "site" / "app" / "envelope.mjs"
 DUCKDB_TARBALL = HERE / "runs" / "third_party" / "duckdb-wasm-1.32.0.tgz"
 SOURCES = ("build.py", "index.html", "page.css", "page.mjs", "report.mjs", "arrow.mjs", "source.package.mjs",
            "source.clear.mjs", "p01.report.json", "cdn.json")
