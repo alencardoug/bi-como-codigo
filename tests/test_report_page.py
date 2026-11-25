@@ -11,7 +11,16 @@
   `decimal`, never from the page's SQL.
 
 They need Chrome and Node: in `make check` a missing one fails (N119); on a CI
-runner without them the browser checks are skipped. The pinned third-party
+runner without them the browser checks are skipped.
+
+**On the real package** (N119, before each PR that brings it and against its
+preview): `BICE_REPORT_PACKAGE` names a sealed package's folder — the
+exporter's result —, which the page is served with and the oracle opens with
+the profile's public password (N22), through the Python reader. Its Parquet is
+read in a private temporary folder, removed at once. A failure's detail would
+print values, so the command prints names only:
+
+    BICE_REPORT_PACKAGE=<folder> uv run --frozen pytest -q --tb=no -rN -p no:cacheprovider tests/test_report_page.py The pinned third-party
 bodies are cached by their sha256 in `BICE_CDN_CACHE` — by default
 `$XDG_CACHE_HOME/bi-como-codigo/cdn` —, fetched once and checked.
 """
@@ -89,9 +98,31 @@ def test_the_question_is_the_metadata_s():
 
 # --- what the package holds, computed here ----------------------------------------------------
 
+REAL = os.environ.get("BICE_REPORT_PACKAGE")
+
+
+def _real_rows(folder: pathlib.Path) -> list[tuple]:
+    """P01 of a sealed package, opened as the browser opens it, as typed rows."""
+    import tempfile
+
+    import duckdb
+
+    from bi_como_codigo import envelope as e
+
+    manifest = e.validate_manifest((folder / "manifest.json").read_bytes())
+    password = next(p.password for p in r.profiles(ROOT) if p.id == DECLARATION["profile"])
+    key = e.login(manifest, DECLARATION["profile"], password)
+    entry = manifest.reports[DECLARATION["id"]]
+    _totals, parquet = e.open_report(manifest, (folder / entry.file).read_bytes(), DECLARATION["id"], key)
+    with tempfile.TemporaryDirectory() as private:
+        path = pathlib.Path(private) / "p01.parquet"
+        path.write_bytes(parquet)
+        return [tuple(row) for row in duckdb.connect(":memory:").execute("SELECT * FROM read_parquet(?)", [str(path)]).fetchall()]
+
+
 NAMES = [col for col in ("year_month", "year_number", "month_number", "sales_channel_name", "channel_type", "root_category_name",
                          "category_name", "order_count", "unit_count", "gross_revenue_amount", "discount_amount", "net_revenue_amount")]
-ROWS = [dict(zip(NAMES, row)) for row in sf.ROWS["P01"]]
+ROWS = [dict(zip(NAMES, row)) for row in (_real_rows(pathlib.Path(REAL)) if REAL else sf.ROWS["P01"])]
 MONTHS = sorted({row["year_month"] for row in ROWS})
 CHANNELS = sorted({row["sales_channel_name"] for row in ROWS})
 ROOTS = sorted({row["root_category_name"] for row in ROWS})
@@ -119,6 +150,7 @@ def cell(filter_: str, month: str, root: str) -> tuple[Decimal | None, int | Non
     return sum((x["net_revenue_amount"] for x in rows), Decimal(0)), sum(x["unit_count"] for x in rows)
 
 
+@pytest.mark.skipif(bool(REAL), reason="the invented grid's cases, not the real package's")
 def test_the_fixture_holds_every_case():
     """The invented grid has what the checks must see: a G under every
     filter, a G under one channel only, a Z, a channel with no row in the last
@@ -184,6 +216,9 @@ def seen(tmp_path_factory):
     cache = _cdn_cache()
     deploy = tmp_path_factory.mktemp("report") / "deploy"
     r.build(ROOT, deploy)
+    if REAL:  # the page served with the real package in place of the invented one
+        shutil.rmtree(deploy / "package")
+        shutil.copytree(REAL, deploy / "package")
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(_Handler, directory=str(deploy)))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     password = next(p.password for p in r.profiles(ROOT) if p.id == DECLARATION["profile"])
@@ -381,10 +416,15 @@ def test_a_narrow_screen_does_not_scroll_sideways(seen):
 
 
 def test_a_tap_places_the_vertical_and_isolates_nothing(seen):
+    """The vertical stands at the month nearest the tap: within half the step
+    between two months — the labels' spacing, as their rotated anchors sit a
+    constant distance off their months —; nothing is isolated."""
     tap = seen["narrow"]["tap"]
-    nearest = min(tap["labels"], key=lambda label: abs(label[1] - tap["x"]))[0]
-    assert tap["tip"] and tap["tip"]["month"] == nearest
-    assert tap["pressed"] == ["false"] * 4
+    xs = sorted(x for _month, x in tap["labels"])
+    step = (xs[-1] - xs[0]) / (len(xs) - 1)
+    assert tap["tip"] is not None and tap["tip"]["month"] in MONTHS
+    assert abs(tap["tip"]["ruleX"] - tap["x"]) <= step / 2 + 0.5
+    assert tap["pressed"] == ["false"] * len(ROOTS)
 
 
 def _luminance(rgb):
