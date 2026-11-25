@@ -18,9 +18,9 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-25 — revision 1 |
+| Date | 2026-11-25 — revision 2: approved by the Owner. Revision 1, the plan with N116 to N119 |
 | Author | Claude Code |
-| Status | **Plan, for the Owner's approval (N115); its four decisions taken, N116 to N119.** Nothing built. Work starts from the tag `checkpoint-2.4`, after stage 2.4 is merged |
+| Status | **Plan, approved by the Owner on 2026-11-25 (N115)**, with its decisions N116 to N119 and the choices of §7. Work starts from the tag `checkpoint-2.4` (`e9f3007`); nothing built yet |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise the stage
 proves or refutes (§8).
