@@ -1,0 +1,137 @@
+/* The report pages (docs/report_page.md §3.4). Every colour is a token: the
+   light values on :root, the dark ones under the system's scheme only (N118),
+   no toggle and no store. The series are the first slots of the validated
+   categorical palette, light and dark stepped apart and each checked against
+   its own surface; text never wears a series colour. A hex made only of
+   digits would be a number the gate searches (N116), so every token holds a
+   letter. */
+
+:root {
+  color-scheme: light;
+  --surface: #ffffff;
+  --text: #1b1d21;
+  --text-2: #5f6670;
+  --grid: #e3e6ea;
+  --accent: #1f5fb8;
+  --raised: #f4f6f8;
+  --series-1: #257de0;
+  --series-2: #f47230;
+  --series-3: #00b894;
+  --series-4: #f2a600;
+  --chart-height: 18rem;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --surface: #1a1b1e;
+    --text: #eceef1;
+    --text-2: #a1a8b2;
+    --grid: #33373d;
+    --accent: #7fb0f5;
+    --raised: #24262b;
+    --series-1: #338ced;
+    --series-2: #e76624;
+    --series-3: #00a888;
+    --series-4: #d28e05;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--text);
+  font: 1rem/1.5 var(--font);
+}
+
+a { color: var(--accent); text-underline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+.skip { position: absolute; left: 1rem; top: -3rem; padding: .5rem .75rem; background: var(--surface); }
+.skip:focus { top: .5rem; }
+
+.site, main { max-width: 64rem; margin: 0 auto; padding-inline: 1rem; }
+.site { display: flex; flex-wrap: wrap; gap: .25rem 1rem; align-items: baseline; padding-block: 1rem .25rem;
+  color: var(--text-2); font-size: .875rem; }
+.site a { font-weight: bold; text-decoration: none; }
+
+h1 { font-size: 1.75rem; line-height: 1.2; margin: .5rem 0 .25rem; text-wrap: balance; }
+h2 { font-size: 1.125rem; margin: 0; }
+.question { color: var(--text-2); margin: 0 0 1.5rem; max-width: 40rem; }
+.hint { color: var(--text-2); font-size: .875rem; margin: .25rem 0 0; max-width: 40rem; }
+.error { color: var(--text); font-weight: bold; }
+
+.login { display: grid; gap: .5rem; max-width: 26rem; margin-block: 1rem 3rem; }
+.login label { font-weight: bold; }
+.login-row { display: flex; gap: .5rem; }
+.login-row input { flex: 1; min-width: 0; }
+
+input, select, button { font: inherit; color: var(--text); background: var(--surface);
+  border: 1px solid var(--text-2); border-radius: 4px; padding: .375rem .625rem; min-height: 2.5rem; }
+button { cursor: pointer; background: var(--raised); }
+button:disabled, input:disabled { opacity: .6; cursor: default; }
+button.quiet { background: none; border-color: var(--grid); color: var(--text-2); }
+
+.controls { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; align-items: end; margin-bottom: 1rem; }
+.controls label { display: grid; gap: .25rem; font-size: .875rem; color: var(--text-2); }
+.controls select { color: var(--text); min-width: 10rem; max-width: 100%; }
+.controls .quiet { margin-left: auto; }
+.loading { color: var(--text-2); font-size: .875rem; }
+
+.chart-figure { position: relative; margin: 0 0 2rem; }
+.chart-figure figcaption { margin-bottom: .75rem; }
+
+.legend { display: flex; flex-wrap: wrap; gap: .375rem .5rem; margin-bottom: .5rem; }
+.legend-item { display: inline-flex; align-items: center; gap: .5rem; background: none; border-color: var(--grid);
+  min-height: 2.25rem; padding-block: .25rem; }
+.legend-item[aria-pressed="true"] { border-color: var(--text); background: var(--raised); font-weight: bold; }
+.legend-all { font-size: .875rem; }
+
+.key { display: inline-block; flex: none; width: 1rem; height: 3px; border-radius: 2px; background: var(--key); }
+
+.chart-frame { position: relative; }
+.chart { height: var(--chart-height); width: 100%; touch-action: pan-y; }
+.chart svg { display: block; user-select: none; -webkit-user-select: none; }
+
+.end-labels { position: absolute; inset: 0; pointer-events: none; font-size: .75rem; color: var(--text); }
+.end-labels .leaders { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.end-labels line { stroke: var(--text-2); stroke-width: 1; opacity: .5; }
+.end-label { position: absolute; transform: translateY(-50%); display: inline-flex; align-items: center; gap: .375rem;
+  white-space: nowrap; line-height: 1; }
+.end-label .key { width: .625rem; }
+.end-label.faded { opacity: .35; }
+
+.chart-tip { position: absolute; z-index: 10; pointer-events: none; background: var(--surface); color: var(--text);
+  border: 1px solid var(--grid); border-radius: 6px; box-shadow: 0 4px 16px rgb(0 0 0 / .18);
+  padding: .5rem .75rem; font-size: .8125rem; max-width: min(22rem, 92vw); }
+.chart-tip strong { display: block; }
+.chart-tip em { display: block; color: var(--text-2); font-size: .75rem; }
+.chart-tip table { border-collapse: collapse; margin-top: .375rem; width: 100%; }
+.chart-tip td { padding: .125rem .5rem .125rem 0; border: 0; vertical-align: middle; }
+.chart-tip td.num { text-align: right; padding-right: 0; }
+.chart-tip tr.near td { font-weight: bold; }
+
+.table-scroll { overflow-x: auto; margin-bottom: 2rem; }
+table { border-collapse: collapse; width: 100%; font-size: .875rem; }
+caption { text-align: left; font-weight: bold; font-size: 1.125rem; margin-bottom: .5rem; }
+th, td { border-bottom: 1px solid var(--grid); padding: .375rem .625rem; text-align: left; white-space: nowrap; }
+th { color: var(--text-2); font-weight: normal; font-size: .8125rem; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+td[data-bice=empty], td[data-bice=partial] { color: var(--text-2); font-style: italic; text-align: left; }
+tr.note td { background: var(--raised); }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+@media (max-width: 40rem) {
+  :root { --chart-height: 15rem; }
+  h1 { font-size: 1.5rem; }
+  .controls .quiet { margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .legend-item, button { transition: background-color .15s, border-color .15s; }
+}

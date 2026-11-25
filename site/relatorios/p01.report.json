@@ -1,0 +1,332 @@
+{
+ "about": "P01 on the report page (docs/report_page.md §3.2): its queries, two inputs, chart and two tables, run by app/report.mjs over the table the page registers after login. The queries read the view as it is; they sum only the columns the metadata calls additive, and never order_count, which counts an order in each of its categories. The chart reads the whole grid of months by root categories, null where a cell has no row, so its lines break there and every month stays on the axis (M63). The partial month — the last, by `partial` — is drawn dashed from the month before and marked as incomplete. Amounts reach the page as exact decimal text, and as DOUBLE only to be drawn.",
+ "id": "P01",
+ "title": "Receita por canal e categoria",
+ "question": "Qual a receita líquida por mês, canal e categoria de produto?",
+ "profile": "diretoria",
+ "table": "p01",
+ "inputs": [
+  {
+   "id": "canal",
+   "label": "Canal",
+   "options": "canais",
+   "all": "todos",
+   "bice": "filter"
+  },
+  {
+   "id": "mes",
+   "label": "Mês do detalhe",
+   "options": "meses",
+   "default": "last",
+   "bice": "month"
+  }
+ ],
+ "queries": {
+  "canais": {
+   "sql": "select distinct sales_channel_name as value from p01 order by 1"
+  },
+  "meses": {
+   "sql": "select distinct year_month as value from p01 order by 1"
+  },
+  "raizes": {
+   "sql": "select distinct root_category_name as value from p01 order by 1"
+  },
+  "por_mes": {
+   "params": [
+    "canal"
+   ],
+   "sql": "with meses as (select distinct year_month from p01), raizes as (select distinct root_category_name from p01), f as (select year_month, root_category_name, sum(net_revenue_amount) as v from p01 where ($1 = 'todos' or sales_channel_name = $1) group by year_month, root_category_name) select m.year_month, r.root_category_name, cast(f.v as double) as net_revenue_amount, cast(f.v as varchar) as net_revenue_text from meses m cross join raizes r left join f on f.year_month = m.year_month and f.root_category_name = r.root_category_name order by m.year_month, r.root_category_name"
+  },
+  "resumo": {
+   "params": [
+    "canal"
+   ],
+   "sql": "with cells as (select m.year_month, r.root_category_name from (select distinct year_month from p01) m cross join (select distinct root_category_name from p01) r), filtered as (select year_month, root_category_name, sum(net_revenue_amount) as net_revenue_amount, sum(unit_count) as unit_count from p01 where ($1 = 'todos' or sales_channel_name = $1) group by year_month, root_category_name) select c.year_month, c.root_category_name, cast(f.net_revenue_amount as varchar) as net_revenue_amount, f.unit_count from cells c left join filtered f on f.year_month = c.year_month and f.root_category_name = c.root_category_name order by c.year_month, c.root_category_name"
+  },
+  "detalhe": {
+   "params": [
+    "canal",
+    "mes"
+   ],
+   "sql": "select sales_channel_name, category_name, order_count, unit_count, cast(net_revenue_amount as varchar) as net_revenue_amount from p01 where ($1 = 'todos' or sales_channel_name = $1) and year_month = $2 order by sales_channel_name, category_name"
+  }
+ },
+ "partial": {
+  "month": "last",
+  "text": "Mês incompleto: os dados terminam antes do fim deste mês."
+ },
+ "empty": "Sem vendas neste recorte.",
+ "chart": {
+  "query": "por_mes",
+  "title": "Receita líquida por mês",
+  "x": "year_month",
+  "series": "root_category_name",
+  "series_label": "Categoria raiz",
+  "series_domain": "raizes",
+  "y": "net_revenue_amount",
+  "y_text": "net_revenue_text",
+  "y_format": "brl",
+  "vega_lite": {
+   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+   "data": {
+    "name": "rows"
+   },
+   "width": "container",
+   "params": [
+    {
+     "name": "mes",
+     "value": null
+    },
+    {
+     "name": "perto",
+     "value": null
+    },
+    {
+     "name": "isolados",
+     "value": []
+    },
+    {
+     "name": "ultimo",
+     "value": null
+    },
+    {
+     "name": "penultimo",
+     "value": null
+    }
+   ],
+   "encoding": {
+    "x": {
+     "field": "year_month",
+     "type": "ordinal",
+     "title": null,
+     "axis": {
+      "labelAngle": -45,
+      "labelOverlap": true,
+      "ticks": false
+     }
+    }
+   },
+   "layer": [
+    {
+     "encoding": {
+      "y": {
+       "field": "net_revenue_amount",
+       "type": "quantitative",
+       "title": "Receita líquida (R$)",
+       "axis": {
+        "format": ",.0f"
+       }
+      },
+      "color": {
+       "field": "root_category_name",
+       "type": "nominal",
+       "legend": null
+      },
+      "opacity": {
+       "condition": [
+        {
+         "test": "perto && datum.root_category_name === perto",
+         "value": 1
+        },
+        {
+         "test": "perto",
+         "value": 0.15
+        },
+        {
+         "test": "length(isolados) === 0 || indexof(isolados, datum.root_category_name) >= 0",
+         "value": 1
+        }
+       ],
+       "value": 0.15
+      },
+      "strokeWidth": {
+       "condition": {
+        "test": "perto && datum.root_category_name === perto",
+        "value": 3
+       },
+       "value": 2
+      }
+     },
+     "layer": [
+      {
+       "transform": [
+        {
+         "filter": "datum.year_month !== ultimo"
+        }
+       ],
+       "mark": {
+        "type": "line",
+        "strokeCap": "round",
+        "strokeJoin": "round"
+       }
+      },
+      {
+       "transform": [
+        {
+         "filter": "datum.year_month === ultimo || datum.year_month === penultimo"
+        }
+       ],
+       "mark": {
+        "type": "line",
+        "strokeCap": "round",
+        "strokeJoin": "round",
+        "strokeDash": [
+         4,
+         4
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "transform": [
+      {
+       "filter": "mes !== null && datum.year_month === mes && isValid(datum.net_revenue_amount)"
+      }
+     ],
+     "mark": {
+      "type": "point",
+      "filled": true,
+      "size": 64,
+      "strokeWidth": 2
+     },
+     "encoding": {
+      "y": {
+       "field": "net_revenue_amount",
+       "type": "quantitative"
+      },
+      "color": {
+       "field": "root_category_name",
+       "type": "nominal",
+       "legend": null
+      },
+      "opacity": {
+       "condition": {
+        "test": "length(isolados) === 0 || indexof(isolados, datum.root_category_name) >= 0",
+        "value": 1
+       },
+       "value": 0.15
+      }
+     }
+    },
+    {
+     "transform": [
+      {
+       "aggregate": [
+        {
+         "op": "count",
+         "as": "n"
+        }
+       ],
+       "groupby": [
+        "year_month"
+       ]
+      },
+      {
+       "filter": "mes !== null && datum.year_month === mes"
+      }
+     ],
+     "mark": {
+      "type": "rule",
+      "strokeWidth": 1
+     }
+    },
+    {
+     "transform": [
+      {
+       "aggregate": [
+        {
+         "op": "count",
+         "as": "n"
+        }
+       ],
+       "groupby": [
+        "year_month"
+       ]
+      },
+      {
+       "filter": "datum.year_month === ultimo"
+      }
+     ],
+     "mark": {
+      "type": "text",
+      "text": "mês incompleto",
+      "align": "right",
+      "baseline": "top",
+      "dx": 6,
+      "dy": 2,
+      "fontSize": 11
+     },
+     "encoding": {
+      "y": {
+       "value": 0
+      }
+     }
+    }
+   ]
+  }
+ },
+ "tables": [
+  {
+   "bice": "summary",
+   "title": "Resumo por mês e categoria raiz",
+   "query": "resumo",
+   "columns": [
+    {
+     "field": "year_month",
+     "label": "Mês",
+     "format": "text"
+    },
+    {
+     "field": "root_category_name",
+     "label": "Categoria raiz",
+     "format": "text"
+    },
+    {
+     "field": "net_revenue_amount",
+     "label": "Receita líquida",
+     "format": "brl"
+    },
+    {
+     "field": "unit_count",
+     "label": "Unidades",
+     "format": "int"
+    }
+   ],
+   "month_field": "year_month"
+  },
+  {
+   "bice": "detail",
+   "title": "Detalhe do mês",
+   "query": "detalhe",
+   "columns": [
+    {
+     "field": "sales_channel_name",
+     "label": "Canal",
+     "format": "text"
+    },
+    {
+     "field": "category_name",
+     "label": "Categoria",
+     "format": "text"
+    },
+    {
+     "field": "order_count",
+     "label": "Pedidos",
+     "format": "int"
+    },
+    {
+     "field": "unit_count",
+     "label": "Unidades",
+     "format": "int"
+    },
+    {
+     "field": "net_revenue_amount",
+     "label": "Receita líquida",
+     "format": "brl"
+    }
+   ],
+   "month_input": "mes"
+  }
+ ]
+}

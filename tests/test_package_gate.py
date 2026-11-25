@@ -278,7 +278,12 @@ def test_mut07e_a_value_inside_an_integrity_hash_passes(repo):
 
 def test_mut07e_would_be_refused_by_a_match_by_substring(repo, monkeypatch):
     """The counter-test: with revision 5's match by substring, the same page
-    is refused — so MUT-07e proves N116's rule, not an absent needle."""
+    is refused — so MUT-07e proves N116's rule, not an absent needle. The
+    report page's own code is left out of this copy of the site: under a
+    match by substring it is refused first, as M62 measured, and this test is
+    about the hash in index.html."""
+    shutil.rmtree(repo / "site" / "app")
+    shutil.rmtree(repo / "site" / "relatorios")
     _only_the_count_says_140(repo)
     monkeypatch.setattr(c, "found", lambda needle, data: needle in data)
     page = repo / "site" / "index.html"
