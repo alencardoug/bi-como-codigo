@@ -1,0 +1,46 @@
+2026-11-25T13:23:21Z
+views 16; eligible numbers 24321; value needles 57506; three-digit integers that are a value somewhere: 186 of 900
+<B artifact>/arrow.d010545a84cf568a.mjs: 0 needle(s)
+<B artifact>/envelope.e2123facfae15655.mjs: 3 needle(s)
+  text, 3 bytes, 3 occurrence(s), 0 as a token; from cart_conversion_rate_by_channel.channel_type, discount_share_by_channel.channel_type, monthly_revenue_by_channel_and_category.channel_type and 1 more
+  number, 3 bytes, 10 occurrence(s), 4 as a token; from cart_conversion_rate_by_channel.cart_count, cart_conversion_rate_by_channel.closed_cart_count
+  text, 7 bytes, 1 occurrence(s), 0 as a token; from on_time_delivery_rate_by_carrier.service_level, order_to_delivery_time_by_region.service_level
+<B artifact>/index.html: 8 needle(s)
+  number, 3 bytes, 1 occurrence(s), 0 as a token, all inside integrity hashes; from cart_conversion_rate_by_channel.abandoned_cart_count
+  number, 3 bytes, 2 occurrence(s), 0 as a token; from cart_conversion_rate_by_channel.cart_count, cart_conversion_rate_by_channel.closed_cart_count
+  number, 3 bytes, 2 occurrence(s), 0 as a token; from cart_conversion_rate_by_channel.cart_count, cart_conversion_rate_by_channel.closed_cart_count
+  number, 3 bytes, 12 occurrence(s), 0 as a token, all inside integrity hashes; from cart_conversion_rate_by_channel.abandoned_cart_count
+  number, 4 bytes, 2 occurrence(s), 0 as a token; from discount_share_by_channel.discount_share_pct, inventory_turnover_by_sku_and_warehouse.avg_quantity_on_hand, inventory_turnover_by_sku_and_warehouse.inventory_turnover
+  number, 3 bytes, 1 occurrence(s), 0 as a token; from (a sum or another spelling)
+  number, 3 bytes, 1 occurrence(s), 0 as a token, all inside integrity hashes; from (a sum or another spelling)
+  number, 3 bytes, 2 occurrence(s), 0 as a token; from top_skus_by_revenue.product_natural_key
+<B artifact>/p01.report.d716d4ad5314dc6c.json: 1 needle(s)
+  number, 3 bytes, 1 occurrence(s), 1 as a token; from (a sum or another spelling)
+<B artifact>/page.1fc7e07b2e04a74f.css: 1 needle(s)
+  number, 3 bytes, 1 occurrence(s), 1 as a token; from (a sum or another spelling)
+<B artifact>/page.89e5346ddd7f1eef.mjs: 2 needle(s)
+  text, 3 bytes, 17 occurrence(s), 0 as a token; from cart_conversion_rate_by_channel.channel_type, discount_share_by_channel.channel_type, monthly_revenue_by_channel_and_category.channel_type and 1 more
+  text, 5 bytes, 1 occurrence(s), 1 as a token; from cart_conversion_rate_by_channel.channel_type, discount_share_by_channel.channel_type, monthly_revenue_by_channel_and_category.channel_type and 1 more
+<B artifact>/pins.4be255ca73d7084c.mjs: 2 needle(s)
+  number, 3 bytes, 3 occurrence(s), 0 as a token, all inside integrity hashes; from cart_conversion_rate_by_channel.abandoned_cart_count
+  number, 4 bytes, 2 occurrence(s), 0 as a token; from discount_share_by_channel.discount_share_pct, inventory_turnover_by_sku_and_warehouse.avg_quantity_on_hand, inventory_turnover_by_sku_and_warehouse.inventory_turnover
+<B artifact>/report.b0a9324e98f3c7a6.mjs: 3 needle(s)
+  number, 7 bytes, 1 occurrence(s), 1 as a token; from inventory_turnover_by_sku_and_warehouse.avg_inventory_value_amount
+  number, 4 bytes, 1 occurrence(s), 0 as a token; from inventory_turnover_by_sku_and_warehouse.avg_quantity_on_hand, inventory_turnover_by_sku_and_warehouse.inventory_turnover
+  number, 3 bytes, 1 occurrence(s), 0 as a token; from top_skus_by_revenue.product_natural_key
+<B artifact>/source.package.727810220d0f0204.mjs: 1 needle(s)
+  text, 5 bytes, 2 occurrence(s), 2 as a token; from cart_conversion_rate_by_channel.channel_type, discount_share_by_channel.channel_type, monthly_revenue_by_channel_and_category.channel_type and 1 more
+site/index.html: 0 needle(s)
+site/releases.md: 1 needle(s)
+  number, 4 bytes, 13 occurrence(s), 13 as a token; from average_order_value_by_channel_and_segment.year_number, cart_conversion_rate_by_channel.year_number, discount_share_by_channel.year_number and 11 more
+evidence/20261124/chart_interaction/p01.report.json: 2 needle(s)
+  number, 4 bytes, 4 occurrence(s), 4 as a token; from discount_share_by_channel.discount_share_pct, inventory_turnover_by_sku_and_warehouse.inventory_turnover
+  number, 3 bytes, 1 occurrence(s), 1 as a token; from (a sum or another spelling)
+evidence/20261124/chart_interaction/page.mjs: 3 needle(s)
+  text, 3 bytes, 27 occurrence(s), 0 as a token; from cart_conversion_rate_by_channel.channel_type, discount_share_by_channel.channel_type, monthly_revenue_by_channel_and_category.channel_type and 1 more
+  text, 5 bytes, 2 occurrence(s), 2 as a token; from cart_conversion_rate_by_channel.channel_type, discount_share_by_channel.channel_type, monthly_revenue_by_channel_and_category.channel_type and 1 more
+  text, 3 bytes, 1 occurrence(s), 0 as a token; from payment_approval_rate_by_method.method_type
+evidence/20261124/chart_interaction/page.css: 2 needle(s)
+  text, 3 bytes, 1 occurrence(s), 0 as a token; from cart_conversion_rate_by_channel.channel_type, discount_share_by_channel.channel_type, monthly_revenue_by_channel_and_category.channel_type and 1 more
+  number, 3 bytes, 1 occurrence(s), 1 as a token; from (a sum or another spelling)
+files with a hit: 12 of 14; hits that stand as a token somewhere: 11

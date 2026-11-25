@@ -1,0 +1,39 @@
+<!doctype html>
+<!-- M63 (evidence/20261125/README.md): how the Vega 6.4.0 and Vega-Lite 6.5.0 that the report page
+     pins draw a null, under each of Vega-Lite's `invalid` modes. Invented points only: series A is
+     null at 03, a cell with no row (G); series B is null at 05, the last month, as a channel with no
+     row there. It prints, per mode, each line's subpaths — a gap is a second `M` — and the month
+     labels of the x axis. vega.js and vega-lite.js are the pinned bodies, placed beside this file. -->
+<meta charset="utf-8"><body>
+<script src="vega.js"></script><script src="vega-lite.js"></script>
+<pre id="out"></pre>
+<script>
+// Invented points: series A has a null at 03 (a G cell); series B is null at 05, the last month (a channel with no row there).
+const rows = [];
+const months = ["01","02","03","04","05"];
+for (const m of months) {
+  rows.push({m, s: "A", v: m === "03" ? null : 10 + Number(m)});
+  rows.push({m, s: "B", v: m === "05" ? null : 20 + Number(m)});
+}
+const onlyB = rows.filter(r => r.s === "B");
+async function draw(name, data, invalid) {
+  const spec = {data: {values: data}, mark: {type: "line", point: false}, width: 300, height: 100,
+    encoding: {x: {field: "m", type: "ordinal"}, y: {field: "v", type: "quantitative"}, color: {field: "s", type: "nominal"}}};
+  if (invalid !== undefined) spec.config = {mark: {invalid}};
+  const div = document.createElement("div"); document.body.append(div);
+  const view = new vega.View(vega.parse(vegaLite.compile(spec).spec), {renderer: "svg", container: div});
+  await view.runAsync();
+  const paths = [...div.querySelectorAll("path[aria-roledescription='line mark'], g.mark-line path")].map(p => p.getAttribute("d"));
+  const subpaths = paths.map(d => (d.match(/M/g) || []).length);
+  const ticks = [...div.querySelectorAll("g.mark-text.role-axis-label text")].map(t => t.textContent);
+  return `${name}: invalid=${invalid === undefined ? "(default)" : invalid}; lines=${paths.length}; subpaths per line=${JSON.stringify(subpaths)}; axis labels=${JSON.stringify(ticks.filter(t => months.includes(t)))}`;
+}
+(async () => {
+  const out = [`vega ${vega.version}, vega-lite ${vegaLite.version}`];
+  for (const inv of [undefined, "filter", "break-paths-filter-domains", "break-paths-show-domains", "break-paths-show-path-domains", "show"]) {
+    out.push(await draw("both", rows, inv));
+    out.push(await draw("only B", onlyB, inv));
+  }
+  document.getElementById("out").textContent = out.join("\n");
+})().catch(e => { document.getElementById("out").textContent = "ERROR " + e; });
+</script>
