@@ -16,7 +16,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-06 — revision 5: round 4 applied (PGATE-4-01). Revision 4 is `0788e8a`: round 3 applied (PGATE-3-01, 02). Revision 3 is `b1f6b93`: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
+| Date | 2026-11-25 — revision 6: the inspection matches a value as a token (N116, §6). 2026-11-06 — revision 5: round 4 applied (PGATE-4-01). Revision 4 is `0788e8a`: round 3 applied (PGATE-3-01, 02). Revision 3 is `b1f6b93`: round 2 applied (PGATE-2-01 to 05), with the Owner's decision N83. Revision 2 is `f517d86`: round 1 applied (PGATE-1-01 to 06), with N80–N82. Revision 1 is `62070ec` |
 | Author | Claude Code |
 | Status | **Done on 2026-11-07, its criterion met**: every mutation of §9 stops in `verify` — the function the publishing workflow runs — at its check, in `make check`; on GitHub, MUT-05, MUT-11 and MUT-15 stopped in the publishing workflow before any upload, with no channel and no decrypted value in the log, and the honest PR #30 was previewed against live, bound to it and promoted (`evidence/20261106/t22b_real_prs.out.txt`). Plan reviewed in five rounds (14 findings, six blocking), code in five (9 findings, none blocking), all applied; 35 mutants of M52 killed. The Owner's decisions N76–N83 shape it |
 
@@ -233,7 +233,7 @@ artifact's files against `verify`'s `release.json` — each path and SHA-256, an
 
 The finished artifact is already searched for a Parquet magic, `BICP`, a DEK and source maps
 outside an envelope (pipeline §4.2). After the matrix, the gate knows every decrypted value; no
-non-envelope file of `deploy/` may contain, as bytes — in `manifest.json`, only its free text, the
+non-envelope file of `deploy/` may contain, as a token (N116, below) — in `manifest.json`, only its free text, the
 profile labels, is searched (N83): its other fields are strictly typed and bound to the package by
 its checks, and carry no free content —:
 
@@ -252,9 +252,21 @@ its checks, and carry no free content —:
 Dates and timestamps are searched in ISO form (`2026-01-01`, `2026-01-01 10:00:00`), as values of
 3 or more characters. `BOOLEAN` cells are not searched: two values, `true` and `false`, are not a
 figure, and every script says them.
+
+**As a token (N116, 2026-11-25).** A needle counts where it stands as a token: at each of its
+edges that is a letter, a digit or a non-ASCII byte, the neighbouring byte is none of these, and a
+number does not run on past a `.` or `,` into another digit — `140` is found in `<td>140</td>`,
+`(140)` or `Total: 140.`, and not in `sha384-Ab140Cd`, `1140`, `1.140` or `140,50`. An edge that is
+not one of these, as the `-` of `-140`, has no neighbour to check. Until revision 5 the search was by
+substring, and M62 measured what that meant for a report page: on M59's values, 8 of the 9 code
+files of 2.3's page held a value, almost all inside integrity hashes, longer numbers and
+identifiers ([`report_page.md` §2](report_page.md#2-the-measure-that-shapes-the-stage-the-gate-meets-the-pages-own-code)).
+`contract.found` is the one match, used by `verify` and by the exporter's `collisions`.
 Declared limits, not guarantees (§11): a value re-encoded — escaped, base64, rendered in another
 format — is not found; a number of one or two significant digits, or a text of one or two
-characters, is not searched, since a page legitimately says them.
+characters, is not searched, since a page legitimately says them; and, since N116, a value glued
+to a letter, a digit or a non-ASCII byte — `140px`, `x140` —, or one inside a longer number — `140`
+in `1.140` —, is not found.
 
 ---
 
@@ -306,6 +318,7 @@ under test.
 | MUT-07b | The same, only the row count of a report of 140 rows, `<p>140</p>` (PGATE-2-02) | `clear_value` |
 | MUT-07c | A value hidden in a profile label of the manifest | `clear_value` |
 | MUT-07d | A cell value colliding with a release date of `releases.md`, unlisted; then listed | `clear_value`; accepted |
+| MUT-07e | The count of MUT-07b only inside an integrity hash of the page (N116); then the same page under a match by substring, the counter-test | accepted; `clear_value` |
 | MUT-08 | A missing view — a contract report absent from the package | `inventory_exact` |
 | MUT-09 | An extra view — a report in the package, not in the contract | `inventory_exact` |
 | MUT-10 | An entitlement changed — `logistica` entitled to P01 in the manifest | `entitlements_exact` |
@@ -379,7 +392,8 @@ The tests:
 - [assumed] No Parquet, however hostile, makes DuckDB read a path the gate did not give it; the
   locks of §4 are not a sandbox, and no such path was found in PGATE-1.
 - The value inspection of §6 does not find a re-encoded value, a number of one or two significant
-  digits, nor a text of one or two characters; in the manifest it searches only the labels, so a
+  digits, a text of one or two characters, nor a value glued to a letter, a digit or a non-ASCII
+  byte (N116); in the manifest it searches only the labels, so a
   hostile author could encode a number in a strictly typed field such as `iterations` (N83, an
   adversarial limit).
 - [assumed] Hosting purges its CDN on a release well within 10 minutes, so `verify`'s public read,
