@@ -18,7 +18,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-25 — revision 6: the summary as a crosstab, by the Owner's N120 (§6, §9). Revision 5: check 4 and the checks on the real package built (§9). Revision 4: step 3's page and checks 1 to 3 built (§5, §9). Revision 3: step 2 built (§5), and an assumption on media types (§8). Revision 2: approved by the Owner. Revision 1, the plan with N116 to N119 |
+| Date | 2026-11-25 — revision 7: the browser checks skipped on a CI runner with no pinned bodies (§9). Revision 6: the summary as a crosstab, by the Owner's N120 (§6, §9). Revision 5: check 4 and the checks on the real package built (§9). Revision 4: step 3's page and checks 1 to 3 built (§5, §9). Revision 3: step 2 built (§5), and an assumption on media types (§8). Revision 2: approved by the Owner. Revision 1, the plan with N116 to N119 |
 | Author | Claude Code |
 | Status | **Plan, approved by the Owner on 2026-11-25 (N115)**, with its decisions N116 to N119 and the choices of §7. Work starts from the tag `checkpoint-2.4` (`e9f3007`); nothing built yet |
 
@@ -296,7 +296,9 @@ Asked while building, after the first look at the real package:
 The month's x is read where the vertical stands. The value's y is read from the axis labels less
 their baseline offset, since Vega rounds its grid lines to whole pixels; a point must fall within
 0.75 px. The pinned bodies are served from a cache by their sha256 (`BICE_CDN_CACHE`), seeded from
-2.3's copies. DuckDB's extension host refuses Python's own HTTP client.
+2.3's copies. DuckDB's extension host refuses Python's own HTTP client, so on a CI runner, which
+has no cache, the browser checks are skipped, as with no Chrome: they run in `make check` and against
+each preview, not in the candidate workflow.
 
 - **[measured]** 36 checks in about 17 s on this machine, stable over runs; 38 with the crosstab.
 - **[measured]** Counter-proof of the crosstab: with its G cells as plain text and no row headers,
