@@ -18,7 +18,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-25 — revision 4: step 3's page and checks 1 to 3 built (§5, §9). Revision 3: step 2 built (§5), and an assumption on media types (§8). Revision 2: approved by the Owner. Revision 1, the plan with N116 to N119 |
+| Date | 2026-11-25 — revision 5: check 4 and the checks on the real package built (§9). Revision 4: step 3's page and checks 1 to 3 built (§5, §9). Revision 3: step 2 built (§5), and an assumption on media types (§8). Revision 2: approved by the Owner. Revision 1, the plan with N116 to N119 |
 | Author | Claude Code |
 | Status | **Plan, approved by the Owner on 2026-11-25 (N115)**, with its decisions N116 to N119 and the choices of §7. Work starts from the tag `checkpoint-2.4` (`e9f3007`); nothing built yet |
 
@@ -294,6 +294,32 @@ their baseline offset, since Vega rounds its grid lines to whole pixels; a point
 - **[measured]** On the real package, served locally, no error reached the console and the page did
   not scroll sideways at 360 px. Its screenshots stay outside Git.
 
-**Not done yet**: check 4, N96's browser oracle; the checks on the real package in a target of their
-own; the page's PR and its preview (N117).
+**On the real package** the same checks run with `BICE_REPORT_PACKAGE` naming a sealed package's
+folder: the page is served with it, and the oracle opens P01 with the public password through the
+Python reader, its Parquet read in a private temporary folder removed at once. The command prints
+names and counts only (`tests/test_report_page.py`'s docstring). `Makefile` is protected, so there is
+no target yet; a variable stands in for one.
+
+- **[measured]** On 2.4's package: 37 passed, and the invented grid's own case was skipped.
+- That run caught the tap check judging by the rotated labels' anchors, a constant distance off their
+  months. With 33 months at 360 px, that is a neighbour. The check now reads the vertical itself.
+
+**Check 4**, N96's oracle, is `tests/test_report_oracle.py`, run with `BICE_ORACLE=1`, before each PR and
+against a preview's URL (`BICE_ORACLE_URL`). It drives 2.3's own diagnostic,
+`prototypes/framework/browser/diagnostic.mjs`, unchanged: the same journey, and hooks in every realm,
+workers included. It judges four things:
+
+- WebCrypto only within a login attempt, and no successful unwrap or decrypt in the wrong one;
+- no write to any store;
+- every worker of the session ended at logout, with no report on the way back;
+- no value of the package readable at the end.
+
+It reports the closed profile's files that hold a text of the invented package.
+
+- **[measured]** 6 passed in about 18 s; on disk, no file held one.
+- **[measured]** Counter-proofs: a page that keeps a chart row in `sessionStorage` and derives a key on
+  load fails three of the judged checks.
+
+**Not done yet**: the page's PR and its preview (N117), after PR #33. Then `export collisions` at the
+page's commit, check 4 against the preview, and the real package's PR.
 
