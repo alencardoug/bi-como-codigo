@@ -1,0 +1,1782 @@
+{
+  "receipt_version": 1,
+  "identity": {
+    "pin": "b0ef66e3ab42ce83c447c875c832f10f04db0d19",
+    "metadata_blob": "87d1dad31c49a2b8726cc44f991b19b0c87f05df",
+    "metadata_sha256": "f2e1df66a926275276ae5660e1baac36101adee2ca737395b17cd99199f044af"
+  },
+  "read": {
+    "read_at": "2026-11-25T15:13:33.649475Z",
+    "provenance": {
+      "status": "verified",
+      "built_from_commit": "bcc2d5ce23363ca121429e582d17b0018a0a0966",
+      "invocation_id": "1cb3cd4e-0637-4229-875c-82d073080540",
+      "sequence": 125
+    },
+    "metadata_provenance_sha256": "c4d65fb1c0202e21c5949f23d1dc555c2d631d3e7b02f230bffe78a4dee55dac",
+    "policy": {
+      "TimeZone": "UTC",
+      "DateStyle": "ISO, MDY",
+      "IntervalStyle": "postgres",
+      "extra_float_digits": "1",
+      "server_encoding": "UTF8",
+      "client_encoding": "UTF8"
+    },
+    "collation": {
+      "datlocprovider": "c",
+      "datcollate": "en_US.utf8",
+      "datctype": "en_US.utf8",
+      "daticulocale": null,
+      "daticurules": null,
+      "datcollversion": null,
+      "actual_version": null,
+      "version": "unavailable"
+    },
+    "tls": {
+      "sslmode": "prefer",
+      "root_certificate": false,
+      "crl": false
+    }
+  },
+  "facts": [
+    {
+      "code": "fact_transaction",
+      "passed": true,
+      "compared": {
+        "isolation": "repeatable read",
+        "read_only": "on"
+      }
+    },
+    {
+      "code": "fact_provenance",
+      "passed": true,
+      "compared": {
+        "status": "verified",
+        "built_from_commit": "bcc2d5ce23363ca121429e582d17b0018a0a0966",
+        "invocation_id": "1cb3cd4e-0637-4229-875c-82d073080540",
+        "sequence": 125
+      }
+    },
+    {
+      "code": "fact_login",
+      "passed": true,
+      "compared": {
+        "session_user": "consumption_reader",
+        "current_user": "consumption_reader"
+      }
+    },
+    {
+      "code": "fact_roles",
+      "passed": true,
+      "compared": {
+        "memberships": [
+          {
+            "member": "consumption_reader",
+            "role": "analyst",
+            "admin_option": false,
+            "inherit_option": true,
+            "set_option": true
+          }
+        ],
+        "can_login": {
+          "analyst": false,
+          "consumption_reader": true
+        }
+      }
+    },
+    {
+      "code": "fact_inventory",
+      "passed": true,
+      "compared": {
+        "views": [
+          {
+            "view": "average_order_value_by_channel_and_segment",
+            "kind": "v"
+          },
+          {
+            "view": "cart_conversion_rate_by_channel",
+            "kind": "v"
+          },
+          {
+            "view": "discount_share_by_channel",
+            "kind": "v"
+          },
+          {
+            "view": "gross_margin_by_category",
+            "kind": "v"
+          },
+          {
+            "view": "inventory_turnover_by_sku_and_warehouse",
+            "kind": "v"
+          },
+          {
+            "view": "monthly_revenue_by_channel_and_category",
+            "kind": "v"
+          },
+          {
+            "view": "new_and_repeat_customers_by_month",
+            "kind": "v"
+          },
+          {
+            "view": "on_time_delivery_rate_by_carrier",
+            "kind": "v"
+          },
+          {
+            "view": "order_to_delivery_time_by_region",
+            "kind": "v"
+          },
+          {
+            "view": "payment_approval_rate_by_method",
+            "kind": "v"
+          },
+          {
+            "view": "refund_rate_by_reason",
+            "kind": "v"
+          },
+          {
+            "view": "repeat_purchase_rate_after_support",
+            "kind": "v"
+          },
+          {
+            "view": "revenue_by_delivery_region",
+            "kind": "v"
+          },
+          {
+            "view": "skus_below_reorder_point",
+            "kind": "v"
+          },
+          {
+            "view": "support_tickets_per_hundred_orders",
+            "kind": "v"
+          },
+          {
+            "view": "top_skus_by_revenue",
+            "kind": "v"
+          }
+        ]
+      }
+    },
+    {
+      "code": "fact_access",
+      "passed": true,
+      "compared": {
+        "views": {
+          "average_order_value_by_channel_and_segment": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "cart_conversion_rate_by_channel": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "discount_share_by_channel": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "gross_margin_by_category": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "inventory_turnover_by_sku_and_warehouse": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "monthly_revenue_by_channel_and_category": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "new_and_repeat_customers_by_month": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "on_time_delivery_rate_by_carrier": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "order_to_delivery_time_by_region": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "payment_approval_rate_by_method": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "refund_rate_by_reason": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "repeat_purchase_rate_after_support": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "revenue_by_delivery_region": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "skus_below_reorder_point": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "support_tickets_per_hundred_orders": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          },
+          "top_skus_by_revenue": {
+            "table": {
+              "SELECT": true,
+              "INSERT": false,
+              "UPDATE": false,
+              "DELETE": false,
+              "TRUNCATE": false,
+              "REFERENCES": false,
+              "TRIGGER": false
+            },
+            "any_column": {
+              "INSERT": false,
+              "UPDATE": false
+            },
+            "owner_reachable": false
+          }
+        },
+        "schema": {
+          "USAGE": true,
+          "CREATE": false
+        }
+      }
+    },
+    {
+      "code": "fact_schema",
+      "passed": true,
+      "compared": {
+        "views": {
+          "average_order_value_by_channel_and_segment": [
+            [
+              "year_month",
+              25,
+              -1
+            ],
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "month_number",
+              23,
+              -1
+            ],
+            [
+              "sales_channel_name",
+              1043,
+              -1
+            ],
+            [
+              "customer_segment_name",
+              1043,
+              -1
+            ],
+            [
+              "order_count",
+              20,
+              -1
+            ],
+            [
+              "net_revenue_amount",
+              1700,
+              -1
+            ],
+            [
+              "average_order_value",
+              1700,
+              -1
+            ]
+          ],
+          "cart_conversion_rate_by_channel": [
+            [
+              "year_month",
+              25,
+              -1
+            ],
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "month_number",
+              23,
+              -1
+            ],
+            [
+              "sales_channel_name",
+              1043,
+              -1
+            ],
+            [
+              "channel_type",
+              1043,
+              -1
+            ],
+            [
+              "cart_count",
+              20,
+              -1
+            ],
+            [
+              "closed_cart_count",
+              20,
+              -1
+            ],
+            [
+              "converted_cart_count",
+              20,
+              -1
+            ],
+            [
+              "abandoned_cart_count",
+              20,
+              -1
+            ],
+            [
+              "cart_conversion_rate_pct",
+              1700,
+              -1
+            ],
+            [
+              "cart_value_amount",
+              1700,
+              -1
+            ],
+            [
+              "abandoned_value_amount",
+              1700,
+              -1
+            ]
+          ],
+          "discount_share_by_channel": [
+            [
+              "year_month",
+              25,
+              -1
+            ],
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "month_number",
+              23,
+              -1
+            ],
+            [
+              "sales_channel_name",
+              1043,
+              -1
+            ],
+            [
+              "channel_type",
+              1043,
+              -1
+            ],
+            [
+              "root_category_name",
+              1043,
+              -1
+            ],
+            [
+              "order_count",
+              20,
+              -1
+            ],
+            [
+              "gross_revenue_amount",
+              1700,
+              -1
+            ],
+            [
+              "discount_amount",
+              1700,
+              -1
+            ],
+            [
+              "net_revenue_amount",
+              1700,
+              -1
+            ],
+            [
+              "discount_share_pct",
+              1700,
+              -1
+            ]
+          ],
+          "gross_margin_by_category": [
+            [
+              "year_month",
+              25,
+              -1
+            ],
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "month_number",
+              23,
+              -1
+            ],
+            [
+              "root_category_name",
+              1043,
+              -1
+            ],
+            [
+              "category_name",
+              1043,
+              -1
+            ],
+            [
+              "net_revenue_amount",
+              1700,
+              -1
+            ],
+            [
+              "cost_of_goods_sold",
+              1700,
+              -1
+            ],
+            [
+              "gross_profit_amount",
+              1700,
+              -1
+            ],
+            [
+              "gross_margin_pct",
+              1700,
+              -1
+            ],
+            [
+              "unit_count",
+              20,
+              -1
+            ],
+            [
+              "dispatched_unit_count",
+              20,
+              -1
+            ]
+          ],
+          "inventory_turnover_by_sku_and_warehouse": [
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "quarter_number",
+              23,
+              -1
+            ],
+            [
+              "year_quarter",
+              25,
+              -1
+            ],
+            [
+              "sku",
+              1043,
+              -1
+            ],
+            [
+              "product_name",
+              1043,
+              -1
+            ],
+            [
+              "category_name",
+              1043,
+              -1
+            ],
+            [
+              "warehouse_name",
+              1043,
+              -1
+            ],
+            [
+              "warehouse_region",
+              25,
+              -1
+            ],
+            [
+              "quantity_out",
+              20,
+              -1
+            ],
+            [
+              "cost_of_goods_sold",
+              1700,
+              -1
+            ],
+            [
+              "avg_quantity_on_hand",
+              1700,
+              -1
+            ],
+            [
+              "avg_inventory_value_amount",
+              1700,
+              -1
+            ],
+            [
+              "inventory_turnover",
+              1700,
+              -1
+            ]
+          ],
+          "monthly_revenue_by_channel_and_category": [
+            [
+              "year_month",
+              25,
+              -1
+            ],
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "month_number",
+              23,
+              -1
+            ],
+            [
+              "sales_channel_name",
+              1043,
+              -1
+            ],
+            [
+              "channel_type",
+              1043,
+              -1
+            ],
+            [
+              "root_category_name",
+              1043,
+              -1
+            ],
+            [
+              "category_name",
+              1043,
+              -1
+            ],
+            [
+              "order_count",
+              20,
+              -1
+            ],
+            [
+              "unit_count",
+              20,
+              -1
+            ],
+            [
+              "gross_revenue_amount",
+              1700,
+              -1
+            ],
+            [
+              "discount_amount",
+              1700,
+              -1
+            ],
+            [
+              "net_revenue_amount",
+              1700,
+              -1
+            ]
+          ],
+          "new_and_repeat_customers_by_month": [
+            [
+              "year_month",
+              25,
+              -1
+            ],
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "month_number",
+              23,
+              -1
+            ],
+            [
+              "sales_channel_name",
+              1043,
+              -1
+            ],
+            [
+              "customer_segment_name",
+              1043,
+              -1
+            ],
+            [
+              "new_customer_count",
+              20,
+              -1
+            ],
+            [
+              "returning_customer_count",
+              20,
+              -1
+            ],
+            [
+              "repeat_purchase_rate_pct",
+              1700,
+              -1
+            ]
+          ],
+          "on_time_delivery_rate_by_carrier": [
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "month_number",
+              23,
+              -1
+            ],
+            [
+              "year_month",
+              25,
+              -1
+            ],
+            [
+              "carrier_name",
+              1043,
+              -1
+            ],
+            [
+              "service_level",
+              1043,
+              -1
+            ],
+            [
+              "warehouse_name",
+              1043,
+              -1
+            ],
+            [
+              "warehouse_region",
+              25,
+              -1
+            ],
+            [
+              "delivered_count",
+              20,
+              -1
+            ],
+            [
+              "on_time_count",
+              20,
+              -1
+            ],
+            [
+              "late_count",
+              20,
+              -1
+            ],
+            [
+              "split_order_shipment_count",
+              20,
+              -1
+            ],
+            [
+              "on_time_rate",
+              1700,
+              -1
+            ],
+            [
+              "avg_delay_days_when_late",
+              1700,
+              -1
+            ],
+            [
+              "avg_transit_days",
+              1700,
+              -1
+            ],
+            [
+              "failed_attempt_count",
+              1700,
+              -1
+            ]
+          ],
+          "order_to_delivery_time_by_region": [
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "month_number",
+              23,
+              -1
+            ],
+            [
+              "year_month",
+              25,
+              -1
+            ],
+            [
+              "region",
+              25,
+              -1
+            ],
+            [
+              "state_code",
+              1043,
+              -1
+            ],
+            [
+              "service_level",
+              1043,
+              -1
+            ],
+            [
+              "carrier_name",
+              1043,
+              -1
+            ],
+            [
+              "order_count",
+              20,
+              -1
+            ],
+            [
+              "split_order_count",
+              20,
+              -1
+            ],
+            [
+              "shipment_count",
+              1700,
+              -1
+            ],
+            [
+              "avg_order_to_delivery_days",
+              1700,
+              -1
+            ],
+            [
+              "median_order_to_delivery_days",
+              1700,
+              -1
+            ],
+            [
+              "max_order_to_delivery_days",
+              1700,
+              -1
+            ]
+          ],
+          "payment_approval_rate_by_method": [
+            [
+              "year_month",
+              25,
+              -1
+            ],
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "month_number",
+              23,
+              -1
+            ],
+            [
+              "payment_method_name",
+              1043,
+              -1
+            ],
+            [
+              "method_type",
+              1043,
+              -1
+            ],
+            [
+              "installments",
+              23,
+              -1
+            ],
+            [
+              "is_instalment_plan",
+              16,
+              -1
+            ],
+            [
+              "authorization_attempt_count",
+              20,
+              -1
+            ],
+            [
+              "approved_authorization_count",
+              20,
+              -1
+            ],
+            [
+              "approval_rate_pct",
+              1700,
+              -1
+            ],
+            [
+              "authorized_amount",
+              1700,
+              -1
+            ],
+            [
+              "captured_amount",
+              1700,
+              -1
+            ]
+          ],
+          "refund_rate_by_reason": [
+            [
+              "year_month",
+              25,
+              -1
+            ],
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "month_number",
+              23,
+              -1
+            ],
+            [
+              "payment_method_name",
+              1043,
+              -1
+            ],
+            [
+              "refund_reason",
+              1043,
+              -1
+            ],
+            [
+              "refund_count",
+              20,
+              -1
+            ],
+            [
+              "refunded_amount",
+              1700,
+              -1
+            ],
+            [
+              "captured_amount",
+              1700,
+              -1
+            ],
+            [
+              "refund_rate_pct",
+              1700,
+              -1
+            ]
+          ],
+          "repeat_purchase_rate_after_support": [
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "month_number",
+              23,
+              -1
+            ],
+            [
+              "year_month",
+              25,
+              -1
+            ],
+            [
+              "sales_channel_name",
+              1043,
+              -1
+            ],
+            [
+              "has_support_ticket",
+              16,
+              -1
+            ],
+            [
+              "support_category_name",
+              25,
+              -1
+            ],
+            [
+              "order_count",
+              20,
+              -1
+            ],
+            [
+              "repeat_order_count",
+              20,
+              -1
+            ],
+            [
+              "repeat_purchase_rate",
+              1700,
+              -1
+            ],
+            [
+              "avg_days_to_next_order",
+              1700,
+              -1
+            ]
+          ],
+          "revenue_by_delivery_region": [
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "quarter_number",
+              23,
+              -1
+            ],
+            [
+              "year_quarter",
+              25,
+              -1
+            ],
+            [
+              "region",
+              25,
+              -1
+            ],
+            [
+              "state_code",
+              1043,
+              -1
+            ],
+            [
+              "state_name",
+              25,
+              -1
+            ],
+            [
+              "sales_channel_name",
+              1043,
+              -1
+            ],
+            [
+              "order_count",
+              20,
+              -1
+            ],
+            [
+              "customer_version_count",
+              20,
+              -1
+            ],
+            [
+              "unit_count",
+              20,
+              -1
+            ],
+            [
+              "net_revenue_amount",
+              1700,
+              -1
+            ]
+          ],
+          "skus_below_reorder_point": [
+            [
+              "warehouse_name",
+              1043,
+              -1
+            ],
+            [
+              "warehouse_region",
+              25,
+              -1
+            ],
+            [
+              "sku",
+              1043,
+              -1
+            ],
+            [
+              "product_name",
+              1043,
+              -1
+            ],
+            [
+              "category_name",
+              1043,
+              -1
+            ],
+            [
+              "brand_name",
+              1043,
+              -1
+            ],
+            [
+              "quantity_on_hand",
+              23,
+              -1
+            ],
+            [
+              "quantity_reserved",
+              23,
+              -1
+            ],
+            [
+              "quantity_available",
+              23,
+              -1
+            ],
+            [
+              "quantity_from_batch",
+              23,
+              -1
+            ],
+            [
+              "quantity_from_stream",
+              23,
+              -1
+            ],
+            [
+              "stream_movement_count",
+              20,
+              -1
+            ],
+            [
+              "reorder_point",
+              23,
+              -1
+            ],
+            [
+              "is_stockout",
+              16,
+              -1
+            ],
+            [
+              "daily_demand_units",
+              1700,
+              -1
+            ],
+            [
+              "days_of_cover",
+              1700,
+              -1
+            ],
+            [
+              "last_movement_at",
+              1184,
+              -1
+            ]
+          ],
+          "support_tickets_per_hundred_orders": [
+            [
+              "year_number",
+              23,
+              -1
+            ],
+            [
+              "month_number",
+              23,
+              -1
+            ],
+            [
+              "year_month",
+              25,
+              -1
+            ],
+            [
+              "sales_channel_name",
+              1043,
+              -1
+            ],
+            [
+              "channel_type",
+              1043,
+              -1
+            ],
+            [
+              "support_category_name",
+              25,
+              -1
+            ],
+            [
+              "support_category_group",
+              25,
+              -1
+            ],
+            [
+              "ticket_count",
+              20,
+              -1
+            ],
+            [
+              "high_priority_ticket_count",
+              20,
+              -1
+            ],
+            [
+              "reopened_ticket_count",
+              20,
+              -1
+            ],
+            [
+              "solved_first_time_count",
+              20,
+              -1
+            ],
+            [
+              "channel_order_count",
+              1700,
+              -1
+            ],
+            [
+              "tickets_per_hundred_orders",
+              1700,
+              -1
+            ],
+            [
+              "avg_hours_to_resolution",
+              1700,
+              -1
+            ]
+          ],
+          "top_skus_by_revenue": [
+            [
+              "revenue_rank",
+              20,
+              -1
+            ],
+            [
+              "product_natural_key",
+              20,
+              -1
+            ],
+            [
+              "sku",
+              1043,
+              -1
+            ],
+            [
+              "product_name",
+              1043,
+              -1
+            ],
+            [
+              "category_name",
+              1043,
+              -1
+            ],
+            [
+              "root_category_name",
+              1043,
+              -1
+            ],
+            [
+              "brand_name",
+              1043,
+              -1
+            ],
+            [
+              "is_deleted",
+              16,
+              -1
+            ],
+            [
+              "unit_count",
+              20,
+              -1
+            ],
+            [
+              "net_revenue_amount",
+              1700,
+              -1
+            ],
+            [
+              "category_net_revenue_amount",
+              1700,
+              -1
+            ],
+            [
+              "category_revenue_share_pct",
+              1700,
+              -1
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "code": "fact_policy",
+      "passed": true,
+      "compared": {
+        "settings": {
+          "TimeZone": "UTC",
+          "DateStyle": "ISO, MDY",
+          "IntervalStyle": "postgres",
+          "extra_float_digits": "1",
+          "server_encoding": "UTF8",
+          "client_encoding": "UTF8"
+        },
+        "collation": {
+          "datlocprovider": "c",
+          "datcollate": "en_US.utf8",
+          "datctype": "en_US.utf8",
+          "daticulocale": null,
+          "daticurules": null,
+          "datcollversion": null,
+          "actual_version": null,
+          "version": "unavailable"
+        }
+      }
+    }
+  ],
+  "views": [
+    {
+      "view": "monthly_revenue_by_channel_and_category",
+      "report": "P01",
+      "rows": 1496,
+      "fingerprint": "30d37a5b184c3e32f5813cfde7b45dc6",
+      "witness_equal": true,
+      "reference_digest": "6887a66dbd38fe72fbd6879be04a825b74d8a21b04917ba24700daf9ccc3c0ce",
+      "parquet_sha256": "69f5f384af5be4c59a0a8b5f40593ed16fb0ec8ccd41fdc948fc437bbf8a31a9"
+    },
+    {
+      "view": "average_order_value_by_channel_and_segment",
+      "report": "P02",
+      "rows": 756,
+      "fingerprint": "1f36e9f5f9e499e0b1c8394097c56989",
+      "witness_equal": true,
+      "reference_digest": "8a8b6e966e02bbb03d96c8a640ea006773eebcca854fef989b6a152a69360359",
+      "parquet_sha256": "dfd5c3dea99ed4a3f9f1d0341991e6cb687bfeba6d51a10708caabdfa6513353"
+    },
+    {
+      "view": "top_skus_by_revenue",
+      "report": "P03",
+      "rows": 25,
+      "fingerprint": "ad5a925872811ee64b63c2f6076111b6",
+      "witness_equal": true,
+      "reference_digest": "9569807b349cebdcacafd90a1c439d3889d53b9b9d2b5787c1ba692a48cb580a",
+      "parquet_sha256": "7d85f87e608b62cf907b6582a8e1734c482a5cfc16d152b0e16f82986e1413e3"
+    },
+    {
+      "view": "new_and_repeat_customers_by_month",
+      "report": "P04",
+      "rows": 534,
+      "fingerprint": "6f12352876798c2f56b9c345ec8c1e5f",
+      "witness_equal": true,
+      "reference_digest": "2e38ce1d0fb351ae95d4afc3ce1a35234efffcbf63b730e2a921350e046025f2",
+      "parquet_sha256": "ac0e8ebb120e6c2564d090097bf28340708833c178b4d66ca0b853e8c5003d30"
+    },
+    {
+      "view": "revenue_by_delivery_region",
+      "report": "P05",
+      "rows": 467,
+      "fingerprint": "8b8a641c8360cbfcd9d6379928a654d0",
+      "witness_equal": true,
+      "reference_digest": "db3d6cabd31119134b896e48c6cb4cb40650a6eb4a8364e8cb0c2116408bbab8",
+      "parquet_sha256": "139c839d9d3645ca0dd5b463f4dce484817f7f123ac8a10902b6229250ff72a8"
+    },
+    {
+      "view": "discount_share_by_channel",
+      "report": "P06",
+      "rows": 393,
+      "fingerprint": "b2f06497f8c5d4dcf2b54f46ace21729",
+      "witness_equal": true,
+      "reference_digest": "ac776028048f1ddb3222bfbc5c7a685ba6194938b2bbb3751470a6ce4ae517e2",
+      "parquet_sha256": "3f1088719586d58dbcca40e1e63b85ce46247b13768c7274d68f5acce65bdcfb"
+    },
+    {
+      "view": "cart_conversion_rate_by_channel",
+      "report": "P07",
+      "rows": 96,
+      "fingerprint": "17dcab2d6a9e23618b5179ba2c4013ea",
+      "witness_equal": true,
+      "reference_digest": "de3781c9779004981244facce035d852da7061f728ad9967087ab3322fa353c9",
+      "parquet_sha256": "a15b9e22a8c926b7b9da086deccf5cb1f9786655095d719e299b78ddc8d61d1f"
+    },
+    {
+      "view": "gross_margin_by_category",
+      "report": "P08",
+      "rows": 526,
+      "fingerprint": "c91719f70ebfd98c814b8f639ab79838",
+      "witness_equal": true,
+      "reference_digest": "a6a285b5c0e2512882dd8fd144f277d7f237b9339c7aaa162797b8e868624344",
+      "parquet_sha256": "562327aa35216eaaef3e6ce57d7e53e41d7ddc86d0241029f94f63e0b518f6f4"
+    },
+    {
+      "view": "payment_approval_rate_by_method",
+      "report": "P09",
+      "rows": 541,
+      "fingerprint": "b12c42b918d91341205b540722af7643",
+      "witness_equal": true,
+      "reference_digest": "85417744f243a072434ef9e1c3a92340aa8acd58c64bafae968dcc8fbe1b6512",
+      "parquet_sha256": "7ff5f791b567b5418e50a683524eb3590bc44f697769bb47653fea3f2470d126"
+    },
+    {
+      "view": "refund_rate_by_reason",
+      "report": "P10",
+      "rows": 111,
+      "fingerprint": "c9d8927a75fd779c8f305ac51f4a9d03",
+      "witness_equal": true,
+      "reference_digest": "76ffce63c3e331f361112452690a5e58f7ecefb38300210de79221e2fdcbd87e",
+      "parquet_sha256": "fd5174d962d9e17d18e465795cb1e2dfb40109ac0909b226e7463949c9928082"
+    },
+    {
+      "view": "inventory_turnover_by_sku_and_warehouse",
+      "report": "P11",
+      "rows": 5775,
+      "fingerprint": "86c8288e98234d55a198e48b9c422568",
+      "witness_equal": true,
+      "reference_digest": "ea2b2b57d3488a70c8448bfd95c384028c349b6a26447d992b4ea90ce392e7d9",
+      "parquet_sha256": "a13a1fe6122b8e6a4fff85566c250aae43d01f5e420dfb64c6ef8d6c45839b4b"
+    },
+    {
+      "view": "skus_below_reorder_point",
+      "report": "P12",
+      "rows": 213,
+      "fingerprint": "ab59413ba8ae563e823172eeccbda649",
+      "witness_equal": true,
+      "reference_digest": "5f2b1f63c7037e60ca9df549be58f9a59f31676ef1207c03df9a32be4e79f787",
+      "parquet_sha256": "0fa12b799ead010d6506be3cf87ce511fe7dcdf0ffce04c940ed65d1a1162d0b"
+    },
+    {
+      "view": "on_time_delivery_rate_by_carrier",
+      "report": "P13",
+      "rows": 1177,
+      "fingerprint": "027a7b511be754b5c4b5b5736b5d3430",
+      "witness_equal": true,
+      "reference_digest": "0c8a303a72c5b72f36223af13fd3c369e2f013118d6d738ef24d590f7c0fc939",
+      "parquet_sha256": "7e98e8cd7dbee9da581805db99c86663df36e0595aae73f38998846c01bbd556"
+    },
+    {
+      "view": "order_to_delivery_time_by_region",
+      "report": "P14",
+      "rows": 1858,
+      "fingerprint": "dfe3bef80170b9226dbe1be99e1fb750",
+      "witness_equal": true,
+      "reference_digest": "f94b7140344733d19084a7ad5fd5b9f6c519539da58526f01f78b99c8c96fe4a",
+      "parquet_sha256": "5beb9c2945398a277dade3036a99fb34543b00320d97f1db0677c620b2e151bb"
+    },
+    {
+      "view": "support_tickets_per_hundred_orders",
+      "report": "P15",
+      "rows": 108,
+      "fingerprint": "51b752e9c51a5517d7380fbeac9dc5cf",
+      "witness_equal": true,
+      "reference_digest": "d2ccb08221f5e634b72cc7d558f9b8dbc060a83d021d41f68ee2256ba038e343",
+      "parquet_sha256": "faaecdf780ec0f00c26fb2b49aedd8a299bab736ce2eb9b53c9e49821550b3e5"
+    },
+    {
+      "view": "repeat_purchase_rate_after_support",
+      "report": "P16",
+      "rows": 168,
+      "fingerprint": "9bc752ee094fabfb3af63b78d1445660",
+      "witness_equal": true,
+      "reference_digest": "e670ef927470cb0267df458aee2ebc69086737bed21a8a4025a2d989a28af2c2",
+      "parquet_sha256": "8016f3c6e5966d3a182b676d73bf6af0c3c8892a4061305b061ea63d1a59169a"
+    }
+  ],
+  "envelopes": [
+    {
+      "file": "P01.6a50e2382fa89d77.bice",
+      "sha256": "6a50e2382fa89d77eb5e62f032607726988340fab102dd9e7e9233fa815df7bd"
+    },
+    {
+      "file": "P02.cddfa79186ebf249.bice",
+      "sha256": "cddfa79186ebf2496b7ba79ec5845102ac46beecb252a6caa63227f0a4156c22"
+    },
+    {
+      "file": "P03.3cc98e9a99a42906.bice",
+      "sha256": "3cc98e9a99a429067345863eee5a03b4b61e622541c030d3acae68b94592b67e"
+    },
+    {
+      "file": "P04.e074f24c9591e5aa.bice",
+      "sha256": "e074f24c9591e5aaca8d0aa9b569fe4f53725b9d8bb234f62477935b2f507447"
+    },
+    {
+      "file": "P05.c7c45144fecc683d.bice",
+      "sha256": "c7c45144fecc683dd8ce127717cb8704d69b4d69eed0a1cf272d70ded2f03580"
+    },
+    {
+      "file": "P06.800b6522285502e2.bice",
+      "sha256": "800b6522285502e2d1cb71d13bdaefc4be1efdfc8183dcf3b7c72593451e613d"
+    },
+    {
+      "file": "P07.88fa953d4b21916f.bice",
+      "sha256": "88fa953d4b21916ff9550a59f046fff1fd09abb50e734d507af516b4a06f3622"
+    },
+    {
+      "file": "P08.733ed6bb6ea9c361.bice",
+      "sha256": "733ed6bb6ea9c36197451b8cd8b8e2c34546416af01330a49e985d635cd6b4e6"
+    },
+    {
+      "file": "P09.914bba044d40ad58.bice",
+      "sha256": "914bba044d40ad588dc75b293847015980815185debb6c980719287e59c27d16"
+    },
+    {
+      "file": "P10.0aeacb54f8b0b9a5.bice",
+      "sha256": "0aeacb54f8b0b9a5454cecd8e456d60ec7b1cd21e9a80b01aef549e9f98a6107"
+    },
+    {
+      "file": "P11.c9eeb8f3df944309.bice",
+      "sha256": "c9eeb8f3df94430960db338b40c149a9a90eef2db6853fe4b18e58165950824c"
+    },
+    {
+      "file": "P12.cf26f429d59de634.bice",
+      "sha256": "cf26f429d59de6345f5555009838feb6d323c525e589f2eb328113f7ee97461f"
+    },
+    {
+      "file": "P13.752530011ae4bb9e.bice",
+      "sha256": "752530011ae4bb9e1acfe76b79ea04a61f2eb0f83627abc96fd4c36b53e1c564"
+    },
+    {
+      "file": "P14.1f83e14fcaf2d38e.bice",
+      "sha256": "1f83e14fcaf2d38ea8a76a521460dd17fe6877ff62da0e7a372392bbe6e1de80"
+    },
+    {
+      "file": "P15.273e7746bca67bee.bice",
+      "sha256": "273e7746bca67beefd1760dd04552d14eb0035ef9eaf121b9f7c43e4a9833ab9"
+    },
+    {
+      "file": "P16.ca1d835c51f590a3.bice",
+      "sha256": "ca1d835c51f590a387e6a897fb3fb741b865375825416d774eba6a67eff2e81f"
+    }
+  ],
+  "candidate": {
+    "commit": "92503b78e750b2a24f4440125f597dd9472212d7",
+    "listing_digest": "fea6de611f7a8dec11928c11bd8826953e1ccc6cb34dc5356a2aa8fa6a018b1e",
+    "files": [
+      {
+        "path": "index.html",
+        "sha256": "223e5b39f0d9338c12ddfd4401e592a165c4aa1746b82a3800cfa63b2b6de06e"
+      },
+      {
+        "path": "package/P01.6a50e2382fa89d77.bice",
+        "sha256": "6a50e2382fa89d77eb5e62f032607726988340fab102dd9e7e9233fa815df7bd"
+      },
+      {
+        "path": "package/P02.cddfa79186ebf249.bice",
+        "sha256": "cddfa79186ebf2496b7ba79ec5845102ac46beecb252a6caa63227f0a4156c22"
+      },
+      {
+        "path": "package/P03.3cc98e9a99a42906.bice",
+        "sha256": "3cc98e9a99a429067345863eee5a03b4b61e622541c030d3acae68b94592b67e"
+      },
+      {
+        "path": "package/P04.e074f24c9591e5aa.bice",
+        "sha256": "e074f24c9591e5aaca8d0aa9b569fe4f53725b9d8bb234f62477935b2f507447"
+      },
+      {
+        "path": "package/P05.c7c45144fecc683d.bice",
+        "sha256": "c7c45144fecc683dd8ce127717cb8704d69b4d69eed0a1cf272d70ded2f03580"
+      },
+      {
+        "path": "package/P06.800b6522285502e2.bice",
+        "sha256": "800b6522285502e2d1cb71d13bdaefc4be1efdfc8183dcf3b7c72593451e613d"
+      },
+      {
+        "path": "package/P07.88fa953d4b21916f.bice",
+        "sha256": "88fa953d4b21916ff9550a59f046fff1fd09abb50e734d507af516b4a06f3622"
+      },
+      {
+        "path": "package/P08.733ed6bb6ea9c361.bice",
+        "sha256": "733ed6bb6ea9c36197451b8cd8b8e2c34546416af01330a49e985d635cd6b4e6"
+      },
+      {
+        "path": "package/P09.914bba044d40ad58.bice",
+        "sha256": "914bba044d40ad588dc75b293847015980815185debb6c980719287e59c27d16"
+      },
+      {
+        "path": "package/P10.0aeacb54f8b0b9a5.bice",
+        "sha256": "0aeacb54f8b0b9a5454cecd8e456d60ec7b1cd21e9a80b01aef549e9f98a6107"
+      },
+      {
+        "path": "package/P11.c9eeb8f3df944309.bice",
+        "sha256": "c9eeb8f3df94430960db338b40c149a9a90eef2db6853fe4b18e58165950824c"
+      },
+      {
+        "path": "package/P12.cf26f429d59de634.bice",
+        "sha256": "cf26f429d59de6345f5555009838feb6d323c525e589f2eb328113f7ee97461f"
+      },
+      {
+        "path": "package/P13.752530011ae4bb9e.bice",
+        "sha256": "752530011ae4bb9e1acfe76b79ea04a61f2eb0f83627abc96fd4c36b53e1c564"
+      },
+      {
+        "path": "package/P14.1f83e14fcaf2d38e.bice",
+        "sha256": "1f83e14fcaf2d38ea8a76a521460dd17fe6877ff62da0e7a372392bbe6e1de80"
+      },
+      {
+        "path": "package/P15.273e7746bca67bee.bice",
+        "sha256": "273e7746bca67beefd1760dd04552d14eb0035ef9eaf121b9f7c43e4a9833ab9"
+      },
+      {
+        "path": "package/P16.ca1d835c51f590a3.bice",
+        "sha256": "ca1d835c51f590a387e6a897fb3fb741b865375825416d774eba6a67eff2e81f"
+      },
+      {
+        "path": "package/manifest.json",
+        "sha256": "918775fb11e09574e7ea1bee0f02c0e62e1138d16088fa030e7ab2e795034b04"
+      },
+      {
+        "path": "releases.md",
+        "sha256": "e25d9710ee95bfbf32d206ff7c0d3c33588681afc8c89e8fcaabd2b3be10eb09"
+      }
+    ],
+    "included": [
+      "site/index.html",
+      "site/package/P01.6a50e2382fa89d77.bice",
+      "site/package/P02.cddfa79186ebf249.bice",
+      "site/package/P03.3cc98e9a99a42906.bice",
+      "site/package/P04.e074f24c9591e5aa.bice",
+      "site/package/P05.c7c45144fecc683d.bice",
+      "site/package/P06.800b6522285502e2.bice",
+      "site/package/P07.88fa953d4b21916f.bice",
+      "site/package/P08.733ed6bb6ea9c361.bice",
+      "site/package/P09.914bba044d40ad58.bice",
+      "site/package/P10.0aeacb54f8b0b9a5.bice",
+      "site/package/P11.c9eeb8f3df944309.bice",
+      "site/package/P12.cf26f429d59de634.bice",
+      "site/package/P13.752530011ae4bb9e.bice",
+      "site/package/P14.1f83e14fcaf2d38e.bice",
+      "site/package/P15.273e7746bca67bee.bice",
+      "site/package/P16.ca1d835c51f590a3.bice",
+      "site/package/manifest.json",
+      "site/releases.md"
+    ],
+    "verify": [
+      {
+        "live": "none",
+        "passed": true
+      },
+      {
+        "live": "43895af171f4209d19492919d58782ffba9ca6e610ddab760cce4359220d1953",
+        "passed": true
+      }
+    ],
+    "collisions_approved": {
+      "used": [
+        0,
+        1
+      ],
+      "unused": []
+    },
+    "declarations": {
+      "release/contract.json": "6fa4a46afe62ff456e82008153c10cbb1033c0d253aa35c7e58bb20be384e84a",
+      "release/include.txt": "17225e3f3c9de8535f6fc6d73d247abd8fe47b214a993d454158f1540dd0aadd",
+      "release/media_types.txt": "b1c101c187236380d2e5679060791cf71202bfcedcd0fcd44f22d1be7dfbcd03",
+      "release/profiles.json": "0dcd23523e6999d3081319a0f9fb777b302d1c3443040541c7625534a00c6c9f",
+      "release/public_values.json": "883b51b74e1d34b6e584d05e6e8fbb10563e6f29f2c9eb08aebf0da51448a6d4",
+      "release/views.json": "adf22fb197952817a6fed162c42ec3a404b6583b2d281b7be6a450a75ae552e7"
+    }
+  },
+  "durations": {
+    "connect": 0.162,
+    "facts": 0.029,
+    "read": 6.823,
+    "checks": 0.407,
+    "write": 0.456,
+    "read_back": 1.561,
+    "seal": 1.313,
+    "candidate": 18.011
+  }
+}
