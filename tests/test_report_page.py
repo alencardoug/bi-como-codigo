@@ -129,6 +129,7 @@ ROOTS = sorted({row["root_category_name"] for row in ROWS})
 LAST = MONTHS[-1]
 EMPTY = DECLARATION["empty"]
 PARTIAL = DECLARATION["partial"]["text"]
+SUMMARY = next(t for t in DECLARATION["tables"] if t["bice"] == "summary")
 
 
 def brl(amount: Decimal) -> str:
@@ -247,14 +248,24 @@ def test_the_inputs(seen):
 
 @pytest.mark.parametrize("filter_", ["todos", *CHANNELS])
 def test_the_summary_agrees_with_the_package(seen, filter_):
+    """The summary is a crosstab: a month per row, its row header, and a root
+    category per column, each cell the net revenue of its rows, or a G — the
+    mark seen, the report's text said —; the notice before the partial month."""
+    pivot = SUMMARY["pivot"]
     expected = []
     for month in MONTHS:
         if month == LAST:
             expected.append({"note": PARTIAL})
+        row = [{"row": month}]
         for root in ROOTS:
-            net, units = cell(filter_, month, root)
-            expected.append([month, root, brl(net) if net is not None else EMPTY, integer(units) if units is not None else EMPTY])
-    assert seen["views"][filter_]["tables"]["summary"] == expected
+            net, _units = cell(filter_, month, root)
+            row.append(brl(net) if net is not None else {"mark": pivot["empty_mark"], "said": EMPTY})
+        expected.append(row)
+    view = seen["views"][filter_]
+    assert view["heads"]["summary"] == [pivot["row_label"], *ROOTS]
+    assert view["tables"]["summary"] == expected
+    has_g = any(cell(filter_, m, root)[0] is None for m in MONTHS for root in ROOTS)
+    assert view["keys"]["summary"] == (f"{pivot['empty_mark']} {EMPTY}" if has_g else None)
 
 
 @pytest.mark.parametrize("filter_", ["todos", *CHANNELS])

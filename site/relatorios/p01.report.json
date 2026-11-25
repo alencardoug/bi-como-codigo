@@ -1,5 +1,5 @@
 {
- "about": "P01 on the report page (docs/report_page.md §3.2): its queries, two inputs, chart and two tables, run by app/report.mjs over the table the page registers after login. The queries read the view as it is; they sum only the columns the metadata calls additive, and never order_count, which counts an order in each of its categories. The chart reads the whole grid of months by root categories, null where a cell has no row, so its lines break there and every month stays on the axis (M63). The partial month — the last, by `partial` — is drawn dashed from the month before and marked as incomplete. Amounts reach the page as exact decimal text, and as DOUBLE only to be drawn.",
+ "about": "P01 on the report page (docs/report_page.md §3.2): its queries, two inputs, chart and two tables, run by app/report.mjs over the table the page registers after login. The queries read the view as it is; they sum only the columns the metadata calls additive, and never order_count, which counts an order in each of its categories. The chart reads the whole grid of months by root categories, null where a cell has no row, so its lines break there and every month stays on the axis (M63). The partial month — the last, by `partial` — is drawn dashed from the month before and marked as incomplete. The summary is a crosstab of months by root categories: its query gives the grid as long rows, and the runner only pivots and formats them, summing nothing. Amounts reach the page as exact decimal text, and as DOUBLE only to be drawn.",
  "id": "P01",
  "title": "Receita por canal e categoria",
  "question": "Qual a receita líquida por mês, canal e categoria de produto?",
@@ -41,7 +41,7 @@
    "params": [
     "canal"
    ],
-   "sql": "with cells as (select m.year_month, r.root_category_name from (select distinct year_month from p01) m cross join (select distinct root_category_name from p01) r), filtered as (select year_month, root_category_name, sum(net_revenue_amount) as net_revenue_amount, sum(unit_count) as unit_count from p01 where ($1 = 'todos' or sales_channel_name = $1) group by year_month, root_category_name) select c.year_month, c.root_category_name, cast(f.net_revenue_amount as varchar) as net_revenue_amount, f.unit_count from cells c left join filtered f on f.year_month = c.year_month and f.root_category_name = c.root_category_name order by c.year_month, c.root_category_name"
+   "sql": "with cells as (select m.year_month, r.root_category_name from (select distinct year_month from p01) m cross join (select distinct root_category_name from p01) r), filtered as (select year_month, root_category_name, sum(net_revenue_amount) as net_revenue_amount from p01 where ($1 = 'todos' or sales_channel_name = $1) group by year_month, root_category_name) select c.year_month, c.root_category_name, cast(f.net_revenue_amount as varchar) as net_revenue_amount from cells c left join filtered f on f.year_month = c.year_month and f.root_category_name = c.root_category_name order by c.year_month, c.root_category_name"
   },
   "detalhe": {
    "params": [
@@ -269,30 +269,16 @@
  "tables": [
   {
    "bice": "summary",
-   "title": "Resumo por mês e categoria raiz",
+   "title": "Receita líquida por mês e categoria raiz",
    "query": "resumo",
-   "columns": [
-    {
-     "field": "year_month",
-     "label": "Mês",
-     "format": "text"
-    },
-    {
-     "field": "root_category_name",
-     "label": "Categoria raiz",
-     "format": "text"
-    },
-    {
-     "field": "net_revenue_amount",
-     "label": "Receita líquida",
-     "format": "brl"
-    },
-    {
-     "field": "unit_count",
-     "label": "Unidades",
-     "format": "int"
-    }
-   ],
+   "pivot": {
+    "row": "year_month",
+    "row_label": "Mês",
+    "column": "root_category_name",
+    "value": "net_revenue_amount",
+    "format": "brl",
+    "empty_mark": "—"
+   },
    "month_field": "year_month"
   },
   {

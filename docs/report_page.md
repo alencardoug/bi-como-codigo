@@ -18,7 +18,7 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-25 — revision 5: check 4 and the checks on the real package built (§9). Revision 4: step 3's page and checks 1 to 3 built (§5, §9). Revision 3: step 2 built (§5), and an assumption on media types (§8). Revision 2: approved by the Owner. Revision 1, the plan with N116 to N119 |
+| Date | 2026-11-25 — revision 6: the summary as a crosstab, by the Owner's N120 (§6, §9). Revision 5: check 4 and the checks on the real package built (§9). Revision 4: step 3's page and checks 1 to 3 built (§5, §9). Revision 3: step 2 built (§5), and an assumption on media types (§8). Revision 2: approved by the Owner. Revision 1, the plan with N116 to N119 |
 | Author | Claude Code |
 | Status | **Plan, approved by the Owner on 2026-11-25 (N115)**, with its decisions N116 to N119 and the choices of §7. Work starts from the tag `checkpoint-2.4` (`e9f3007`); nothing built yet |
 
@@ -212,6 +212,11 @@ Asked on 2026-11-25, each answered with the recommended alternative. They live i
 - **N119** — checks 1 to 3 on the fixture in `make check`. Check 4 and the checks on the real package
   run in targets of their own.
 
+Asked while building, after the first look at the real package:
+
+- **N120** — the summary is a crosstab: a month per row, a root category per column, each cell the net
+  revenue. Units stay in the detail.
+
 ## 7. Choices taken here, unless the Owner objects
 
 - **C1** — no build step (§3.1).
@@ -262,6 +267,12 @@ Asked on 2026-11-25, each answered with the recommended alternative. They live i
 - **N116 shapes the code**: no colour token is a hex made only of digits, and the package is fetched
   with `cache: "no-cache"`. Ciphertext may sit in the HTTP cache, and 2.3's `no-store` would hold a
   channel type of the real data as a token.
+- **The summary is a crosstab** (N120). On the real package, the long table had 132 rows, a month
+  by a root category each. It now has 33 rows, a month each, and a column per root category. Its
+  query still gives the grid as long rows; the runner (`report.pivot`) only lays them out and
+  formats them, sums nothing and refuses a cell given twice. The month is a row header and stays
+  in place as the table scrolls sideways; so do the caption and the notice of the partial month.
+  A G shows `—`, keyed once under the table, and is read as "Sem vendas neste recorte.".
 - **The invented P01** (`tests/site_fixture.py`, `p01_rows`) is a grid of fourteen months, three
   channels and four root categories. It holds a G under every filter, a G under one channel, a Z, a
   channel with no row in the last month, and the partial month. `site/package/` was sealed again from it.
@@ -271,7 +282,7 @@ Asked on 2026-11-25, each answered with the recommended alternative. They live i
 
 - the pins, the additivity of every sum and the question, against the pinned metadata;
 - the inputs;
-- under each filter: the summary and the detail, cell by cell; every month on the axis; each series
+- under each filter: the summary, its header, cells and key, and the detail, cell by cell; every month on the axis; each series
   read back from the SVG; the colours; the popup at every month, exactly;
 - the mark of the partial month;
 - the legend's isolation, Shift and double click, hover;
@@ -287,7 +298,9 @@ their baseline offset, since Vega rounds its grid lines to whole pixels; a point
 0.75 px. The pinned bodies are served from a cache by their sha256 (`BICE_CDN_CACHE`), seeded from
 2.3's copies. DuckDB's extension host refuses Python's own HTTP client.
 
-- **[measured]** 36 checks in about 17 s on this machine, stable over runs.
+- **[measured]** 36 checks in about 17 s on this machine, stable over runs; 38 with the crosstab.
+- **[measured]** Counter-proof of the crosstab: with its G cells as plain text and no row headers,
+  the summary's check fails under every filter.
 - **[measured]** Counter-proofs: with 2.3's chart query, which has no null rows, 7 checks fail — the
   axis, the lines through G, a popup's month, the mark. Summing `order_count` fails the additivity
   check.

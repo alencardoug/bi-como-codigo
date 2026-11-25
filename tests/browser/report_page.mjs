@@ -71,9 +71,15 @@ const settled = async () => { await sleep(50); await waitFor(`document.querySele
 
 // What the page shows, read in the page.
 const READ = String.raw`(() => {
+  // a crosstab's empty cell is read as what is seen and what is said; a row header as such
+  const cell = (td) => td.querySelector("[aria-hidden=true]") ? { mark: td.querySelector("[aria-hidden=true]").textContent, said: td.querySelector(".visually-hidden").textContent }
+    : td.matches("th[scope=row]") ? { row: td.textContent } : td.textContent;
   const cells = (t) => [...t.querySelectorAll("tbody tr, tfoot tr")].map((tr) => tr.classList.contains("note") || tr.parentElement.tagName === "TFOOT"
-    ? { note: tr.textContent } : [...tr.children].map((td) => td.textContent));
-  const tables = Object.fromEntries([...document.querySelectorAll("[data-bice=tables] table")].map((t) => [t.dataset.bice, cells(t)]));
+    ? { note: tr.textContent } : [...tr.children].map(cell));
+  const all = [...document.querySelectorAll("[data-bice=tables] table")];
+  const tables = Object.fromEntries(all.map((t) => [t.dataset.bice, cells(t)]));
+  const heads = Object.fromEntries(all.map((t) => [t.dataset.bice, [...t.querySelectorAll("thead th")].map((th) => th.textContent)]));
+  const keys = Object.fromEntries(all.map((t) => [t.dataset.bice, t.closest(".table-scroll").querySelector("[data-bice=key]")?.textContent ?? null]));
   const svg = document.querySelector("[data-bice=chart] svg");
   const at = (el) => { const m = el.getScreenCTM(); return [m.e, m.f]; };
   const xLabels = [...svg.querySelectorAll(".role-axis-label text")].filter((t) => /^\d{4}-\d{2}$/.test(t.textContent)).map((t) => [t.textContent, at(t)[0]]);
@@ -86,7 +92,7 @@ const READ = String.raw`(() => {
     return { layer: p.parentElement.getAttribute("class"), stroke: p.getAttribute("stroke"), opacity: Number(p.getAttribute("opacity") ?? 1), dash: p.getAttribute("stroke-dasharray"), runs };
   });
   const legend = [...document.querySelectorAll(".legend-item")].map((b) => [b.textContent, getComputedStyle(b.querySelector(".key")).backgroundColor, b.getAttribute("aria-pressed")]);
-  return { tables, xLabels, yLabels, yGrid, lines, legend, partialMark: [...svg.querySelectorAll(".layer_3_marks text")].map((t) => t.textContent) };
+  return { tables, heads, keys, xLabels, yLabels, yGrid, lines, legend, partialMark: [...svg.querySelectorAll(".layer_3_marks text")].map((t) => t.textContent) };
 })()`;
 const TIP = String.raw`(() => { const t = document.querySelector("[data-bice=tip]"); if (t.hidden) return null;
   const rule = document.querySelector("[data-bice=chart] .layer_2_marks > *")?.getBoundingClientRect();

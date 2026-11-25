@@ -59,6 +59,29 @@ export function cells(report, table, rows) {
   }));
 }
 
+// A crosstab (`pivot`): the query gives the grid as long rows, one per row
+// key and column key, and this only lays them out — the row keys down, the
+// column keys across, each in the order the query first gives it — and
+// formats each value. It sums nothing: a key pair given twice is refused. A
+// cell with no row under the filter is the report's empty text, shown as the
+// table's mark.
+export function pivot(report, table, rows) {
+  const p = table.pivot;
+  const across = [...new Set(rows.map((r) => String(r[p.column])))];
+  const down = [...new Set(rows.map((r) => String(r[p.row])))];
+  const at = new Map();
+  for (const r of rows) {
+    const key = `${r[p.row]}\u0000${r[p.column]}`;
+    if (at.has(key)) throw new TypeError(`the crosstab ${table.bice} has two rows for one cell`);
+    at.set(key, r[p.value]);
+  }
+  const cells = down.map((d) => [{ text: d, empty: false, head: true }, ...across.map((a) => {
+    const text = format(at.get(`${d}\u0000${a}`), p.format);
+    return text === null ? { text: report.empty, mark: p.empty_mark, empty: true } : { text, empty: false };
+  })]);
+  return { header: [p.row_label, ...across], formats: ["text", ...across.map(() => p.format)], cells, keys: down, mark: p.empty_mark };
+}
+
 // Everything the page shows for the current inputs: the chart's rows, as the
 // query gives them, and each table's header, cells and the rows the
 // partial-month notice goes on.
@@ -67,11 +90,13 @@ export async function view(report, current, last, query) {
   const tables = [];
   for (const t of report.tables) {
     const rows = await run(report, t.query, current, query);
-    const partialRows = t.month_field ? rows.map((r, i) => (r[t.month_field] === last ? i : -1)).filter((i) => i >= 0) : [];
+    const laid = t.pivot ? pivot(report, t, rows)
+      : { header: t.columns.map((c) => c.label), formats: t.columns.map((c) => c.format), cells: cells(report, t, rows), keys: rows.map((r) => r[t.month_field]) };
+    const partialRows = t.month_field ? laid.keys.map((k, i) => (k === last ? i : -1)).filter((i) => i >= 0) : [];
     const partial = t.month_input ? current[t.month_input] === last : partialRows.length > 0;
     tables.push({
-      bice: t.bice, title: t.title, header: t.columns.map((c) => c.label), formats: t.columns.map((c) => c.format),
-      cells: cells(report, t, rows), empty: rows.length === 0 ? report.empty : null, partialRows, partial,
+      bice: t.bice, title: t.title, header: laid.header, formats: laid.formats, cells: laid.cells, mark: laid.mark ?? null,
+      empty: rows.length === 0 ? report.empty : null, partialRows, partial,
     });
   }
   return { chart, tables };
