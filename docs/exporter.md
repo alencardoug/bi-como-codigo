@@ -23,9 +23,9 @@
 
 | Field | Information |
 |---|---|
-| Date | 2026-11-25 — revision 11: step 5 done — the live run, its two collisions approved, its receipt in Git (§15, §16). 2026-11-24 — revision 10: N114 — the live run before the protected PR (§15). Revision 9: the review of the code closed after round 3 (N113), its limits declared in §14 (§16). Revision 8: round 2 of the review of the code answered (XIMPL-2-01 to -09), under N113 (§16). Revision 7: round 1 of Codex's review of the code answered (XIMPL-1-01 to -13), with the Owner's N111 and N112 (§3, §9, §10, §16). Revision 6: step 2 done — the catalogue read in a short window, `release/views.json` reviewed and approved by the Owner, the migration of §11 (§16). Revision 5: step 3 built, and what it measured and changed (§16). Revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
+| Date | 2026-11-25 — revision 13: `collisions` follows the gate's match by token (N116, §10). Revision 12: the stage done, merged by PR #32 (§15). Revision 11: step 5 done — the live run, its two collisions approved, its receipt in Git (§15, §16). 2026-11-24 — revision 10: N114 — the live run before the protected PR (§15). Revision 9: the review of the code closed after round 3 (N113), its limits declared in §14 (§16). Revision 8: round 2 of the review of the code answered (XIMPL-2-01 to -09), under N113 (§16). Revision 7: round 1 of Codex's review of the code answered (XIMPL-1-01 to -13), with the Owner's N111 and N112 (§3, §9, §10, §16). Revision 6: step 2 done — the catalogue read in a short window, `release/views.json` reviewed and approved by the Owner, the migration of §11 (§16). Revision 5: step 3 built, and what it measured and changed (§16). Revision 4: round 3, the last by N110 (EXP-3-01 to -08, two blocking), answered; the review is closed, with the limits of §14. Revision 3, `c51a993`, answered round 2 (EXP-2-01 to -12, eight blocking). Revision 2, `f190b7a`, answered round 1 (EXP-1-01 to -13, ten blocking) with the Owner's N105 to N109. Revision 1 is `ae8b684` |
 | Author | Claude Code |
-| Status | **Plan, reviewed: closed after round 3 of Codex's review (N110)** — 33 findings in three rounds, 20 blocking, all answered. **Steps 2 to 4 of §15 are done** on the branch `exporter-2.4`: the exporter over the fake warehouse, probed against an isolated PostgreSQL, the catalogue read, the declarations migrated, and Codex's review of the code closed after round 3 under N113 — 25 findings, 11 blocking (§16); **step 5, the live run, is done** (2026-11-25, §16). What is left is the Owner's review of the protected PR |
+| Status | **Plan, reviewed: closed after round 3 of Codex's review (N110)** — 33 findings in three rounds, 20 blocking, all answered. **Steps 2 to 4 of §15 are done** on the branch `exporter-2.4`: the exporter over the fake warehouse, probed against an isolated PostgreSQL, the catalogue read, the declarations migrated, and Codex's review of the code closed after round 3 under N113 — 25 findings, 11 blocking (§16); **step 5, the live run, is done** (2026-11-25, §16). **The stage is done**: the Owner reviewed the protected PR, merged as PR #32 at `e9f3007` on 2026-11-25, the tag `checkpoint-2.4` there (N115) |
 
 **[measured]** has output behind it; **[planned]** is intent; **[assumed]** is a premise about a
 tool or service that the stage proves or refutes (§14).
@@ -555,7 +555,7 @@ live, when stage 2.5's PR brings the real package.
 code and file, as it must. So `export collisions` is a separate, Owner-local diagnostic. It runs the
 read and the round trip itself, inside the run directory, and stops before sealing: a run with an
 unapproved collision is refused by `verify` and leaves no result to read. It uses the gate's own
-matching unchanged — the values `contract.check_payload` collects, instants in UTC, and
+matching unchanged, by token since N116 ([`package_gate.md` §6](package_gate.md#6-the-inspection-for-clear-report-values-n81)) — the values `contract.check_payload` collects, instants in UTC, and
 `contract.needles` with its spellings and eligibility, the whole totals object included — over the
 **committed** bytes of **one commit**: the inclusion list, the profile labels of
 `release/profiles.json`, which `verify` searches in the manifest (N83), and every included public
@@ -766,7 +766,8 @@ findings, 11 blocking, all answered; round 3's own limitations, and what no roun
    reference and round trip of §7, the totals, the sealing, the paths and output of §10, and each
    mutation of §12 with its test, in `make check`. **Built (§16).**
 4. Codex's review of the code; then the Owner's review of the protected PR. **The review of the
-   code is done**: closed after round 3 under N113 (§16); the Owner's review of the PR is not.
+   code is done**: closed after round 3 under N113 (§16); the Owner reviewed the PR, merged as PR #32
+   at `e9f3007` on 2026-11-25. **Done.**
 5. The live run in the Owner's read window: the private candidate, the collisions approved in a
    protected PR, and the evidence committed.
    **By N114 it comes before the Owner's review of the protected PR**: the collisions approved and
@@ -937,4 +938,5 @@ steps the Owner ran by hand, the password typed and never shown:
 - The run directory was removed; the sealed result stays in `BICE_EXPORT_DIR`, outside every
   worktree, until stage 2.5 copies it into `site/package/` in its own PR (§11, N117).
 
-**Not done**: the Owner's review of the protected PR (step 4).
+**Merged**: the Owner reviewed the protected PR, PR #32, merged at `e9f3007` on 2026-11-25, with the
+tag `checkpoint-2.4` on that commit (N115).

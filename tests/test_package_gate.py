@@ -267,6 +267,33 @@ def test_mut07b_is_caught_by_the_row_count_alone(repo, monkeypatch):
     verify(repo)
 
 
+def test_mut07e_a_value_inside_an_integrity_hash_passes(repo):
+    """N116: the count 140, held only inside a hash of the page, stands as no
+    token, so the honest page passes — the case M62 measured on B's page."""
+    _only_the_count_says_140(repo)
+    page = repo / "site" / "index.html"
+    page.write_text(page.read_text().replace("</main>", '<script integrity="sha384-Ab140Cd"></script></main>'))
+    verify(repo)
+
+
+def test_mut07e_would_be_refused_by_a_match_by_substring(repo, monkeypatch):
+    """The counter-test: with revision 5's match by substring, the same page
+    is refused — so MUT-07e proves N116's rule, not an absent needle."""
+    _only_the_count_says_140(repo)
+    monkeypatch.setattr(c, "found", lambda needle, data: needle in data)
+    page = repo / "site" / "index.html"
+    page.write_text(page.read_text().replace("</main>", '<script integrity="sha384-Ab140Cd"></script></main>'))
+    refused(repo, "clear_value", where="index.html")
+
+
+def test_a_value_glued_to_letters_is_a_declared_limit(repo):
+    """N116, §11: `140px` is not found — the limit the rule declares."""
+    _only_the_count_says_140(repo)
+    page = repo / "site" / "index.html"
+    page.write_text(page.read_text().replace("</main>", '<p style="width:140px"></p></main>'))
+    verify(repo)
+
+
 def test_mut07c_a_value_in_a_manifest_label(repo):
     value = sf.ROWS["P13"][0][text_at("P13")]
     declared = [e.DeclaredProfile(p.id, p.label + (f" {value}" if p.id == "logistica" else ""), p.password, p.reports)
@@ -774,6 +801,35 @@ def test_the_three_numeric_spellings(canonical, expected):
 @pytest.mark.parametrize("value, eligible", [("12", False), ("100", True), ("12.00", False), ("0.05", True), ("-7", False), ("1140", True)])
 def test_which_numbers_are_searched(value, eligible):
     assert c.eligible_number(value) is eligible
+
+
+@pytest.mark.parametrize("needle, data, expected", [
+    (b"140", b"<td>140</td>", True),  # a cell, as MUT-05 plants it
+    (b"140", b"Total: 140.", True),  # a full stop with no digit after is no separator
+    (b"140", b"(140)", True),
+    (b"140", b"140", True),
+    (b"140", b"x140 140", True),  # the second occurrence stands
+    (b"140", b"sha384-Ab140Cd", False),  # inside an integrity hash
+    (b"140", b"1140", False),
+    (b"140", b"1405", False),
+    (b"140", b"140140", False),
+    (b"140", b"140.5", False),  # the head of a longer number
+    (b"140", b"1.140", False),  # its tail
+    (b"140", b"140,50", False),
+    (b"140", b"140px", False),  # glued to letters: the declared limit
+    (b"-140", b"x-140", True),  # the sign is no glue, so that edge has no neighbour rule
+    (b"1.234,50", b"R$ 1.234,50", True),
+    (b"store", b'cache: "no-store"', True),  # a hyphen does not join: M62's case
+    (b"Casa", b"Casas", False),
+    (b"Casa", b"Casa e Cozinha", True),
+    ("Logística".encode(), "Logísticas".encode(), False),
+    ("ística".encode(), "Logística".encode(), False),  # a non-ASCII edge is glue
+    (b"Log", "Logística".encode(), False),
+])
+def test_a_value_counts_only_as_a_token(needle, data, expected):
+    """N116: the inspection's one match (§6), used by `verify` and by the
+    exporter's `collisions`."""
+    assert c.found(needle, data) is expected
 
 
 @pytest.mark.parametrize("text, scale, ok", [("0.00", 2, True), ("-0.00", 2, False), ("01.00", 2, False), ("1.5", 2, False), ("7", 0, True), ("7.0", 0, False), ("-12.34", 2, True)])

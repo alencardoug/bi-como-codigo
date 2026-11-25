@@ -66,6 +66,24 @@ def test_the_committed_fixture_verifies(repo):
     assert body["digest"] == r.canonical_digest([(f["path"], f["sha256"]) for f in body["files"]])
 
 
+def test_the_report_pages_paths_reach_hosting(repo):
+    """docs/report_page.md §3.1: a report's page and declaration, and the
+    shared modules and styles, are included and pass verify; other files in
+    the same folders are not included."""
+    (repo / "site" / "relatorios").mkdir()
+    (repo / "site" / "app").mkdir()
+    (repo / "site" / "relatorios" / "p01.html").write_text("<!doctype html><title>P01</title>")
+    (repo / "site" / "relatorios" / "p01.report.json").write_text('{"id": "P01"}')
+    (repo / "site" / "app" / "page.mjs").write_text("export const page = true;\n")
+    (repo / "site" / "app" / "page.css").write_text("body { margin: 0 }\n")
+    (repo / "site" / "app" / "notes.md").write_text("not included")
+    (repo / "site" / "relatorios" / "draft.json").write_text("{}")
+    body = r.verify(repo, built(repo), live=no_live)
+    paths = {f["path"] for f in body["files"]}
+    assert {"relatorios/p01.html", "relatorios/p01.report.json", "app/page.mjs", "app/page.css"} <= paths
+    assert not {"app/notes.md", "relatorios/draft.json"} & paths
+
+
 @pytest.mark.parametrize(
     "plant, reason",
     [

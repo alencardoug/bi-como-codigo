@@ -365,14 +365,56 @@ def needles(values: list[Values], public: set[str]) -> list[tuple[str, bytes]]:
     return [(code, b) for code, b in found if not (b in seen or seen.add(b))]
 
 
+_DIGITS = b"0123456789"
+_SEPARATORS = b".,"
+
+
+def _glue(byte: int) -> bool:
+    """N116: a byte that joins a value to its neighbour — an ASCII letter or
+    digit, or any byte of a non-ASCII UTF-8 character, accented letters among them."""
+    return byte >= 0x80 or bytes([byte]).isalnum()
+
+
+def _stands(needle: bytes, data: bytes, start: int) -> bool:
+    end = start + len(needle)
+    if _glue(needle[0]) and start > 0:
+        left = data[start - 1]
+        if _glue(left):
+            return False
+        if needle[0] in _DIGITS and left in _SEPARATORS and start > 1 and data[start - 2] in _DIGITS:
+            return False  # the tail of a longer number: `140` in `1.140`
+    if _glue(needle[-1]) and end < len(data):
+        right = data[end]
+        if _glue(right):
+            return False
+        if needle[-1] in _DIGITS and right in _SEPARATORS and end + 1 < len(data) and data[end + 1] in _DIGITS:
+            return False  # the head of a longer number: `140` in `140.5`
+    return True
+
+
+def found(needle: bytes, data: bytes) -> bool:
+    """N116 (§6): `needle` stands somewhere in `data` as a token. At each edge of
+    the needle that is glue, the neighbouring byte is not glue, and a number
+    does not run on past a separator into another digit. An edge that is not
+    glue — the `-` of `-140`, the braces of a totals object — has no neighbour
+    to check. So a value inside an integrity hash, a longer number or a word is
+    not found; a value glued to letters, `140px`, is not either: a declared limit."""
+    start = data.find(needle)
+    while start != -1:
+        if _stands(needle, data, start):
+            return True
+        start = data.find(needle, start + 1)
+    return False
+
+
 def inspect(haystacks: dict[str, bytes], values: list[Values], public: set[str]) -> None:
     """No haystack — a non-envelope file of deploy/, or for the manifest its
-    labels only (N83) — holds a needle. Names the file, never the value."""
+    labels only (N83) — holds a needle as a token (N116). Names the file, never the value."""
     search = needles(values, public)
     for rel in sorted(haystacks):
         data = haystacks[rel]
         for code, needle in search:
-            if needle in data:
+            if found(needle, data):
                 raise Refused(code, None, None, rel)
 
 

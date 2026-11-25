@@ -1,0 +1,14 @@
+2026-11-25T13:30:50Z
+vega 6.4.0, vega-lite 6.5.0
+both: invalid=(default); lines=2; subpaths per line=[2,1]; axis labels=["01","02","03","04","05"]
+only B: invalid=(default); lines=1; subpaths per line=[1]; axis labels=["01","02","03","04","05"]
+both: invalid=filter; lines=2; subpaths per line=[1,1]; axis labels=["01","02","03","04","05"]
+only B: invalid=filter; lines=1; subpaths per line=[1]; axis labels=["01","02","03","04"]
+both: invalid=break-paths-filter-domains; lines=2; subpaths per line=[2,1]; axis labels=["01","02","03","04","05"]
+only B: invalid=break-paths-filter-domains; lines=1; subpaths per line=[1]; axis labels=["01","02","03","04"]
+both: invalid=break-paths-show-domains; lines=2; subpaths per line=[2,1]; axis labels=["01","02","03","04","05"]
+only B: invalid=break-paths-show-domains; lines=1; subpaths per line=[1]; axis labels=["01","02","03","04","05"]
+both: invalid=break-paths-show-path-domains; lines=2; subpaths per line=[2,1]; axis labels=["01","02","03","04","05"]
+only B: invalid=break-paths-show-path-domains; lines=1; subpaths per line=[1]; axis labels=["01","02","03","04","05"]
+both: invalid=show; lines=2; subpaths per line=[1,1]; axis labels=["01","02","03","04","05"]
+only B: invalid=show; lines=1; subpaths per line=[1]; axis labels=["01","02","03","04","05"]

@@ -124,7 +124,7 @@ def hits(root: pathlib.Path, contract: c.Contract, payloads, run_dir: pathlib.Pa
     lines = []
     for code, needle in c.needles(values, set()):  # every needle, the approved ones included and marked
         for rel, data in sorted(stacks.items()):
-            if needle not in data:
+            if not c.found(needle, data):  # the gate's own match, by token (N116)
                 continue
             if code == c.CLEAR_TOTALS:
                 report = next(v.report for v in values if v.totals_raw == needle)

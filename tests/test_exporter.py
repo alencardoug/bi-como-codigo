@@ -907,6 +907,23 @@ def test_collisions_render_an_instant_as_the_gate_does(world):
     assert any(repr(rendered) in line and "last_movement_at" in line for line in lines), lines
 
 
+def test_collisions_match_by_token_as_the_gate_does(world):
+    """N116: `collisions` uses the gate's `contract.found`: a value glued inside
+    a word of the site is not reported, and the same value standing alone is."""
+    from bi_como_codigo.exporter import collisions
+
+    text = world.fake().rows[P13][1][col(world.fake(), P13, "warehouse_name")]
+    releases = world.root / "site" / "releases.md"
+    releases.write_text(releases.read_text() + f"\n- x{text}x\n")
+    xw.git(world.root, "commit", "-qam", "a value glued inside a word")
+    lines = collisions.report(world.root, dict(world.environ), connect=lambda _s, _a: world.fake(), fetch_metadata=world.fetch_metadata())
+    assert repr(text) not in "\n".join(lines), lines
+    releases.write_text(releases.read_text() + f"\n- {text}\n")
+    xw.git(world.root, "commit", "-qam", "the same value alone")
+    lines = collisions.report(world.root, dict(world.environ), connect=lambda _s, _a: world.fake(), fetch_metadata=world.fetch_metadata())
+    assert any(repr(text) in line and "warehouse_name" in line for line in lines), lines
+
+
 def test_a_trusted_declaration_alone_changes_the_receipts_input_identity(world):
     first, _ = export(world)
     import shutil
